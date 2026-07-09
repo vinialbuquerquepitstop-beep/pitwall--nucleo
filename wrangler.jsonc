@@ -1,0 +1,19 @@
+{
+  // O nome PRECISA ser identico ao Worker que ja esta no ar.
+  // Se mudar, o Cloudflare cria um Worker novo com outra URL,
+  // e a Site URL do Auth do Supabase quebra.
+  "name": "flat-resonance-09ba",
+
+  // Data de compatibilidade do runtime. Pode manter esta.
+  "compatibility_date": "2026-07-08",
+
+  // Tudo que estiver em public/ vira arquivo estatico servido.
+  // O index.html na raiz de public/ responde em "/".
+  "assets": {
+    "directory": "./public",
+    // Qualquer rota que nao casar com um arquivo devolve o index.html
+    // (200), em vez de 404. Protege o link de recovery de senha,
+    // que chega com um fragmento (#) apos a URL.
+    "not_found_handling": "single-page-application"
+  }
+}
