@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Pit Wall · Pitstop Imports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#10151c;
+  --panel:#1a212b;
+  --panel-2:#151b24;
+  --line:#28313d;
+  --text:#e9edf2;
+  --dim:#8b97a5;
+  --accent:#0025cc;      /* azul da marca Pitstop */
+  --quente:#ff5d45;
+  --morno:#f2a71b;
+  --frio:#6db8e8;
+  --ok:#43c98a;
+  --erro:#ff6b5e;
+  --radius:12px;
+  --display:'Chakra Petch',system-ui,sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.45;
+  min-height:100dvh;
+}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+a{color:inherit}
+
+/* ---------- login ---------- */
+.login{
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.login-box{width:100%;max-width:360px}
+.marca{
+  font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.marca .traco{color:var(--accent)}
+.marca-sub{
+  font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.18em;
+  text-transform:uppercase;margin-top:2px;margin-bottom:28px;
+}
+.campo{margin-bottom:12px}
+.campo label{
+  display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:6px;
+}
+.campo input{
+  width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:12px 14px;font-size:16px;outline:none;
+}
+.campo input:focus{border-color:var(--accent)}
+.btn-entrar{
+  width:100%;margin-top:8px;background:var(--accent);color:#fff;border:none;
+  border-radius:10px;padding:13px;font-family:var(--display);font-weight:700;
+  font-size:15px;letter-spacing:.08em;text-transform:uppercase;
+}
+.btn-entrar:disabled{opacity:.55}
+.login-erro{
+  margin-top:12px;color:var(--erro);font-size:13px;min-height:18px;
+}
+
+/* ---------- app ---------- */
+.app{max-width:640px;margin:0 auto;padding:0 14px calc(28px + env(safe-area-inset-bottom))}
+.topo{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:16px 2px 10px;
+}
+.topo .marca{font-size:19px}
+.topo-acoes{display:flex;gap:14px;align-items:center}
+.link-acao{
+  background:none;border:none;color:var(--dim);font-family:var(--mono);
+  font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:4px 0;
+}
+.link-acao:hover,.link-acao:focus-visible{color:var(--text)}
+
+/* pit board: resumo do dia */
+.pitboard{
+  display:flex;gap:0;border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;background:var(--panel-2);margin-bottom:14px;
+}
+.pb-celula{
+  flex:1;padding:10px 8px 9px;text-align:center;border-right:1px solid var(--line);
+}
+.pb-celula:last-child{border-right:none}
+.pb-num{font-family:var(--display);font-weight:700;font-size:22px;line-height:1.1}
+.pb-num.alerta{color:var(--quente)}
+.pb-rot{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin-top:1px;
+}
+
+/* abas */
+.abas{display:flex;gap:8px;margin-bottom:12px}
+.aba{
+  flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--dim);
+  border-radius:10px;padding:9px;font-family:var(--display);font-weight:600;
+  font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+}
+.aba[aria-selected="true"]{
+  background:var(--panel);color:var(--text);border-color:var(--accent);
+}
+.busca{margin-bottom:12px;display:none}
+.busca.visivel{display:block}
+.busca input{
+  width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:11px 14px;font-size:16px;outline:none;
+}
+.busca input:focus{border-color:var(--accent)}
+
+/* cards */
+.lista{display:flex;flex-direction:column;gap:10px}
+.card{
+  position:relative;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:13px 14px 13px 20px;overflow:hidden;
+}
+/* assinatura: faixa de temperatura de pneu na borda esquerda */
+.card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+  background:var(--line);
+}
+.card.t-quente::before{background:var(--quente)}
+.card.t-morno::before{background:var(--morno)}
+.card.t-frio::before{background:var(--frio)}
+.card-topo{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.card-nome{font-family:var(--display);font-weight:600;font-size:17px}
+.card-code{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.06em}
+.card-prod{color:var(--text);font-size:14px;margin-top:3px}
+.card-prod .cond{color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;align-items:center}
+.chip{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;
+  border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--dim);
+}
+.chip.nivel-morno{color:var(--morno);border-color:var(--morno)}
+.chip.nivel-frio{color:var(--frio);border-color:var(--frio)}
+.chip.atraso{color:var(--quente);border-color:var(--quente)}
+.silencio{
+  font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px;
+}
+.silencio.alerta{color:var(--quente)}
+.card-acoes{display:flex;gap:8px;margin-top:11px}
+.btn-wa{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:#173527;border:1px solid #2c6647;color:#5ee39d;text-decoration:none;
+  border-radius:10px;padding:10px;font-family:var(--display);font-weight:600;
+  font-size:13px;letter-spacing:.05em;
+}
+.btn-wa:focus-visible{outline:2px solid var(--ok)}
+.sem-tel{
+  flex:1;text-align:center;border:1px dashed var(--line);border-radius:10px;
+  padding:10px;font-family:var(--mono);font-size:11px;color:var(--dim);
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.obs{font-size:13px;color:var(--dim);margin-top:8px}
+
+/* ---------- escrita (Fase 2) ---------- */
+.card-acoes.escrita{margin-top:8px}
+.btn-acao{
+  flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:10px;font-family:var(--display);font-weight:600;
+  font-size:13px;letter-spacing:.05em;
+}
+.btn-acao.toque{background:#16223a;border-color:#2c4a8a;color:#8fb0f0}
+.btn-acao:disabled,.btn-desf:disabled,.btn-cad:disabled{opacity:.5}
+.desfechos{display:none;gap:8px;margin-top:8px;flex-wrap:wrap}
+.desfechos.aberto{display:flex}
+.btn-desf{
+  flex:1 1 45%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:9px;font-size:13px;font-family:var(--display);font-weight:600;
+}
+.btn-desf.ok{color:var(--ok);border-color:#2c6647}
+.btn-desf.frio{color:var(--frio);border-color:var(--frio)}
+.retomar{display:none;gap:8px;margin-top:8px}
+.retomar.aberto{display:flex}
+.retomar input{
+  flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:9px 12px;font-size:15px;outline:none;
+}
+.retomar input:focus{border-color:var(--accent)}
+.toast{
+  position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);
+  color:var(--text);border-radius:10px;padding:10px 16px;font-size:13px;
+  opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%;
+}
+.toast.visivel{opacity:1}
+.toast.erro{border-color:var(--erro);color:var(--erro)}
+
+/* form de cadastro */
+.painel-cadastro{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin-bottom:14px;
+}
+.painel-cadastro h2{
+  font-family:var(--display);font-size:15px;letter-spacing:.06em;
+  text-transform:uppercase;margin-bottom:12px;
+}
+.painel-cadastro select{
+  width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  border-radius:10px;padding:12px 14px;font-size:16px;outline:none;
+}
+.painel-cadastro select:focus{border-color:var(--accent)}
+.painel-cadastro .campo input{background:var(--panel-2)}
+.cad-acoes{display:flex;gap:8px;margin-top:6px}
+.btn-cad{
+  flex:1;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  padding:12px;font-family:var(--display);font-weight:700;font-size:14px;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.btn-cad.secundario{background:var(--panel-2);color:var(--dim);border:1px solid var(--line)}
+.cad-erro{margin-top:10px;color:var(--erro);font-size:13px}
+.cad-dup{
+  display:none;margin-top:10px;border:1px solid var(--morno);border-radius:10px;
+  padding:10px;font-size:13px;color:var(--morno);
+}
+.cad-dup.visivel{display:block}
+.cad-dup button{margin-top:8px;width:100%}
+
+/* estados */
+.estado{
+  border:1px dashed var(--line);border-radius:var(--radius);padding:26px 18px;
+  text-align:center;color:var(--dim);font-size:14px;
+}
+.estado strong{color:var(--text);font-family:var(--display)}
+.estado.erro{border-color:var(--erro);color:var(--erro)}
+.rodape{
+  margin-top:18px;text-align:center;font-family:var(--mono);font-size:10px;
+  color:var(--dim);letter-spacing:.1em;
+}
+.oculto{display:none !important}
+@media (prefers-reduced-motion:no-preference){
+  .card{animation:entra .18s ease-out both}
+  @keyframes entra{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="telaLogin" class="login">
+  <div class="login-box">
+    <div class="marca">PIT<span class="traco">/</span>WALL</div>
+    <div class="marca-sub">Pitstop Imports · Nucleo</div>
+    <div class="campo">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" inputmode="email">
+    </div>
+    <div class="campo">
+      <label for="senha">Senha</label>
+      <input id="senha" type="password" autocomplete="current-password">
+    </div>
+    <button id="btnEntrar" class="btn-entrar">Entrar</button>
+    <div id="loginErro" class="login-erro" role="alert"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="telaApp" class="app oculto">
+  <div class="topo">
+    <div class="marca">PIT<span class="traco">/</span>WALL</div>
+    <div class="topo-acoes">
+      <button id="btnNovoLead" class="link-acao">Novo lead</button>
+      <button id="btnAtualizar" class="link-acao">Atualizar</button>
+      <button id="btnSair" class="link-acao">Sair</button>
+    </div>
+  </div>
+
+  <div class="pitboard" id="pitboard">
+    <div class="pb-celula"><div class="pb-num" id="pbFila">0</div><div class="pb-rot">na fila</div></div>
+    <div class="pb-celula"><div class="pb-num" id="pbAtraso">0</div><div class="pb-rot">em atraso</div></div>
+    <div class="pb-celula"><div class="pb-num" id="pbAtivos">0</div><div class="pb-rot">ativos</div></div>
+    <div class="pb-celula"><div class="pb-num" id="pbTotal">0</div><div class="pb-rot">na base</div></div>
+  </div>
+
+  <!-- form de cadastro (Fase 2): unica porta de criacao de lead -->
+  <div id="painelCadastro" class="painel-cadastro oculto">
+    <h2>Novo lead</h2>
+    <div class="campo"><label for="cadNome">Nome *</label><input id="cadNome" type="text" autocomplete="off"></div>
+    <div class="campo"><label for="cadWhats">WhatsApp *</label><input id="cadWhats" type="tel" inputmode="tel" placeholder="DDD + numero" autocomplete="off"></div>
+    <div class="campo"><label for="cadProduto">Produto *</label><input id="cadProduto" type="text" placeholder="iPhone 16 Pro, MacBook M3..." autocomplete="off"></div>
+    <div class="campo"><label for="cadCondicao">Condicao *</label><select id="cadCondicao"></select></div>
+    <div class="campo"><label for="cadPerfil">Perfil *</label><select id="cadPerfil"></select></div>
+    <div class="campo"><label for="cadOrigem">Origem *</label><select id="cadOrigem"></select></div>
+    <div class="campo oculto" id="campoIndicado"><label for="cadIndicado">Indicado por *</label><input id="cadIndicado" type="text" autocomplete="off"></div>
+    <div class="campo"><label for="cadConsent">Consentimento</label><select id="cadConsent"><option value="sim" selected>Sim</option><option value="nao">Nao</option></select></div>
+    <div class="campo"><label for="cadObs">Observacao</label><input id="cadObs" type="text" autocomplete="off"></div>
+    <div class="campo"><label for="cadUpgrade">Upgrade (da aparelho de entrada?)</label><select id="cadUpgrade"><option value="">Nao informado</option><option value="sim">Sim</option><option value="nao">Nao</option></select></div>
+    <div class="campo"><label for="cadAparelho">Aparelho de entrada</label><input id="cadAparelho" type="text" autocomplete="off"></div>
+    <div id="cadDup" class="cad-dup"><span id="cadDupMsg"></span><button id="btnAbrirExistente" class="btn-cad secundario">Abrir lead existente</button></div>
+    <div class="cad-acoes">
+      <button id="btnCadastrar" class="btn-cad">Cadastrar</button>
+      <button id="btnCancelarCadastro" class="btn-cad secundario">Cancelar</button>
+    </div>
+    <div id="cadErro" class="cad-erro" role="alert"></div>
+  </div>
+
+  <div class="abas" role="tablist">
+    <button class="aba" id="abaFila" role="tab" aria-selected="true">Fila do dia</button>
+    <button class="aba" id="abaTodos" role="tab" aria-selected="false">Todos</button>
+  </div>
+
+  <div class="busca" id="blocoBusca">
+    <input id="inputBusca" type="search" placeholder="Buscar por nome, telefone ou produto" autocomplete="off">
+  </div>
+
+  <div class="lista" id="lista" aria-live="polite"></div>
+  <div class="rodape" id="rodape"></div>
+</div>
+
+<div id="toast" class="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   Pit Wall 2.0 (Nucleo) - Fase 2: leitura + escrita
+   Toda escrita passa por RPC (funcoes Postgres, RLS por dentro,
+   auditoria por trigger). O frontend nunca escreve em tabela.
+   nivel e dias_silencio vem PRONTOS da view v_lead (Rota A).
+   WhatsApp so abre conversa; quem registra e o botao Toque enviado.
+   ============================================================ */
+window.PitWall = (function () {
+  'use strict';
+
+  var CFG = {
+    url: 'https://unjzpyexgtbcmjfgcqrx.supabase.co',
+    anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU'
+  };
+
+  /* Fallback de rotulos (espelho do dicionario_rotulos em 05/07/2026).
+     Em runtime o dicionario do banco sobrepoe este mapa. */
+  var ROTULOS_FALLBACK = {
+    condicao: { lacrado: 'Lacrado', vitrine: 'Vitrine', seminovo: 'Seminovo' },
+    status: {
+      pendente: '\uD83D\uDFE1 Pendente', feito: '\u2705 Feito',
+      convertido: '\uD83D\uDFE2 Convertido', lista_fria: '\u2744\uFE0F Lista fria',
+      cancelado: '\uD83D\uDEAB Cancelado'
+    },
+    perfil: {
+      compra_imediata: 'Lead \u2014 Compra imediata', avaliando: 'Lead \u2014 Avaliando',
+      em_espera: 'Lead \u2014 Em espera', repescagem: 'Lead \u2014 Repescagem',
+      comprou: 'Lead \u2014 Comprou', consulta: 'Lead \u2014 Consulta'
+    },
+    origem: {
+      indicacao: 'Indicacao', instagram: 'Instagram', whatsapp_direto: 'WhatsApp direto',
+      loja_fisica: 'Loja fisica', prospeccao_ativa: 'Prospeccao ativa',
+      parceria_influencer: 'Parceria influencer', parceria_pag_local: 'Parceria PAG local',
+      whatsapp_status: 'WhatsApp Status'
+    },
+    nivel: { quente: '\uD83D\uDD25 Quente', morno: '\uD83C\uDF21\uFE0F Morno', frio: '\u2744\uFE0F Frio' }
+  };
+
+  var rotulos = JSON.parse(JSON.stringify(ROTULOS_FALLBACK));
+  var sb = null;
+  var leads = [];
+  var abaAtiva = 'fila';
+  var geradoEm = null;
+
+  /* ---------- utilitarios puros (testaveis) ---------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function setRotulos(linhas) {
+    (linhas || []).forEach(function (r) {
+      if (!r || !r.dominio || !r.codigo) return;
+      if (!rotulos[r.dominio]) rotulos[r.dominio] = {};
+      rotulos[r.dominio][r.codigo] = r.rotulo;
+    });
+  }
+
+  function rotulo(dominio, codigo) {
+    if (!codigo) return '';
+    return (rotulos[dominio] && rotulos[dominio][codigo]) || codigo;
+  }
+
+  /* Data local do aparelho no formato YYYY-MM-DD (fuso do operador). */
+  function hojeLocalISO(d) {
+    var x = d || new Date();
+    var m = String(x.getMonth() + 1), dia = String(x.getDate());
+    return x.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (dia.length < 2 ? '0' + dia : dia);
+  }
+
+  /* timestamptz -> data local YYYY-MM-DD, ou null */
+  function dataLocalDe(ts) {
+    if (!ts) return null;
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return null;
+    return hojeLocalISO(d);
+  }
+
+  function diasAtraso(proxISO, hojeISO) {
+    if (!proxISO) return 0;
+    var a = new Date(proxISO + 'T12:00:00');
+    var b = new Date(hojeISO + 'T12:00:00');
+    return Math.round((b - a) / 86400000);
+  }
+
+  /* Regra da fila (leitura): pendente, vencido ou vence hoje, e nao tocado hoje. */
+  function entraNaFila(lead, hojeISO) {
+    if (!lead || lead.status !== 'pendente') return false;
+    if (!lead.proximo_contato || lead.proximo_contato > hojeISO) return false;
+    if (dataLocalDe(lead.ultimo_toque_em) === hojeISO) return false;
+    return true;
+  }
+
+  function montarFila(todos, hojeISO) {
+    return (todos || []).filter(function (l) { return entraNaFila(l, hojeISO); })
+      .sort(function (a, b) {
+        if (a.proximo_contato !== b.proximo_contato) {
+          return a.proximo_contato < b.proximo_contato ? -1 : 1;
+        }
+        return String(a.nome || '').localeCompare(String(b.nome || ''));
+      });
+  }
+
+  function filtrarBusca(todos, termo) {
+    var t = String(termo || '').trim().toLowerCase();
+    if (!t) return (todos || []).slice();
+    return (todos || []).filter(function (l) {
+      return String(l.nome || '').toLowerCase().indexOf(t) >= 0 ||
+             String(l.whatsapp_digitos || '').indexOf(t.replace(/\D/g, '') || '\u0000') >= 0 ||
+             String(l.produto || '').toLowerCase().indexOf(t) >= 0;
+    });
+  }
+
+  /* WhatsApp da FILA: template + trava de consentimento. So abre, nao registra. */
+  function waHrefFila(lead) {
+    if (!lead || lead.consentimento !== true) return null;
+    var dig = String(lead.whatsapp_digitos || '').replace(/\D/g, '');
+    if (!dig) return null;
+    var msg = 'Oi ' + (lead.nome || '') + '! Vi seu interesse no ' + (lead.produto || 'aparelho') +
+              ', posso te passar as condicoes?';
+    return 'https://wa.me/' + dig + '?text=' + encodeURIComponent(msg);
+  }
+
+  /* WhatsApp da aba TODOS: link limpo, sem template, sem trava. Checagem nao e contato. */
+  function waHrefLimpo(lead) {
+    var dig = String((lead && lead.whatsapp_digitos) || '').replace(/\D/g, '');
+    return dig ? 'https://wa.me/' + dig : null;
+  }
+
+  /* ---------- escrita (Fase 2): helpers puros ---------- */
+
+  /* YYYY-MM-DD + n dias, sem fuso (meio-dia interno) */
+  function diaMaisISO(hojeISO, n) {
+    var d = new Date(hojeISO + 'T12:00:00');
+    d.setDate(d.getDate() + (n || 0));
+    return hojeLocalISO(d);
+  }
+
+  /* espelho client-side das validacoes do cadastrar_lead (a palavra final e do servidor) */
+  function validarCadastro(d) {
+    if (!d || !String(d.nome || '').trim()) return { ok: false, msg: 'Nome obrigatorio' };
+    if (!String(d.whatsapp || '').replace(/\D/g, '')) return { ok: false, msg: 'WhatsApp obrigatorio' };
+    if (!String(d.produto || '').trim()) return { ok: false, msg: 'Produto obrigatorio' };
+    if (!String(d.condicao || '').trim()) return { ok: false, msg: 'Condicao obrigatoria' };
+    if (!String(d.perfil || '').trim()) return { ok: false, msg: 'Perfil obrigatorio' };
+    if (!String(d.origem || '').trim()) return { ok: false, msg: 'Origem obrigatoria' };
+    if (d.origem === 'indicacao' && !String(d.indicado_por || '').trim()) {
+      return { ok: false, msg: 'Indicado por e obrigatorio quando a origem e Indicacao' };
+    }
+    return { ok: true, msg: '' };
+  }
+
+  /* ---------- render ---------- */
+
+  function cardHTML(lead, modo, hojeISO) {
+    var nivel = lead.nivel || 'quente';
+    var atraso = modo === 'fila' ? diasAtraso(lead.proximo_contato, hojeISO) : 0;
+    var chips = [];
+
+    if (modo === 'fila' && atraso > 0) {
+      chips.push('<span class="chip atraso">' + atraso + 'd de atraso</span>');
+    }
+    if (lead.perfil) {
+      chips.push('<span class="chip">' + esc(rotulo('perfil', lead.perfil)) + '</span>');
+    }
+    /* Quente e o default e vira ruido: so morno e frio ganham badge. */
+    if (nivel === 'morno' || nivel === 'frio') {
+      chips.push('<span class="chip nivel-' + nivel + '">' + esc(rotulo('nivel', nivel)) + '</span>');
+    }
+    if (modo === 'todos' && lead.status) {
+      chips.push('<span class="chip">' + esc(rotulo('status', lead.status)) + '</span>');
+    }
+
+    var termometro = '';
+    if (typeof lead.dias_silencio === 'number') {
+      var alerta = lead.dias_silencio >= 3 ? ' alerta' : '';
+      termometro = '<div class="silencio' + alerta + '">' + lead.dias_silencio + 'd sem resposta</div>';
+    }
+
+    var acao;
+    var href = modo === 'fila' ? waHrefFila(lead) : waHrefLimpo(lead);
+    if (href) {
+      var rotuloBtn = modo === 'fila' ? 'Chamar no WhatsApp' : 'Abrir conversa';
+      acao = '<a class="btn-wa" target="_blank" rel="noopener" href="' + esc(href) + '">' + rotuloBtn + '</a>';
+    } else if (!String(lead.whatsapp_digitos || '').trim()) {
+      acao = '<div class="sem-tel">Sem telefone na base</div>';
+    } else {
+      acao = '<div class="sem-tel">Sem consentimento</div>';
+    }
+
+    var obs = lead.observacoes
+      ? '<div class="obs">' + esc(lead.observacoes) + '</div>'
+      : '';
+
+    /* acoes de escrita: SO na fila. Aba Todos e consulta, nao operacao. */
+    var escrita = '';
+    if (modo === 'fila' && lead.id) {
+      var id = esc(lead.id);
+      var amanha = esc(diaMaisISO(hojeISO, 1));
+      escrita =
+        '<div class="card-acoes escrita">' +
+          '<button class="btn-acao toque" data-acao="toque" data-id="' + id + '">Toque enviado</button>' +
+          '<button class="btn-acao" data-acao="leque" data-id="' + id + '">Respondeu</button>' +
+        '</div>' +
+        '<div class="desfechos">' +
+          '<button class="btn-desf" data-acao="conversando" data-id="' + id + '">Conversando</button>' +
+          '<button class="btn-desf" data-acao="retomar" data-id="' + id + '">Retomar</button>' +
+          '<button class="btn-desf ok" data-acao="fechou" data-id="' + id + '">Fechou</button>' +
+          '<button class="btn-desf frio" data-acao="sem-interesse" data-id="' + id + '">Sem interesse</button>' +
+        '</div>' +
+        '<div class="retomar">' +
+          '<input type="date" value="' + amanha + '" aria-label="Retomar em">' +
+          '<button class="btn-desf" data-acao="retomar-ok" data-id="' + id + '">Confirmar</button>' +
+        '</div>';
+    }
+
+    return '<article class="card t-' + esc(nivel) + '" data-lead="' + esc(lead.lead_code || '') + '">' +
+      '<div class="card-topo">' +
+        '<div class="card-nome">' + esc(lead.nome || '') + '</div>' +
+        '<div class="card-code">' + esc(lead.lead_code || '') + '</div>' +
+      '</div>' +
+      '<div class="card-prod">' + esc(lead.produto || '') +
+        (lead.condicao ? ' <span class="cond">\u00B7 ' + esc(rotulo('condicao', lead.condicao)) + '</span>' : '') +
+      '</div>' +
+      '<div class="chips">' + chips.join('') + '</div>' +
+      termometro + obs +
+      '<div class="card-acoes">' + acao + '</div>' +
+      escrita +
+    '</article>';
+  }
+
+  function renderLista(el, itens, modo, hojeISO, vazioHTML) {
+    if (!itens.length) { el.innerHTML = vazioHTML; return; }
+    el.innerHTML = itens.map(function (l) { return cardHTML(l, modo, hojeISO); }).join('');
+  }
+
+  function renderPitboard(hojeISO) {
+    var fila = montarFila(leads, hojeISO);
+    var atrasados = fila.filter(function (l) { return diasAtraso(l.proximo_contato, hojeISO) > 0; });
+    var ativos = leads.filter(function (l) { return l.status === 'pendente'; });
+    doc('pbFila').textContent = String(fila.length);
+    var pbA = doc('pbAtraso');
+    pbA.textContent = String(atrasados.length);
+    pbA.className = 'pb-num' + (atrasados.length ? ' alerta' : '');
+    doc('pbAtivos').textContent = String(ativos.length);
+    doc('pbTotal').textContent = String(leads.length);
+  }
+
+  function renderAba() {
+    var hoje = hojeLocalISO();
+    var el = doc('lista');
+    doc('abaFila').setAttribute('aria-selected', abaAtiva === 'fila' ? 'true' : 'false');
+    doc('abaTodos').setAttribute('aria-selected', abaAtiva === 'todos' ? 'true' : 'false');
+    doc('blocoBusca').className = 'busca' + (abaAtiva === 'todos' ? ' visivel' : '');
+
+    if (abaAtiva === 'fila') {
+      renderLista(el, montarFila(leads, hoje), 'fila', hoje,
+        '<div class="estado"><strong>Fila limpa.</strong><br>Nenhum lead vence hoje. O proximo entra sozinho na data marcada.</div>');
+    } else {
+      var termo = doc('inputBusca').value;
+      renderLista(el, filtrarBusca(leads, termo), 'todos', hoje,
+        '<div class="estado">Nenhum lead corresponde a busca. Ajuste o termo ou limpe o campo.</div>');
+    }
+    doc('rodape').textContent = geradoEm
+      ? 'v_lead \u00B7 leitura ' + geradoEm + ' \u00B7 Fase 2 \u00B7 escrita ativa'
+      : '';
+  }
+
+  function doc(id) { return document.getElementById(id); }
+
+  /* ---------- escrita (Fase 2): toast, RPC e handlers ---------- */
+
+  var toastTimer = null;
+  function toast(msg, erro) {
+    var t = doc('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className = 'toast visivel' + (erro ? ' erro' : '');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = 'toast'; }, 3200);
+  }
+
+  /* Toda escrita passa aqui: uma RPC, um retorno json { ok, msg, ... } */
+  async function chamarRPC(nome, params, btn) {
+    if (btn) btn.disabled = true;
+    var r = await sb.rpc(nome, params);
+    if (btn) btn.disabled = false;
+    if (r.error) {
+      toast('Falha: ' + r.error.message, true);
+      return null;
+    }
+    return r.data || null;
+  }
+
+  async function acaoEscrita(nome, params, btn, msgOk) {
+    var d = await chamarRPC(nome, params, btn);
+    if (!d) return;
+    if (d.ok === false) { toast(d.msg || 'Operacao recusada', true); return; }
+    toast(msgOk || d.msg || 'Feito');
+    carregar();
+  }
+
+  function aoClicarLista(e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-acao]') : null;
+    if (!b) return;
+    var acao = b.getAttribute('data-acao');
+    var id = b.getAttribute('data-id');
+    var card = b.closest('.card');
+    if (!id || !card) return;
+
+    if (acao === 'leque') {
+      var dfs = card.querySelector('.desfechos');
+      if (dfs) dfs.className = 'desfechos' + (dfs.className.indexOf('aberto') >= 0 ? '' : ' aberto');
+      return;
+    }
+    if (acao === 'retomar') {
+      var ret = card.querySelector('.retomar');
+      if (ret) ret.className = 'retomar' + (ret.className.indexOf('aberto') >= 0 ? '' : ' aberto');
+      return;
+    }
+    if (acao === 'toque') {
+      acaoEscrita('registrar_toque', { p_lead_id: id }, b, 'Toque registrado');
+      return;
+    }
+    if (acao === 'conversando') {
+      acaoEscrita('registrar_conversando', { p_lead_id: id }, b, 'Conversa registrada');
+      return;
+    }
+    if (acao === 'fechou') {
+      acaoEscrita('registrar_desfecho', { p_lead_id: id, p_tipo: 'convertido' }, b, 'Fechou. Convertido!');
+      return;
+    }
+    if (acao === 'sem-interesse') {
+      acaoEscrita('registrar_desfecho', { p_lead_id: id, p_tipo: 'sem_interesse' }, b, 'Marcado sem interesse');
+      return;
+    }
+    if (acao === 'retomar-ok') {
+      var inp = card.querySelector('.retomar input');
+      var data = inp ? inp.value : '';
+      if (!data) { toast('Escolha a data de retomada', true); return; }
+      acaoEscrita('reagendar_proximo_contato', { p_lead_id: id, p_data: data }, b, 'Reagendado');
+      return;
+    }
+  }
+
+  /* ---------- cadastro (Fase 2) ---------- */
+
+  function opcoesDe(dominio, placeholder) {
+    var mapa = rotulos[dominio] || {};
+    var html = '<option value="">' + esc(placeholder) + '</option>';
+    Object.keys(mapa).forEach(function (cod) {
+      html += '<option value="' + esc(cod) + '">' + esc(mapa[cod]) + '</option>';
+    });
+    return html;
+  }
+
+  function montarOpcoesCadastro() {
+    doc('cadCondicao').innerHTML = opcoesDe('condicao', 'Escolha a condicao');
+    doc('cadPerfil').innerHTML = opcoesDe('perfil', 'Escolha o perfil');
+    doc('cadOrigem').innerHTML = opcoesDe('origem', 'Escolha a origem');
+  }
+
+  function limparCadastro() {
+    ['cadNome', 'cadWhats', 'cadProduto', 'cadIndicado', 'cadObs', 'cadAparelho'].forEach(function (id) {
+      doc(id).value = '';
+    });
+    ['cadCondicao', 'cadPerfil', 'cadOrigem', 'cadUpgrade'].forEach(function (id) {
+      doc(id).value = '';
+    });
+    doc('cadConsent').value = 'sim';
+    doc('campoIndicado').className = 'campo oculto';
+    doc('cadErro').textContent = '';
+    doc('cadDup').className = 'cad-dup';
+    dupExistente = null;
+  }
+
+  function abrirCadastro() {
+    montarOpcoesCadastro();
+    limparCadastro();
+    doc('painelCadastro').className = 'painel-cadastro';
+    doc('cadNome').focus();
+  }
+
+  function fecharCadastro() {
+    doc('painelCadastro').className = 'painel-cadastro oculto';
+  }
+
+  function coletarCadastro() {
+    var up = doc('cadUpgrade').value;
+    return {
+      nome: doc('cadNome').value,
+      whatsapp: doc('cadWhats').value,
+      produto: doc('cadProduto').value,
+      condicao: doc('cadCondicao').value,
+      perfil: doc('cadPerfil').value,
+      origem: doc('cadOrigem').value,
+      indicado_por: doc('cadIndicado').value,
+      observacoes: doc('cadObs').value,
+      upgrade_entrada: up === 'sim' ? true : (up === 'nao' ? false : null),
+      aparelho_entrada: doc('cadAparelho').value,
+      consentimento: doc('cadConsent').value !== 'nao'
+    };
+  }
+
+  var dupExistente = null;
+
+  async function enviarCadastro() {
+    var erroEl = doc('cadErro');
+    erroEl.textContent = '';
+    doc('cadDup').className = 'cad-dup';
+    dupExistente = null;
+
+    var d = coletarCadastro();
+    var v = validarCadastro(d);
+    if (!v.ok) { erroEl.textContent = v.msg; return; }
+
+    var btn = doc('btnCadastrar');
+    var r = await chamarRPC('cadastrar_lead', {
+      p_nome: d.nome,
+      p_whatsapp: d.whatsapp,
+      p_produto: d.produto,
+      p_condicao: d.condicao,
+      p_perfil: d.perfil,
+      p_origem: d.origem,
+      p_indicado_por: d.indicado_por || null,
+      p_observacoes: d.observacoes || null,
+      p_upgrade_entrada: d.upgrade_entrada,
+      p_aparelho_entrada: d.aparelho_entrada || null,
+      p_consentimento: d.consentimento
+    }, btn);
+    if (!r) return;
+
+    if (r.ok === false && r.duplicado) {
+      dupExistente = r.existente || null;
+      doc('cadDupMsg').textContent = r.msg || 'Ja existe um lead com esse WhatsApp.';
+      doc('cadDup').className = 'cad-dup visivel';
+      return;
+    }
+    if (r.ok === false) { erroEl.textContent = r.msg || 'Cadastro recusado'; return; }
+
+    toast(r.msg || 'Lead cadastrado');
+    fecharCadastro();
+    carregar();
+  }
+
+  /* dedup: nao existe "cadastrar mesmo assim" (UNIQUE no banco); o caminho e abrir o existente */
+  function abrirExistente() {
+    fecharCadastro();
+    abaAtiva = 'todos';
+    doc('inputBusca').value = (dupExistente && dupExistente.nome) || doc('cadWhats').value;
+    renderAba();
+  }
+
+  function aoMudarOrigem() {
+    var indicacao = doc('cadOrigem').value === 'indicacao';
+    doc('campoIndicado').className = 'campo' + (indicacao ? '' : ' oculto');
+  }
+
+  /* ---------- dados ---------- */
+
+  async function carregar() {
+    doc('lista').innerHTML = '<div class="estado">Lendo a base\u2026</div>';
+    var rl = await sb.from('dicionario_rotulos').select('dominio,codigo,rotulo');
+    if (!rl.error && rl.data) setRotulos(rl.data);
+
+    var r = await sb.from('v_lead').select('*')
+      .order('proximo_contato', { ascending: true, nullsFirst: false });
+    if (r.error) {
+      doc('lista').innerHTML =
+        '<div class="estado erro">Falha ao ler a base: ' + esc(r.error.message) +
+        '. Toque em Atualizar para tentar de novo.</div>';
+      return;
+    }
+    leads = r.data || [];
+    var d = new Date();
+    geradoEm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    renderPitboard(hojeLocalISO());
+    renderAba();
+  }
+
+  /* ---------- auth e boot ---------- */
+
+  function mostrarApp(logado) {
+    doc('telaLogin').className = 'login' + (logado ? ' oculto' : '');
+    doc('telaApp').className = 'app' + (logado ? '' : ' oculto');
+  }
+
+  async function entrar() {
+    var btn = doc('btnEntrar'), erro = doc('loginErro');
+    erro.textContent = '';
+    btn.disabled = true; btn.textContent = 'Entrando\u2026';
+    var r = await sb.auth.signInWithPassword({
+      email: doc('email').value.trim(),
+      password: doc('senha').value
+    });
+    btn.disabled = false; btn.textContent = 'Entrar';
+    if (r.error) {
+      erro.textContent = 'Nao entrou: confira email e senha.';
+      return;
+    }
+    mostrarApp(true);
+    carregar();
+  }
+
+  async function sair() {
+    await sb.auth.signOut();
+    leads = [];
+    mostrarApp(false);
+  }
+
+  function init() {
+    sb = window.supabase.createClient(CFG.url, CFG.anon);
+
+    doc('btnEntrar').addEventListener('click', entrar);
+    doc('senha').addEventListener('keydown', function (e) { if (e.key === 'Enter') entrar(); });
+    doc('btnSair').addEventListener('click', sair);
+    doc('btnAtualizar').addEventListener('click', carregar);
+    doc('abaFila').addEventListener('click', function () { abaAtiva = 'fila'; renderAba(); });
+    doc('abaTodos').addEventListener('click', function () { abaAtiva = 'todos'; renderAba(); });
+    doc('inputBusca').addEventListener('input', renderAba);
+
+    /* Fase 2 */
+    doc('lista').addEventListener('click', aoClicarLista);
+    doc('btnNovoLead').addEventListener('click', abrirCadastro);
+    doc('btnCancelarCadastro').addEventListener('click', fecharCadastro);
+    doc('btnCadastrar').addEventListener('click', enviarCadastro);
+    doc('btnAbrirExistente').addEventListener('click', abrirExistente);
+    doc('cadOrigem').addEventListener('change', aoMudarOrigem);
+
+    sb.auth.getSession().then(function (r) {
+      var logado = !!(r.data && r.data.session);
+      mostrarApp(logado);
+      if (logado) carregar();
+    });
+  }
+
+  return {
+    esc: esc, setRotulos: setRotulos, rotulo: rotulo,
+    hojeLocalISO: hojeLocalISO, dataLocalDe: dataLocalDe, diasAtraso: diasAtraso,
+    entraNaFila: entraNaFila, montarFila: montarFila, filtrarBusca: filtrarBusca,
+    waHrefFila: waHrefFila, waHrefLimpo: waHrefLimpo,
+    cardHTML: cardHTML, renderLista: renderLista,
+    diaMaisISO: diaMaisISO, validarCadastro: validarCadastro,
+    coletarCadastro: coletarCadastro, abrirCadastro: abrirCadastro,
+    init: init,
+    _setLeads: function (ls) { leads = ls; }
+  };
+})();
+
+if (!window.__PITWALL_SEM_INIT) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { window.PitWall.init(); });
+  } else {
+    window.PitWall.init();
+  }
+}
+</script>
+</body>
+</html>
