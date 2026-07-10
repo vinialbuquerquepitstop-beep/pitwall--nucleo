@@ -1,0 +1,139 @@
+# .github/workflows/restore_drill.yml
+#
+# Drill de restauracao do backup do Pit Wall.
+# Prova a cadeia inteira: cifra no repo -> decifra -> restaura num Postgres
+# 17 descartavel dentro do proprio runner -> confere os numeros.
+# NAO toca producao, NAO commita nada. Roda so quando voce clica.
+#
+# Verde  = o backup real restaura e os dados batem. Rede de seguranca provada.
+# Vermelho = algum elo quebrou (decifra, restauracao ou dado faltando). Investigar.
+
+name: Drill de restauracao do backup
+
+on:
+  workflow_dispatch: {}   # so manual, pela aba Actions
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+
+    # Postgres 17 efemero, so pra este job. Some quando o job termina.
+    services:
+      scratch:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drillpass
+          POSTGRES_DB: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      SCRATCH_URL: "postgresql://postgres:drillpass@localhost:5432/drill"
+
+    steps:
+      - name: Checkout (traz a pasta backups/)
+        uses: actions/checkout@v5
+
+      - name: Instalar cliente Postgres 17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_restore --version
+
+      - name: Decifrar o dump mais recente
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          # Pega o .gpg mais recente pelo nome (STAMP ordena cronologicamente).
+          LATEST="$(ls -1 backups/pitwall_*.dump.gpg 2>/dev/null | sort | tail -n1 || true)"
+          if [ -z "$LATEST" ]; then
+            echo "FALHA: nenhum backups/pitwall_*.dump.gpg encontrado no repo."
+            exit 1
+          fi
+          echo "Arquivo escolhido: $LATEST"
+
+          # Decifra pro claro TEMPORARIO, so dentro do runner efemero.
+          gpg --batch --yes --passphrase "$BACKUP_PASSPHRASE" \
+              --decrypt "$LATEST" > /tmp/pitwall.dump
+
+          # Confere que saiu um dump custom format valido (comeca com "PGDMP").
+          head -c 5 /tmp/pitwall.dump | grep -q "PGDMP" \
+            || { echo "FALHA: o arquivo decifrado nao parece um dump pg_dump -Fc."; exit 1; }
+          echo "Dump decifrado OK ($(wc -c < /tmp/pitwall.dump) bytes)."
+
+      - name: Preparar o Postgres descartavel (papeis e stubs do Supabase)
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          # Papeis e funcoes auth.* que a RLS referencia nao existem num Postgres
+          # cru. Criar stubs deixa a restauracao limpa (politicas e grants nao
+          # estouram erro barulhento). Nao afetam a checagem de dado.
+          psql "$SCRATCH_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
+          end $$;
+          create schema if not exists auth;
+          create or replace function auth.uid()  returns uuid  language sql stable as $fn$ select null::uuid $fn$;
+          create or replace function auth.role() returns text  language sql stable as $fn$ select null::text $fn$;
+          create or replace function auth.jwt()  returns jsonb language sql stable as $fn$ select '{}'::jsonb $fn$;
+          SQL
+          echo "Papeis e stubs prontos."
+
+      - name: Restaurar o dump no Postgres descartavel
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          # --no-owner: ignora dono original (nao existe aqui).
+          # Sem --exit-on-error de proposito: um grant/politica residual que
+          # falhe nao pode abortar o drill; o juiz e a checagem de dado abaixo.
+          pg_restore --no-owner --dbname "$SCRATCH_URL" /tmp/pitwall.dump || true
+          echo "Restauracao concluida (erros residuais de grant/politica sao tolerados)."
+
+      - name: Conferir os dados restaurados (o juiz do drill)
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          q() { psql "$SCRATCH_URL" -tAc "$1"; }
+
+          LEADS="$(q 'select count(*) from public.lead')"
+          TEN="$(q 'select count(*) from public.tenant')"
+          ROT="$(q 'select count(*) from public.dicionario_rotulos')"
+          HAS_PRIMEIRO="$(q "select exists(select 1 from public.lead where lead_code='LEAD-0001')")"
+          HAS_ULTIMO="$(q "select exists(select 1 from public.lead where lead_code='LEAD-0015')")"
+
+          echo "----------------------------------------"
+          echo "leads restaurados : $LEADS  (esperado >= 15)"
+          echo "tenants           : $TEN    (esperado = 1)"
+          echo "rotulos           : $ROT    (esperado >= 27)"
+          echo "LEAD-0001 presente: $HAS_PRIMEIRO"
+          echo "LEAD-0015 presente: $HAS_ULTIMO"
+          echo "----------------------------------------"
+
+          fail=0
+          [ "$LEADS" -ge 15 ] || { echo "FALHA: leads ($LEADS) abaixo de 15."; fail=1; }
+          [ "$TEN"   -eq 1  ] || { echo "FALHA: tenants ($TEN) diferente de 1."; fail=1; }
+          [ "$ROT"   -ge 27 ] || { echo "FALHA: rotulos ($ROT) abaixo de 27."; fail=1; }
+          [ "$HAS_PRIMEIRO" = "t" ] || { echo "FALHA: LEAD-0001 ausente."; fail=1; }
+          [ "$HAS_ULTIMO"   = "t" ] || { echo "FALHA: LEAD-0015 ausente."; fail=1; }
+
+          if [ "$fail" -ne 0 ]; then
+            echo "DRILL REPROVADO: o backup NAO restaura os dados esperados."
+            exit 1
+          fi
+          echo "DRILL APROVADO: o backup real decifra, restaura e traz os dados intactos."
+
+      - name: Apagar o claro temporario
+        if: always()
+        run: rm -f /tmp/pitwall.dump
