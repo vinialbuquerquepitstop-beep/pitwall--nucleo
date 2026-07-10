@@ -45,20 +45,18 @@ jobs:
 
     steps:
       - name: Checkout do repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Instalar cliente Postgres 17 (PGDG)
         run: |
           set -euo pipefail
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
-            https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
 
       - name: Dump + criptografia AES-256
         env:
@@ -66,6 +64,10 @@ jobs:
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
           set -euo pipefail
+          # forca o binario 17 na frente do PATH; sem isso o runner usa o
+          # pg_dump 16 nativo do Ubuntu e aborta com "server version mismatch"
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
           mkdir -p backups
           STAMP="$(date -u +%Y%m%d_%H%M%S)"
           echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
