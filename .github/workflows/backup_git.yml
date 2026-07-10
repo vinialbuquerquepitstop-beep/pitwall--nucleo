@@ -1,0 +1,122 @@
+# =====================================================================
+# Pit Wall 2.0 (Nucleo) - Backup diario criptografado no proprio repo
+# Caminho no repo: .github/workflows/backup_git.yml
+#
+# Grava um dump do Postgres, CRIPTOGRAFADO (AES-256), dentro da pasta
+# backups/ do proprio repositorio. Zero cartao, zero servico externo.
+#
+# Por que criptografado: o dump tem dado pessoal de cliente (nome,
+# WhatsApp). Commitar em claro num repo, mesmo privado, deixa esse PII
+# legivel pra qualquer um com acesso ao repo (colaborador, plataforma)
+# e vivo pra sempre no historico do git. Criptografado, todo mundo ve
+# so texto embaralhado; so quem tem a senha le.
+#
+# Secrets exigidos (Settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL     connection string do SESSION POOLER com senha
+#   BACKUP_PASSPHRASE   senha forte de criptografia (guarde FORA do GitHub,
+#                       num gerenciador de senhas; perdeu = backups mortos)
+#
+# ATENCAO: o dump vira backups/pitwall_AAAAMMDD_HHMMSS.dump.gpg. Pra
+# restaurar, veja RESTAURAR mais abaixo. Sem a senha nao ha restore.
+# =====================================================================
+
+name: backup-git
+
+on:
+  schedule:
+    # 08:05 UTC = 05:05 Brasilia. Espelha a varredura 5am do sistema legado.
+    - cron: "5 8 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write        # necessario pra commitar o backup de volta no repo
+
+concurrency:
+  group: backup-git
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      RETENCAO: "30"        # quantos .gpg manter na pasta backups/
+
+    steps:
+      - name: Checkout do repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Instalar cliente Postgres 17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Dump + criptografia AES-256
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          STAMP="$(date -u +%Y%m%d_%H%M%S)"
+          echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
+
+          # dump custom format do schema public inteiro (dados, RLS, funcoes, triggers)
+          pg_dump "$SUPABASE_DB_URL" \
+            --schema=public \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file="pitwall_${STAMP}.dump"
+
+          # mapeamento leve de usuarios (id + email), tambem criptografado
+          psql "$SUPABASE_DB_URL" --no-psqlrc --quiet \
+            -c "\copy (select id, email, created_at from auth.users order by created_at) to 'usuarios_${STAMP}.csv' csv header"
+
+          # criptografa os dois com a passphrase (AES-256, simetrico)
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            --cipher-algo AES256 --symmetric \
+            -o "backups/pitwall_${STAMP}.dump.gpg" "pitwall_${STAMP}.dump"
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_PASSPHRASE" \
+            --cipher-algo AES256 --symmetric \
+            -o "backups/usuarios_${STAMP}.csv.gpg" "usuarios_${STAMP}.csv"
+
+          # apaga os claros; so os .gpg entram no commit
+          rm -f "pitwall_${STAMP}.dump" "usuarios_${STAMP}.csv"
+          ls -lh backups/
+
+      - name: Retencao (mantem os N .gpg mais recentes na pasta)
+        run: |
+          set -euo pipefail
+          # dumps
+          ls -1 backups/pitwall_*.dump.gpg 2>/dev/null | sort | head -n -"$RETENCAO" | while read -r f; do
+            [ -n "$f" ] && { echo "removendo $f"; git rm -q "$f"; }
+          done || true
+          # usuarios
+          ls -1 backups/usuarios_*.csv.gpg 2>/dev/null | sort | head -n -"$RETENCAO" | while read -r f; do
+            [ -n "$f" ] && { echo "removendo $f"; git rm -q "$f"; }
+          done || true
+
+      - name: Commit e push do backup
+        run: |
+          set -euo pipefail
+          git config user.name  "pitwall-backup-bot"
+          git config user.email "actions@github.com"
+          git add backups/
+          if git diff --cached --quiet; then
+            echo "Nada mudou; sem commit."
+            exit 0
+          fi
+          git commit -m "backup: ${STAMP} (criptografado)"
+          git push
