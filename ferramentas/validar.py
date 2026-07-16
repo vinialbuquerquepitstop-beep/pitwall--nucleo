@@ -10,10 +10,10 @@ sys.stdout.reconfigure(encoding='utf-8')
 import pathlib
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 velho_js = (RAIZ / 'ferramentas' / 'app.js.antes').read_text(encoding='utf-8')
-novo_js  = (RAIZ / 'nucleo' / 'public' / 'app.js').read_text(encoding='utf-8')
-novo_html= (RAIZ / 'nucleo' / 'public' / 'index.html').read_text(encoding='utf-8')
-velho_html=(RAIZ / 'nucleo' / 'public' / 'index.html').read_text(encoding='utf-8')
-novo_css = (RAIZ / 'nucleo' / 'public' / 'app.css').read_text(encoding='utf-8')
+novo_js  = (RAIZ / 'public' / 'app.js').read_text(encoding='utf-8')
+novo_html= (RAIZ / 'public' / 'index.html').read_text(encoding='utf-8')
+velho_html=(RAIZ / 'public' / 'index.html').read_text(encoding='utf-8')
+novo_css = (RAIZ / 'public' / 'app.css').read_text(encoding='utf-8')
 falhas=[]
 def ck(c,m):
     if not c: falhas.append(m)

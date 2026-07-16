@@ -6,7 +6,7 @@ import sys, pathlib
 sys.stdout.reconfigure(encoding='utf-8')
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-css_app = (RAIZ / 'nucleo' / 'public' / 'app.css').read_text(encoding='utf-8')
+css_app = (RAIZ / 'public' / 'app.css').read_text(encoding='utf-8')
 fontes  = (RAIZ / 'ferramentas' / 'fontes.css').read_text(encoding='utf-8')
 
 # ---------------------------------------------------------------- CSS NOVO

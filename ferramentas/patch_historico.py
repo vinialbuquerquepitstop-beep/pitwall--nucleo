@@ -8,7 +8,7 @@ import sys, pathlib
 sys.stdout.reconfigure(encoding='utf-8')
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-ALVO = RAIZ / 'nucleo' / 'public' / 'app.js'
+ALVO = RAIZ / 'public' / 'app.js'
 src = ALVO.read_text(encoding='utf-8')
 orig = src
 

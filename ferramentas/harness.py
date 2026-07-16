@@ -8,7 +8,7 @@ import json, pathlib, subprocess, sys, tempfile, os
 sys.stdout.reconfigure(encoding='utf-8')
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-PUB = RAIZ / 'nucleo' / 'public'
+PUB = RAIZ / 'public'
 
 CHROME = None
 for p in [r'C:\Program Files\Google\Chrome\Application\chrome.exe',
