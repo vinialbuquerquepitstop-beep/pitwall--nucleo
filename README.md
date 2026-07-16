@@ -11,12 +11,17 @@ URL no ar: https://flat-resonance-09ba.pitstopimports.workers.dev
 /
 ├── wrangler.jsonc      config do deploy (nome do Worker, pasta de assets)
 ├── public/
-│   └── index.html      o app inteiro (HTML + CSS + JS num arquivo so)
+│   ├── index.html      estrutura; aponta pra app.css e app.js
+│   ├── app.css         estilo (tokens da referencia visual v3)
+│   └── app.js          logica
 └── README.md
 ```
 
 Regra: TODO arquivo que o app serve vive em `public/`. O `wrangler.jsonc` e o
 `README.md` ficam na raiz e nao vao pro ar.
+
+Os tres arquivos sao um conjunto: `app.css` sozinho quebra o app. Deploy vai
+com os tres (ou com os que mudaram, mas sempre na mesma leva).
 
 ## Como isso deploya
 
@@ -36,9 +41,14 @@ so commita o arquivo novo aqui e o Cloudflare sobe.
 
 ## Deploy do dia a dia
 
-1. Abrir `public/index.html` no GitHub, botao de editar (lapis).
-2. Colar a versao nova inteira (sempre o arquivo completo, nunca pedaco).
-3. Commit. O Cloudflare deploya em seguida.
+Empurrar pra branch `main` E o deploy. Nao existe staging: o que sobe, sobe pro
+dono no meio do atendimento. Combinar horario antes.
+
+1. Commitar a mudanca (arquivo completo, nunca pedaco: fragmento ja corrompeu
+   este projeto no passado).
+2. `git push origin main`. O Cloudflare deploya em seguida.
+3. Conferir que o Worker vivo serve o arquivo novo, comparando o md5 do que
+   esta no ar com o do repo. "Empurrei" nao e o mesmo que "esta no ar".
 
 ## Rede de seguranca
 
