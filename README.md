@@ -47,8 +47,24 @@ dono no meio do atendimento. Combinar horario antes.
 1. Commitar a mudanca (arquivo completo, nunca pedaco: fragmento ja corrompeu
    este projeto no passado).
 2. `git push origin main`. O Cloudflare deploya em seguida.
-3. Conferir que o Worker vivo serve o arquivo novo, comparando o md5 do que
-   esta no ar com o do repo. "Empurrei" nao e o mesmo que "esta no ar".
+3. Conferir que o Worker vivo serve o arquivo novo. "Empurrei" nao e o mesmo
+   que "esta no ar": o build do Cloudflare leva ~1 min e pode falhar.
+
+```sh
+for f in app.js app.css; do
+  a=$(curl -s "https://flat-resonance-09ba.pitstopimports.workers.dev/$f" | md5sum | cut -d' ' -f1)
+  b=$(git show "HEAD:public/$f" | md5sum | cut -d' ' -f1)
+  [ "$a" = "$b" ] && echo "$f IGUAL" || echo "$f DIFERE"
+done
+```
+
+**Comparar com `git show HEAD:...` (o blob), NUNCA com o arquivo em `public/`.**
+Este repo e clonado com `core.autocrlf=true`: a copia de trabalho tem CRLF, o
+blob e o que vai ao ar tem LF. Comparar com a copia de trabalho da diferenca
+sempre, mesmo com o deploy perfeito, e faz voce cacar um bug que nao existe.
+
+Para o `index.html` nao use `/index.html`: ele devolve 307 para `/`. Baixe a
+raiz (`curl -sL .../`) e compare com `git show HEAD:public/index.html`.
 
 ## Rede de seguranca
 

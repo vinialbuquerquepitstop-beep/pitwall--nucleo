@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pit Wall 2.0 · Referencia visual (v3)</title>
+<!--
+  REFERENCIA VISUAL DE RECORD do Pit Wall 2.0.
+  Aprovada pelo dono em 16/07/2026, apos reprovar a v1 (IBM Plex) e a v2 (serif).
+  O frontend (public/index + app.css + app.js) deve ser construido ATE esta
+  referencia, nao ate o denominador comum do que o HTML antigo ja tinha.
+  Fonte por link: a versao em artifact embutia base64 so por causa do CSP.
+-->
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+
+/* ============================================================
+   TOKENS DA APRESENTACAO (esta pagina) — segue o tema do leitor
+   ============================================================ */
+:root{
+  --pg-bg:#EDEFF3; --pg-surf:#FFFFFF; --pg-text:#0F1523; --pg-dim:#5C6675;
+  --pg-line:#DCE0E8; --pg-accent:#0025CC; --pg-shadow:0 1px 2px rgba(15,21,35,.06), 0 8px 28px rgba(15,21,35,.07);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --pg-bg:#0D1016; --pg-surf:#151922; --pg-text:#E8ECF3; --pg-dim:#8A95A5;
+    --pg-line:#242A35; --pg-accent:#8FA3FF; --pg-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg-bg:#0D1016; --pg-surf:#151922; --pg-text:#E8ECF3; --pg-dim:#8A95A5;
+  --pg-line:#242A35; --pg-accent:#8FA3FF; --pg-shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --pg-bg:#EDEFF3; --pg-surf:#FFFFFF; --pg-text:#0F1523; --pg-dim:#5C6675;
+  --pg-line:#DCE0E8; --pg-accent:#0025CC; --pg-shadow:0 1px 2px rgba(15,21,35,.06), 0 8px 28px rgba(15,21,35,.07);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--pg-bg); color:var(--pg-text);
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+.pg{max-width:1180px; margin:0 auto; padding:40px 20px 72px; display:flex; flex-direction:column; gap:44px}
+
+/* --- cabecalho da apresentacao --- */
+.pg-head{display:flex; flex-direction:column; gap:14px; max-width:70ch}
+.eyebrow{
+  font-family:'Geist Mono',ui-monospace,monospace; font-size:11px; font-weight:500; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--pg-accent);
+}
+.pg-head h1{
+  margin:0; font-family:'Instrument Sans',system-ui,sans-serif; font-weight:600;
+  font-size:clamp(28px,3.8vw,41px); letter-spacing:-.032em; line-height:1.1; text-wrap:balance;
+}
+.pg-head p{margin:0; color:var(--pg-dim); text-wrap:pretty}
+.aviso{
+  border-left:2px solid var(--pg-accent); padding:2px 0 2px 14px;
+  color:var(--pg-dim); font-size:14px; text-wrap:pretty;
+}
+.aviso strong{color:var(--pg-text); font-weight:500}
+code{font-family:'Geist Mono',ui-monospace,monospace; font-size:.88em}
+
+/* --- blocos da apresentacao --- */
+.bloco{display:flex; flex-direction:column; gap:14px}
+.bloco-head{display:flex; flex-direction:column; gap:5px; max-width:72ch}
+.bloco-head h2{
+  margin:0; font-size:11.5px; font-weight:500; font-family:'Geist Mono',ui-monospace,monospace;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--pg-dim);
+}
+.bloco-head p{margin:0; font-size:14.5px; color:var(--pg-dim); text-wrap:pretty}
+.bloco-head p strong{color:var(--pg-text); font-weight:500}
+
+.moldura{
+  background:var(--pg-surf); border:1px solid var(--pg-line); border-radius:10px;
+  box-shadow:var(--pg-shadow); overflow:hidden;
+}
+.rolagem{overflow-x:auto}
+
+/* ============================================================
+   TOKENS DO APP — o produto comete com o claro, nao inverte
+   ============================================================ */
+.tela{
+  --bg:#FFFFFF; --surface:#F6F7FA; --line:#E4E7EE; --line-forte:#D3D8E2;
+  --text:#0F1523; --dim:#5C6675;
+  --accent:#0025CC; --accent-tint:rgba(0,37,204,.055);
+  --quente:#F26B31; --quente-fg:#BC4715; --quente-bg:#FDF0E9;
+  --morno:#C48808;  --morno-fg:#946500;  --morno-bg:#FBF3E0;
+  --frio:#8395AF;   --frio-fg:#5C6F8A;   --frio-bg:#F0F3F8;
+  --ok:#17A06B;     --ok-fg:#0F7A52;     --ok-bg:#EAF6F0;
+  --erro-fg:#B01235; --erro-bg:#FDEDF0;
+  --display:'Instrument Sans',system-ui,sans-serif;
+  --ui:'Instrument Sans',system-ui,sans-serif;
+  --mono:'Geist Mono',ui-monospace,monospace;
+  --r:8px;
+  color-scheme:light;
+  background:var(--bg); color:var(--text); font-family:var(--ui);
+}
+
+/* --- shell desktop --- */
+.tela-desk{display:grid; grid-template-columns:236px 1fr; min-width:900px}
+.tela-desk.alta{min-height:660px}
+
+.side{
+  background:var(--surface); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; padding:20px 14px 16px;
+}
+.marca{display:flex; flex-direction:column; gap:0; padding:0 8px; margin-bottom:26px}
+.marca-nome{
+  font-family:var(--display); font-size:18px; font-weight:600; letter-spacing:-.025em;
+  color:var(--text); line-height:1.2;
+}
+.marca-nome i{font-style:normal}
+.marca-sub{
+  font-family:var(--mono); font-size:9px; font-weight:400;
+  letter-spacing:.15em; text-transform:uppercase; color:var(--dim);
+}
+.nav{display:flex; flex-direction:column; gap:1px}
+.nav-rot{
+  font-family:var(--mono); font-size:9px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--dim); padding:0 8px; margin:0 0 6px;
+}
+.nav-item{
+  display:flex; align-items:center; gap:10px; padding:8px; border-radius:6px;
+  font-size:14px; color:var(--dim); text-decoration:none; border:none; background:none;
+  font-family:var(--ui); cursor:pointer; text-align:left; width:100%;
+}
+.nav-item svg{width:17px; height:17px; flex:0 0 auto; stroke:currentColor; fill:none; stroke-width:1.5}
+.nav-item:hover{background:rgba(15,21,35,.035); color:var(--text)}
+.nav-item[aria-current="page"]{background:var(--accent-tint); color:var(--accent); font-weight:500}
+.nav-item[aria-current="page"] svg{stroke-width:1.8}
+.nav-badge{
+  margin-left:auto; font-family:var(--mono); font-size:10.5px; font-weight:500;
+  font-variant-numeric:tabular-nums; background:var(--accent); color:#fff;
+  border-radius:999px; padding:1px 7px; line-height:1.5;
+}
+.nav-sep{height:1px; background:var(--line); margin:14px 8px}
+.side-pe{margin-top:auto; display:flex; align-items:center; gap:9px; padding:8px; border-radius:6px}
+.avatar{
+  width:26px; height:26px; border-radius:999px; background:var(--accent); color:#fff;
+  display:grid; place-items:center; font-size:11px; font-weight:600; flex:0 0 auto;
+}
+.side-pe-txt{display:flex; flex-direction:column; line-height:1.3; min-width:0}
+.side-pe-nome{font-size:13px; font-weight:500}
+.side-pe-sub{font-family:var(--mono); font-size:9px; color:var(--dim); letter-spacing:.1em}
+.side-sair{
+  margin-left:auto; background:none; border:none; color:var(--dim); cursor:pointer; padding:4px;
+  display:grid; place-items:center;
+}
+.side-sair svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.5}
+
+/* --- area de conteudo --- */
+.conteudo{background:var(--bg); padding:24px 28px 32px; display:flex; flex-direction:column; gap:20px; min-width:0}
+.cab{display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap}
+.cab-esq{display:flex; flex-direction:column; gap:1px}
+.cab h1{margin:0; font-family:var(--display); font-size:24px; font-weight:600; letter-spacing:-.028em; line-height:1.15}
+.cab-sub{font-size:12.5px; color:var(--dim)}
+.cab-sub b{font-weight:500; color:var(--text); font-variant-numeric:tabular-nums}
+.cab-dir{display:flex; gap:8px}
+
+.btn{
+  font-family:var(--ui); font-size:13px; font-weight:500; border-radius:6px; padding:7px 13px;
+  border:1px solid var(--line-forte); background:var(--bg); color:var(--text); cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+}
+.btn:hover{background:var(--surface)}
+.btn svg{width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.6}
+.btn-forte{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn-forte:hover{background:#001FA8}
+.btn:focus-visible, .nav-item:focus-visible, .var:focus-visible, .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* --- pitboard: mosaico de numeros --- */
+.pitboard{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.pb{
+  border:1px solid var(--line); border-radius:var(--r); padding:12px 14px;
+  display:flex; flex-direction:column; gap:1px; background:var(--bg);
+}
+.pb-rot{
+  font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--dim);
+}
+.pb-num{
+  font-family:var(--display); font-size:29px; font-weight:600; line-height:1.1;
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em;
+}
+.pb-pe{font-size:11.5px; color:var(--dim)}
+.pb.alerta{border-color:#F3C9AE; background:var(--quente-bg)}
+.pb.alerta .pb-num, .pb.alerta .pb-rot{color:var(--quente-fg)}
+.pb.alerta .pb-pe{color:var(--quente-fg); opacity:.85}
+
+/* --- lista --- */
+.lista{display:flex; flex-direction:column; gap:8px}
+.card{
+  position:relative; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--bg); padding:13px 15px 13px 18px; overflow:hidden;
+}
+.card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--line-forte)}
+.card.n-quente::before{background:var(--quente)}
+.card.n-morno::before{background:var(--morno)}
+.card.n-frio::before{background:var(--frio)}
+.card-l1{display:flex; justify-content:space-between; align-items:flex-start; gap:16px}
+.card-nome{margin:0; font-size:15.5px; font-weight:600; letter-spacing:-.008em}
+.card-prod{margin:1px 0 0; font-size:13.5px; color:var(--text)}
+.card-prod .cond{color:var(--dim)}
+.card-dir{display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex:0 0 auto}
+.code{font-family:var(--mono); font-size:10.5px; color:var(--dim); letter-spacing:.02em}
+.perfil{font-size:11.5px; color:var(--dim)}
+.chips{display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; align-items:center}
+.chip{
+  display:inline-flex; align-items:center; gap:5px; font-size:11.5px; line-height:1.6;
+  border:1px solid var(--line); border-radius:5px; padding:1px 7px; color:var(--dim); background:var(--bg);
+}
+.chip.mono{font-family:var(--mono); font-size:10.5px; letter-spacing:.01em}
+.dot{width:6px; height:6px; border-radius:999px; background:currentColor; flex:0 0 auto}
+.chip.n-quente{color:var(--quente-fg); background:var(--quente-bg); border-color:#F5D3BE}
+.chip.n-morno{color:var(--morno-fg); background:var(--morno-bg); border-color:#EBD9AB}
+.chip.n-frio{color:var(--frio-fg); background:var(--frio-bg); border-color:#D8DFEA}
+.chip.n-ok{color:var(--ok-fg); background:var(--ok-bg); border-color:#BFE3D2}
+.chip.atraso{color:var(--quente-fg); background:var(--quente-bg); border-color:#F5D3BE; font-variant-numeric:tabular-nums}
+.chip.ind{color:var(--accent); background:var(--accent-tint); border-color:#C2CBF0}
+.card-acoes{display:flex; gap:7px; margin-top:11px}
+.btn-wa{color:var(--ok-fg); border-color:#BFE3D2; background:var(--ok-bg)}
+.btn-wa:hover{background:#DDF0E7}
+
+/* --- painel de scripts (a feature central) --- */
+.scripts{margin-top:12px; border-top:1px solid var(--line); padding-top:11px}
+.scripts-cab{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px}
+.scripts-rot{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim)}
+.scripts-fonte{font-family:var(--mono); font-size:9px; color:var(--dim); opacity:.8}
+.vars{display:flex; gap:5px; margin-bottom:9px}
+.var{
+  font-family:var(--ui); font-size:12.5px; font-weight:500; border:1px solid var(--line-forte);
+  background:var(--bg); color:var(--dim); border-radius:5px; padding:4px 11px; cursor:pointer;
+}
+.var[aria-selected="true"]{background:var(--accent-tint); border-color:var(--accent); color:var(--accent)}
+.script-txt{
+  margin:0; background:var(--surface); border:1px solid var(--line); border-radius:6px;
+  padding:11px 13px; font-size:13.5px; line-height:1.6; color:var(--text);
+}
+.script-acoes{display:flex; gap:7px; margin-top:8px}
+
+/* --- estado vazio --- */
+.estado{
+  border:1px dashed var(--line-forte); border-radius:var(--r); padding:28px 20px;
+  text-align:center; color:var(--dim); font-size:13.5px; background:var(--surface);
+}
+.estado strong{display:block; color:var(--text); font-weight:600; font-size:15px; letter-spacing:-.015em; margin-bottom:3px}
+
+/* ============================================================
+   MOBILE MOCK
+   ============================================================ */
+.fones{display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start}
+.fone{
+  width:340px; flex:0 0 auto; border-radius:26px; border:1px solid var(--pg-line);
+  background:var(--pg-surf); padding:8px; box-shadow:var(--pg-shadow);
+}
+.fone-tela{border-radius:19px; overflow:hidden; display:flex; flex-direction:column; height:604px}
+.fone-barra{
+  display:flex; justify-content:space-between; align-items:center; padding:8px 16px 4px;
+  font-family:var(--mono); font-size:10px; font-weight:500; color:var(--text);
+  font-variant-numeric:tabular-nums; background:var(--bg);
+}
+.fone-topo{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:4px 16px 12px; background:var(--bg); border-bottom:1px solid var(--line);
+}
+.fone-topo h1{margin:0; font-family:var(--display); font-size:20px; font-weight:600; letter-spacing:-.028em; line-height:1.2}
+.fone-topo .cab-sub{font-size:11.5px}
+.fone-corpo{flex:1; overflow:hidden; background:var(--bg); padding:12px 12px 6px; display:flex; flex-direction:column; gap:8px}
+.fone-pb{display:grid; grid-template-columns:repeat(2,1fr); gap:7px}
+.fone-pb .pb{padding:9px 11px}
+.fone-pb .pb-num{font-size:25px}
+.tabbar{
+  display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--line);
+  background:var(--surface); padding:7px 4px 9px;
+}
+.tab{
+  display:flex; flex-direction:column; align-items:center; gap:3px; background:none; border:none;
+  cursor:pointer; color:var(--dim); font-family:var(--ui); padding:2px 0;
+}
+.tab svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.5}
+.tab span{font-size:9.5px; letter-spacing:.01em}
+.tab[aria-current="page"]{color:var(--accent)}
+.tab[aria-current="page"] svg{stroke-width:1.9}
+.tab-badge{position:relative; display:grid; place-items:center}
+.tab-badge::after{
+  content:"6"; position:absolute; top:-4px; right:-9px; background:var(--accent); color:#fff;
+  font-family:var(--mono); font-size:8px; font-weight:500; line-height:1;
+  padding:2px 4px; border-radius:999px;
+}
+
+/* --- dashboard: moldura honestamente vazia --- */
+.dash-grade{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.dash-slot{
+  border:1px dashed var(--line-forte); border-radius:var(--r); background:var(--surface);
+  padding:14px; min-height:104px; display:flex; flex-direction:column; gap:5px;
+}
+.dash-slot .pb-rot{opacity:.75}
+.vazio-marca{
+  margin-top:auto; font-family:var(--mono); font-size:9.5px; color:var(--dim);
+  letter-spacing:.1em; text-transform:uppercase; opacity:.7;
+}
+
+/* ============================================================
+   PAINEL DE TOKENS
+   ============================================================ */
+.tok-grade{display:grid; grid-template-columns:repeat(auto-fit,minmax(216px,1fr)); gap:1px; background:var(--pg-line)}
+.tok{background:var(--pg-surf); padding:14px 16px; display:flex; flex-direction:column; gap:9px}
+.tok-cab{display:flex; align-items:center; gap:9px}
+.amostra{width:30px; height:30px; border-radius:6px; flex:0 0 auto; border:1px solid rgba(15,21,35,.12)}
+.tok-nome{font-family:'Geist Mono',ui-monospace,monospace; font-size:12px; font-weight:500}
+.tok-hex{font-family:'Geist Mono',ui-monospace,monospace; font-size:10.5px; color:var(--pg-dim); text-transform:uppercase}
+.tok-med{display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--pg-dim); font-family:'Geist Mono',ui-monospace,monospace}
+.tok-med div{display:flex; justify-content:space-between; gap:10px; font-variant-numeric:tabular-nums}
+.ok-tag{color:#0F7A52; font-weight:500}
+.mau-tag{color:#B01235; font-weight:500}
+@media (prefers-color-scheme:dark){ .ok-tag{color:#4ED9A0} .mau-tag{color:#FF8FA6} }
+:root[data-theme="dark"] .ok-tag{color:#4ED9A0}
+:root[data-theme="dark"] .mau-tag{color:#FF8FA6}
+:root[data-theme="light"] .ok-tag{color:#0F7A52}
+:root[data-theme="light"] .mau-tag{color:#B01235}
+
+/* --- tabela de decisoes --- */
+.tab-dec{width:100%; border-collapse:collapse; font-size:14px}
+.tab-dec th, .tab-dec td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--pg-line); vertical-align:top}
+.tab-dec th{
+  font-family:'Geist Mono',ui-monospace,monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--pg-dim); font-weight:500;
+}
+.tab-dec tr:last-child td{border-bottom:none}
+.tab-dec td:first-child{white-space:nowrap; font-weight:500}
+.tab-dec .por{color:var(--pg-dim); text-wrap:pretty}
+
+/* --- comparativo emoji x ponto --- */
+.comp{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--pg-line)}
+.comp-col{background:var(--pg-surf); padding:16px}
+.comp-rot{
+  font-family:'Geist Mono',ui-monospace,monospace; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--pg-dim); margin-bottom:11px;
+}
+.comp-lin{display:flex; flex-wrap:wrap; gap:6px}
+
+/* --- espectro tipografico --- */
+.tipo-lin{display:flex; flex-direction:column; gap:16px; padding:22px}
+.tipo-item{display:flex; flex-direction:column; gap:5px}
+.tipo-rot{font-family:var(--mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim)}
+
+@media (max-width:760px){
+  .pg{padding:28px 14px 56px; gap:34px}
+  .comp{grid-template-columns:1fr}
+  .dash-grade{grid-template-columns:1fr}
+}
+</style>
+
+<div class="pg">
+
+  <header class="pg-head">
+    <div class="eyebrow">Pit Wall 2.0 · Direcao visual · v3</div>
+    <h1>Timing screen, nao cockpit</h1>
+    <p>O visual de hoje le a metafora "pit wall" ao pe da letra: fundo escuro, fonte de corrida, cor de telemetria. Um pit wall de verdade nao e isso. E uma tela de tempos: branca, densa, tipografia refinada, numero alinhado, e cor usada so onde carrega estado. Essa e a tese, e ela entrega o que voce pediu (sofisticado, clean, branco, azul) sem perder a alma do nome.</p>
+    <div class="aviso"><strong>Mudou na v3:</strong> o serif caiu, e o refino agora vem de grotesco (Instrument Sans) com escala e tracking, nao de outra familia. A aba <code>Indicacoes</code> voltou, e a <code>Pos-venda</code> que eu tinha inventado saiu: ela nao existe no app. <strong>Nada disto foi para o repo.</strong> Nomes de cliente sao ficticios; produtos, perfis, cadencias, rotulos e o texto das variantes vieram do banco.</div>
+  </header>
+
+  <!-- ============ DESKTOP ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>01 · Desktop — Fila do dia</h2>
+      <p>Secoes na vertical, a esquerda. Navegacao num cinza levemente azulado, conteudo em branco puro. <strong>O azul da marca aparece em quatro lugares e mais nenhum:</strong> item ativo, contador da fila, acao primaria e o chip de indicacao. Cor com significado fica reservada para estado do lead.</p>
+    </div>
+    <div class="moldura rolagem">
+      <div class="tela tela-desk alta">
+
+        <aside class="side">
+          <div class="marca">
+            <div class="marca-nome">Pit Wall</div>
+            <div class="marca-sub">Pitstop Imports</div>
+          </div>
+
+          <nav class="nav">
+            <p class="nav-rot">Operacao</p>
+            <a class="nav-item" href="#" aria-current="page">
+              <svg viewBox="0 0 24 24"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg>
+              Fila do dia <span class="nav-badge">6</span>
+            </a>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+              Todos
+            </a>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke-linecap="round"/><path d="M17 9.5v5M14.5 12h5" stroke-linecap="round"/></svg>
+              Indicacoes
+            </a>
+            <div class="nav-sep"></div>
+            <p class="nav-rot">Analise</p>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>
+              Dashboard
+            </a>
+          </nav>
+
+          <div class="side-pe">
+            <div class="avatar">V</div>
+            <div class="side-pe-txt">
+              <span class="side-pe-nome">Vini</span>
+              <span class="side-pe-sub">DONO</span>
+            </div>
+            <button class="side-sair" aria-label="Sair">
+              <svg viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </aside>
+
+        <main class="conteudo">
+          <div class="cab">
+            <div class="cab-esq">
+              <h1>Fila do dia</h1>
+              <span class="cab-sub"><b>quinta, 16 jul 2026</b> · 6 leads vencendo</span>
+            </div>
+            <div class="cab-dir">
+              <button class="btn">
+                <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Atualizar
+              </button>
+              <button class="btn btn-forte">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Novo lead
+              </button>
+            </div>
+          </div>
+
+          <div class="pitboard">
+            <div class="pb">
+              <span class="pb-rot">Na fila</span>
+              <span class="pb-num">6</span>
+              <span class="pb-pe">vencendo hoje</span>
+            </div>
+            <div class="pb alerta">
+              <span class="pb-rot">Em atraso</span>
+              <span class="pb-num">6</span>
+              <span class="pb-pe">2 passaram de 7 dias</span>
+            </div>
+            <div class="pb">
+              <span class="pb-rot">Base ativa</span>
+              <span class="pb-num">10</span>
+              <span class="pb-pe">de 15 na base</span>
+            </div>
+            <div class="pb">
+              <span class="pb-rot">Convertidos</span>
+              <span class="pb-num">3</span>
+              <span class="pb-pe">no total</span>
+            </div>
+          </div>
+
+          <div class="lista">
+
+            <article class="card n-frio">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Marcos A.</h3>
+                  <p class="card-prod">17 Pro Max 256GB <span class="cond">· Lacrado</span></p>
+                </div>
+                <div class="card-dir">
+                  <span class="code">LEAD-0013</span>
+                  <span class="perfil">Lead — Consulta</span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip n-frio"><i class="dot"></i>Frio</span>
+                <span class="chip mono">R4 · D10</span>
+                <span class="chip atraso">9 dias de atraso</span>
+                <span class="chip">WhatsApp direto</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Abrir WhatsApp
+                </button>
+                <button class="btn">Sugerir mensagem</button>
+                <button class="btn">Registrar toque</button>
+              </div>
+            </article>
+
+            <article class="card n-morno">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Diego F.</h3>
+                  <p class="card-prod">17 Pro 256GB <span class="cond">· Lacrado · oferta R$ 3.040</span></p>
+                </div>
+                <div class="card-dir">
+                  <span class="code">LEAD-0005</span>
+                  <span class="perfil">Lead — Consulta</span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip n-morno"><i class="dot"></i>Morno</span>
+                <span class="chip mono">R2 · D2</span>
+                <span class="chip atraso">4 dias de atraso</span>
+                <span class="chip">WhatsApp direto</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Abrir WhatsApp
+                </button>
+                <button class="btn btn-forte">Sugerir mensagem</button>
+                <button class="btn">Registrar toque</button>
+              </div>
+
+              <div class="scripts">
+                <div class="scripts-cab">
+                  <span class="scripts-rot">Abordagem sugerida · R2 · D2</span>
+                  <span class="scripts-fonte">rpc sugerir_mensagem · read-only</span>
+                </div>
+                <div class="vars" role="tablist">
+                  <button class="var" role="tab" aria-selected="false">Direto</button>
+                  <button class="var" role="tab" aria-selected="true">Consultivo</button>
+                  <button class="var" role="tab" aria-selected="false">Leve</button>
+                </div>
+                <p class="script-txt">Oi Diego, o valor do 17 Pro 256GB fez sentido ou ficou acima do que você planejou? Sendo sincero comigo, eu te mostro um caminho melhor.</p>
+                <div class="script-acoes">
+                  <button class="btn">Copiar</button>
+                  <button class="btn btn-wa">Abrir no WhatsApp</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="card n-quente">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Camila M.</h3>
+                  <p class="card-prod">16 Plus 128 <span class="cond">· Lacrado</span></p>
+                </div>
+                <div class="card-dir">
+                  <span class="code">LEAD-0015</span>
+                  <span class="perfil">Lead — Consulta</span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip n-quente"><i class="dot"></i>Quente</span>
+                <span class="chip mono">R1 · D0</span>
+                <span class="chip atraso">1 dia de atraso</span>
+                <span class="chip">WhatsApp direto</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Abrir WhatsApp
+                </button>
+                <button class="btn">Sugerir mensagem</button>
+                <button class="btn">Registrar toque</button>
+              </div>
+            </article>
+
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INDICACOES ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>02 · Desktop — Indicacoes</h2>
+      <p>A aba que eu tinha perdido. Ela filtra <code>origem === 'indicacao'</code> e mostra quem indicou. <strong>Indicacao e o unico canal que se paga sozinho</strong>, entao ela ganhou o azul da marca no chip <code>Ind. por</code>: e a unica cor de destaque que nao e estado de lead. Hoje sao 2 leads no banco.</p>
+    </div>
+    <div class="moldura rolagem">
+      <div class="tela tela-desk">
+
+        <aside class="side">
+          <div class="marca">
+            <div class="marca-nome">Pit <i>Wall</i></div>
+            <div class="marca-sub">Pitstop Imports</div>
+          </div>
+          <nav class="nav">
+            <p class="nav-rot">Operacao</p>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg>
+              Fila do dia <span class="nav-badge">6</span>
+            </a>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+              Todos
+            </a>
+            <a class="nav-item" href="#" aria-current="page">
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke-linecap="round"/><path d="M17 9.5v5M14.5 12h5" stroke-linecap="round"/></svg>
+              Indicacoes
+            </a>
+            <div class="nav-sep"></div>
+            <p class="nav-rot">Analise</p>
+            <a class="nav-item" href="#">
+              <svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>
+              Dashboard
+            </a>
+          </nav>
+          <div class="side-pe">
+            <div class="avatar">V</div>
+            <div class="side-pe-txt">
+              <span class="side-pe-nome">Vini</span>
+              <span class="side-pe-sub">DONO</span>
+            </div>
+            <button class="side-sair" aria-label="Sair">
+              <svg viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </aside>
+
+        <main class="conteudo">
+          <div class="cab">
+            <div class="cab-esq">
+              <h1>Indicacoes</h1>
+              <span class="cab-sub"><b>2</b> leads chegaram por indicacao · <b>13%</b> da base</span>
+            </div>
+          </div>
+
+          <div class="lista">
+            <article class="card n-morno">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Bruno T.</h3>
+                  <p class="card-prod">14 Pro Max 256 <span class="cond">· Vitrine</span></p>
+                </div>
+                <div class="card-dir">
+                  <span class="code">LEAD-0004</span>
+                  <span class="perfil">Lead — Repescagem</span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip ind">
+                  <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Ind. por Camila M.
+                </span>
+                <span class="chip n-morno"><i class="dot"></i>Morno</span>
+                <span class="chip mono">R2 · D7</span>
+                <span class="chip">Proximo contato 20 jul</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Abrir WhatsApp
+                </button>
+                <button class="btn">Sugerir mensagem</button>
+              </div>
+            </article>
+
+            <article class="card n-frio">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Larissa P.</h3>
+                  <p class="card-prod">13 128GB 14 128GB <span class="cond">· Vitrine</span></p>
+                </div>
+                <div class="card-dir">
+                  <span class="code">LEAD-0012</span>
+                  <span class="perfil">Lead — Repescagem</span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip ind">
+                  <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Ind. por Marcos A.
+                </span>
+                <span class="chip n-frio"><i class="dot"></i>Frio</span>
+                <span class="chip mono">R3 · D14</span>
+                <span class="chip">Proximo contato 17 jul</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Abrir WhatsApp
+                </button>
+                <button class="btn">Sugerir mensagem</button>
+              </div>
+            </article>
+          </div>
+
+          <div>
+            <p class="scripts-rot" style="margin:0 0 7px">Estado vazio desta aba (texto real do app)</p>
+            <div class="estado">
+              <strong>Nenhuma indicacao ainda.</strong>
+              Leads com origem Indicacao aparecem aqui, com quem indicou.
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MOBILE ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>03 · Mobile — a mesma Fila</h2>
+      <p>Aqui esta o custo da sua decisao de migrar tudo: a barra lateral nao cabe no celular. <strong>Ela vira barra inferior</strong>, nao menu hamburguer. O motivo e operacional, nao estetico: voce opera de pe, com uma mao, e o polegar alcanca a base da tela. Hamburguer esconde a navegacao atras de um toque a mais em cada troca.</p>
+    </div>
+    <div class="fones">
+      <div class="fone">
+        <div class="tela fone-tela">
+          <div class="fone-barra"><span>9:41</span><span>100%</span></div>
+          <div class="fone-topo">
+            <div class="cab-esq">
+              <h1>Fila do dia</h1>
+              <span class="cab-sub">quinta, 16 jul · 6 vencendo</span>
+            </div>
+            <button class="btn" aria-label="Novo lead">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="fone-corpo">
+            <div class="fone-pb">
+              <div class="pb"><span class="pb-rot">Na fila</span><span class="pb-num">6</span></div>
+              <div class="pb alerta"><span class="pb-rot">Em atraso</span><span class="pb-num">6</span></div>
+            </div>
+            <article class="card n-frio">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Marcos A.</h3>
+                  <p class="card-prod">17 Pro Max 256GB <span class="cond">· Lacrado</span></p>
+                </div>
+                <span class="code">LEAD-0013</span>
+              </div>
+              <div class="chips">
+                <span class="chip n-frio"><i class="dot"></i>Frio</span>
+                <span class="chip mono">R4 · D10</span>
+                <span class="chip atraso">9 dias</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa" style="flex:1; justify-content:center">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  WhatsApp
+                </button>
+                <button class="btn" style="flex:1; justify-content:center">Sugerir</button>
+              </div>
+            </article>
+            <article class="card n-morno">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Diego F.</h3>
+                  <p class="card-prod">17 Pro 256GB <span class="cond">· Lacrado</span></p>
+                </div>
+                <span class="code">LEAD-0005</span>
+              </div>
+              <div class="chips">
+                <span class="chip n-morno"><i class="dot"></i>Morno</span>
+                <span class="chip mono">R2 · D2</span>
+                <span class="chip atraso">4 dias</span>
+              </div>
+              <div class="card-acoes">
+                <button class="btn btn-wa" style="flex:1; justify-content:center">
+                  <svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7L4 20z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  WhatsApp
+                </button>
+                <button class="btn" style="flex:1; justify-content:center">Sugerir</button>
+              </div>
+            </article>
+            <article class="card n-quente">
+              <div class="card-l1">
+                <div>
+                  <h3 class="card-nome">Camila M.</h3>
+                  <p class="card-prod">16 Plus 128 <span class="cond">· Lacrado</span></p>
+                </div>
+                <span class="code">LEAD-0015</span>
+              </div>
+              <div class="chips">
+                <span class="chip n-quente"><i class="dot"></i>Quente</span>
+                <span class="chip mono">R1 · D0</span>
+              </div>
+            </article>
+          </div>
+          <nav class="tabbar">
+            <button class="tab" aria-current="page">
+              <span class="tab-badge"><svg viewBox="0 0 24 24"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg></span>
+              <span>Fila</span>
+            </button>
+            <button class="tab">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+              <span>Todos</span>
+            </button>
+            <button class="tab">
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke-linecap="round"/><path d="M17 9.5v5M14.5 12h5" stroke-linecap="round"/></svg>
+              <span>Indicacoes</span>
+            </button>
+            <button class="tab">
+              <svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>
+              <span>Painel</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <div class="bloco" style="flex:1; min-width:280px">
+        <div class="bloco-head">
+          <h2>Emoji de status: a heranca do Sheets</h2>
+          <p>Os rotulos em <code>dicionario_rotulos</code> carregam emoji porque no Sheets emoji era o unico jeito de colorir celula. Numa UI branca com CSS de verdade, o emoji nao esta trabalhando: e o detalhe que mais denuncia planilha. <strong>Isso e dado, nao codigo</strong>, e a troca sai num UPDATE.</p>
+        </div>
+        <div class="moldura comp">
+          <div class="comp-col">
+            <div class="comp-rot">Hoje</div>
+            <div class="tela comp-lin" style="background:none">
+              <span class="chip">🟡 Pendente</span>
+              <span class="chip">❄️ Lista fria</span>
+              <span class="chip">🟢 Convertido</span>
+              <span class="chip">🌡️ Morno</span>
+              <span class="chip">⏰ Negociação parada</span>
+            </div>
+          </div>
+          <div class="comp-col">
+            <div class="comp-rot">Proposta</div>
+            <div class="tela comp-lin" style="background:none">
+              <span class="chip n-morno"><i class="dot"></i>Pendente</span>
+              <span class="chip n-frio"><i class="dot"></i>Lista fria</span>
+              <span class="chip n-ok"><i class="dot"></i>Convertido</span>
+              <span class="chip n-morno"><i class="dot"></i>Morno</span>
+              <span class="chip"><i class="dot"></i>Negociação parada</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TIPOGRAFIA ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>04 · Tipografia — o trio</h2>
+      <p>Duas familias, nao tres. <strong>Instrument Sans</strong> faz tudo que e palavra: um grotesco refinado, levemente estreito, mais elegante que o IBM Plex de engenharia que voce reprovou. <strong>Geist Mono</strong> faz tudo que e dado. Sem serif: voce vende Apple, e o mundo Apple nao tem serif em lugar nenhum. <strong>O refino agora vem de escala e tracking</strong>, nao de uma familia decorativa: titulo pesado e apertado (-0.028em), micro-rotulo em mono com respiro (+0.15em). Evitei Inter de proposito: e a fonte "segura" que toda IA escolhe.</p>
+    </div>
+    <div class="moldura">
+      <div class="tela tipo-lin">
+        <div class="tipo-item">
+          <div class="tipo-rot">Instrument Sans 600 · marca e titulo de tela</div>
+          <div style="font-family:var(--display); font-size:40px; font-weight:600; letter-spacing:-.032em; line-height:1.05">Fila do dia</div>
+        </div>
+        <div class="tipo-item">
+          <div class="tipo-rot">Instrument Sans 600 · numero do pitboard, tabular</div>
+          <div style="font-family:var(--display); font-size:46px; font-weight:600; letter-spacing:-.035em; line-height:1; font-variant-numeric:tabular-nums">6 &nbsp; 10 &nbsp; 3</div>
+        </div>
+        <div class="tipo-item">
+          <div class="tipo-rot">Instrument Sans 400 · o que se opera, e o texto do script</div>
+          <div style="font-size:14.5px; max-width:62ch">Oi Diego, o valor do 17 Pro 256GB fez sentido ou ficou acima do que você planejou? Sendo sincero comigo, eu te mostro um caminho melhor.</div>
+        </div>
+        <div class="tipo-item">
+          <div class="tipo-rot">Geist Mono 400/500 · dado, codigo e cadencia</div>
+          <div style="font-family:var(--mono); font-size:13.5px; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; gap:1px; color:var(--dim)">
+            <span>LEAD-0013 &nbsp; R4 · D10 &nbsp; 9 dias</span>
+            <span>LEAD-0005 &nbsp; R2 · D2 &nbsp;&nbsp; 4 dias</span>
+            <span>LEAD-0015 &nbsp; R1 · D0 &nbsp;&nbsp; 1 dia</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD VAZIO ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>05 · Dashboard — moldura vazia, de proposito</h2>
+      <p>Voce pediu dashboards. <strong>Nao existe metrica definida nem view no Postgres</strong>, entao qualquer numero que eu desenhasse aqui seria inventado, e numero inventado em mockup vira expectativa que o banco nao paga. O que a direcao entrega hoje e o lugar onde ele mora e a forma dos blocos. O conteudo e Fase 5, depois de voce definir o que medir.</p>
+    </div>
+    <div class="moldura">
+      <div class="tela" style="padding:22px">
+        <div class="estado" style="margin-bottom:10px">
+          <strong>As metricas ainda nao foram definidas</strong>
+          Definir o que medir vem antes de desenhar como mostrar. A metrica molda a view no Postgres, e a view molda o bloco na tela. Na ordem inversa e retrabalho garantido.
+        </div>
+        <div class="dash-grade">
+          <div class="dash-slot"><span class="pb-rot">Metrica 1</span><span class="vazio-marca">a definir</span></div>
+          <div class="dash-slot"><span class="pb-rot">Metrica 2</span><span class="vazio-marca">a definir</span></div>
+          <div class="dash-slot"><span class="pb-rot">Metrica 3</span><span class="vazio-marca">a definir</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TOKENS ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>06 · A paleta, medida e nao chutada</h2>
+      <p>Toda cor semantica de hoje <strong>reprova em fundo branco</strong>: foi calibrada para o escuro, onde marca 8.4 a 9.0. O minimo legivel e 4.5. Cada valor abaixo foi encontrado por busca, mirando o contraste alvo, e nao escolhido no olho.</p>
+    </div>
+    <div class="moldura tok-grade">
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:#0025CC"></div>
+          <div><div class="tok-nome">--accent</div><div class="tok-hex">#0025CC</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>vs branco</span><span class="ok-tag">9.83</span></div>
+          <div><span>mudanca</span><span>nenhuma</span></div>
+        </div>
+      </div>
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:linear-gradient(135deg,#F26B31 50%,#BC4715 50%)"></div>
+          <div><div class="tok-nome">--quente</div><div class="tok-hex">#F26B31 / #BC4715</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>faixa vs branco</span><span class="ok-tag">3.03</span></div>
+          <div><span>texto vs tint</span><span class="ok-tag">4.65</span></div>
+          <div><span>era</span><span class="mau-tag">#ff5d45 · 3.04</span></div>
+        </div>
+      </div>
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:linear-gradient(135deg,#C48808 50%,#946500 50%)"></div>
+          <div><div class="tok-nome">--morno</div><div class="tok-hex">#C48808 / #946500</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>faixa vs branco</span><span class="ok-tag">3.06</span></div>
+          <div><span>texto vs tint</span><span class="ok-tag">4.61</span></div>
+          <div><span>era</span><span class="mau-tag">#f2a71b · 2.04</span></div>
+        </div>
+      </div>
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:linear-gradient(135deg,#8395AF 50%,#5C6F8A 50%)"></div>
+          <div><div class="tok-nome">--frio</div><div class="tok-hex">#8395AF / #5C6F8A</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>faixa vs branco</span><span class="ok-tag">3.05</span></div>
+          <div><span>texto vs tint</span><span class="ok-tag">4.61</span></div>
+          <div><span>era</span><span class="mau-tag">#6db8e8 · 2.17</span></div>
+        </div>
+      </div>
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:#B01235"></div>
+          <div><div class="tok-nome">--erro</div><div class="tok-hex">#B01235</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>vs branco</span><span class="ok-tag">7.04</span></div>
+          <div><span>era</span><span class="mau-tag">#ff6b5e · 2.79</span></div>
+          <div><span>vs quente</span><span class="ok-tag">separado</span></div>
+        </div>
+      </div>
+      <div class="tok">
+        <div class="tok-cab">
+          <div class="amostra" style="background:#F6F7FA"></div>
+          <div><div class="tok-nome">--surface</div><div class="tok-hex">#F6F7FA</div></div>
+        </div>
+        <div class="tok-med">
+          <div><span>papel</span><span>barra lateral</span></div>
+          <div><span>vies</span><span>azul, nao cinza</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco-head" style="margin-top:8px">
+      <p><strong>O defeito que a medicao achou:</strong> hoje <code>--quente</code> (#ff5d45) e <code>--erro</code> (#ff6b5e) tem contraste de 1.09 entre si, ou seja, sao praticamente a mesma cor. Lead quente e oportunidade; erro e falha do sistema. Os dois pintam igual na tela ha meses. Na proposta, quente vira laranja e erro vira carmim.</p>
+    </div>
+  </section>
+
+  <!-- ============ DECISOES ============ -->
+  <section class="bloco">
+    <div class="bloco-head">
+      <h2>07 · O que precisa da sua decisao</h2>
+      <p>Nenhum destes eu resolvo sozinho: cada um contraria algo escrito no <code>CLAUDE.md</code> ou custa mais do que "so CSS".</p>
+    </div>
+    <div class="moldura" style="overflow-x:auto">
+      <table class="tab-dec">
+        <thead>
+          <tr><th>Decisao</th><th>Proposta</th><th>Por que precisa de voce</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hex do <code>--morno</code></td>
+            <td><strong>Decidido: muda</strong></td>
+            <td class="por">O <code>CLAUDE.md</code> fixa <code>--morno = #f2a71b</code> como invariante. Em branco ele marca 2.04 e reprova. O invariante de verdade e "semantico, nunca unificar com a marca", e isso eu preservo. O hex era calibragem de fundo escuro. Se voce aprovar, o <code>CLAUDE.md</code> muda junto.</td>
+          </tr>
+          <tr>
+            <td>Emoji nos rotulos</td>
+            <td><strong>Decidido: sai</strong></td>
+            <td class="por">Eu disse que era "so um UPDATE" e estava errado. O <code>app.js</code> tem um mapa chumbado com os mesmos emoji, que serve de semente, e a funcao <code>d()</code> sobrescreve com o que vem do banco. O banco ganha em runtime, mas se a leitura falhar o emoji volta pela semente. Tem que mexer nos dois lugares, e o UPDATE precisa entrar junto com o deploy do front, nunca antes.</td>
+          </tr>
+          <tr>
+            <td>Acento na UI</td>
+            <td><strong>Decidido: corrige</strong></td>
+            <td class="por">O app escreve a propria UI sem acento hoje ("Condicao", "Nao", "Observacao"), enquanto o dado vindo do banco tem acento certo. Portugues errado na tela e o oposto de sofisticado. Corrigir e mexer no <code>index</code>, nao no <code>app.css</code>.</td>
+          </tr>
+          <tr>
+            <td>Tamanho real da obra</td>
+            <td>Nao e so <code>app.css</code></td>
+            <td class="por">Barra lateral e barra inferior nao existem no HTML de hoje, que e coluna unica com abas. O <code>index</code> muda junto, e o <code>app.js</code> encosta na navegacao. O split da v23 barateou a parte de CSS; a parte de estrutura continua custando.</td>
+          </tr>
+          <tr>
+            <td>Serif na marca</td>
+            <td><strong>Decidido: sai</strong></td>
+            <td class="por">Proposto na v2 como risco estetico assumido, reprovado por voce, revertido na v3. O refino passa a vir de escala e tracking dentro do proprio grotesco. Era um token, e custou um token.</td>
+          </tr>
+          <tr>
+            <td>Nome do arquivo</td>
+            <td><code>public/index</code> → <code>index.html</code></td>
+            <td class="por">Achado fora do escopo: o arquivo servido em "/" esta commitado sem extensao. O Worker serve certo hoje (200, text/html), mas o repo diverge do que o handoff e o <code>wrangler.jsonc</code> descrevem. Risco baixo, conserto barato.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

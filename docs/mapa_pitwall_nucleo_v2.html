@@ -1,0 +1,347 @@
+<!-- Mapa Pit Wall 2.0 (Nucleo) - v2 - 09/07/2026
+     Delta v2: adicionada a ORDEM DE EXECUCAO (corte pro nucleo) e reclassificado o backup
+     como pre-requisito do corte, nao item de cyber pra depois.
+     Documento vivo. Para ATUALIZAR: edite os objetos ROADMAP e MAPA la embaixo no <script>.
+     Cada no tem { s: status, t: titulo, d: descricao }.
+     status: 'feito' (verde) | 'falta' (ambar) | 'critico' (vermelho) | 'adiado' (cinza) -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa Pit Wall 2.0 (Nucleo)</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#0e1533; --panel2:#121a3d; --line:#1f2b57;
+    --brand:#0025cc;            /* azul da marca (token real) */
+    --brand-lit:#5b78ff;        /* azul legivel no escuro */
+    --amber:#f2a71b;            /* semantico: atencao / falta */
+    --done:#27c07a; --critico:#ff4d5e; --adiado:#828db8;
+    --ink:#eef1fb; --muted:#98a2cc;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 600px at 80% -10%, #14205010, transparent),
+      radial-gradient(900px 500px at -10% 10%, #0025cc14, transparent),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+    padding:clamp(14px,3.5vw,40px);
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+
+  /* cabecalho */
+  .top{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end;justify-content:space-between;
+       border-bottom:1px solid var(--line);padding-bottom:18px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.32em;text-transform:uppercase;
+           color:var(--brand-lit);margin:0 0 8px}
+  h1{font-size:clamp(24px,5.2vw,40px);line-height:1.02;margin:0;font-weight:800;letter-spacing:-.02em}
+  h1 b{color:var(--brand-lit);font-weight:800}
+  .sub{color:var(--muted);margin:10px 0 0;max-width:56ch;font-size:14px}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+  .meta b{color:var(--ink)}
+
+  /* faixa de setores (fases) */
+  .strip{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 4px}
+  .seg{flex:1 1 120px;min-width:118px;background:var(--panel);border:1px solid var(--line);
+       border-radius:8px;padding:9px 11px;position:relative;overflow:hidden}
+  .seg .id{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted)}
+  .seg .nm{font-size:12.5px;font-weight:600;margin-top:2px}
+  .seg::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--adiado)}
+  .seg.ok::after{background:var(--done)} .seg.ok .id{color:var(--done)}
+  .seg.next::after{background:var(--amber)} .seg.next .id{color:var(--amber)}
+  .seg.next{box-shadow:0 0 0 1px var(--amber) inset}
+  .seg.lock::after{background:var(--brand-lit)} .seg.lock .id{color:var(--brand-lit)}
+
+  /* hub central */
+  .hub{margin:18px 0 8px;background:linear-gradient(180deg,#101a44,#0d1330);
+       border:1px solid var(--brand);border-radius:14px;padding:18px 20px;
+       box-shadow:0 0 40px #0025cc22}
+  .hub h2{margin:0;font-size:clamp(18px,3.4vw,24px);letter-spacing:-.01em}
+  .hub p{margin:8px 0 14px;color:var(--muted);font-size:14px;max-width:70ch}
+  .stats{display:flex;flex-wrap:wrap;gap:8px}
+  .stat{font-family:var(--mono);font-size:12px;background:#0a1030;border:1px solid var(--line);
+        border-radius:999px;padding:6px 12px;color:var(--ink)}
+  .stat b{color:var(--brand-lit)}
+
+  /* legenda + filtros */
+  .bar{display:flex;flex-wrap:wrap;gap:10px 8px;align-items:center;margin:16px 0 6px}
+  .bar .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--panel);
+        color:var(--ink);border-radius:999px;padding:6px 12px;cursor:pointer;display:inline-flex;
+        align-items:center;gap:7px;user-select:none}
+  .chip:focus-visible{outline:2px solid var(--brand-lit);outline-offset:2px}
+  .chip[aria-pressed="true"]{border-color:var(--brand-lit);background:#111a44}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .s-feito{color:var(--done)} .s-falta{color:var(--amber)} .s-critico{color:var(--critico)} .s-adiado{color:var(--adiado)}
+
+  /* grade de ramos */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:12px}
+  .branch{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+          display:flex;flex-direction:column}
+  .branch>header{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line);
+          position:relative}
+  .branch>header::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--spine,var(--brand-lit))}
+  .branch .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--muted);
+          background:#0a1030;border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+  .branch h3{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .nodes{padding:6px 6px 10px}
+  .node{display:grid;grid-template-columns:14px 1fr auto;gap:11px;align-items:start;
+         padding:10px 10px;border-radius:8px}
+  .node+.node{border-top:1px solid #16204a}
+  .node .led{width:10px;height:10px;border-radius:50%;margin-top:5px;box-shadow:0 0 9px currentColor}
+  .node .t{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .node .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .node .st{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+         align-self:center;border-radius:5px;padding:3px 6px;border:1px solid currentColor;white-space:nowrap}
+  .node.dim{opacity:.16;filter:saturate(.3)}
+  .node.hit{box-shadow:0 0 0 1px currentColor inset}
+
+  /* leitura critica */
+  .crit{margin-top:20px;background:linear-gradient(180deg,#1a1330,#120d24);
+        border:1px solid #3a2a12;border-radius:12px;padding:18px 20px}
+  .crit h3{margin:0 0 4px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--amber);font-family:var(--mono)}
+  .crit p{margin:10px 0 0;font-size:13.5px;color:#e7dcc4}
+  .crit b{color:#fff}
+  .crit ol{margin:10px 0 0;padding-left:20px}
+  .crit li{font-size:13.5px;color:#e7dcc4;margin:6px 0}
+  .foot{margin:22px 0 6px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center}
+
+  /* roadmap de prioridade (ordem de execucao) */
+  .road{margin:12px 0 4px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+  .tier{border-top:1px solid var(--line)}
+  .tier:first-child{border-top:0}
+  .tier>h4{margin:0;display:flex;gap:11px;align-items:center;padding:12px 15px;font-size:13px;
+     font-weight:700;letter-spacing:-.01em;background:var(--panel2);position:relative}
+  .tier>h4::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tc,var(--brand-lit))}
+  .tier>h4 .badge{font-family:var(--mono);font-size:13px;font-weight:700;color:#0a0e1a;background:var(--tc,var(--brand-lit));
+     width:23px;height:23px;border-radius:6px;display:grid;place-items:center;flex:none}
+  .step{display:grid;grid-template-columns:24px 1fr auto;gap:12px;align-items:start;padding:11px 15px}
+  .step+.step{border-top:1px solid #16204a}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:2px}
+  .step .t{font-size:13.5px;font-weight:600}
+  .step .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .step .tg{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+     border:1px solid var(--line);border-radius:5px;padding:3px 6px;align-self:center;white-space:nowrap}
+  .cut{font-family:var(--mono);font-size:11px;color:var(--done);padding:10px 15px;border-top:1px dashed #244a33;
+     background:#0c1526}
+  @media (max-width:520px){
+    .meta{text-align:left}
+    .node{grid-template-columns:12px 1fr;}
+    .node .st{grid-column:2;justify-self:start;margin-top:2px}
+    .step{grid-template-columns:22px 1fr}
+    .step .tg{grid-column:2;justify-self:start;margin-top:2px}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .seg.next{animation:pulse 2.4s ease-in-out infinite}
+    @keyframes pulse{50%{box-shadow:0 0 0 1px var(--amber) inset,0 0 18px #f2a71b33}}
+  }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <p class="eyebrow">Pitstop Imports // arquitetura viva</p>
+      <h1>Mapa do <b>Pit Wall 2.0</b><br>(Nucleo)</h1>
+      <p class="sub">Do Apps Script + Sheets para Postgres/Supabase com login, RLS, auditoria e frontend hospedado. Cada no abaixo mostra o que e, o que faz e em que estado esta, conferido no banco vivo.</p>
+    </div>
+    <div class="meta">
+      versao <b>v2</b> · +ordem de execucao<br>
+      verificado <b>09/07/2026</b><br>
+      fonte: estado vivo do banco<br>
+      projeto <b>unjzpyexgtbcmjfgcqrx</b> · plano FREE
+    </div>
+  </div>
+
+  <div class="strip" id="strip" aria-label="Fases da migracao"></div>
+
+  <div class="hub">
+    <h2>Nucleo: o CRM da loja rodando num backend so</h2>
+    <p>Pit Wall e o sensor (registra o que o operador faz). A regua e o cerebro (decide a cadencia). A base agora vive no Postgres. Estado de hoje:</p>
+    <div class="stats">
+      <span class="stat"><b>15</b> leads</span>
+      <span class="stat"><b>8</b> tabelas (RLS em todas)</span>
+      <span class="stat"><b>1</b> view (v_lead)</span>
+      <span class="stat"><b>5</b> RPCs de escrita</span>
+      <span class="stat"><b>1</b> usuario (dono)</span>
+      <span class="stat"><b>1</b> tenant</span>
+      <span class="stat" style="border-color:#5a3a12;color:var(--amber)"><b style="color:var(--amber)">6</b> avisos de seguranca abertos</span>
+    </div>
+  </div>
+
+  <p class="eyebrow" style="margin:24px 0 8px">Ordem de execucao // corte do app pro nucleo</p>
+  <div class="road" id="roadmap"></div>
+
+  <p class="eyebrow" style="margin:26px 0 8px">Arquitetura // o que e, o que faz, em que estado</p>
+  <div class="bar" role="group" aria-label="Filtrar por status">
+    <span class="lbl">Filtro</span>
+    <button class="chip" aria-pressed="false" data-f="feito"><span class="dot s-feito"></span>Feito</button>
+    <button class="chip" aria-pressed="false" data-f="falta"><span class="dot s-falta"></span>Falta</button>
+    <button class="chip" aria-pressed="false" data-f="critico"><span class="dot s-critico"></span>Critico</button>
+    <button class="chip" aria-pressed="false" data-f="adiado"><span class="dot s-adiado"></span>Adiado por decisao</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="crit">
+    <h3>Leitura critica (o "deveria estar pronto" honesto)</h3>
+    <p><b>Correcao de enquadramento primeiro.</b> A fundacao multi-tenant (a parte cara de fazer: tenant_id, RLS, papel e auditoria em toda tabela desde a primeira linha) JA esta pronta. A superficie de SaaS (billing, onboarding, admin de tenant, limites) esta adiada de proposito, nao esquecida. Construir essa superficie antes do primeiro pagante e o que faz o software comer a margem da revenda. 2 lojistas interessados nao sao 2 pagantes.</p>
+    <p><b>O que de fato esta atrasado e barato de fechar (faca antes da Fase 3):</b></p>
+    <ol>
+      <li><b>REVOKE EXECUTE de anon</b> nas 5 RPCs e nas funcoes helper. Hoje qualquer chamada com a chave publica pode acionar as funcoes; o RLS por dentro segura (anon vira tenant NULL e trava), mas a porta esta aberta e sem defesa em profundidade. Uma migration zera os 6 avisos do proprio Supabase.</li>
+      <li><b>Prova de isolamento com um 2o tenant e um 2o usuario reais.</b> O RLS de vendedor e de "tenant errado" esta escrito, nunca testado com linhas de verdade. E o teste mais barato e a maior prova de que o SaaS e seguro. Criar, provar, apagar.</li>
+      <li><b>Protecao de senha vazada + MFA</b> no painel. Dois cliques. Hoje email+senha e o unico portao do CRM inteiro.</li>
+      <li><b>Backup proprio do Postgres.</b> Subiu de nivel: na v2 virou pre-requisito do corte (passo A2), nao item de cyber. O corte apaga a planilha como espelho vivo; no plano FREE nao ha daily backup nem point-in-time, entao sem export independente um projeto derrubado e perda total.</li>
+    </ol>
+    <p><b>O que NAO fazer agora:</b> reconstrucao visual (Fase 5) e qualquer superficie de SaaS. Gastar a janela de 2 semanas nisso, em vez da Fase 3 (regua), dispara o criterio de abortar a migracao.</p>
+  </div>
+
+  <p class="foot">documento vivo · proxima atualizacao ao fechar a Fase 3 (regua em pg_cron) ou ao aplicar o hardening de anon</p>
+</div>
+
+<script>
+  const FASES = [
+    {id:"FASE 0", nm:"Schema",              st:"ok"},
+    {id:"FASE 1", nm:"Leitura + ETL",       st:"ok"},
+    {id:"FASE 2", nm:"Escrita + auditoria", st:"ok"},
+    {id:"FASE 3", nm:"Regua pg_cron",       st:"next"},
+    {id:"FASE 4", nm:"Aposentar planilha",  st:"todo"},
+    {id:"FASE 5", nm:"Dashboards + visual", st:"todo"},
+    {id:"SAAS",   nm:"trava: 1o pagante",   st:"lock"},
+  ];
+
+  // === EDITE AQUI PARA ATUALIZAR A ORDEM DE EXECUCAO ===
+  const ROADMAP = [
+    { tier:"A", cor:"var(--done)", titulo:"Prontidao operacional \u2014 o minimo pra cortar do app pro nucleo",
+      passos:[
+        {t:"Confirmar o deploy da camada de escrita no telefone", tg:"verificar", d:"Toque enviado tira o card, Novo lead cadastra, dedup avisa. E verificacao, nao codigo: 52 asserts ja passaram, entao falha aqui e deploy ou cache."},
+        {t:"Ligar o backup independente do Postgres ANTES do corte", tg:"pre-requisito", d:"O corte torna a planilha um espelho morto. No plano FREE nao ha daily backup nem PITR. Export via Supabase CLI / pg_dump pra fora (Cloudflare R2 ou Drive). Sem isso, copia unica sem recuperacao."},
+        {t:"Fechar os dados que travam operacao real", tg:"dado do dono", d:"Telefones de LEAD-0007 e LEAD-0008 (sem numero, sem botao de WhatsApp), status de LEAD-0013, data real de proximo contato de LEAD-0008."},
+        {t:"Definir a rotina diaria sem regua", tg:"processo", d:"A fila de hoje sai de proximo_contato + Retomar manual. Aceitavel a 15 leads e 0-2 toques/dia; e o que justifica a regua ser a proxima fase, nao um bloqueio agora."},
+      ]},
+    { tier:"B", cor:"var(--amber)", titulo:"Ciberseguranca \u2014 depois do corte, nesta ordem",
+      passos:[
+        {t:"REVOKE EXECUTE de anon nas RPCs e helpers", tg:"1 migration", d:"Zero risco operacional, fecha os 6 avisos do Supabase. Barato o bastante pra ir junto do corte, mas nao bloqueia operar: o RLS por dentro ja segura."},
+        {t:"MFA / TOTP no dono", tg:"painel \u00b7 free", d:"MFA basico esta incluso no plano FREE. Com o nucleo virando o unico sistema, email+senha sozinho e o portao fragil do negocio inteiro."},
+        {t:"Rate limit / guarda de borda na RPC", tg:"borda", d:"Ligado ao passo B1. Menor, mas reduz abuso na superficie que fica aberta ao anon."},
+        {t:"Protecao de senha vazada", tg:"talvez Pro", d:"ATENCAO: pode ser recurso so de Pro no plano atual. Confirmar no painel; se estiver bloqueado, fica pendente de upgrade, nao e falha de config sua."},
+        {t:"Prova de isolamento com 2o tenant e usuario reais", tg:"teste", d:"O RLS de vendedor e de tenant errado nunca foi testado com linhas reais. Barato, e a maior prova de que o isolamento fecha. Vale mais pro SaaS que pro single-tenant."},
+      ]},
+    { tier:"C", cor:"var(--brand-lit)", titulo:"Proxima fase \u2014 o motor",
+      passos:[
+        {t:"Fase 3: regua nativa em pg_cron", tg:"fase 3", d:"Regra 1: avanca so com toque confirmado. Regra 2: esfria so quem foi tocado e ignorado. Antes de codar: cravar cadencia por perfil e limite de silencio. Requer habilitar a extensao pg_cron, ainda nao instalada."},
+      ]},
+  ];
+  // === FIM DA ORDEM DE EXECUCAO ===
+
+  // === EDITE AQUI PARA ATUALIZAR O MAPA ===
+  const MAPA = [
+    { tag:"NUVEM", title:"Nuvem e deploy", spine:"#5b78ff", nodes:[
+      {s:"feito", t:"Cloudflare Worker (flat-resonance-09ba)", d:"Serve o app (index.html) como assets estaticos. Modo SPA protege o hash de recuperacao de senha. URL de producao pitstopimports.workers.dev."},
+      {s:"feito", t:"Wrangler CLI", d:"Unico caminho confiavel de deploy. O build via Git bateu no limite de triggers do plano free."},
+      {s:"feito", t:"GitHub pitwall--nucleo", d:"Backup versionado: public/index.html, wrangler.jsonc, README. Branch main."},
+      {s:"falta", t:"Dominio proprio", d:"Ainda no subdominio workers.dev. Some o flat-resonance quando registrar."},
+    ]},
+    { tag:"TELA", title:"Frontend (a tela)", spine:"#5b78ff", nodes:[
+      {s:"feito", t:"index.html azul", d:"Vanilla JS + supabase-js. Marca #0025cc. Termometro no #f2a71b (temperatura de pneu, semantico)."},
+      {s:"feito", t:"Camada de leitura", d:"Fila do dia, aba Todos, cards, termometro. Le da view v_lead (nivel derivado, Rota A)."},
+      {s:"feito", t:"Camada de escrita", d:"Toque enviado, leque de 4 desfechos, Novo lead com dedup, toasts. So chama as 5 RPCs, nunca escreve direto na tabela."},
+      {s:"feito", t:"Chave anon embutida", d:"Publica, protegida por RLS. service_role NUNCA no front (provado por teste)."},
+      {s:"adiado", t:"Reconstrucao visual (Fase 5)", d:"Decisao registrada: so depois da operacao cortar 100% pra stack nova. A logica de escrita sobrevive ao redesign."},
+    ]},
+    { tag:"LOGIN", title:"Autenticacao", spine:"#5b78ff", nodes:[
+      {s:"feito", t:"Supabase Auth (email + senha)", d:"1 usuario (dono, papel 'dono'). Site URL apontada pro Worker. Senha rotacionada pelo painel."},
+      {s:"falta", t:"Protecao de senha vazada", d:"Checagem no HaveIBeenPwned esta DESLIGADA. 1 clique no painel liga."},
+      {s:"falta", t:"MFA / 2o fator", d:"Sem TOTP. Email + senha e o unico portao do CRM inteiro."},
+    ]},
+    { tag:"BANCO", title:"Banco Postgres (fonte da verdade)", spine:"#5b78ff", nodes:[
+      {s:"feito", t:"tenant (1)", d:"A loja. Raiz do isolamento; todo dado carrega tenant_id."},
+      {s:"feito", t:"app_usuario (1)", d:"Liga auth.uid() ao tenant e ao papel (dono / vendedor). Alimenta as funcoes de RLS."},
+      {s:"feito", t:"lead (15)", d:"Nucleo do CRM. lead_code LEAD-NNNN, status, perfil, condicao. nivel NAO e coluna, e derivado na leitura."},
+      {s:"feito", t:"lead_evento (0)", d:"Historico append-only por lead. So insert e select; sem update/delete pra quem loga."},
+      {s:"feito", t:"cadencia_estado (0)", d:"Estado da regua. Vazio: a Fase 3 (pg_cron) ainda nao liga a cadencia."},
+      {s:"feito", t:"auditoria (32)", d:"Trilha append-only. So o trigger escreve (antes/depois); so o dono le."},
+      {s:"feito", t:"dicionario_rotulos (27)", d:"Fonte dos dropdowns (condicao, perfil, origem). Leitura pra qualquer logado."},
+      {s:"feito", t:"v_lead (view, security_invoker=on)", d:"Modelo de leitura. Deriva o nivel: 0-2 quente, 3-6 morno, 7+ frio."},
+    ]},
+    { tag:"RLS", title:"Seguranca e RLS (o cofre)", spine:"#27c07a", nodes:[
+      {s:"feito", t:"RLS em toda tabela", d:"Isolamento por tenant_id. Default-deny: sem policy, comando bloqueado."},
+      {s:"feito", t:"fn_tenant_atual / fn_papel_atual", d:"Resolvem tenant e papel do usuario logado. anon vira NULL e trava leitura e escrita."},
+      {s:"feito", t:"5 RPCs de escrita (SECURITY INVOKER)", d:"Funil estreito. lead_code atomico (advisory lock), dedup no servidor, search_path travado em public."},
+      {s:"feito", t:"Trigger fn_auditar (SECURITY DEFINER)", d:"1 escrita = 1 registro de auditoria. search_path travado."},
+      {s:"feito", t:"UNIQUE(tenant_id, whatsapp_digitos)", d:"Telefone duplicado e fisicamente impossivel. Nao existe 'cadastrar mesmo assim'."},
+    ]},
+    { tag:"CYBER", title:"O que falta de seguranca", spine:"#ff4d5e", nodes:[
+      {s:"critico", t:"REVOKE EXECUTE de anon nas RPCs", d:"anon pode CHAMAR todas as funcoes hoje (6 avisos do Supabase). O RLS por dentro segura, mas a porta esta aberta. 1 migration fecha e zera os avisos. Prioridade."},
+      {s:"falta", t:"Prova de isolamento (2o tenant real)", d:"RLS de vendedor e de tenant errado escrito, nunca testado com linhas reais. Teste barato, maior prova de prontidao pra SaaS."},
+      {s:"critico", t:"Backup independente do Postgres", d:"RECLASSIFICADO: pre-requisito do corte, nao item pra depois. O corte torna a planilha um espelho morto; plano FREE nao tem daily backup nem PITR. Sem export proprio (CLI/pg_dump pra R2 ou Drive), copia unica sem recuperacao. Ver passo A2."},
+      {s:"falta", t:"Rate limit / abuso na superficie RPC", d:"Endpoints RPC abertos ao anon (ligado ao item 1). Sem guarda de borda no Worker."},
+      {s:"falta", t:"Senha vazada OFF + MFA ausente", d:"Dois toggles no painel de Auth. Baratos, altos em impacto."},
+    ]},
+    { tag:"SAAS", title:"Estrutura SaaS (multi-lojista)", spine:"#5b78ff", nodes:[
+      {s:"feito", t:"Fundacao multi-tenant", d:"tenant_id + RLS + papel + auditoria em toda tabela desde a 1a linha. A parte cara ja esta pronta."},
+      {s:"adiado", t:"Superficie de SaaS", d:"Billing, onboarding, admin de tenant, limites de plano. Invariante: nao construir antes do 1o pagante."},
+      {s:"falta", t:"Provisionamento de tenant", d:"Funcao pra criar loja + 1o usuario de forma atomica. Esqueleto barato, mas so quando precisar."},
+      {s:"falta", t:"Prova de isolamento entre tenants", d:"Mesmo teste da seguranca. E o passo que valida a promessa central do SaaS."},
+    ]},
+  ];
+  // === FIM DA AREA EDITAVEL ===
+
+  const ST = {
+    feito:  {cls:"s-feito",  lab:"Feito"},
+    falta:  {cls:"s-falta",  lab:"Falta"},
+    critico:{cls:"s-critico",lab:"Critico"},
+    adiado: {cls:"s-adiado", lab:"Adiado"},
+  };
+
+  // faixa de fases
+  document.getElementById("strip").innerHTML = FASES.map(f=>`
+    <div class="seg ${f.st}"><div class="id">${f.id}</div><div class="nm">${f.nm}</div></div>
+  `).join("");
+
+  // roadmap
+  document.getElementById("roadmap").innerHTML = ROADMAP.map(tr=>`
+    <div class="tier" style="--tc:${tr.cor}">
+      <h4><span class="badge">${tr.tier}</span>${tr.titulo}</h4>
+      ${tr.passos.map((p,i)=>`
+        <div class="step">
+          <span class="n">${tr.tier}${i+1}</span>
+          <div><div class="t">${p.t}</div><div class="d">${p.d}</div></div>
+          <span class="tg">${p.tg}</span>
+        </div>`).join("")}
+      ${tr.tier==="A" ? '<div class="cut">\u2713 apos A1\u2013A4: voce opera 100% no nucleo e para de abrir o app velho. Corte feito.</div>' : ""}
+    </div>
+  `).join("");
+
+  // ramos
+  document.getElementById("grid").innerHTML = MAPA.map(b=>`
+    <section class="branch" style="--spine:${b.spine}">
+      <header><span class="tag">${b.tag}</span><h3>${b.title}</h3></header>
+      <div class="nodes">
+        ${b.nodes.map(n=>{
+          const s = ST[n.s];
+          return `<div class="node ${s.cls}" data-s="${n.s}">
+            <span class="led"></span>
+            <div><div class="t">${n.t}</div><div class="d">${n.d}</div></div>
+            <span class="st">${s.lab}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </section>
+  `).join("");
+
+  // filtro por status
+  const active = new Set();
+  document.querySelectorAll(".chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{
+      const f = chip.dataset.f;
+      if(active.has(f)){active.delete(f);chip.setAttribute("aria-pressed","false");}
+      else{active.add(f);chip.setAttribute("aria-pressed","true");}
+      document.querySelectorAll(".node").forEach(node=>{
+        const match = active.size===0 || active.has(node.dataset.s);
+        node.classList.toggle("dim", !match);
+        node.classList.toggle("hit", active.size>0 && match);
+      });
+    });
+  });
+</script>

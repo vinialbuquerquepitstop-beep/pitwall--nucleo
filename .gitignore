@@ -1,0 +1,12 @@
+# Preferencias locais de maquina: caminhos de scratchpad, permissoes daquele PC.
+# Por convencao settings.local.json e pessoal; settings.json seria o compartilhado.
+.claude/settings.local.json
+
+# Gerado por ferramentas/mock_historico.py. Regenerar com:
+#   python ferramentas/mock_historico.py
+# Fica fora do repo porque sao 220KB de fonte em base64 embutida, e o gerador
+# (que e a fonte da verdade) esta versionado.
+ferramentas/mock_historico.html
+
+# Saidas temporarias de harness/preview
+ferramentas/preview.html
