@@ -1,1 +1,179 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><title>Pit Wall · Pitstop Imports</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="app.css"></head><body><div id="telaLogin" class="login"><div class="login-box"><div class="marca">PIT<span class="traco">/</span>WALL</div><div class="marca-sub">Pitstop Imports · Nucleo</div><div class="campo"><label for="email">Email</label> <input id="email" type="email" autocomplete="username" inputmode="email"></div><div class="campo"><label for="senha">Senha</label> <input id="senha" type="password" autocomplete="current-password"></div><button id="btnEntrar" class="btn-entrar">Entrar</button><div id="loginErro" class="login-erro" role="alert"></div></div></div><div id="telaApp" class="app oculto"><div class="topo"><div class="marca">PIT<span class="traco">/</span>WALL</div><div class="topo-acoes"><button id="btnNovoLead" class="link-acao">Novo lead</button> <button id="btnAtualizar" class="link-acao">Atualizar</button> <button id="btnSair" class="link-acao">Sair</button></div></div><div class="pitboard" id="pitboard"><div class="pb-celula"><div class="pb-num" id="pbFila">0</div><div class="pb-rot">na fila</div></div><div class="pb-celula"><div class="pb-num" id="pbAtraso">0</div><div class="pb-rot">em atraso</div></div><div class="pb-celula"><div class="pb-num" id="pbAtivos">0</div><div class="pb-rot">ativos</div></div><div class="pb-celula"><div class="pb-num" id="pbTotal">0</div><div class="pb-rot">na base</div></div></div><div id="painelCadastro" class="painel-cadastro oculto"><h2>Novo lead</h2><div class="campo"><label for="cadNome">Nome *</label><input id="cadNome" type="text" autocomplete="off"></div><div class="campo"><label for="cadWhats">WhatsApp *</label><input id="cadWhats" type="tel" inputmode="tel" placeholder="DDD + numero" autocomplete="off"></div><div class="campo"><label for="cadProduto">Produto *</label><input id="cadProduto" type="text" placeholder="iPhone 16 Pro, MacBook M3..." autocomplete="off"></div><div class="campo"><label for="cadCondicao">Condicao *</label><select id="cadCondicao"></select></div><div class="campo"><label for="cadPerfil">Perfil *</label><select id="cadPerfil"></select></div><div class="campo"><label for="cadOrigem">Origem *</label><select id="cadOrigem"></select></div><div class="campo oculto" id="campoIndicado"><label for="cadIndicado">Indicado por *</label><input id="cadIndicado" type="text" autocomplete="off"></div><div class="campo"><label for="cadConsent">Consentimento</label><select id="cadConsent"><option value="sim" selected="selected">Sim</option><option value="nao">Nao</option></select></div><div class="campo"><label for="cadObs">Observacao</label><input id="cadObs" type="text" autocomplete="off"></div><div class="campo"><label for="cadUpgrade">Upgrade (da aparelho de entrada?)</label><select id="cadUpgrade"><option value="">Nao informado</option><option value="sim">Sim</option><option value="nao">Nao</option></select></div><div class="campo"><label for="cadAparelho">Aparelho de entrada</label><input id="cadAparelho" type="text" autocomplete="off"></div><div id="cadDup" class="cad-dup"><span id="cadDupMsg"></span><button id="btnAbrirExistente" class="btn-cad secundario">Abrir lead existente</button></div><div class="cad-acoes"><button id="btnCadastrar" class="btn-cad">Cadastrar</button> <button id="btnCancelarCadastro" class="btn-cad secundario">Cancelar</button></div><div id="cadErro" class="cad-erro" role="alert"></div></div><div id="painelEdicao" class="painel-cadastro oculto"><h2 id="edTitulo">Editar lead</h2><div class="campo"><label for="edNome">Nome *</label><input id="edNome" type="text" autocomplete="off"></div><div class="campo"><label for="edWhats">WhatsApp</label><input id="edWhats" type="tel" inputmode="tel" placeholder="DDD + numero" autocomplete="off"></div><div class="campo"><label for="edProduto">Produto *</label><input id="edProduto" type="text" autocomplete="off"></div><div class="campo"><label for="edCondicao">Condicao *</label><select id="edCondicao"></select></div><div class="campo"><label for="edPerfil">Perfil *</label><select id="edPerfil"></select></div><div class="campo"><label for="edOrigem">Origem *</label><select id="edOrigem"></select></div><div class="campo oculto" id="campoEdIndicado"><label for="edIndicado">Indicado por *</label><input id="edIndicado" type="text" autocomplete="off"></div><div class="campo"><label for="edNasc">Data de nascimento</label><input id="edNasc" type="date"></div><div class="campo"><label for="edProx">Proximo contato</label><input id="edProx" type="date"></div><div class="campo"><label for="edValor">Valor da oferta (R$)</label><input id="edValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div><div class="campo"><label for="edObs">Observacao</label><input id="edObs" type="text" autocomplete="off"></div><div class="campo"><label for="edUpgrade">Upgrade (da aparelho de entrada?)</label><select id="edUpgrade"><option value="">Nao informado</option><option value="sim">Sim</option><option value="nao">Nao</option></select></div><div class="campo"><label for="edAparelho">Aparelho de entrada</label><input id="edAparelho" type="text" autocomplete="off"></div><div class="cad-acoes"><button id="btnSalvarEdicao" class="btn-cad">Salvar</button> <button id="btnCancelarEdicao" class="btn-cad secundario">Cancelar</button></div><div class="cad-acoes"><button id="btnArquivar" class="btn-cad perigo">Arquivar lead</button></div><div id="edErro" class="cad-erro" role="alert"></div></div><div class="abas" role="tablist"><button class="aba" id="abaFila" role="tab" aria-selected="true">Fila do dia</button> <button class="aba" id="abaTodos" role="tab" aria-selected="false">Todos</button> <button class="aba" id="abaIndicacoes" role="tab" aria-selected="false">Indicacoes</button></div><div class="busca" id="blocoBusca"><input id="inputBusca" type="search" placeholder="Buscar por nome, telefone ou produto" autocomplete="off"></div><div class="lista" id="lista" aria-live="polite"></div><div class="rodape" id="rodape"></div></div><div id="toast" class="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Pit Wall · Pitstop Imports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="telaLogin" class="login">
+  <div class="login-box">
+    <div class="marca">Pit Wall</div>
+    <div class="marca-sub">Pitstop Imports · Núcleo</div>
+    <div class="campo">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" inputmode="email">
+    </div>
+    <div class="campo">
+      <label for="senha">Senha</label>
+      <input id="senha" type="password" autocomplete="current-password">
+    </div>
+    <button id="btnEntrar" class="btn-entrar">Entrar</button>
+    <div id="loginErro" class="login-erro" role="alert"></div>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="telaApp" class="app oculto">
+
+  <!-- Barra lateral no desktop, barra inferior no celular.
+       Os botoes de aba sao os mesmos: o que muda e o layout, nao o DOM. -->
+  <aside class="side">
+    <div class="side-marca">
+      <div class="marca">Pit Wall</div>
+      <div class="marca-sub">Pitstop Imports</div>
+    </div>
+
+    <div class="abas" role="tablist">
+      <p class="nav-rot">Operação</p>
+      <button class="aba" id="abaFila" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg>
+        <span class="aba-txt">Fila do dia</span>
+        <span class="nav-badge" id="badgeFila"></span>
+      </button>
+      <button class="aba" id="abaTodos" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+        <span class="aba-txt">Todos</span>
+      </button>
+      <button class="aba" id="abaIndicacoes" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke-linecap="round"/><path d="M17 9.5v5M14.5 12h5" stroke-linecap="round"/></svg>
+        <span class="aba-txt">Indicações</span>
+      </button>
+
+      <p class="nav-rot nav-rot-2">Análise</p>
+      <button class="aba" id="abaDash" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>
+        <span class="aba-txt">Dashboard</span>
+      </button>
+    </div>
+
+    <div class="side-pe">
+      <div class="avatar" aria-hidden="true">V</div>
+      <div class="side-pe-txt">
+        <span class="side-pe-nome">Vini</span>
+        <span class="side-user">Dono</span>
+      </div>
+      <button id="btnSair" class="link-acao" aria-label="Sair">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 17l5-5-5-5M20 12H9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="conteudo">
+
+    <div class="topo">
+      <div class="topo-esq">
+        <h1 class="topo-tit" id="topoTit">Fila do dia</h1>
+        <span class="topo-sub" id="topoSub"></span>
+      </div>
+      <div class="topo-acoes">
+        <button id="btnAtualizar" class="link-acao">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Atualizar
+        </button>
+        <button id="btnNovoLead" class="link-acao">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+          Novo lead
+        </button>
+      </div>
+    </div>
+
+    <div class="pitboard" id="pitboard">
+      <div class="pb-celula"><div class="pb-rot">na fila</div><div class="pb-num" id="pbFila">0</div><div class="pb-pe">vencendo hoje</div></div>
+      <div class="pb-celula"><div class="pb-rot">em atraso</div><div class="pb-num" id="pbAtraso">0</div><div class="pb-pe">passaram da data</div></div>
+      <div class="pb-celula"><div class="pb-rot">ativos</div><div class="pb-num" id="pbAtivos">0</div><div class="pb-pe">leads pendentes</div></div>
+      <div class="pb-celula"><div class="pb-rot">na base</div><div class="pb-num" id="pbTotal">0</div><div class="pb-pe">no total</div></div>
+    </div>
+
+    <!-- ---------- Novo lead ---------- -->
+    <div id="painelCadastro" class="painel-cadastro oculto">
+      <h2>Novo lead</h2>
+      <div class="campo"><label for="cadNome">Nome *</label><input id="cadNome" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="cadWhats">WhatsApp *</label><input id="cadWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"></div>
+      <div class="campo"><label for="cadProduto">Produto *</label><input id="cadProduto" type="text" placeholder="iPhone 16 Pro, MacBook M3..." autocomplete="off"></div>
+      <div class="campo"><label for="cadCondicao">Condição *</label><select id="cadCondicao"></select></div>
+      <div class="campo"><label for="cadPerfil">Perfil *</label><select id="cadPerfil"></select></div>
+      <div class="campo"><label for="cadOrigem">Origem *</label><select id="cadOrigem"></select></div>
+      <div class="campo oculto" id="campoIndicado"><label for="cadIndicado">Indicado por *</label><input id="cadIndicado" type="text" autocomplete="off"></div>
+      <div class="campo">
+        <label for="cadConsent">Consentimento</label>
+        <select id="cadConsent"><option value="sim" selected="selected">Sim</option><option value="nao">Não</option></select>
+      </div>
+      <div class="campo"><label for="cadObs">Observação</label><input id="cadObs" type="text" autocomplete="off"></div>
+      <div class="campo">
+        <label for="cadUpgrade">Upgrade (dá aparelho de entrada?)</label>
+        <select id="cadUpgrade"><option value="">Não informado</option><option value="sim">Sim</option><option value="nao">Não</option></select>
+      </div>
+      <div class="campo"><label for="cadAparelho">Aparelho de entrada</label><input id="cadAparelho" type="text" autocomplete="off"></div>
+      <div id="cadDup" class="cad-dup">
+        <span id="cadDupMsg"></span>
+        <button id="btnAbrirExistente" class="btn-cad secundario">Abrir lead existente</button>
+      </div>
+      <div class="cad-acoes">
+        <button id="btnCadastrar" class="btn-cad">Cadastrar</button>
+        <button id="btnCancelarCadastro" class="btn-cad secundario">Cancelar</button>
+      </div>
+      <div id="cadErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <!-- ---------- Editar lead ---------- -->
+    <div id="painelEdicao" class="painel-cadastro oculto">
+      <h2 id="edTitulo">Editar lead</h2>
+      <div class="campo"><label for="edNome">Nome *</label><input id="edNome" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="edWhats">WhatsApp</label><input id="edWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"></div>
+      <div class="campo"><label for="edProduto">Produto *</label><input id="edProduto" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="edCondicao">Condição *</label><select id="edCondicao"></select></div>
+      <div class="campo"><label for="edPerfil">Perfil *</label><select id="edPerfil"></select></div>
+      <div class="campo"><label for="edOrigem">Origem *</label><select id="edOrigem"></select></div>
+      <div class="campo oculto" id="campoEdIndicado"><label for="edIndicado">Indicado por *</label><input id="edIndicado" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="edNasc">Data de nascimento</label><input id="edNasc" type="date"></div>
+      <div class="campo"><label for="edProx">Próximo contato</label><input id="edProx" type="date"></div>
+      <div class="campo"><label for="edValor">Valor da oferta (R$)</label><input id="edValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
+      <div class="campo"><label for="edObs">Observação</label><input id="edObs" type="text" autocomplete="off"></div>
+      <div class="campo">
+        <label for="edUpgrade">Upgrade (dá aparelho de entrada?)</label>
+        <select id="edUpgrade"><option value="">Não informado</option><option value="sim">Sim</option><option value="nao">Não</option></select>
+      </div>
+      <div class="campo"><label for="edAparelho">Aparelho de entrada</label><input id="edAparelho" type="text" autocomplete="off"></div>
+      <div class="cad-acoes">
+        <button id="btnSalvarEdicao" class="btn-cad">Salvar</button>
+        <button id="btnCancelarEdicao" class="btn-cad secundario">Cancelar</button>
+      </div>
+      <div class="cad-acoes">
+        <button id="btnArquivar" class="btn-cad perigo">Arquivar lead</button>
+      </div>
+      <div id="edErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <div class="busca" id="blocoBusca">
+      <input id="inputBusca" type="search" placeholder="Buscar por nome, telefone ou produto" autocomplete="off">
+    </div>
+
+    <div class="lista" id="lista" aria-live="polite"></div>
+    <div class="rodape" id="rodape"></div>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
