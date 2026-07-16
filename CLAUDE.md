@@ -8,7 +8,7 @@ aponte para arquivo inexistente.
 
 ## Arranque de toda sessao (nesta ordem)
 
-1. Ler o handoff de MAIOR versao em `docs/handoffs/` (hoje: `handoff_migracao_pitwall_v26.md`).
+1. Ler o handoff de MAIOR versao em `docs/handoffs/` (hoje: `handoff_migracao_pitwall_v27.md`).
    O handoff mais novo substitui todos os anteriores.
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
