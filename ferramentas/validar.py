@@ -35,9 +35,14 @@ except Exception as e:
 ids_js = set(re.findall(r'E\("([A-Za-z0-9_]+)"\)', novo_js))
 ids_js |= set(re.findall(r'getElementById\("([A-Za-z0-9_]+)"\)', novo_js))
 ids_html = set(re.findall(r'id="([A-Za-z0-9_]+)"', novo_html))
-faltando = sorted(ids_js - ids_html)
-print(f'  [2] IDs que o JS busca: {len(ids_js)} | IDs no index novo: {len(ids_html)}')
-ck(not faltando, f'ID buscado pelo JS e AUSENTE no index novo: {faltando}')
+# A Fase 5 trouxe elementos que o proprio JS cria (o form da captacao e uma view
+# singleton montada em runtime). A regra honesta nao e "todo ID esta no HTML", e sim
+# "todo ID que o JS busca existe em ALGUM lugar": no HTML ou na saida do proprio JS.
+# Sem isso o check daria falso positivo; com whitelist, deixaria de pegar erro de verdade.
+ids_emitidos_js = set(re.findall(r'id="([A-Za-z0-9_]+)"', novo_js))
+faltando = sorted(ids_js - ids_html - ids_emitidos_js)
+print(f'  [2] IDs que o JS busca: {len(ids_js)} | no index: {len(ids_html)} | criados pelo JS: {len(ids_emitidos_js)}')
+ck(not faltando, f'ID buscado pelo JS e nao existe nem no index nem na saida do JS: {faltando}')
 
 # nenhum ID do index antigo pode ter sumido sem querer
 ids_old = set(re.findall(r'id="([A-Za-z0-9_]+)"', velho_html))
@@ -143,6 +148,31 @@ ck('Use Adiar/Retomar' not in novo_js,
 ck('"fechou"===tipo||"respondeu"===tipo' in novo_js.replace(' ',''),
    'o mapa de ator perdeu a distincao de respondeu')
 print('  [8] Fase 4: historico_lead e registrar_nota ligadas, painel fechado por padrao, classes com estilo')
+
+# ---------- 9. FASE 5: captacao ----------
+for cls in ['cap-reg', 'cap-lin', 'cap-log', 'cap-ident', 'cap-hora', 'cap-frente', 'cap-quem',
+            'cap-fim', 'cap-selo', 'cap-virou', 'cap-vazio', 'cap-det', 'cap-msg', 'btn-cap',
+            'btn-parar', 'cap-mais', 'pb-celula']:
+    ck(re.search(r'[.\[]'+re.escape(cls)+r'\b', novo_css) is not None,
+       f'classe {cls} emitida pelo JS e sem regra no CSS')
+ck(novo_html.count('id="abaCaptacao"')==1, 'aba Captacao ausente ou duplicada no HTML')
+ck(novo_html.count('id="badgeCaptacao"')==1, 'contador da aba Captacao ausente')
+ck('"captacao"===n' in novo_js, 'o JS nao sabe renderizar a aba Captacao')
+for rpc in ['registrar_captacao', 'registrar_opt_out', 'placar_captacao', 'captacao_do_dia']:
+    ck(f'rpc("{rpc}"' in novo_js, f'o front nao chama {rpc}')
+# o pitboard de LEAD nao pode aparecer na captacao: sao numeros de outro laco
+ck('.pitboard.oculto{display:none}' in novo_css, 'sem regra para esconder o pitboard de lead')
+ck('"captacao"===n?" oculto":""' in novo_js, 'o pitboard de lead apareceria na aba Captacao')
+# a meta e config, nunca chumbada (invariante 11)
+ck(not re.search(r'\balvo\s*[:=]\s*\d+', novo_js), 'o alvo da meta foi chumbado no JS: ele vive em captacao_meta')
+# a referencia v3: o azul aparece em 4 lugares e mais nenhum. A v1 do mock tinha
+# uma barra de progresso azul; ela nao pode voltar disfarcada.
+ck('cap-barra' not in novo_css and 'cap-barra' not in novo_js,
+   'a barra de progresso azul voltou: e um quinto uso da marca, e o pitboard ja diz "X de Y"')
+# a regra de opt-out mora no banco
+ck('Nao insistir' not in novo_js and 'não insistir' not in novo_js.lower().replace('nao','não'),
+   'a regra de reabordagem foi duplicada no JS: ela mora em registrar_captacao()')
+print('  [9] Fase 5: aba Captacao ligada as 4 RPCs, pitboard de lead escondido, meta em config')
 
 print()
 if falhas:

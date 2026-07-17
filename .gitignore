@@ -14,3 +14,4 @@ ferramentas/preview.html
 # handoff.md e copia publicavel do handoff de maior versao (gerada, nao editar).
 # A fonte da verdade e docs/handoffs/handoff_migracao_pitwall_vNN.md
 ferramentas/handoff.md
+ferramentas/mock_captacao.html

@@ -57,12 +57,6 @@
         <span class="aba-txt">Indicações</span>
       </button>
 
-      <button class="aba" id="abaCaptacao" role="tab" aria-selected="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg>
-        <span class="aba-txt">Captação</span>
-        <span class="nav-badge" id="badgeCaptacao"></span>
-      </button>
-
       <p class="nav-rot nav-rot-2">Análise</p>
       <button class="aba" id="abaDash" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>

@@ -35,7 +35,9 @@ STUB = """
 window.__PITWALL_SEM_INIT = 1;
 window.__log = [];
 var LEADS = %s, ROTULOS = %s, HIST = %s;
-var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS };
+var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS,
+  captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
+var CAP = [];
 window.__rpcChamadas = [];
 window.supabase = {
   createClient: function () {
@@ -63,6 +65,39 @@ window.supabase = {
           if (!args.p_texto || !args.p_texto.trim())
             return Promise.resolve({ data: { ok: false, msg: 'Nota vazia' }, error: null });
           return Promise.resolve({ data: { ok: true, msg: 'Nota registrada' }, error: null });
+        }
+        // ---- Fase 5. O stub espelha as regras REAIS, conferidas contra o banco em
+        // transacao revertida: dedup com a data, e reabordagem bloqueada apos opt-out.
+        if (nome === 'placar_captacao') {
+          var feitas = CAP.filter(function (x) { return x.hoje; }).length;
+          return Promise.resolve({ data: {
+            ok: true, dia: '16/07/2026', alvo: 10, feitas: feitas,
+            restantes: Math.max(10 - feitas, 0), total: CAP.length,
+            leads_gerados: CAP.filter(function (x) { return x.virou_lead; }).length,
+            pararam: CAP.filter(function (x) { return x.parou; }).length,
+            frentes: [{ frente: 'instagram_dm', rotulo: 'Instagram · DM', feitas: feitas }]
+          }, error: null });
+        }
+        if (nome === 'captacao_do_dia') {
+          return Promise.resolve({ data: { ok: true, dia: '16/07/2026',
+            linhas: CAP.filter(function (x) { return x.hoje; }) }, error: null });
+        }
+        if (nome === 'registrar_captacao') {
+          var ident = String(args.p_identificador || '').trim();
+          if (!ident) return Promise.resolve({ data: { ok: false, msg: 'Identificador obrigatorio (ex: @perfil)' }, error: null });
+          var ja = CAP.filter(function (x) { return x.identificador === ident && x.frente === args.p_frente; })[0];
+          if (ja && ja.parou)
+            return Promise.resolve({ data: { ok: false, msg: 'Essa pessoa pediu para nao ser mais abordada. Nao insistir.' }, error: null });
+          if (ja)
+            return Promise.resolve({ data: { ok: false, duplicado: true, msg: 'Voce ja abordou ' + ident + ' nessa frente em 12/07/2026' }, error: null });
+          CAP.unshift({ id: 'novo-' + CAP.length, identificador: ident, nome: args.p_nome || null,
+            observacoes: args.p_observacoes || null, frente: args.p_frente,
+            frente_rotulo: 'Instagram · DM', hora: '21:45', parou: false, virou_lead: false, hoje: true });
+          return Promise.resolve({ data: { ok: true, msg: 'Abordagem registrada' }, error: null });
+        }
+        if (nome === 'registrar_opt_out') {
+          CAP.forEach(function (x) { if (x.id === args.p_captacao_id) x.parou = true; });
+          return Promise.resolve({ data: { ok: true, msg: 'Marcada como nao abordar' }, error: null });
         }
         return Promise.resolve({ data: { ok: false, msg: 'rpc nao stubada: ' + nome }, error: null });
       }
@@ -168,7 +203,104 @@ async function rodar() {
 
   // ---- 8. sugerir_mensagem intacta ----
   ok('painel de scripts continua no card', !!card.querySelector('[data-scripts]'));
+
+  // ================= FASE 5: aba Captação =================
+  var abaCap = document.getElementById('abaCaptacao');
+  ok('a aba Captação existe', !!abaCap);
+  abaCap.click();
+  await espera(240);
+
+  ok('título virou Captação', document.getElementById('topoTit').textContent === 'Captação',
+     document.getElementById('topoTit').textContent);
+  ok('aba ficou marcada', abaCap.getAttribute('aria-selected') === 'true');
+  // o pitboard de LEAD nao pode aparecer aqui: sao numeros de outro laco
+  ok('pitboard de lead escondido', getComputedStyle(document.getElementById('pitboard')).display === 'none',
+     getComputedStyle(document.getElementById('pitboard')).display);
+
+  var cels = document.querySelectorAll('#lista .pitboard .pb-celula');
+  ok('placar tem 4 células', cels.length === 4, 'n=' + cels.length);
+  ok('dia zerado mostra 0', cels[0].querySelector('.pb-num').textContent === '0',
+     cels[0].querySelector('.pb-num').textContent);
+  ok('a meta vem do banco, não do JS', cels[0].querySelector('.pb-pe').textContent === 'de 10 na meta',
+     cels[0].querySelector('.pb-pe').textContent);
+  ok('nada de "faltam", que repetiria "0 de 10"',
+     document.querySelector('#lista .pitboard').textContent.indexOf('faltam') === -1);
+  ok('sem barra de progresso azul (5o uso da marca)', !document.querySelector('#lista .cap-barra'));
+  ok('vazio diz o próximo passo', document.querySelector('.cap-vazio-t').textContent.indexOf('Nenhuma abordagem') >= 0);
+
+  // ---- o loop: digitar, Enter, próximo
+  var ident = document.getElementById('capIdent');
+  ok('o campo do @perfil existe', !!ident);
+  ident.value = '@ana.ferraz';
+  ident.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await espera(200);
+  var ch = window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_captacao'; });
+  ok('Enter registra (sem precisar do botão)', ch.length === 1, 'n=' + ch.length);
+  ok('mandou o @perfil certo', ch[0] && ch[0].args.p_identificador === '@ana.ferraz');
+  ok('mandou a frente', ch[0] && ch[0].args.p_frente === 'instagram_dm');
+  ok('a linha apareceu no log', document.querySelectorAll('#lista .cap-lin').length === 1);
+  ok('o placar subiu para 1', document.querySelector('#lista .pb-num').textContent === '1',
+     document.querySelector('#lista .pb-num').textContent);
+  ok('o campo limpou para a próxima', document.getElementById('capIdent').value === '');
+  ok('o foco voltou para o campo', document.activeElement === document.getElementById('capIdent'),
+     document.activeElement ? document.activeElement.id : 'nenhum');
+  ok('o contador da aba mostra 1', document.getElementById('badgeCaptacao').textContent === '1',
+     document.getElementById('badgeCaptacao').textContent);
+
+  // ---- campo vazio: barra no JS, sem ir ao banco
+  var antes5 = window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_captacao'; }).length;
+  document.querySelector('[data-acao="cap-registrar"]').click();
+  await espera(90);
+  ok('campo vazio não vai ao banco',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_captacao'; }).length === antes5);
+  ok('campo vazio mostra erro', !!document.querySelector('.cap-msg.erro'));
+
+  // ---- dedup: o banco recusa e diz quando foi
+  document.getElementById('capIdent').value = '@ana.ferraz';
+  document.querySelector('[data-acao="cap-registrar"]').click();
+  await espera(180);
+  var m = document.querySelector('.cap-msg');
+  ok('reabordagem recusada com a data', !!m && m.textContent.indexOf('12/07/2026') >= 0,
+     m ? m.textContent : 'sem msg');
+
+  // ---- nome e observação ficam guardados (menos dado de quem não pediu contato)
+  var det = document.getElementById('capDet');
+  ok('nome/observação começam escondidos', getComputedStyle(det).display === 'none');
+  document.querySelector('[data-acao="cap-mais"]').click();
+  await espera(70);
+  ok('abrem no clique', getComputedStyle(det).display === 'flex');
+
+  // ---- opt-out: a segunda metade da regra do dono
+  document.getElementById('capIdent').value = '@marcos.dev';
+  document.querySelector('[data-acao="cap-registrar"]').click();
+  await espera(180);
+  var parar = document.querySelector('.cap-lin [data-acao="cap-parar"]');
+  ok('a linha tem a ação "parar"', !!parar);
+  parar.click();
+  await espera(200);
+  ok('registrar_opt_out foi chamada',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_opt_out'; }).length === 1);
+  var lin0 = document.querySelector('#lista .cap-lin');
+  ok('a linha ficou marcada como não abordar', lin0.className.indexOf('parou') >= 0, lin0.className);
+  ok('e perdeu a ação de parar', !lin0.querySelector('[data-acao="cap-parar"]'));
+  ok('o placar contou quem parou', document.querySelectorAll('#lista .pb-num')[3].textContent === '1',
+     document.querySelectorAll('#lista .pb-num')[3].textContent);
+
+  // ---- e o banco bloqueia reabordar quem pediu para parar
+  document.getElementById('capIdent').value = '@marcos.dev';
+  document.querySelector('[data-acao="cap-registrar"]').click();
+  await espera(180);
+  var m2 = document.querySelector('.cap-msg');
+  ok('reabordar quem parou é bloqueado', !!m2 && m2.textContent.indexOf('nao ser mais abordada') >= 0,
+     m2 ? m2.textContent : 'sem msg');
+
+  // ---- voltar para a Fila não pode deixar resíduo
+  document.getElementById('abaFila').click();
+  await espera(200);
+  ok('pitboard de lead volta na Fila', getComputedStyle(document.getElementById('pitboard')).display !== 'none');
+  ok('a Fila volta a mostrar cards', document.querySelectorAll('#lista .card').length > 0);
   fim();
+
 }
 function fim() {
   var d = document.createElement('pre'); d.id = 'RESULTADO';

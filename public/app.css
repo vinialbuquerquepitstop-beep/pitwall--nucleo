@@ -355,6 +355,114 @@ a{color:inherit}
 .btn-copiar:hover{background:var(--surface)}
 
 /* ==========================================================================
+   CAPTACAO (Fase 5) — laco novo: aqui se CRIA lead, nao se trabalha lead.
+   Disciplina da referencia v3: "o azul da marca aparece em quatro lugares e mais
+   nenhum: item ativo, contador da fila, acao primaria e o chip de indicacao".
+   Esta secao nao adiciona nenhum uso novo: .btn-cap E a acao primaria da aba.
+   A v1 do mock foi reprovada por ter uma barra de progresso azul (um quinto uso)
+   dizendo "3 de 10", que o pitboard ja diz sozinho na terceira linha.
+   ========================================================================== */
+.pitboard.oculto{display:none}
+
+/* registro: UMA linha. Captacao e atividade de ritmo: digitar, Enter, proximo. */
+.cap-reg{
+  background:var(--bg);border:1px solid var(--line-forte);border-radius:var(--radius);
+  padding:9px;display:flex;flex-direction:column;gap:8px;
+}
+.cap-reg-lin{display:flex;gap:8px;align-items:center}
+.cap-reg select{
+  flex:0 0 auto;font-family:var(--body);font-size:13px;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:var(--radius-p);padding:0 8px;height:40px;
+}
+.cap-reg .ident{
+  flex:1;min-width:0;font-family:var(--mono);font-size:14px;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:var(--radius-p);padding:0 10px;height:40px;
+}
+.cap-reg .ident::placeholder{color:var(--dim)}
+.cap-reg select:focus-visible,.cap-reg input:focus-visible,
+.cap-det textarea:focus-visible,.cap-det input:focus-visible{
+  outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);
+}
+.btn-cap{
+  flex:0 0 auto;background:var(--accent-tint);border:1px solid var(--accent-linha);color:var(--accent);
+  border-radius:var(--radius-p);padding:0 15px;height:40px;
+  font-family:var(--body);font-weight:500;font-size:13px;white-space:nowrap;
+}
+.btn-cap:hover{background:rgba(0,37,204,.09)}
+.btn-cap:disabled{opacity:.45;cursor:default}
+
+/* nome e observacao guardados: quanto menos dado de quem nao pediu contato, melhor */
+.cap-mais{
+  align-self:flex-start;background:none;border:none;color:var(--dim);
+  font-family:var(--body);font-size:12px;padding:2px 0;text-decoration:underline;
+  text-underline-offset:2px;
+}
+.cap-mais:hover{color:var(--text)}
+.cap-det{display:none;gap:8px}
+.cap-det.aberto{display:flex}
+.cap-det input,.cap-det textarea{
+  flex:1;min-width:0;font-family:var(--body);font-size:13px;color:var(--text);background:var(--bg);
+  border:1px solid var(--line);border-radius:var(--radius-p);padding:8px 10px;
+}
+.cap-det textarea{resize:vertical;min-height:38px;line-height:1.4}
+
+.cap-msg{font-size:12px;border-radius:var(--radius-p);padding:7px 9px}
+.cap-msg.erro{color:var(--erro-fg);background:var(--erro-bg);border:1px solid var(--erro-linha)}
+.cap-msg.parada{color:var(--morno-fg);background:var(--morno-bg);border:1px solid var(--morno-linha)}
+
+/* o log do dia: linha densa e alinhada. A tese da v3 e timing screen, nao card gordo. */
+.cap-log{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.cap-log-cab{
+  display:grid;grid-template-columns:50px 1fr 118px 74px;gap:10px;align-items:center;
+  padding:7px 12px;border-bottom:1px solid var(--line);background:var(--panel-2);
+}
+.cap-log-cab span{font-size:9px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase}
+.cap-lin{
+  display:grid;grid-template-columns:50px 1fr 118px 74px;gap:10px;align-items:center;
+  padding:9px 12px;border-bottom:1px solid var(--line);
+}
+.cap-lin:last-child{border-bottom:none}
+.cap-lin:hover{background:var(--surface)}
+.cap-hora{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.cap-quem{min-width:0}
+.cap-ident{font-family:var(--mono);font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap-nome{font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap-frente{font-size:11.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap-fim{display:flex;justify-content:flex-end}
+/* acao rara nao ganha espaco nobre: so ganha contorno quando a mao chega perto */
+.btn-parar{
+  background:none;border:1px solid transparent;color:var(--dim);
+  border-radius:var(--radius-p);padding:3px 8px;font-size:11.5px;white-space:nowrap;
+}
+.cap-lin:hover .btn-parar{border-color:var(--line-forte)}
+.btn-parar:focus-visible{border-color:var(--line-forte)}
+.btn-parar:hover{color:var(--erro-fg);border-color:var(--erro-linha);background:var(--erro-bg)}
+.btn-parar:disabled{opacity:.45;cursor:default}
+/* quem pediu para parar sai do jogo: linha apagada, sem acao */
+.cap-lin.parou{background:var(--panel-2)}
+.cap-lin.parou .cap-ident{color:var(--dim);text-decoration:line-through}
+.cap-selo{
+  font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.07em;
+  text-transform:uppercase;white-space:nowrap;
+}
+.cap-lin.virou .cap-ident{color:var(--ok-fg)}
+.cap-virou{
+  font-size:10.5px;color:var(--ok-fg);background:var(--ok-bg);border:1px solid var(--ok-linha);
+  border-radius:4px;padding:1px 6px;white-space:nowrap;
+}
+.cap-vazio{padding:22px 14px;text-align:center}
+.cap-vazio-t{font-size:13px;color:var(--text)}
+.cap-vazio-s{font-size:12px;color:var(--dim);margin-top:3px}
+
+@media (max-width:560px){
+  .cap-log-cab{display:none}
+  .cap-lin{grid-template-columns:46px 1fr auto;row-gap:2px}
+  .cap-frente{grid-column:2;font-size:11px}
+  .cap-reg-lin{flex-wrap:wrap}
+  .cap-reg .ident{flex:1 1 100%;order:-1}
+}
+
+/* ==========================================================================
    HISTORICO (Fase 4) — irmao de .scripts, mesmo mecanismo de toggle.
    Fechado por padrao: so aparece no clique, e so no clique o banco e consultado.
    ========================================================================== */
