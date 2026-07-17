@@ -8,7 +8,7 @@ aponte para arquivo inexistente.
 
 ## Arranque de toda sessao (nesta ordem)
 
-1. Ler o handoff de MAIOR versao em `docs/handoffs/` (hoje: `handoff_migracao_pitwall_v28.md`).
+1. Ler o handoff de MAIOR versao em `docs/handoffs/` (hoje: `handoff_migracao_pitwall_v30.md`).
    O handoff mais novo substitui todos os anteriores.
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
@@ -36,6 +36,24 @@ que cada mudanca entrega, sem inflar. Segure a sequencia quando construir fora d
 ordem gera retrabalho. Surface contradicoes entre trilhos de trabalho. Nao execute em
 silencio instrucoes conflitantes. Se o dono decidir contra o conselho, registre que
 foi decisao consciente dele e siga.
+
+---
+
+## Entregar palpavel
+
+Ordem do dono, 17/07/2026: **"faça sempre palpável."** Dita logo depois de a Fase 6
+entregar 9 objetos de banco, 17 RPCs, uma Edge Function e 31 provas, e **nenhuma tela
+que ele pudesse abrir**.
+
+Encanamento provado NAO e entrega. O dono nao julga, nao usa e nao corrige o rumo de
+uma coisa que nao aparece. Quanto mais fundo se vai sem que ele veja, mais caro fica
+descobrir que o desenho estava errado.
+
+- Cortar a obra em fatias onde **cada fase termina em algo abrivel**. Se a fase e grande,
+  a tela entra junto, nao depois.
+- Em documento (handoff, plano, relatorio): comando exato copiavel, numero real medido,
+  caminho de arquivo, nome exato do campo e de onde clicar. Nunca "configurar o token".
+- Provar com o sistema rodando ganha de provar no papel.
 
 ---
 
@@ -89,23 +107,32 @@ foi decisao consciente dele e siga.
 ## Estrutura do frontend
 
 ```
-nucleo/            <- o repo git (clone de pitwall--nucleo). O codigo vive AQUI.
-  public/
+.                  <- O DIRETORIO DE TRABALHO E O PROPRIO REPO GIT (pitwall--nucleo).
+  public/          <- o que a Cloudflare serve
     index.html     (estrutura, aponta pra app.css e app.js)
     app.css
     app.js
+  supabase/
+    functions/
+      sincronizar-conteudo/index.ts   <- Edge Function (Fase 6). Notion -> conteudo.
+  ferramentas/     <- suite de validacao e harness. Ver handoff v26.
+  docs/            <- handoffs e referencia visual
   wrangler.jsonc
-ferramentas/       <- suite de validacao e harness (fora do repo). Ver handoff v26.
-docs/              <- handoffs e referencia visual (fora do repo)
 ```
 
-O diretorio de trabalho NAO e um repo git; `nucleo/` e. O repo nao versiona `docs/`
-nem `ferramentas/`. Armadilha: `Desktop/pitwall deploy/` e um monolito morto de 09/07,
-sem git, anterior ao redesign. Nao e copia de trabalho, nao editar.
+**Nao existe pasta `nucleo/`.** Ate a v28 este bloco dizia que o codigo vivia em
+`nucleo/public/`, que o diretorio de trabalho nao era um repo git, e que o repo nao
+versionava `docs/` nem `ferramentas/`. **Os tres eram falsos.** O commit `86d95cf`
+passou a versionar `docs/` (26 arquivos) e `ferramentas/` (15), e o arranque nunca foi
+atualizado. Conferido em 17/07/2026 com `git ls-files`.
 
-Frontend e trio servido direto, sem minificacao SEPARADA. Atencao: os arquivos no repo
-ja estao minificados na origem (uma linha so). "Legivel" no historico queria dizer
-"trio em vez de monolito", nao codigo formatado.
+Armadilha: `Desktop/pitwall deploy/` e um monolito morto de 09/07, sem git, anterior ao
+redesign. Nao e copia de trabalho, nao editar.
+
+Frontend e trio servido direto, sem minificacao SEPARADA. **`app.css` e `app.js` estao
+minificados na origem (uma linha so); `index.html` NAO, e legivel.** A v28 dizia que os
+tres eram minificados: errado num terco. "Legivel" no historico queria dizer "trio em
+vez de monolito", nao codigo formatado.
 
 **Referencia visual de record: `docs/design/referencia-visual-v3.html`.** Aprovada em
 16/07/2026 apos o dono reprovar a v1 (IBM Plex) e a v2 (serif). Construir ATE ela, nao

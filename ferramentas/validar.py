@@ -12,7 +12,9 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 velho_js = (RAIZ / 'ferramentas' / 'app.js.antes').read_text(encoding='utf-8')
 novo_js  = (RAIZ / 'public' / 'app.js').read_text(encoding='utf-8')
 novo_html= (RAIZ / 'public' / 'index.html').read_text(encoding='utf-8')
-velho_html=(RAIZ / 'public' / 'index.html').read_text(encoding='utf-8')
+# baseline de verdade, nao o proprio arquivo (defeito corrigido na Fase 6:
+# antes velho_html lia public/index.html e o check de IDs perdidos era vacuo)
+velho_html=(RAIZ / 'ferramentas' / 'index.html.antes').read_text(encoding='utf-8')
 novo_css = (RAIZ / 'public' / 'app.css').read_text(encoding='utf-8')
 falhas=[]
 def ck(c,m):
@@ -160,9 +162,11 @@ ck(novo_html.count('id="badgeCaptacao"')==1, 'contador da aba Captacao ausente')
 ck('"captacao"===n' in novo_js, 'o JS nao sabe renderizar a aba Captacao')
 for rpc in ['registrar_captacao', 'registrar_opt_out', 'placar_captacao', 'captacao_do_dia']:
     ck(f'rpc("{rpc}"' in novo_js, f'o front nao chama {rpc}')
-# o pitboard de LEAD nao pode aparecer na captacao: sao numeros de outro laco
+# o pitboard de LEAD nao pode aparecer na captacao NEM nas abas da Fase 6:
+# sao numeros de outro laco (a forma mudou na Fase 6, de igualdade para lista)
 ck('.pitboard.oculto{display:none}' in novo_css, 'sem regra para esconder o pitboard de lead')
-ck('"captacao"===n?" oculto":""' in novo_js, 'o pitboard de lead apareceria na aba Captacao')
+ck('["captacao","hoje","conteudo","rotina"].indexOf(n)>=0?" oculto":""' in novo_js,
+   'o pitboard de lead apareceria em Captacao/Hoje/Conteudo/Rotina')
 # a meta e config, nunca chumbada (invariante 11)
 ck(not re.search(r'\balvo\s*[:=]\s*\d+', novo_js), 'o alvo da meta foi chumbado no JS: ele vive em captacao_meta')
 # a referencia v3: o azul aparece em 4 lugares e mais nenhum. A v1 do mock tinha
@@ -173,6 +177,97 @@ ck('cap-barra' not in novo_css and 'cap-barra' not in novo_js,
 ck('Nao insistir' not in novo_js and 'não insistir' not in novo_js.lower().replace('nao','não'),
    'a regra de reabordagem foi duplicada no JS: ela mora em registrar_captacao()')
 print('  [9] Fase 5: aba Captacao ligada as 4 RPCs, pitboard de lead escondido, meta em config')
+
+# ---------- 10. FASE 6: Hoje / Conteudo / Rotina ----------
+velho_css = (RAIZ / 'ferramentas' / 'app.css.antes').read_text(encoding='utf-8')
+
+# classes montadas fora do alcance da regex do [3], conferidas na mao
+for cls in ['dia-sec', 'dia-sec-tit', 'dia-sec-cab', 'dia-cat-rot', 'dia-lin', 'dia-tarefa',
+            'dia-check', 'dia-tit', 'dia-rm', 'dia-add', 'dia-nota', 'dia-nota-pe', 'dia-vazio',
+            'rot-item', 'rot-dias', 'rot-form', 'rot-form-lin', 'rot-dia-tog', 'rot-dica',
+            'cont-topo', 'cont-log', 'cont-data', 'hoje-tag', 'cont-lin', 'cont-tit', 'cont-tipo',
+            'cont-link', 'cont-solto', 'sync-lin', 'btn-sync', 'aba-rara', 'aba-mais', 'mais-aberto']:
+    ck(re.search(r'[.\[]'+re.escape(cls)+r'\b', novo_css) is not None,
+       f'classe {cls} emitida pelo JS/HTML e sem regra no CSS')
+
+# as 14 RPCs de leitura/escrita do dia estao ligadas
+for rpc in ['painel_do_dia', 'conteudo_periodo', 'rotina_completa', 'puxar_rotina',
+            'marcar_tarefa', 'adicionar_tarefa', 'remover_tarefa', 'salvar_nota',
+            'salvar_lembrete', 'marcar_lembrete', 'remover_lembrete',
+            'salvar_rotina_categoria', 'salvar_rotina_tarefa', 'remover_rotina_tarefa']:
+    ck(f'"{rpc}"' in novo_js, f'o front nao chama {rpc}')
+# o botao manual de sync: capacidade nova, exatamente uma chamada
+ck(novo_js.count('functions.invoke("sincronizar-conteudo"') == 1,
+   'functions.invoke(sincronizar-conteudo) ausente ou duplicado')
+
+# HTML: abas novas presentes, e as 4 raras marcadas para a barra mobile
+for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
+    ck(novo_html.count(f'id="{aba}"') == 1, f'aba {aba} ausente ou duplicada')
+ck(novo_html.count('class="aba aba-rara"') == 4,
+   f'esperava 4 abas raras (Indicações, Captação, Dashboard, Rotina), achei {novo_html.count("class=\"aba aba-rara\"")}')
+ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
+
+# ISODOW na tela: 1=segunda..7=domingo. Off-by-one aqui poe a rotina no dia
+# errado em silencio; o array de rotulo e a metade visivel da regra.
+ck('["","seg","ter","qua","qui","sex","sáb","dom"]' in novo_js,
+   'o array DIAS_ISO mudou: 1=seg..7=dom e contrato com extract(isodow) no banco')
+
+print('  [10] Fase 6: 14 RPCs + invoke ligados, abas novas no HTML, classes com estilo, ISODOW travado')
+
+# ---------- 11. REGRAS DA SECAO 13 DO HANDOFF v29 ----------
+# 11.1 contador do azul: nenhum SELETOR novo pode usar var(--accent) fora da
+# lista aprovada. E a regra que teria pego a barra de progresso da Fase 5.
+def seletores_com_accent(css):
+    sels = set()
+    for m in re.finditer(r'([^{}]+)\{([^}]*)\}', re.sub(r'/\*.*?\*/', '', css, flags=re.S)):
+        corpo = m.group(2)
+        if re.search(r'var\(--accent\)', corpo):
+            sels.add(' '.join(m.group(1).split()))
+    return sels
+novos_sel = seletores_com_accent(novo_css) - seletores_com_accent(velho_css)
+APROVADOS_F6 = [
+    'btn-sync',            # acao primaria da aba Conteudo (mesmo papel do .btn-cap)
+    'cont-link:hover',     # hover de link, precedente do .btn-editar:hover
+    'mais-aberto .aba-mais',  # estado ativo de navegacao (Mais aberto)
+    'focus-visible',       # anel de foco, aprovado desde a referencia
+]
+fora = sorted(s for s in novos_sel if not any(a in s for a in APROVADOS_F6))
+ck(not fora, f'uso NOVO de var(--accent) fora da lista aprovada: {fora}')
+
+# 11.2 zero token novo: o bloco :root e byte a byte o da baseline
+root_novo = novo_css.split(':root{',1)[1].split('}',1)[0]
+root_velho = velho_css.split(':root{',1)[1].split('}',1)[0]
+ck(root_novo == root_velho, 'o :root mudou: token de cor novo ou alterado (decisao 8: zero token novo)')
+
+# 11.3 zero hex no app.js: cor mora no CSS, sempre
+hexes = re.findall(r'#[0-9a-fA-F]{3,8}\b', novo_js)
+ck(not hexes, f'hex de cor dentro do app.js: {hexes}')
+
+# 11.4 a janela nao vaza para o codigo. ARMADILHA JA PISADA: o grep ingenuo
+# por 28 casa com '2022-06-28' (Notion-Version); ela e excluida ANTES.
+ck(not re.search(r'janela\w*\s*[:=]\s*\d', novo_js), 'numero de janela chumbado no app.js')
+ck(not re.search(r'(?<![\w.\-])28(?![\w])', novo_js), 'literal 28 no app.js: cheira a janela chumbada')
+ts_path = RAIZ / 'supabase' / 'functions' / 'sincronizar-conteudo' / 'index.ts'
+if ts_path.exists():
+    ts = ts_path.read_text(encoding='utf-8')
+    ts = re.sub(r'/\*.*?\*/', '', ts, flags=re.S)
+    ts = '\n'.join(l for l in ts.splitlines() if 'NOTION_VERSION' not in l and not l.strip().startswith('//'))
+    ck(not re.search(r'(?<![\w.\-])(?:7|28)(?![\w])', ts), 'numero de janela (7/28) chumbado no index.ts')
+
+# 11.5 app.js sem escrita direta: toda escrita passa por RPC
+for verbo in ['.insert(', '.upsert(', '.delete(']:
+    ck(verbo not in novo_js, f'escrita direta no app.js: {verbo}')
+ck(not re.search(r'\.update\(', novo_js), 'escrita direta no app.js: .update(')
+
+# 11.6 check de tarefa concluida e NEUTRO: verde e "deu certo", nao "feito"
+bloco_check = re.search(r'\.dia-tarefa\[aria-checked=true\] \.dia-check\{([^}]*)\}', novo_css)
+ck(bloco_check is not None and '--ok' not in bloco_check.group(1) and '--accent' not in bloco_check.group(1),
+   'o check de tarefa concluida usa --ok ou --accent: tem que ser neutro (--dim)')
+ck('line-through' in novo_css.split('.dia-tarefa[aria-checked=true] .dia-tit{',1)[1].split('}',1)[0]
+   if '.dia-tarefa[aria-checked=true] .dia-tit{' in novo_css else False,
+   'tarefa concluida perdeu o line-through')
+
+print('  [11] secao 13 do v29: azul contado, :root intacto, sem hex no JS, janela nao vazou, sem escrita direta, check neutro')
 
 print()
 if falhas:
