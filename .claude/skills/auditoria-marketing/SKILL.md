@@ -44,10 +44,13 @@ um único relatório de saída e um único lugar onde ele fica registrado.
    (b), (c) e (d) são leitura de pesquisa, não número medido — rotular como tal no
    relatório, sem diluir a disciplina de número real de (a).
 
-3. **Comercial** — o calendário de ativações e as 5 objeções de alto ticket da skill
-   `apple-strategist`, cruzado com o que o Calendário de Conteúdo do Notion está de
-   fato produzindo para o mês corrente e o seguinte. O objetivo aqui não é reescrever
-   estratégia, é apontar descolamento: a régua diz uma coisa, o conteúdo real faz outra.
+3. **Comercial** — o calendário de ativações da skill `apple-strategist` e as 5
+   objeções de alto ticket da skill `socialmedia` (Módulo 8: alfândega, autenticidade,
+   garantia, prazo, preço vs. loja oficial — a lista vive lá, não na `apple-strategist`;
+   corrigido em 20/07/2026 depois de uma rodada citar a skill errada), cruzado com o
+   que o Calendário de Conteúdo do Notion está de fato produzindo para o mês corrente
+   e o seguinte. O objetivo aqui não é reescrever estratégia, é apontar descolamento:
+   a régua diz uma coisa, o conteúdo real faz outra.
 
 ## Os dois modos
 
