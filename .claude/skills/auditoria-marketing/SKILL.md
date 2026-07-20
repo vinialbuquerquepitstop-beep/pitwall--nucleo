@@ -24,6 +24,26 @@ um único relatório de saída e um único lugar onde ele fica registrado.
    engajamento da skill `socialmedia` (3 posts de feed/semana, saves > 2% do alcance,
    etc.) — mas sempre com o número medido, nunca "parece que está indo bem".
 
+   A frente Social tem quatro funções fixas, não três — a auditoria da área Social só
+   está completa quando as quatro rodaram (processo de b/c/d em
+   `references/pesquisa-concorrencia-tendencias.md`):
+
+   a. **Números** — Metricool, como acima. Evidência: número medido.
+   b. **Concorrência real** — o que os quatro concorrentes diretos (`@blackapplerj`,
+      `@tigraoimports`, `@smart.especializadaapple`, `@voce_deiphone`, lista herdada
+      da skill `socialmedia`) publicaram e engajaram na semana. Evidência: pesquisa,
+      não número medido.
+   c. **Assuntos em alta no nicho** — o que está sendo comentado essa semana no nicho
+      de importação/revenda Apple (lançamento, rumor, notícia de câmbio, formato
+      dominante). Evidência: pesquisa, com fonte citada.
+   d. **Pauta pra semana seguinte** — 2 a 4 sugestões de assunto ou dica, cada uma
+      cruzada contra os Vetores de campanha ativos na aba `Vetores`
+      (`pitwall-conteudo/references/vetores-estrategia.md`), pra saber se a sugestão
+      fala a mesma língua do que a loja já decidiu ou é pauta fora da linha atual.
+
+   (b), (c) e (d) são leitura de pesquisa, não número medido — rotular como tal no
+   relatório, sem diluir a disciplina de número real de (a).
+
 3. **Comercial** — o calendário de ativações e as 5 objeções de alto ticket da skill
    `apple-strategist`, cruzado com o que o Calendário de Conteúdo do Notion está de
    fato produzindo para o mês corrente e o seguinte. O objetivo aqui não é reescrever
@@ -90,3 +110,6 @@ https://claude.ai/code/routines/trig_01SF9wXiFN89NDe8VrPoRqt7.
 - `references/metricool-metricas.md` — `fieldId` do Metricool já testados para a
   conta `pitstopimports`, o que cada um mede, e as armadilhas de leitura (colunas por
   ordem dos metrics pedidos, não por nome).
+- `references/pesquisa-concorrencia-tendencias.md` — o processo das três funções da
+  frente Social que não vêm do Metricool: concorrência real, tendências do nicho e
+  pauta pra semana seguinte cruzada com os Vetores ativos.
