@@ -46,9 +46,16 @@ Pesquisar antes de sugerir qualquer pauta:
 
 Depois de (b) e (c), montar 2 a 4 sugestoes de assunto ou dica. Para cada uma:
 
-1. Ler a aba `Vetores` (contrato em
-   `pitwall-conteudo/references/vetores-estrategia.md`) e listar os Vetores ativos
-   no periodo.
+1. Ler os Vetores ativos no periodo. **Fonte preferencial: a pagina Notion
+   🎯 Vetores de Campanha · Conteudo IG (id `38e80e29017e819aa860c0cf3b651082`,
+   dentro de 🏁 Pitwall · Central de Conteudo), via `notion-fetch`.** Confirmado em
+   20/07/2026 que essa pagina espelha exatamente a aba `Vetores` da planilha
+   (mesma Semana/Periodo/Gancho/Ancora/Pecas/Trava/Status linha a linha) — como a
+   rotina ja tem conector Notion, nao precisa de Google Drive/Sheets pra essa
+   checagem. So cair pro Google Sheets direto (contrato em
+   `pitwall-conteudo/references/vetores-estrategia.md`) se essa pagina Notion nao
+   existir mais ou divergir da planilha — nesse caso, citar a divergencia como
+   achado, nao so seguir uma fonte calada.
 2. Testar a sugestao contra os Vetores ativos: ela reforca um Vetor existente (citar
    o nome exato do Vetor) ou e pauta fora da linha atual?
 3. Se for fora da linha atual, marcar explicitamente como tal no relatorio — quem

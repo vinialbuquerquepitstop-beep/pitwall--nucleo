@@ -37,8 +37,10 @@ um único relatório de saída e um único lugar onde ele fica registrado.
       de importação/revenda Apple (lançamento, rumor, notícia de câmbio, formato
       dominante). Evidência: pesquisa, com fonte citada.
    d. **Pauta pra semana seguinte** — 2 a 4 sugestões de assunto ou dica, cada uma
-      cruzada contra os Vetores de campanha ativos na aba `Vetores`
-      (`pitwall-conteudo/references/vetores-estrategia.md`), pra saber se a sugestão
+      cruzada contra os Vetores de campanha ativos. Fonte preferencial: a página
+      Notion 🎯 Vetores de Campanha · Conteúdo IG (id `38e80e29017e819aa860c0cf3b651082`),
+      que espelha a aba `Vetores` da planilha e é acessível pelo conector Notion que
+      a rotina já tem — não depende de Google Drive/Sheets. Pra saber se a sugestão
       fala a mesma língua do que a loja já decidiu ou é pauta fora da linha atual.
 
    (b), (c) e (d) são leitura de pesquisa, não número medido — rotular como tal no
