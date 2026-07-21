@@ -254,7 +254,9 @@ def _decls(bloco):
     return set(d.strip().replace(' ', '') for d in bloco.split(';') if d.strip())
 _novas   = _decls(root_novo) - _decls(root_velho)
 _sumidas = _decls(root_velho) - _decls(root_novo)
-ck(not _sumidas, f'token REMOVIDO do :root: {sorted(_sumidas)}')
+_faltando = TOKENS_TRILHO - _decls(root_novo)
+ck(not _sumidas,   f'token REMOVIDO do :root: {sorted(_sumidas)}')
+ck(not _faltando,  f'token de trilho sumiu do :root: {sorted(_faltando)}')
 ck(not (_novas - TOKENS_TRILHO),
    f'token novo no :root fora da excecao dos trilhos: {sorted(_novas - TOKENS_TRILHO)}')
 
