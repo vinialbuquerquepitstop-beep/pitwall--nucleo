@@ -51,6 +51,13 @@
   --erro-fg:#B01235;
   --erro-bg:#FDEDF0;
   --erro-linha:#F2C2CE;
+  --tr-fila-follow-up:#5B6BA8;
+  --tr-captacao:#3E8C8C;
+  --tr-conteudo:#7A5FA8;
+  --tr-loja-estoque:#A87155;
+  --tr-pos-venda:#6B8C5B;
+  --tr-analise:#5F7386;
+  --tr-fechamento:#8C5F7A;
 
   --radius:8px;
   --radius-p:6px;
