@@ -235,3 +235,55 @@ Novas:
 - **Cor semantica se mede.** Vale tambem para cor de identidade: os 7 trilhos
   passaram por medicao antes de entrar.
 - **Tela que omite recorte mente.** Declarar a janela e parte do dado.
+
+---
+
+## 12. Fase seguinte, ja decidida: mover card no kanban (escrita de volta no Notion)
+
+Pedido do dono em 21/07/2026, logo apos aprovar as tres abas.
+
+**O problema que isso levanta, e nao e de frontend.** `sincronizar_conteudo()` faz
+`on conflict ... do update set status_codigo = excluded.status_codigo`, ou seja,
+**sobrescreve o status a cada rodada do cron**. Mover um card so no Pit Wall seria
+revertido as 05:30 do dia seguinte, em silencio. O dono descobriria semanas depois
+achando que o kanban "nao salva".
+
+**Decisao do dono: escrever de volta no Notion.** O Notion continua sendo a fonte
+unica e o Pit Wall vira controle remoto. As alternativas recusadas foram coluna de
+override local (cria duas verdades sobre o mesmo card) e kanban de leitura.
+
+Encaixe confirmado lendo o schema real do Calendario: a propriedade `Status` e um
+`select` com exatamente as 5 opcoes que existem no banco (`A produzir`,
+`Em produção`, `Pronto`, `Publicado`, `Descartado`). Mapeamento um-para-um, sem
+tabela de traducao.
+
+**BLOQUEADOR, e e do dono:** a Edge Function fala com o Notion por `NOTION_TOKEN`
+(env do Deno) e hoje so faz `POST /v1/databases/{id}/query`, que e leitura. Escrever
+exige `PATCH /v1/pages/{page_id}`. Integracao do Notion tem capacidade separada para
+ler e escrever.
+
+Conferir em **notion.so/profile/integrations** -> a integracao -> **Capabilities** ->
+precisa estar marcado **"Update content"**. Se estiver so "Read content", o PATCH
+volta 403 e nada do que for construido funciona. **Nao da para eu verificar isso:** a
+conexao MCP desta sessao usa credencial DIFERENTE da `NOTION_TOKEN`, entao testar por
+ela nao provaria nada sobre a que importa.
+
+**Decisao do dono sobre interacao, contra a recomendacao:** arrastar no desktop E
+botao no celular, as duas superficies. A recomendacao era so botao de avancar, pelo
+argumento de que o funil e linear (`A produzir -> Em produção -> Pronto ->
+Publicado`), de que arrastar e ruim em celular e de que acessibilidade por teclado
+sai de graca no botao e cara no drag. O dono escolheu as duas. **Custo aceito: duas
+superficies para manter e testar, e o dobro de casos de falha.** Se o drag comecar a
+gerar movimento errado ou virar peso de manutencao, a correcao e cortar o drag, nao
+adicionar mais tratamento.
+
+**Tempo real:** decidido apenas UI otimista com rollback (a propria acao reflete na
+hora). Supabase Realtime foi recusado por ora. Teto a lembrar: o Pit Wall pode ficar
+em tempo real com o BANCO, mas o banco so e tao fresco quanto o sync com o Notion,
+que roda 1x por dia as 05:30. Kanban em tempo real nao faz edicao feita no Notion
+aparecer na hora.
+
+**Ordem de escrita a definir na fase:** escrever no Notion primeiro e so entao no
+local (se o PATCH falhar, nada muda e a tela diz por que) e mais seguro que o
+inverso. Propriedade util do desenho: como o sync reconcilia todo dia, uma
+divergencia local sobrevive no maximo ate a proxima rodada.
