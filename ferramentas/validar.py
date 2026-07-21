@@ -247,10 +247,16 @@ TOKENS_TRILHO = {
     '--tr-conteudo:#7A5FA8', '--tr-loja-estoque:#A87155',
     '--tr-pos-venda:#6B8C5B', '--tr-analise:#5F7386',
     '--tr-fechamento:#8C5F7A',
+    # tipo de peca de conteudo, mesma decisao e mesma disciplina:
+    # medidos (5.36 / 6.96 / 4.55 contra branco) e sempre com icone.
+    '--tp-story:#A8497E', '--tp-reels:#5B4BA8', '--tp-feed:#2F7DA8',
 }
 root_novo = novo_css.split(':root{',1)[1].split('}',1)[0]
 root_velho = velho_css.split(':root{',1)[1].split('}',1)[0]
 def _decls(bloco):
+    # comentario CSS tem que sair ANTES de separar por ';', senao ele gruda
+    # na declaracao seguinte e o token vira 'comentario+--tp-story:#A8497E'.
+    bloco = re.sub(r'/\*.*?\*/', '', bloco, flags=re.S)
     return set(d.strip().replace(' ', '') for d in bloco.split(';') if d.strip())
 _novas   = _decls(root_novo) - _decls(root_velho)
 _sumidas = _decls(root_velho) - _decls(root_novo)

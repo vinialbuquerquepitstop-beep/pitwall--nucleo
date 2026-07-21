@@ -16,10 +16,26 @@ for(;i<itens.length;i++)if("publicado"===itens[i].status_codigo&&(!ult||itens[i]
 if(!ult)return'<span class="cont-pub nenhuma">nenhuma publicação na janela</span>';
 var dd=Math.round((new Date(l()+"T12:00:00")-new Date(ult+"T12:00:00"))/864e5);
 return'<span class="cont-pub'+(dd>=3?" alerta":"")+'">última publicação há '+dd+(1===dd?" dia":" dias")+"</span>"}
+// MESMA regra do trilho, aplicada ao tipo de peca: a barra da esquerda diz
+// QUEM A PECA E (Story / Reels / Feed), e a urgencia fica na data, no selo
+// "vencida" e no fundo tingido. Barra = identidade, chip = urgencia, sempre.
+// Separacao por luminancia entre os tres e fraca (1.18 a 1.53), igual a dos
+// trilhos: quem separa e o matiz mais o ICONE mais a palavra. Tipo sem icone
+// e regressao.
+var TIPO_MAPA={story:"--tp-story",reels:"--tp-reels",feed:"--tp-feed"};
+function tipoDe(cod){
+var k=String(cod||"");
+return TIPO_MAPA[k]?"var("+TIPO_MAPA[k]+")":"var(--line-forte)"}
+var ICONE_TIPO={
+story:'<circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.4"/>',
+reels:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z" stroke-linejoin="round"/>',
+feed:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'};
+function iconeTipo(cod){
+return'<svg class="tp-ico" viewBox="0 0 24 24" aria-hidden="true">'+(ICONE_TIPO[String(cod||"")]||'<circle cx="12" cy="12" r="7"/>')+"</svg>"}
 function contCard(x){
 var nv=nivelPeca(x.data,x.status_codigo);
-var sub=x.tipo_rotulo||x.semana?'<div class="cont-tipo">'+c(x.tipo_rotulo||"")+(x.semana?(x.tipo_rotulo?" · ":"")+c(x.semana):"")+"</div>":"";
-return'<div class="cont-card nivel-'+nv+'"><div class="cont-data-chip">'+c(fmtDia(x.data))+("vencido"===nv?'<span class="cont-venc">vencida</span>':"")+'</div><div class="cont-tit">'+c(x.titulo||"")+"</div>"+sub+(x.url?'<a class="cont-link" target="_blank" rel="noopener" href="'+c(x.url)+'">Notion</a>':"")+"</div>"}
+var sub=x.tipo_rotulo||x.semana?'<div class="cont-tipo">'+iconeTipo(x.tipo_codigo)+c(x.tipo_rotulo||"")+(x.semana?(x.tipo_rotulo?" · ":"")+c(x.semana):"")+"</div>":"";
+return'<div class="cont-card nivel-'+nv+' tipo-'+c(x.tipo_codigo||"outro")+'" style="--tp:'+tipoDe(x.tipo_codigo)+'"><div class="cont-data-chip">'+c(fmtDia(x.data))+("vencido"===nv?'<span class="cont-venc">vencida</span>':"")+'</div><div class="cont-tit">'+c(x.titulo||"")+"</div>"+sub+(x.url?'<a class="cont-link" target="_blank" rel="noopener" href="'+c(x.url)+'">Notion</a>':"")+"</div>"}
 function contColuna(col,itens){
 var meus=itens.filter(function(x){return x.status_codigo===col.cod}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0});
 var venc=meus.filter(function(x){return"vencido"===nivelPeca(x.data,x.status_codigo)}).length;

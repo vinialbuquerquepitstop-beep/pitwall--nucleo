@@ -59,6 +59,15 @@
   --tr-analise:#5F7386;
   --tr-fechamento:#8C5F7A;
 
+  /* --- tipo de peca de conteudo (Story / Reels / Feed) ---
+     Mesma regra do trilho: barra + icone, croma baixo, NUNCA preenchimento.
+     Medidos contra branco: 5.36 / 6.96 / 4.55, alvo 3:1.
+     Separacao entre eles por luminancia e fraca (1.18 a 1.53), igual a dos
+     trilhos: quem separa e o matiz mais o icone mais a palavra. */
+  --tp-story:#A8497E;
+  --tp-reels:#5B4BA8;
+  --tp-feed:#2F7DA8;
+
   --radius:8px;
   --radius-p:6px;
 
@@ -875,3 +884,17 @@ a{color:inherit}
 .dia-cat-rot::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--tr)}
 .dia-cat-rot .tr-ico{width:13px;height:13px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
 .cont-solto .cont-card{max-width:340px}
+
+/* ---------- Conteudo: a barra diz o TIPO; a urgencia fica na data ---------- */
+.cont-card::before{background:var(--tp)}
+.cont-card.nivel-vencido::before,.cont-card.nivel-quente::before,
+.cont-card.nivel-morno::before,.cont-card.nivel-frio::before,
+.cont-card.nivel-ok::before,.cont-card.nivel-nulo::before{background:var(--tp)}
+/* a vencida e a UNICA que exige acao, entao ganha fundo tingido: sinal mais
+   forte que a barra que ela deixou de ter */
+.cont-card.nivel-vencido{background:var(--quente-bg);border-color:var(--quente-linha)}
+/* especificidade tem que bater a de '.cont-card .cont-tipo' (0,2,0) definida
+   antes, senao a cor do tipo perde para --dim silenciosamente */
+.cont-card .cont-tipo{display:flex;align-items:center;gap:5px;color:var(--tp)}
+.tp-ico{width:12px;height:12px;flex:0 0 auto;stroke:var(--tp);fill:none;stroke-width:1.7}
+.tipo-story,.tipo-reels,.tipo-feed,.tipo-outro{}

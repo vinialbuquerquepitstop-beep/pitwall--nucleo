@@ -508,23 +508,40 @@ async function rodar() {
   ok('pronto conta 1', colN('pronto') === '1', colN('pronto'));
   ok('publicado conta 1', colN('publicado') === '1', colN('publicado'));
 
+  // A className carrega nivel-* E tipo-*, entao a comparacao e por conter.
   function nivelDe(titulo) {
     var cs = document.querySelectorAll('#lista .cont-card');
     for (var i = 0; i < cs.length; i++)
       if (cs[i].textContent.indexOf(titulo) >= 0) return cs[i].className.replace('cont-card ', '');
     return 'nao achou';
   }
-  ok('peca de 5 dias atras = vencido', nivelDe('Story bastidores') === 'nivel-vencido', nivelDe('Story bastidores'));
-  ok('peca de hoje = quente', nivelDe('Reel bastidores') === 'nivel-quente', nivelDe('Reel bastidores'));
-  ok('peca em 3 dias = morno', nivelDe('Feed lancamento') === 'nivel-morno', nivelDe('Feed lancamento'));
-  ok('peca em 20 dias = frio', nivelDe('Reels tutorial') === 'nivel-frio', nivelDe('Reels tutorial'));
-  ok('publicada = ok, nao pede acao', nivelDe('Story recap') === 'nivel-ok', nivelDe('Story recap'));
+  function temNivel(titulo, nv) { return nivelDe(titulo).indexOf(nv) >= 0; }
+  function tipoDeCard(titulo) {
+    var m = nivelDe(titulo).match(/tipo-(\w+)/); return m ? m[1] : 'sem tipo';
+  }
+  ok('peca de 5 dias atras = vencido', temNivel('Story bastidores', 'nivel-vencido'), nivelDe('Story bastidores'));
+  ok('peca de hoje = quente', temNivel('Reel bastidores', 'nivel-quente'), nivelDe('Reel bastidores'));
+  ok('peca em 3 dias = morno', temNivel('Feed lancamento', 'nivel-morno'), nivelDe('Feed lancamento'));
+  ok('peca em 20 dias = frio', temNivel('Reels tutorial', 'nivel-frio'), nivelDe('Reels tutorial'));
+  ok('publicada = ok, nao pede acao', temNivel('Story recap', 'nivel-ok'), nivelDe('Story recap'));
 
   var colAP = document.querySelector('#lista .cont-col[data-col="a_produzir"]');
   ok('a_produzir avisa 1 vencida', !!colAP && colAP.querySelector('.cont-col-venc') &&
      colAP.querySelector('.cont-col-venc').textContent === '1 vencida',
      colAP && colAP.querySelector('.cont-col-venc') ? colAP.querySelector('.cont-col-venc').textContent : 'sem aviso');
   ok('publicado NAO conta vencida', !document.querySelector('#lista .cont-col[data-col="publicado"] .cont-col-venc'));
+  // ---- tipo da peca: Story / Reels / Feed com cor e icone proprios ----
+  ok('Story marcado como story', tipoDeCard('Story bastidores') === 'story', tipoDeCard('Story bastidores'));
+  ok('Reels marcado como reels', tipoDeCard('Reels tutorial') === 'reels', tipoDeCard('Reels tutorial'));
+  ok('Feed marcado como feed', tipoDeCard('Feed lancamento') === 'feed', tipoDeCard('Feed lancamento'));
+  var semTipoIco = [].filter.call(document.querySelectorAll('#lista .cont-tipo'),
+    function (e) { return !e.querySelector('svg.tp-ico'); }).length;
+  ok('todo rotulo de tipo tem icone (matiz sozinho nao separa)', semTipoIco === 0, semTipoIco + ' sem icone');
+  var stCard = null, cs2 = document.querySelectorAll('#lista .cont-card');
+  for (var q = 0; q < cs2.length; q++) if (cs2[q].textContent.indexOf('Story bastidores') >= 0) stCard = cs2[q];
+  var corTipo = stCard ? getComputedStyle(stCard.querySelector('.cont-tipo')).color : 'sem card';
+  ok('Story computa a cor do tipo (#A8497E)', corTipo === 'rgb(168, 73, 126)', corTipo);
+
   ok('so as 2 vencidas ganham o selo', document.querySelectorAll('#lista .cont-venc').length === 2,
      String(document.querySelectorAll('#lista .cont-venc').length));
 
