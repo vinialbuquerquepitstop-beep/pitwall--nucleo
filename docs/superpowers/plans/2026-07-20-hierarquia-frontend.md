@@ -932,21 +932,27 @@ Esperado: working tree limpo (tudo commitado) e as tres suites verdes.
 - [ ] **Step 2: Conferir que a Fila nao foi tocada**
 
 ```bash
-git diff --stat 4685893..HEAD -- public/
-git log -p 4685893..HEAD -- public/app.js | grep -c "sugerirMensagem\|pintarVariante\|copiarScript\|waHrefFila"
+git diff --stat 87030b7..HEAD -- public/
+git log -p 87030b7..HEAD -- public/app.js | grep -c "sugerirMensagem\|pintarVariante\|copiarScript\|waHrefFila"
 ```
 
 Esperado do `grep -c`: **0**. Qualquer numero acima de zero significa que a obra encostou nos invariantes 13 a 16 e precisa ser revertida naquele ponto.
 
-- [ ] **Step 3: Deploy (push e o deploy, via Workers Builds)**
+- [ ] **Step 3: NAO fazer deploy ainda**
+
+A obra vive na branch `frontend-hierarquia`, decisao do dono nesta sessao. **Nao dar push em `main` nesta tarefa:** push em main e o deploy, e o merge so acontece depois da revisao final de branch inteira. Publicar aqui pularia o portao.
+
+Para provar na tela antes do merge, servir o `public/` local:
 
 ```bash
-git push origin main
+python -m http.server 8000 --directory public
 ```
+
+E abrir `http://localhost:8000`. As RPCs batem no Supabase real, entao os numeros conferidos no Step 4 sao os do banco de verdade.
 
 - [ ] **Step 4: Prova na tela real, contra os numeros do banco**
 
-Abrir `https://flat-resonance-09ba.pitstopimports.workers.dev`, entrar, e conferir olhando:
+Abrir `http://localhost:8000` (servido no Step 3), entrar, e conferir olhando:
 
 1. Aba **Rotina**: a barra de carga mostra `10 8 8 9 10 3 0`. A coluna de hoje esta marcada. Domingo aparece vazio, escrito `livre`.
 2. Aba **Conteúdo**: coluna `A produzir` com 45 e `7 vencidas`; `Em produção` 4 com `3 vencidas`; `Pronto` 3 com `2 vencidas`; `Publicado` 3; `Descartado` colapsado com 6.
@@ -973,7 +979,6 @@ git add docs/handoffs/handoff_migracao_pitwall_v33.md
 git commit -m "docs: handoff v33 (hierarquia do frontend reorganizada)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
-git push origin main
 ```
 
 ---
