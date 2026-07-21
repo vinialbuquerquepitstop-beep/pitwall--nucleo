@@ -124,19 +124,81 @@ sexta, nao a Fila.
 
 ---
 
-## 4. O que sobrou, e de quem e
+## 3.2 O sync automatico FECHOU. E o caminho ate la teve tres defeitos meus
 
-**Do dono, 1 linha, nada mais bloqueia:**
+Na mesma sessao o dono cadastrou a chave e o laco fechou de ponta a ponta.
+**Prova, `origem: cron`, sem navegador nenhum:**
 
-```sql
-select vault.create_secret('COLE_AQUI_A_SERVICE_ROLE_KEY', 'service_role_key');
+```
+net._http_response id=2 -> 200
+{"ok":true,"origem":"cron","duracao_ms":1697,
+ "fontes":[{"fonte":"calendario","ok":true,"vistos":61,"inseridos":3,
+            "atualizados":58,"sumidos":0,"completo":true,"avisos":[]}]}
+
+conteudo_sync_log topo: origem=cron, ok=true, 61/3/58/0, 1543ms
+public.conteudo: 66 cards, de 2026-07-10 ate 2026-08-17 (era ate 11/08)
 ```
 
-(chave em Project Settings -> API Keys -> `service_role`; nao passa pelo chat)
+O jobid 3 das 05:30 BR passa a funcionar sozinho a partir de amanha.
 
-Enquanto nao rodar, o sync automatico nao acontece e o conteudo do app fica no
-snapshot de 17/07. A diferenca da v31 e que **agora isso aparece na aba Conteúdo**
-em vez de sumir. O botao Sincronizar continua funcionando na mao.
+Os tres defeitos, em ordem de quanto custariam se nao aparecessem agora:
+
+1. **`is null` prova presenca, nao validade.** O dono colou o texto do
+   placeholder (`COLE_AQUI_A_SERVICE_ROLE_KEY`, 28 chars) no Vault. A checagem
+   antiga passava, disparava POST com Bearer invalido, a Edge Function respondia
+   401 **antes** de qualquer log, e o cron voltava ao silencio, so que agora com
+   a mensagem de conserto apagada da tela. Seria pior que o bug original.
+   Corrigido em `fase6_g_sync_valida_forma_da_chave`: valida a FORMA da chave
+   (`sb_secret_...` ou JWT com `role=service_role`) antes de disparar.
+   **A causa raiz do erro do dono foi minha:** eu escrevi o placeholder dentro
+   da linha que mandei ele rodar, e repeti na mensagem de tela.
+2. **A Edge Function so entendia chave legada.** `papelDoJwt()` decodifica JWT;
+   o formato novo (`sb_secret_...`) nao e JWT, entao devolvia null e a chave de
+   servico legitima levava 401. Corrigido na **v4** da function
+   (`ehChaveDeServico()`): prefixo `sb_secret_` vale como servico,
+   `sb_publishable_` e recusado EXPLICITAMENTE, nunca por omissao. O motivo
+   original do portao (a chave publica tambem passa no `verify_jwt`) continua
+   honrado.
+3. **Rejeicao de autorizacao nao gera log.** Ponto cego que sobrevive: um 401
+   da Edge Function nao escreve em `conteudo_sync_log`, entao some da tela.
+   Hoje isso e menos grave porque a validacao de forma pega o caso comum antes
+   do POST, mas **o cano continua sem log para 401**. Candidato a proxima obra.
+
+Portoes reprovados contra o servico no ar DEPOIS do deploy da v4 (mexi no
+portao, entao testei o portao):
+
+| Teste | Resultado |
+|---|---|
+| `OPTIONS` + Origin, sem Authorization | 204 + `Access-Control-Allow-Origin: *` |
+| POST sem Authorization | 401 |
+| POST com anon legado (JWT `role=anon`) | 401 `{"ok":false,"msg":"Nao autorizado."}` |
+| **POST com `sb_publishable_`** (caminho novo) | 401 `{"ok":false,"msg":"Nao autorizado."}` |
+
+`verify_jwt` continua `true` na v4.
+
+Acentuacao conferida depois do deploy, porque este projeto ja se queimou com
+diacritico combinante literal virando regex quebrada: `Em produção` ->
+`em_producao` no banco, apos a rodada da v4. `slug()` intacto.
+
+**Pendencia honesta:** o deploy da v4 foi feito por reconstrucao do arquivo
+dentro da chamada de tool, e **NAO conferi igualdade byte a byte entre o
+`index.ts` do repo e o que esta rodando.** O do repo e o canonico (recebeu
+apenas duas edicoes cirurgicas). Proximo deploy deve sair do arquivo do repo,
+e ai vale medir o MD5 dos dois lados.
+
+---
+
+## 4. O que sobrou, e de quem e
+
+**Nada. O ultimo bloqueador do Nucleo caiu nesta sessao** (secao 3.2). A chave
+esta no Vault, o cron dispara, a Edge Function autoriza e o conteudo entra.
+
+Licao de forma, para a proxima instrucao operacional: **nunca escrever um
+placeholder que possa ser colado literalmente.** Foi o que aconteceu aqui, duas
+vezes (o `create_secret` tambem foi re-rodado quando ja era caso de
+`update_secret`, porque a instrucao antiga ainda estava na tela). Instrucao boa
+mostra o comando **preenchido com um exemplo obviamente falso**, nao com uma
+lacuna em CAPS que parece parte do comando.
 
 Custo consciente aceito na v29 e mantido: a chave-mestra do banco passa a viver
 dentro do proprio banco (Vault). Alternativa avaliada nesta sessao e **nao**
@@ -153,7 +215,8 @@ Trilha Nucleo (a #1 e a #2 da v31 saem: uma era fantasma, a outra e a linha acim
 
 | # | Item | Nota |
 |---|---|---|
-| 1 | service_role key no Vault | 1 linha do dono. Unico bloqueador real. |
+| 1 | **401 da Edge Function nao gera log** | Ponto cego que sobrou (secao 3.2, defeito 3). Rejeicao de auth some da tela. |
+| 1b | **Fidelidade do `index.ts`: repo vs deployed** | v4 subiu por reconstrucao. Medir MD5 no proximo deploy (secao 3.2). |
 | 2 | Molde: usar e calibrar | Semeado hoje. Cortar tarefa se o % viver baixo (secao 3). |
 | 3 | Calibrar meta de captacao | 10/dia segue chute. |
 | 4 | Ligar captacao -> lead | `captacao.virou_lead_id` sem preenchimento. |
@@ -175,6 +238,13 @@ rodar uma vez no formato novo (com o braco propositivo).**
 
 ## 6. Armadilhas novas
 
+- **Presenca de segredo nao prova validade de segredo.** `is null` deixa passar
+  placeholder, string vazia e chave da geracao errada.
+- **Chave nova do Supabase (`sb_secret_...`) nao e JWT.** Todo codigo que decide
+  papel lendo claim precisa de um ramo para o formato novo, senao a chave de
+  servico legitima vira 401. O prefixo distingue secreta de publicavel.
+- **Placeholder em CAPS dentro de comando copiavel vira valor colado.** Mostrar o
+  comando preenchido com exemplo falso.
 - **`raise exception` dentro de job de pg_cron apaga o proprio log de falha.**
   Se a funcao registra a falha numa tabela, ela tem que RETORNAR, nao estourar.
   `raise warning` para o rastro no log do Postgres.

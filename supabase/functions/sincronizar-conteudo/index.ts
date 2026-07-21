@@ -129,6 +129,19 @@ function papelDoJwt(auth: string | null): string | null {
   }
 }
 
+// O formato NOVO de chave do Supabase (sb_secret_..., sb_publishable_...) nao e
+// JWT: nao tem payload nem claim de papel, entao papelDoJwt() devolve null e o
+// portao acima rejeitaria a chave de servico legitima. Foi exatamente isso que
+// aconteceu em 20/07: cron com sb_secret_ valido levando 401.
+// A borda (verify_jwt=true) ja provou que a credencial pertence ao projeto; o
+// que falta aqui e separar SECRETA de PUBLICAVEL, e o prefixo faz isso de forma
+// inequivoca. O motivo original do portao continua honrado: a chave publicavel
+// (irma da anon) e recusada explicitamente, nunca por omissao.
+function ehChaveDeServico(token: string): boolean {
+  if (token.startsWith('sb_publishable_')) return false;
+  return token.startsWith('sb_secret_');
+}
+
 type Fonte = {
   tenant_id: string;
   codigo: string;
@@ -223,7 +236,9 @@ Deno.serve(async (req) => {
 
   const t0 = Date.now();
   const auth = req.headers.get('Authorization');
-  const papel = papelDoJwt(auth);
+  const token = (auth ?? '').replace(/^Bearer\s+/i, '');
+  const servico = token !== '' && ehChaveDeServico(token);
+  const papel = servico ? 'service_role' : papelDoJwt(auth);
 
   if (papel !== 'service_role' && papel !== 'authenticated') {
     return responder({ ok: false, msg: 'Nao autorizado.' }, 401);
