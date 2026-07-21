@@ -73,9 +73,22 @@ var ROT_TAREFAS = [
 var DIA = [{ id: 'dt1', categoria: 'fila_follow_up', titulo: 'Rodar a Fila do dia até zerar', origem: 'molde', concluida: false, removida: false }];
 var DIA_NOTA = ''; var LEMB = [];
 var SYNC = { ok: true, quando: '2026-07-17T05:30:00Z', msg: null, horas: 3 };
+// Datas RELATIVAS a hoje: com data fixa as assercoes de nivel apodreceriam
+// amanha. Os cinco status_codigo reais do banco: a_produzir, em_producao,
+// pronto, publicado, descartado. O stub antigo usava 'planejado', que NAO
+// existe em lugar nenhum.
+function _dISO(off) {
+  var d = new Date(); d.setDate(d.getDate() + off);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
 var CONT = [
-  { id: 'c1', titulo: 'Reel bastidores iPhone 17', data: '2026-07-17', tipo_rotulo: 'Reel', tipo_codigo: 'reel', status_rotulo: 'A produzir', status_codigo: 'a_produzir', semana: null, url: 'https://www.notion.so/c1', hoje: true },
-  { id: 'c2', titulo: 'Story enquete de acessórios', data: '2026-07-18', tipo_rotulo: 'Story', tipo_codigo: 'story', status_rotulo: 'Planejado', status_codigo: 'planejado', semana: null, url: null, hoje: false }];
+  { id:'c1', titulo:'Story bastidores',  data:_dISO(-5), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S29', url:'https://www.notion.so/c1', hoje:false },
+  { id:'c2', titulo:'Reels comparativo', data:_dISO(-2), tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'Em produção', status_codigo:'em_producao', semana:'S29', url:null, hoje:false },
+  { id:'c3', titulo:'Reel bastidores',   data:_dISO(0),  tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S30', url:null, hoje:true },
+  { id:'c4', titulo:'Feed lancamento',   data:_dISO(3),  tipo_rotulo:'Feed',  tipo_codigo:'feed',  status_rotulo:'Pronto',      status_codigo:'pronto',      semana:'S30', url:null, hoje:false },
+  { id:'c5', titulo:'Reels tutorial',    data:_dISO(20), tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S32', url:null, hoje:false },
+  { id:'c6', titulo:'Story recap',       data:_dISO(-6), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Publicado',   status_codigo:'publicado',   semana:'S29', url:null, hoje:false },
+  { id:'c7', titulo:'Story ideia velha', data:_dISO(-7), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Descartado',  status_codigo:'descartado',  semana:'S29', url:null, hoje:false }];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
 window.supabase = {
@@ -466,7 +479,51 @@ async function rodar() {
   ok('título virou Conteúdo', document.getElementById('topoTit').textContent === 'Conteúdo');
   ok('pitboard de LEAD escondido no Conteúdo',
      getComputedStyle(document.getElementById('pitboard')).display === 'none');
-  ok('agrupou por data com marcador de hoje', !!document.querySelector('#lista .cont-data .hoje-tag'));
+  // ---- kanban de funil: 4 colunas, e a DATA carrega o sinal de urgencia ----
+  var kcols = document.querySelectorAll('#lista .cont-col');
+  ok('kanban tem 4 colunas de funil', kcols.length === 4, String(kcols.length));
+  function colN(cod) {
+    var c = document.querySelector('#lista .cont-col[data-col="' + cod + '"]');
+    return c ? c.querySelector('.cont-col-n').textContent : 'sem coluna';
+  }
+  ok('a_produzir conta 3', colN('a_produzir') === '3', colN('a_produzir'));
+  ok('em_producao conta 1', colN('em_producao') === '1', colN('em_producao'));
+  ok('pronto conta 1', colN('pronto') === '1', colN('pronto'));
+  ok('publicado conta 1', colN('publicado') === '1', colN('publicado'));
+
+  function nivelDe(titulo) {
+    var cs = document.querySelectorAll('#lista .cont-card');
+    for (var i = 0; i < cs.length; i++)
+      if (cs[i].textContent.indexOf(titulo) >= 0) return cs[i].className.replace('cont-card ', '');
+    return 'nao achou';
+  }
+  ok('peca de 5 dias atras = vencido', nivelDe('Story bastidores') === 'nivel-vencido', nivelDe('Story bastidores'));
+  ok('peca de hoje = quente', nivelDe('Reel bastidores') === 'nivel-quente', nivelDe('Reel bastidores'));
+  ok('peca em 3 dias = morno', nivelDe('Feed lancamento') === 'nivel-morno', nivelDe('Feed lancamento'));
+  ok('peca em 20 dias = frio', nivelDe('Reels tutorial') === 'nivel-frio', nivelDe('Reels tutorial'));
+  ok('publicada = ok, nao pede acao', nivelDe('Story recap') === 'nivel-ok', nivelDe('Story recap'));
+
+  var colAP = document.querySelector('#lista .cont-col[data-col="a_produzir"]');
+  ok('a_produzir avisa 1 vencida', !!colAP && colAP.querySelector('.cont-col-venc') &&
+     colAP.querySelector('.cont-col-venc').textContent === '1 vencida',
+     colAP && colAP.querySelector('.cont-col-venc') ? colAP.querySelector('.cont-col-venc').textContent : 'sem aviso');
+  ok('publicado NAO conta vencida', !document.querySelector('#lista .cont-col[data-col="publicado"] .cont-col-venc'));
+  ok('so as 2 vencidas ganham o selo', document.querySelectorAll('#lista .cont-venc').length === 2,
+     String(document.querySelectorAll('#lista .cont-venc').length));
+
+  ok('cabecalho diz ha quantos dias foi a ultima publicacao',
+     telaTxt().indexOf('última publicação há 6 dias') >= 0);
+  ok('a janela e declarada, senao a coluna Publicado mente', !!document.querySelector('#lista .cont-janela'));
+
+  // descartado: existe, mas colapsado. Apagar seria mentir sobre a base.
+  var dsc = document.querySelector('#lista .cont-desc-cab');
+  ok('descartado nasce colapsado', !!dsc && dsc.getAttribute('aria-expanded') === 'false');
+  ok('descartado conta 1', !!dsc && dsc.textContent.indexOf('1') >= 0);
+  ok('corpo do descartado escondido', !!document.querySelector('#lista .cont-desc') &&
+     getComputedStyle(document.querySelector('#lista .cont-desc-corpo')).display === 'none');
+  dsc.click(); await espera(80);
+  ok('descartado abre no clique', getComputedStyle(document.querySelector('#lista .cont-desc-corpo')).display !== 'none');
+  dsc.click(); await espera(80);
   ok('link do Notion presente', !!document.querySelector('#lista .cont-link'));
 
   // token ausente: mostra mensagem, NÃO trava, e a lista NÃO esvazia
@@ -476,8 +533,8 @@ async function rodar() {
   ok('functions.invoke foi chamado', window.__invocacoes.length === 1, 'n=' + window.__invocacoes.length);
   ok('a falha do token vira toast de erro', document.getElementById('toast').className.indexOf('erro') >= 0,
      document.getElementById('toast').className);
-  ok('a lista NÃO esvaziou com o sync falhando', document.querySelectorAll('#lista .cont-lin').length >= 2,
-     'n=' + document.querySelectorAll('#lista .cont-lin').length);
+  ok('a lista NÃO esvaziou com o sync falhando', document.querySelectorAll('#lista .cont-card').length >= 2,
+     'n=' + document.querySelectorAll('#lista .cont-card').length);
   window.__SYNC_FALHA = 0;
 
   // sync >24h ganha o aviso
@@ -485,7 +542,7 @@ async function rodar() {
   document.getElementById('abaHoje').click(); await espera(200);
   document.getElementById('abaConteudo').click(); await espera(260);
   ok('sync velho (>24h) ganha a classe de aviso', !!document.querySelector('#lista .sync-lin.velho'));
-  SYNC.horas = 3;
+
 
   // ================= FASE 6: aba Rotina =================
   document.getElementById('abaRotina').click();

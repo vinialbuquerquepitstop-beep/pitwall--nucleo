@@ -835,3 +835,37 @@ a{color:inherit}
 .rot-leg-item{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border:1px solid var(--line);border-left:3px solid var(--tr);border-radius:99px;font-size:11.5px;color:var(--tr)}
 .rot-leg-item .tr-ico{width:12px;height:12px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
 .rot-leg-n{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* ---------- Conteudo: kanban de funil com a data em vista ---------- */
+.cont-topo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.cont-topo-esq{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-right:auto}
+.cont-janela{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.cont-pub{font-size:12.5px;color:var(--dim)}
+.cont-pub.alerta{color:var(--quente-fg);font-weight:500}
+.cont-pub.nenhuma{color:var(--erro-fg)}
+.cont-kanban{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start}
+.cont-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:9px}
+.cont-col-cab{display:flex;align-items:center;gap:7px;padding:0 2px 8px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.cont-col-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.cont-col-n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text)}
+.cont-col-venc{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:99px;padding:1px 6px;margin-left:auto}
+.cont-col-vazio{font-size:12px;color:var(--dim);padding:6px 2px}
+.cont-card{position:relative;padding:9px 9px 9px 12px;margin-bottom:6px;border-radius:var(--radius-p);background:var(--surface);border:1px solid var(--line)}
+.cont-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;background:var(--frio)}
+.cont-card.nivel-vencido::before,.cont-card.nivel-quente::before{background:var(--quente)}
+.cont-card.nivel-morno::before{background:var(--morno)}
+.cont-card.nivel-frio::before{background:var(--frio)}
+.cont-card.nivel-ok::before{background:var(--ok)}
+.cont-card.nivel-nulo::before{background:var(--line-forte)}
+.cont-data-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--dim);margin-bottom:4px}
+.cont-card.nivel-vencido .cont-data-chip,.cont-card.nivel-quente .cont-data-chip{color:var(--quente-fg)}
+.cont-card.nivel-morno .cont-data-chip{color:var(--morno-fg)}
+.cont-card.nivel-ok .cont-data-chip{color:var(--ok-fg)}
+.cont-venc{font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:99px;padding:1px 5px}
+.cont-card .cont-tit{font-size:13px;line-height:1.35}
+.cont-card .cont-tipo{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-top:3px}
+.cont-desc{margin-top:14px}
+.cont-desc-cab{background:none;border:1px solid var(--line);border-radius:var(--radius-p);padding:6px 11px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:inline-flex;align-items:center;gap:7px}
+.cont-desc-corpo{display:none;margin-top:8px;max-width:340px}
+.cont-desc.aberto .cont-desc-corpo{display:block}
+@media (max-width:900px){.cont-kanban{grid-template-columns:1fr}}

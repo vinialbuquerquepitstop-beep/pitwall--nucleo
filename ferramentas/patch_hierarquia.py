@@ -178,6 +178,62 @@ e.innerHTML=corpo+forms}
 '''
 troca_funcao('renderRotina', ROTINA_RENDER, 'renderRotina vira carga + grade')
 
+# ------------------------------------------- Conteudo: kanban de funil com a data
+CONTEUDO = r'''
+var CONT_COLUNAS=[
+{cod:"a_produzir",rot:"A produzir"},
+{cod:"em_producao",rot:"Em produção"},
+{cod:"pronto",rot:"Pronto"},
+{cod:"publicado",rot:"Publicado"}];
+// A janela vem de conteudo_fonte (janela_atras_dias / janela_frente_dias),
+// nunca daqui: numero de janela chumbado no JS e reprovado por validar.py.
+// Ela recorta o que a coluna Publicado consegue mostrar, e na base real isso
+// e uma fracao do total. Por isso o cabecalho DECLARA a janela: sem isso a
+// tela mente por omissao, e mentir sobre publicacao e exatamente o defeito
+// que esta obra veio consertar.
+function contUltimaPub(itens){
+var ult=null,i=0;
+for(;i<itens.length;i++)if("publicado"===itens[i].status_codigo&&(!ult||itens[i].data>ult))ult=itens[i].data;
+if(!ult)return'<span class="cont-pub nenhuma">nenhuma publicação na janela</span>';
+var dd=Math.round((new Date(l()+"T12:00:00")-new Date(ult+"T12:00:00"))/864e5);
+return'<span class="cont-pub'+(dd>=3?" alerta":"")+'">última publicação há '+dd+(1===dd?" dia":" dias")+"</span>"}
+function contCard(x){
+var nv=nivelPeca(x.data,x.status_codigo);
+var sub=x.tipo_rotulo||x.semana?'<div class="cont-tipo">'+c(x.tipo_rotulo||"")+(x.semana?(x.tipo_rotulo?" · ":"")+c(x.semana):"")+"</div>":"";
+return'<div class="cont-card nivel-'+nv+'"><div class="cont-data-chip">'+c(fmtDia(x.data))+("vencido"===nv?'<span class="cont-venc">vencida</span>':"")+'</div><div class="cont-tit">'+c(x.titulo||"")+"</div>"+sub+(x.url?'<a class="cont-link" target="_blank" rel="noopener" href="'+c(x.url)+'">Notion</a>':"")+"</div>"}
+function contColuna(col,itens){
+var meus=itens.filter(function(x){return x.status_codigo===col.cod}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0});
+var venc=meus.filter(function(x){return"vencido"===nivelPeca(x.data,x.status_codigo)}).length;
+return'<div class="cont-col" data-col="'+c(col.cod)+'"><div class="cont-col-cab"><span class="cont-col-rot">'+c(col.rot)+'</span><span class="cont-col-n">'+meus.length+"</span>"+(venc?'<span class="cont-col-venc">'+venc+" vencida"+(1===venc?"":"s")+"</span>":"")+"</div>"+(meus.length?meus.map(contCard).join(""):'<div class="cont-col-vazio">vazia</div>')+"</div>"}
+'''
+troca('async function renderConteudo(', CONTEUDO + 'async function renderConteudo(', 'funcoes do kanban do Conteudo')
+
+CONTEUDO_RENDER = r'''
+async function renderConteudo(){
+var e=E("lista");
+e.innerHTML='<div class="estado">Lendo o calendário…</div>';
+var r=await t.rpc("conteudo_periodo",{});
+if(r.error)return void(e.innerHTML='<div class="estado erro">Falha ao ler o conteúdo: '+c(r.error.message)+". Toque em Atualizar para tentar de novo.</div>");
+var d=r.data;
+if(!d||!1===d.ok)return void(e.innerHTML='<div class="estado erro">'+c(d&&d.msg||"Falha ao ler o conteúdo.")+"</div>");
+var itens=d.itens||[];
+var topo='<div class="cont-topo"><div class="cont-topo-esq"><span class="cont-janela">'+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+"</span>"+contUltimaPub(itens)+"</div>"+syncLinha(d.sync)+'<button class="btn-sync" data-acao="sync-agora">Sincronizar</button></div>';
+if(!itens.length)return void(e.innerHTML=topo+'<div class="estado"><strong>Calendário vazio na janela.</strong>De '+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+", nenhuma peça com Data no Notion."+(null==(d.sync||{}).ok?" O sync nunca rodou: toque em Sincronizar.":"")+"</div>");
+var desc=itens.filter(function(x){return"descartado"===x.status_codigo});
+var kan='<div class="cont-kanban">'+CONT_COLUNAS.map(function(col){return contColuna(col,itens)}).join("")+"</div>";
+var dsc=desc.length?'<div class="cont-desc"><button class="cont-desc-cab" data-acao="cont-descartado" aria-expanded="false">Descartado <span class="cont-col-n">'+desc.length+'</span></button><div class="cont-desc-corpo">'+desc.map(contCard).join("")+"</div></div>":"";
+e.innerHTML=topo+kan+dsc}
+'''
+troca_funcao('renderConteudo', CONTEUDO_RENDER, 'renderConteudo vira kanban')
+
+troca(
+    'if("sync-agora"===o)return void sincronizarAgora(e);',
+    'if("cont-descartado"===o){var cd=e.parentNode,ab="true"===e.getAttribute("aria-expanded");'
+    'cd.className="cont-desc"+(ab?"":" aberto");e.setAttribute("aria-expanded",ab?"false":"true");return}'
+    'if("sync-agora"===o)return void sincronizarAgora(e);',
+    'acao cont-descartado'
+)
+
 # ------------------------------------------------------------------ gravar
 if src == orig:
     print('  FALHOU: nada mudou'); sys.exit(1)
