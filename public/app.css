@@ -804,3 +804,34 @@ a{color:inherit}
   .card{animation:entra .16s ease-out both}
   @keyframes entra{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 }
+
+/* ---------- Rotina: carga da semana + grade de 7 colunas ---------- */
+.rot-carga{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:0 0 18px}
+.rot-carga-cel{display:flex;flex-direction:column;align-items:center;gap:5px}
+.rot-carga-num{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text)}
+.rot-carga-tubo{width:100%;height:38px;background:var(--surface);border-radius:var(--radius-p);display:flex;align-items:flex-end;overflow:hidden}
+.rot-carga-fita{width:100%;background:var(--dim);opacity:.35;border-radius:var(--radius-p)}
+.rot-carga-dia{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.rot-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:start}
+.rot-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;min-height:60px}
+.rot-col.hoje{border-color:var(--accent-linha);background:var(--accent-tint)}
+.rot-col-cab{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:0 2px 7px;border-bottom:1px solid var(--line);margin-bottom:7px}
+.rot-col-n{font-size:11px;letter-spacing:0;color:var(--text)}
+.rot-col-vazio{font-size:12px;color:var(--dim);padding:6px 2px}
+.rot-cel{position:relative;padding:7px 6px 7px 11px;margin-bottom:5px;border-radius:var(--radius-p);background:var(--surface);display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.rot-cel::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:2px;background:var(--tr)}
+.rot-cel .tr-ico{width:13px;height:13px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
+.rot-cel-cat{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--tr)}
+.rot-cel-tit{font-size:12.5px;line-height:1.3;flex:1 1 100%}
+.rot-rm{margin-left:auto;background:none;border:none;color:var(--dim);font-size:15px;line-height:1;padding:0 2px;cursor:pointer;border-radius:3px}
+.rot-rm:hover{color:var(--erro-fg);background:var(--erro-bg)}
+@media (max-width:900px){
+.rot-grade{grid-template-columns:1fr}
+.rot-col{min-height:0}
+.rot-carga{gap:3px}
+.rot-carga-tubo{height:26px}
+}
+.rot-leg{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.rot-leg-item{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border:1px solid var(--line);border-left:3px solid var(--tr);border-radius:99px;font-size:11.5px;color:var(--tr)}
+.rot-leg-item .tr-ico{width:12px;height:12px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
+.rot-leg-n{font-family:var(--mono);font-size:10px;color:var(--dim)}
