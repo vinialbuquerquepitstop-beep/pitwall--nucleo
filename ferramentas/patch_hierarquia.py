@@ -234,6 +234,31 @@ troca(
     'acao cont-descartado'
 )
 
+# ------------------------------------------------------- Hoje: ordem e trilho
+# A nota vivia no MEIO da pilha, sem justificativa. A propria tarefa do molde e
+# "Fechar o dia: nota e pendências": a nota e o ato de fechamento, entao vai
+# para o fim. Conteudo sobe para logo depois da rotina, que e a ordem em que o
+# dia acontece: o que eu faco, o que sai, o que nao pode esquecer, o que anoto.
+troca(
+    'e.innerHTML=hojePlacar(d)+hojeTarefas(d)+hojeNota(d)+hojeLembretes(d)+hojeConteudo(d)}',
+    'e.innerHTML=hojePlacar(d)+hojeTarefas(d)+hojeConteudo(d)+hojeLembretes(d)+hojeNota(d)}',
+    'ordem da aba Hoje: nota vai para o fim'
+)
+
+troca(
+    'return\'<div class="dia-cat-rot">\'+c(ct.rotulo||ct.codigo)+"</div>"',
+    'return\'<div class="dia-cat-rot" style="--tr:\'+trilhoDe(ct.codigo)+\'">\'+iconeCat(ct.codigo)+c(ct.rotulo||ct.codigo)+"</div>"',
+    'trilho no cabecalho de categoria da aba Hoje'
+)
+
+# A aba Hoje passa a usar o MESMO card do kanban, entao a peca de hoje herda o
+# sinal de urgencia em vez de sair como linha cinza.
+troca(
+    'function hojeConteudo(d){var itens=(d.conteudo||[]).map(contItem).join("");',
+    'function hojeConteudo(d){var itens=(d.conteudo||[]).map(contCard).join("");',
+    'aba Hoje herda o card com sinal de urgencia'
+)
+
 # ------------------------------------------------------------------ gravar
 if src == orig:
     print('  FALHOU: nada mudou'); sys.exit(1)

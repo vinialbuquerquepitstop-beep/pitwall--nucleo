@@ -424,7 +424,17 @@ async function rodar() {
   var catRot = document.querySelector('#lista .dia-cat-rot');
   ok('rótulo de categoria existe', !!catRot);
   var corCat = catRot ? getComputedStyle(catRot).color : '';
-  ok('cor computada da categoria é --dim (92,102,117)', corCat === 'rgb(92, 102, 117)', corCat);
+  // Prova o trilho de ponta a ponta: trilhoDe('fila_follow_up') -> var(--tr-fila-follow-up)
+  // -> #5B6BA8 -> rgb(91,107,168) COMPUTADO pelo browser. Se o token sumir do
+  // :root ou o style inline quebrar, isto cai. Nao ha como passar por acidente.
+  ok('categoria computa a cor do trilho (#5B6BA8)', corCat === 'rgb(91, 107, 168)', corCat);
+  ok('cabecalho de categoria tem icone', !!document.querySelector('#lista .dia-cat-rot svg.tr-ico'));
+
+  // ---- ordem da aba Hoje: a nota e o ato de FECHAMENTO, vai por ultimo ----
+  var tits = [].map.call(document.querySelectorAll('#lista .dia-sec-tit'), function (e) { return e.textContent; });
+  ok('ordem: Rotina, Conteúdo, Lembretes, Nota',
+     tits.join(' | ') === 'Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+
 
   // marcar risca e persiste
   var tarefa = document.querySelector('#lista .dia-tarefa');
@@ -469,6 +479,13 @@ async function rodar() {
   document.querySelector('[data-acao="lemb-add"]').click();
   await espera(260);
   ok('lembrete apareceu', telaTxt().indexOf('Separar película') >= 0);
+
+  // Rede contra o risco nomeado no spec: perder um data-acao na reescrita
+  // quebraria um botao EM SILENCIO. Conferido AQUI, e nao antes, porque
+  // lemb-marcar e lemb-remover so existem depois que ha um lembrete na tela.
+  var acoes8 = ['dia-marcar','dia-remover','dia-add','dia-puxar','lemb-marcar','lemb-remover','lemb-add','dia-nota-ok'];
+  var faltando = acoes8.filter(function (a) { return !document.querySelector('#lista [data-acao="' + a + '"]'); });
+  ok('os 8 data-acao da aba Hoje sobreviveram', faltando.length === 0, faltando.join(',') || 'todos presentes');
 
   ok('"sincronizado há 3h" aparece', telaTxt().indexOf('sincronizado há 3h') >= 0);
   ok('conteúdo de hoje lista o Reel', telaTxt().indexOf('Reel bastidores') >= 0);

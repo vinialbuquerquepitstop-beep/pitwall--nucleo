@@ -869,3 +869,9 @@ a{color:inherit}
 .cont-desc-corpo{display:none;margin-top:8px;max-width:340px}
 .cont-desc.aberto .cont-desc-corpo{display:block}
 @media (max-width:900px){.cont-kanban{grid-template-columns:1fr}}
+
+/* ---------- Hoje: trilho de categoria no cabecalho de secao ---------- */
+.dia-cat-rot{display:flex;align-items:center;gap:6px;padding-left:9px;position:relative;color:var(--tr)}
+.dia-cat-rot::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--tr)}
+.dia-cat-rot .tr-ico{width:13px;height:13px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
+.cont-solto .cont-card{max-width:340px}
