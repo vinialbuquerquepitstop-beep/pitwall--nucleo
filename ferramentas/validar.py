@@ -203,8 +203,9 @@ ck(novo_js.count('functions.invoke("sincronizar-conteudo"') == 1,
 # HTML: abas novas presentes, e as 4 raras marcadas para a barra mobile
 for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
     ck(novo_html.count(f'id="{aba}"') == 1, f'aba {aba} ausente ou duplicada')
-ck(novo_html.count('class="aba aba-rara"') == 4,
-   f'esperava 4 abas raras (Indicações, Captação, Dashboard, Rotina), achei {novo_html.count("class=\"aba aba-rara\"")}')
+n_raras = novo_html.count('class="aba aba-rara"')
+ck(n_raras == 5,
+   f'esperava 5 abas raras (Indicações, Captação, Dashboard, Rotina, Calculadora), achei {n_raras}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
 
 # ISODOW na tela: 1=segunda..7=domingo. Off-by-one aqui poe a rotina no dia
