@@ -15,3 +15,6 @@ ferramentas/preview.html
 # A fonte da verdade e docs/handoffs/handoff_migracao_pitwall_vNN.md
 ferramentas/handoff.md
 ferramentas/mock_captacao.html
+
+# Bytecode Python das ferramentas
+ferramentas/__pycache__/

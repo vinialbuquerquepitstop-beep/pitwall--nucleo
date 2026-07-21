@@ -514,15 +514,41 @@ out+='<div class="rot-col'+(i===hojeIso?" hoje":"")+'"><div class="rot-col-cab">
 return'<div class="rot-grade">'+out+"</div>"}
 '''
 troca('function renderRotina(', ROTINA_NOVA + 'function renderRotina(', 'funcoes da grade da Rotina')
-
-troca(
-    'corpo=cats.length?cats.map(function(ct){var ts=(ct.tarefas||[]).map(function(x){return\'<div class="dia-lin"><div class="dia-tarefa rot-item">',
-    'corpo=cats.length?rotCargaBarra(cargaSemana(cats))+rotGrade(cats,pode):\'\'+(0?cats.map(function(ct){var ts=(ct.tarefas||[]).map(function(x){return\'<div class="dia-lin"><div class="dia-tarefa rot-item">',
-    'corpo da Rotina vira carga + grade'
-)
 ```
 
-**Nota ao implementador:** a segunda troca acima e fragil de proposito, porque preserva o codigo antigo atras de um `0?`. **Nao faca isso.** Em vez disso, localize o corpo completo da funcao `renderRotina` no arquivo, extraia-o com o mesmo script Node usado na exploracao, e substitua a funcao INTEIRA por uma versao nova completa, ancorada em `function renderRotina(){` ate o `}` que fecha. Codigo morto atras de `0?` e divida tecnica que o proximo leitor paga. A funcao nova completa:
+Depois, **substituir a funcao `renderRotina` INTEIRA**, nao remendar por dentro. Codigo antigo preservado atras de um `0?` (ou qualquer outra forma de codigo morto) e divida tecnica que o proximo leitor paga: **nao fazer isso**.
+
+Como trocar a funcao inteira com seguranca, dado que o arquivo e uma linha so: localizar `async function renderRotina(){` e caminhar contando chaves ate a que fecha, exatamente como o script Node da exploracao faz. Acrescentar ao `patch_hierarquia.py` este helper e usa-lo:
+
+```python
+def troca_funcao(nome, novo_corpo, rotulo):
+    """Substitui uma funcao inteira, do 'async function NOME(' ate a chave que fecha.
+    Falha alto se o nome nao aparecer exatamente 1x."""
+    global src
+    marca = 'async function %s(' % nome
+    n = src.count(marca)
+    if n != 1:
+        print('  FALHOU [%s]: "%s" aparece %dx, esperava 1x' % (rotulo, marca, n))
+        sys.exit(1)
+    i = src.index(marca)
+    j = src.index('{', i)
+    d = 0
+    k = j
+    while k < len(src):
+        if src[k] == '{': d += 1
+        elif src[k] == '}':
+            d -= 1
+            if d == 0: break
+        k += 1
+    if d != 0:
+        print('  FALHOU [%s]: chaves desbalanceadas' % rotulo); sys.exit(1)
+    src = src[:i] + novo_corpo.strip() + src[k+1:]
+    print('  ok [%s] (%d bytes trocados)' % (rotulo, k + 1 - i))
+```
+
+**Armadilha:** contar chaves cegamente quebra se houver `{` ou `}` dentro de uma string literal do corpo da funcao. A `renderRotina` tem varias strings HTML, mas **nenhuma contem chave** (conferido no arquivo atual). Se em algum momento passar a conter, este helper para de servir e a troca tem que voltar a ser por ancora de texto exato. Deixar este comentario no codigo.
+
+A `renderRotina` nova, completa:
 
 ```javascript
 async function renderRotina(){
@@ -657,7 +683,7 @@ Esperado: falham as 9 assercoes novas. A `renderConteudo` atual produz `.cont-lo
 
 - [ ] **Step 3: Reescrever `renderConteudo` pelo patch**
 
-Substituir a funcao `renderConteudo` INTEIRA (ancorada de `async function renderConteudo(){` ate o `}` que fecha) por:
+Substituir a funcao `renderConteudo` INTEIRA usando o helper `troca_funcao('renderConteudo', ..., ...)` criado na Task 4. As funcoes auxiliares novas (`CONT_COLUNAS`, `contUltimaPub`, `contCard`, `contColuna`) entram junto, no mesmo bloco. Nada de remendo por dentro nem de codigo morto preservado:
 
 ```javascript
 var CONT_COLUNAS=[
