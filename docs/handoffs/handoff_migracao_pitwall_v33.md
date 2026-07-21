@@ -15,8 +15,9 @@ Obra de frontend puro, **zero mudanca de banco**. `conteudo_periodo`,
 | **Conteúdo** | Lista cronologica plana. `Publicado` e `A produzir` com o mesmo chip cinza. | **Kanban de funil de 4 colunas**, ordenado por data, com contagem de vencidas e a data carregando o sinal de urgencia. |
 | **Hoje** | placar, tarefas, **nota**, lembretes, conteudo | placar, tarefas, conteudo, lembretes, **nota** (a nota e o ato de fechamento). |
 
-Branch: `frontend-hierarquia`. **Ainda NAO fundida em `main`, ou seja, ainda nao
-publicada.** Push em main e o deploy neste projeto.
+Construida na branch `frontend-hierarquia`, **fundida em `main` em 21/07/2026**
+apos o dono aprovar na tela. Push em main e o deploy neste projeto: a Cloudflare
+publica sozinha via Workers Builds.
 
 Spec: `docs/superpowers/specs/2026-07-20-hierarquia-frontend-design.md`
 Plano: `docs/superpowers/plans/2026-07-20-hierarquia-frontend.md`
