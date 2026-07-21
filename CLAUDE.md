@@ -10,18 +10,29 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v32.md`. Conferir a pasta em vez de confiar nesta
-   linha: ela ja ficou desatualizada antes.
+   `handoff_migracao_pitwall_v33.md`. Conferir a pasta em vez de confiar nesta
+   linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026).
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
    ANTES de escrever CSS. Ela e a referencia de record, aprovada pelo dono.
 4. So entao abrir a skill do dominio do pedido.
 
-Nota sobre skills: as tres skills do projeto (`pitwall-nucleo`, `pitwall-conteudo`,
-`operacao-pitstop`) estao COMPLETAS. Conferido em 16/07/2026: os 8 `references/` que a
-`pitwall-nucleo/SKILL.md` pede existem e tem conteudo (`invariantes.md` 126 linhas,
-`modelo-de-dados.md` 117, `regua-cadencia.md` 82...), e os 4 da `pitwall-conteudo`
-tambem. **Abrir esses arquivos normalmente.**
+Nota sobre skills: hoje sao SEIS em `.claude/skills/`, todas COMPLETAS. As tres do
+nucleo do produto:
+- `pitwall-nucleo` (backend e frontend do sistema novo: Supabase, RLS, regua, deploy),
+- `pitwall-conteudo` (pipeline Notion -> Pit Wall: cards, sync, Vetores, auditoria),
+- `operacao-pitstop` (planilha/CRM legado no Google Sheets, conselho de negocio).
+
+E tres adicionadas depois da v25:
+- `auditoria-marketing` (time de auditoria semanal: Conteudo, Social, Comercial +
+  braco propositivo Evolucao & Propostas; 4 `references/`),
+- `apple-strategist` (estrategia de revenda Apple no varejo local),
+- `socialmedia` (planejamento e CRM de Instagram).
+
+Conferido em 16/07/2026: os 8 `references/` que a `pitwall-nucleo/SKILL.md` pede
+existem e tem conteudo (`invariantes.md` 126 linhas, `modelo-de-dados.md` 117,
+`regua-cadencia.md` 82...), e os 4 da `pitwall-conteudo` tambem. **Abrir esses
+arquivos normalmente.**
 
 Ate a v25 este bloco dizia que os `references/` nao existiam e mandava nao abri-los.
 Era mentira, e cara: fez varias sessoes pularem o conhecimento acumulado do projeto e
@@ -91,6 +102,14 @@ descobrir que o desenho estava errado.
 17. Nao construir superficie de SaaS antes do primeiro pagamento. Barato entra agora
     (schema multi-tenant, RLS, auditoria); caro so quando alguem pagar.
 
+Reforcos anotados na v33 (nao sao numero novo, so alcance dos existentes):
+- Invariante 4 vale tambem para peca de conteudo, nao so lead: `nivelPeca` calcula no
+  cliente a partir do fuso do Brasil, nunca vira coluna.
+- Invariante 12 sobe de nivel: a chave e o `codigo`, nunca o `rotulo`, em qualquer
+  dominio (categoria nova entra por hash deterministico do codigo).
+- Cor semantica se mede (paleta); cor de IDENTIDADE tambem (os 7 trilhos).
+- Tela que omite recorte mente: declarar a janela (`de X a Y`) e parte do dado.
+
 ---
 
 ## IDs de sistema
@@ -111,30 +130,40 @@ descobrir que o desenho estava errado.
 ```
 .                  <- O DIRETORIO DE TRABALHO E O PROPRIO REPO GIT (pitwall--nucleo).
   public/          <- o que a Cloudflare serve
-    index.html     (estrutura, aponta pra app.css e app.js)
-    app.css
-    app.js
+    index.html     (estrutura, aponta pra app.css e app.js; legivel)
+    app.css        (legivel, ~900 linhas, tokens da referencia visual v3)
+    app.js         (nucleo minificado numa linha so + blocos de dados legiveis)
   supabase/
     functions/
       sincronizar-conteudo/index.ts   <- Edge Function (Fase 6). Notion -> conteudo.
-  ferramentas/     <- suite de validacao e harness. Ver handoff v26.
-  docs/            <- handoffs e referencia visual
+  ferramentas/     <- suite Python de validacao e patch. validar.py, harness.py,
+                      prova_trilho.py, patch_*.py, mock_*.py, *.antes (baselines).
+  backups/         <- dumps do Postgres criptografados (.gpg), um por dia.
+  docs/
+    handoffs/      <- handoff de MAIOR versao e o de record.
+    design/        <- referencia-visual-v3.html (record aprovado).
+    superpowers/   <- specs e plans (ex.: hierarquia do frontend, v33).
+    mapa_pitwall_nucleo_v2.html
+  .github/workflows/   <- backup_git.yml (backup diario) + restore_drill.yml.
+  README.md
   wrangler.jsonc
 ```
 
 **Nao existe pasta `nucleo/`.** Ate a v28 este bloco dizia que o codigo vivia em
 `nucleo/public/`, que o diretorio de trabalho nao era um repo git, e que o repo nao
 versionava `docs/` nem `ferramentas/`. **Os tres eram falsos.** O commit `86d95cf`
-passou a versionar `docs/` (26 arquivos) e `ferramentas/` (15), e o arranque nunca foi
-atualizado. Conferido em 17/07/2026 com `git ls-files`.
+passou a versionar `docs/` e `ferramentas/`, e o arranque nunca foi atualizado.
+Conferido em 17/07/2026 com `git ls-files`.
 
 Armadilha: `Desktop/pitwall deploy/` e um monolito morto de 09/07, sem git, anterior ao
 redesign. Nao e copia de trabalho, nao editar.
 
-Frontend e trio servido direto, sem minificacao SEPARADA. **`app.css` e `app.js` estao
-minificados na origem (uma linha so); `index.html` NAO, e legivel.** A v28 dizia que os
-tres eram minificados: errado num terco. "Legivel" no historico queria dizer "trio em
-vez de monolito", nao codigo formatado.
+Frontend e trio servido direto. **So o `app.js` e minificado: o nucleo IIFE numa linha
+so (~25 mil chars), com blocos de dados legiveis colados abaixo. `app.css` (~900 linhas)
+e `index.html` (~200 linhas) SAO LEGIVEIS.** Ate a v32 este bloco dizia que `app.css`
+tambem estava minificado: falso hoje, medido em 21/07/2026 (maior linha do CSS 257
+chars). Em arquivo minificado de uma linha, `git diff` nao prova que algo NAO mudou (o
+diff exibe a linha inteira): para isso, extrair o corpo da funcao e comparar byte a byte.
 
 **Referencia visual de record: `docs/design/referencia-visual-v3.html`.** Aprovada em
 16/07/2026 apos o dono reprovar a v1 (IBM Plex) e a v2 (serif). Construir ATE ela, nao
@@ -159,6 +188,28 @@ tracking, nao de familia decorativa.
 
 Cadencia em notacao com ponto do meio: `R3 · D14` (U+00B7).
 
+**As tres abas de operacao (reorganizadas na v33, 21/07/2026, frontend puro, zero
+mudanca de banco):**
+- **Rotina**: grade de 7 colunas com a carga por dia no topo (`seg 10 · ter 8 ...`),
+  nao mais lista agrupada por categoria.
+- **Conteudo**: kanban de funil de 4 colunas (`A produzir -> Em producao -> Pronto
+  -> Publicado`), ordenado por data, com contagem de vencidas. O cabecalho DECLARA a
+  janela (`de X a Y`), senao a coluna Publicado mente por omissao (mostra 3 de 8).
+- **Hoje**: placar, tarefas, conteudo, lembretes, e a **nota por ultimo** (a nota e o
+  ato de fechamento do dia).
+Spec e plano em `docs/superpowers/` (`2026-07-20-hierarquia-frontend-*`).
+
+**Sistema de cor Trilho x Sinal** (v33, hibrido escolhido pelo dono contra a
+recomendacao): categoria e URGENCIA nao disputam matiz.
+- **Trilho** (quem sou): barra de 3px + cor do rotulo, croma baixo (le como cinza
+  tingido), **sempre com icone**. 7 tokens de categoria, MEDIDOS antes de entrar
+  (3.80 a 5.21 contra branco, alvo 3:1). Prova: `python ferramentas/prova_trilho.py`.
+- **Sinal** (quao urgente): chip preenchido, faixa, matiz + palavra.
+As colisoes de luminancia trilho x cor semantica ficam entre 1.14 e 1.44: matiz
+sozinho NAO separa, entao **o icone carrega a distincao, nao e enfeite**. Trilho sem
+icone e regressao, e o harness assere isso. A chave do trilho e o `codigo` (hash
+deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
+
 ---
 
 ## Pipeline de deploy
@@ -169,6 +220,11 @@ Cadencia em notacao com ponto do meio: `R3 · D14` (U+00B7).
 - O `name` no `wrangler.jsonc` (`flat-resonance-09ba`) tem que bater exatamente com o
   Worker no painel, senao o build da integracao falha.
 - `not_found_handling: single-page-application` protege o hash de recovery de senha.
+- Backup do banco: `.github/workflows/backup_git.yml` grava um dump do Postgres
+  CRIPTOGRAFADO (AES-256, `.gpg`) em `backups/`, um por dia, sem servico externo.
+  Exige os secrets `SUPABASE_DB_URL` (session pooler) e a senha de criptografia.
+  O dump tem PII de cliente: nunca commitar em claro. `restore_drill.yml` prova que o
+  backup restaura.
 
 ---
 
@@ -176,10 +232,22 @@ Cadencia em notacao com ponto do meio: `R3 · D14` (U+00B7).
 
 - Entregar arquivo completo, pronto para aplicar, nunca fragmento. Fragmento foi a
   causa raiz de corrupcao no historico do projeto.
-- Frontend: qualquer split ou extracao passa por acorn (`sourceType: script`) +
-  harness jsdom + fidelidade byte a byte (MD5 fonte vs arquivo) antes de dar por pronto.
-  Quando o MD5 for prova, escrever a receita exata (campos, separador, ordenacao) no
-  handoff, senao o numero nao e reproduzivel.
+- Frontend: a suite de validacao e PYTHON, da raiz do repo (nao acorn nem jsdom, que a
+  v32 afirmava por engano e nao existem aqui). Tres provas reexecutaveis:
+  ```
+  python ferramentas/validar.py       # sintaxe, via esprima
+  python ferramentas/harness.py       # comportamento, Chrome headless (assere cor computada)
+  python ferramentas/prova_trilho.py  # contraste dos 7 trilhos de categoria
+  ```
+  Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
+  cor computada. Estado atual: 133 assercoes, 0 falhas.
+  **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
+  linhas verdes e pode terminar em `REPROVOU:`; ler o texto por cima ja fez commitar
+  vermelho. Ao assertar UI, consultar o DOM RENDERIZADO (so `#lista`), nunca
+  `document.body.textContent`, que enxerga o proprio `app.js` colado no `<body>`.
+  Baseline `.antes` se reponta UMA vez, no inicio da obra, nunca no meio: guard-rail que
+  incomoda nao se cala repontando a baseline, ou se abre excecao nomeada ou se derruba
+  conscientemente.
 - SQL: nao entregar sem rodar. Policy de RLS testada como dono, como vendedor e como
   tenant errado, provando o isolamento. Auditoria: provar que uma escrita gera
   exatamente um registro append-only com valor antes e depois.
@@ -208,6 +276,19 @@ Emoji NAO faz mais parte de rotulo nenhum. Saiu do `dicionario_rotulos` em 16/07
 por decisao da v25: na tela virou ponto colorido + palavra. Os exemplos acima ja estao
 na forma nova, sem emoji. Nao reintroduzir. O que identifica um valor e o `codigo`
 (`lista_fria`, `pendente`), nunca o `rotulo`, que e display e editavel.
+
+---
+
+## Proxima fase ja decidida (ver handoff v33, secao 12)
+
+Mover card no kanban = **escrita de volta no Notion** (o Notion segue fonte unica, o
+Pit Wall vira controle remoto). BLOQUEADOR do dono, e nao e de codigo: a integracao do
+Notion (`NOTION_TOKEN`, env do Deno) precisa da capability **"Update content"** em
+notion.so/profile/integrations, senao o `PATCH /v1/pages/{page_id}` volta 403 e nada
+funciona. A conexao MCP desta sessao usa credencial DIFERENTE, entao testar por ela nao
+prova nada sobre a que importa. Interacao aprovada: arrastar no desktop E botao no
+celular (contra a recomendacao de so botao). Ordem de escrita: Notion primeiro, local so
+se o PATCH passar.
 
 ---
 
