@@ -250,6 +250,7 @@ TOKENS_TRILHO = {
     # tipo de peca de conteudo, mesma decisao e mesma disciplina:
     # medidos (5.36 / 6.96 / 4.55 contra branco) e sempre com icone.
     '--tp-story:#A8497E', '--tp-reels:#5B4BA8', '--tp-feed:#2F7DA8',
+    '--tp-carrossel:#2E7D5B',
 }
 root_novo = novo_css.split(':root{',1)[1].split('}',1)[0]
 root_velho = velho_css.split(':root{',1)[1].split('}',1)[0]

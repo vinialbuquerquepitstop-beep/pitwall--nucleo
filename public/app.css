@@ -67,6 +67,7 @@
   --tp-story:#A8497E;
   --tp-reels:#5B4BA8;
   --tp-feed:#2F7DA8;
+  --tp-carrossel:#2E7D5B;   /* 5.00 */
 
   --radius:8px;
   --radius-p:6px;
@@ -897,4 +898,4 @@ a{color:inherit}
    antes, senao a cor do tipo perde para --dim silenciosamente */
 .cont-card .cont-tipo{display:flex;align-items:center;gap:5px;color:var(--tp)}
 .tp-ico{width:12px;height:12px;flex:0 0 auto;stroke:var(--tp);fill:none;stroke-width:1.7}
-.tipo-story,.tipo-reels,.tipo-feed,.tipo-outro{}
+.tipo-story,.tipo-reels,.tipo-feed,.tipo-carrossel,.tipo-outro{}

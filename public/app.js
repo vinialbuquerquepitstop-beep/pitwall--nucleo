@@ -22,14 +22,18 @@ return'<span class="cont-pub'+(dd>=3?" alerta":"")+'">última publicação há '
 // Separacao por luminancia entre os tres e fraca (1.18 a 1.53), igual a dos
 // trilhos: quem separa e o matiz mais o ICONE mais a palavra. Tipo sem icone
 // e regressao.
-var TIPO_MAPA={story:"--tp-story",reels:"--tp-reels",feed:"--tp-feed"};
+// O Notion tem QUATRO tipos, nao tres: Reels, Story, Carrossel, Feed.
+// Carrossel tem 0 cards hoje, entao nao aparecia em teste nenhum, mas
+// cairia no fallback cinza no dia que o dono criasse um.
+var TIPO_MAPA={story:"--tp-story",reels:"--tp-reels",feed:"--tp-feed",carrossel:"--tp-carrossel"};
 function tipoDe(cod){
 var k=String(cod||"");
 return TIPO_MAPA[k]?"var("+TIPO_MAPA[k]+")":"var(--line-forte)"}
 var ICONE_TIPO={
 story:'<circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.4"/>',
 reels:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M10 9.5l5 2.5-5 2.5z" stroke-linejoin="round"/>',
-feed:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'};
+feed:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+carrossel:'<rect x="7" y="4" width="13" height="16" rx="2"/><path d="M4 7v12a1.5 1.5 0 0 0 1.5 1.5H16" stroke-linecap="round"/>'};
 function iconeTipo(cod){
 return'<svg class="tp-ico" viewBox="0 0 24 24" aria-hidden="true">'+(ICONE_TIPO[String(cod||"")]||'<circle cx="12" cy="12" r="7"/>')+"</svg>"}
 function contCard(x){
