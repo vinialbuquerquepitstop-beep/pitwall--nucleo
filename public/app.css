@@ -148,6 +148,12 @@ a{color:inherit}
 .aba:hover{background:rgba(15,21,35,.04);color:var(--text)}
 .aba[aria-selected=true]{background:var(--accent-tint);color:var(--accent)}
 .aba[aria-selected=true] svg{stroke-width:1.8}
+/* Icone do trilho de categoria (iconeCat/trilhoDe, app.js). O matiz sozinho nao
+   separa as 7 cores (colisoes de luminancia entre 1.14 e 1.44), entao o icone
+   nunca e enfeite. Cor vem de quem posiciona (color:var(--tr-*)), currentColor
+   aqui so segue. Consumido pelas Tasks 4/5/6; regra entra ja na Task 3 porque
+   validar.py (secao 3) reprova classe emitida pelo JS sem estilo no CSS. */
+.tr-ico{width:14px;height:14px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.6}
 /* contador: mesma fonte do pbFila, nunca uma segunda contagem.
    Vazio quando a fila zera, entao o JS escreve "" e o :empty esconde. */
 .nav-badge{
