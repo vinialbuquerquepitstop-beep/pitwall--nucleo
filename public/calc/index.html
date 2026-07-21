@@ -1,0 +1,1359 @@
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f7fa">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<title>Pitstop Imports</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f5f7fa;--sf:#ffffff;--sf2:#eef2f8;--bd:#dbe3ee;
+  --tx:#0a1633;--mu:#5a6b85;--hi:#9aa8bf;
+  --gr:#15a34a;--gr-bg:#e7f8ee;--gr-bd:#bce7cd;
+  --ye:#b07d06;--ye-bg:#fdf6e3;--ye-bd:#ecd9a3;
+  --re:#dc2626;--re-bg:#fdecec;--re-bd:#f5c2c2;
+  --bl:#1e66ff;--bl-bg:#e8f0ff;--bl-bd:#bcd4ff;
+  --pu:#7c5cf0;--pu-bg:#f1ecff;--pu-bd:#d7caf7;
+  --or:#ea580c;--or-bg:#fff1e8;--or-bd:#fbcfae;
+  --te:#0d9488;--te-bg:#ccfbf1;--te-bd:#99f6e4;
+  --r:18px;--rs:12px
+}
+body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;min-height:100vh;padding-bottom:calc(env(safe-area-inset-bottom,0px)+80px);-webkit-font-smoothing:antialiased}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);display:grid;grid-template-columns:repeat(5,1fr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tb{padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;background:none;border:none;font-family:inherit;color:var(--mu);font-size:10px;font-weight:600;letter-spacing:0.04em;transition:color 0.2s}
+.tb .ti{font-size:20px}.tb.on{color:var(--tx)}
+.tb.on.tv .ti{color:var(--gr)}.tb.on.tu .ti{color:var(--or)}.tb.on.tc .ti{color:var(--bl)}.tb.on.to .ti{color:var(--pu)}.tb.on.tr .ti{color:var(--te)}
+.pg{display:none;animation:fi 0.2s ease}.pg.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.lv{background:linear-gradient(135deg,#1E66FF,#0057D9)}.lu{background:linear-gradient(135deg,#f97316,#ea580c)}.lc{background:linear-gradient(135deg,#003A8C,#0057D9)}.lo{background:linear-gradient(135deg,#7c5cf0,#5b3fd0)}.ltr{background:linear-gradient(135deg,#14b8a6,#0d9488)}
+.ht .hn{font-size:17px;font-weight:800;letter-spacing:-0.3px}.ht .hs{font-size:12px;color:var(--mu)}
+.dbg{margin-left:auto;background:var(--sf);border:1px solid var(--bd);border-radius:100px;padding:4px 10px;font-size:11px;color:var(--mu);white-space:nowrap}
+.w{padding:20px;max-width:500px;margin:0 auto}
+.sc{font-size:11px;font-weight:600;letter-spacing:0.08em;color:var(--mu);text-transform:uppercase;margin:24px 0 12px}
+/* SEARCH */
+.sw{position:relative}
+.sw input{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 44px 14px 16px;font-size:16px;color:var(--tx);font-family:inherit;outline:none;transition:border-color 0.2s}
+.sw input:focus{border-color:#444}.sw input::placeholder{color:var(--hi)}
+.si{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--mu);pointer-events:none}
+.cb{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:var(--sf2);border:none;color:var(--mu);cursor:pointer;font-size:14px;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center}
+.cb.on{display:flex}
+.dd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-top:6px;overflow:hidden;display:none;max-height:300px;overflow-y:auto}
+.dd.on{display:block}
+.ddi{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd);transition:background 0.15s}
+.ddi:last-child{border-bottom:none}.ddi:active{background:var(--sf2)}
+.ddn{font-size:14px;font-weight:500}
+.ddm{font-size:12px;color:var(--mu);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.ddp{color:var(--gr);font-weight:600}
+.ddc{padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--hi);background:var(--bg);border-bottom:1px solid var(--bd)}
+/* CARDS */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.cg{border-color:var(--gr-bd)}.co{border-color:var(--or-bd)}.cb2{border-color:var(--bl-bd)}.cp{border-color:var(--pu-bd)}
+.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px}
+.ctg{color:var(--gr)}.cto{color:var(--or)}.ctb{color:var(--bl)}
+.cr{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.cl{color:var(--mu)}.cv{font-weight:500}
+.vgr{color:var(--gr)}.vor{color:var(--or)}.vre{color:var(--re)}.vbi{font-size:20px;font-weight:700;letter-spacing:-0.4px}
+.chg{font-size:12px;color:var(--bl);margin-top:8px;cursor:pointer}
+/* CORES */
+.cw{margin-top:10px}
+.cwl{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;display:block}
+.cl2{display:flex;flex-wrap:wrap;gap:6px}
+.corb{display:flex;align-items:center;gap:5px;background:var(--sf2);border:1.5px solid var(--bd);border-radius:100px;padding:5px 10px 5px 5px;cursor:pointer;font-size:12px;font-weight:500;color:var(--mu);font-family:inherit;transition:all 0.15s}
+.corb.ag{border-color:var(--gr);color:var(--tx);background:var(--gr-bg)}
+.corb.ao{border-color:var(--or);color:var(--tx);background:var(--or-bg)}
+.cdot{width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,0.12);flex-shrink:0}
+/* FIELD */
+.fi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fi:focus-within{border-color:#444}
+.fi label{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.03em}
+.fi input{background:none;border:none;outline:none;font-size:18px;font-weight:500;color:var(--tx);width:100%;font-family:inherit}
+.fi input::placeholder{color:var(--hi);font-weight:400;font-size:16px}
+.fhint{font-size:11px;color:var(--hi)}
+/* FRETE */
+.frw{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.frl{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.03em;display:block;margin-bottom:6px}
+.fri{background:none;border:none;outline:none;font-size:18px;font-weight:500;color:var(--tx);width:100%;font-family:inherit;margin-bottom:4px}
+.fri::placeholder{color:var(--hi);font-weight:400;font-size:16px}
+.frs{font-size:11px;color:var(--hi);margin-bottom:12px}
+.tgg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.tgb{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:8px 4px;font-size:11px;font-weight:600;color:var(--mu);cursor:pointer;font-family:inherit;text-align:center;transition:all 0.15s;line-height:1.3}
+.tgb.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.tgi{font-size:15px;display:block;margin-bottom:2px}
+.frr{margin-top:10px;font-size:12px;color:var(--mu);background:var(--bg);border-radius:var(--rs);padding:8px 12px;display:none;line-height:1.5}
+.frr.on{display:block}
+/* ALERT */
+.al{border-radius:var(--rs);padding:12px 14px;font-size:13px;font-weight:500;margin-bottom:12px;display:none;line-height:1.4;border:1px solid}
+.al.on{display:block}
+.ag{background:var(--gr-bg);border-color:var(--gr-bd);color:var(--gr)}
+.ay{background:var(--ye-bg);border-color:var(--ye-bd);color:var(--ye)}
+.ar{background:var(--re-bg);border-color:var(--re-bd);color:var(--re)}
+/* METRICS */
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.mt{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+.mt.wd{grid-column:1/-1}
+.mt .ml{font-size:11px;color:var(--mu);margin-bottom:4px;font-weight:600;letter-spacing:0.03em}
+.mt .mv{font-size:21px;font-weight:700;letter-spacing:-0.5px}
+.mt .ms{font-size:11px;color:var(--hi);margin-top:3px}
+.mt.mg{background:var(--gr-bg);border-color:var(--gr-bd)}.mt.mg .ml,.mt.mg .mv{color:var(--gr)}
+.mt.my{background:var(--ye-bg);border-color:var(--ye-bd)}.mt.my .ml,.mt.my .mv{color:var(--ye)}
+.mt.mr{background:var(--re-bg);border-color:var(--re-bd)}.mt.mr .ml,.mt.mr .mv{color:var(--re)}
+/* PARCELAS */
+.pd{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.pc{background:var(--sf);border:1px solid var(--bl-bd);border-radius:var(--r);padding:14px}
+.pc .pt{font-size:13px;font-weight:700;color:var(--bl);margin-bottom:10px}
+.pc .pr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.pc .pr:last-child{border-bottom:none;font-weight:700;padding-top:7px}
+.pc .pl{color:var(--mu)}
+.ptw{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.pth{display:grid;grid-template-columns:45px 1fr 1fr 1fr;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--bd)}
+.pth span{font-size:11px;font-weight:600;color:var(--mu);letter-spacing:0.05em;text-transform:uppercase}
+.ptr{display:grid;grid-template-columns:45px 1fr 1fr 1fr;padding:9px 14px;border-bottom:1px solid var(--bd);align-items:center}
+.ptr:last-child{border-bottom:none}
+.ptr .pn{font-size:13px;font-weight:700}.ptr .pp{font-size:13px;font-weight:600}
+.ptr .ptot{font-size:12px;color:var(--mu)}.ptr .pj{font-size:11px;color:var(--hi)}
+/* SEGUNDA OPÇÃO */
+.segw{background:var(--pu-bg);border:1px solid var(--pu-bd);border-radius:var(--r);padding:14px 16px;margin-top:10px;display:none}
+.segw.on{display:block}
+.segh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.segt{font-size:12px;font-weight:700;color:var(--pu);letter-spacing:0.05em;text-transform:uppercase}
+.stabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.st{background:var(--sf2);border:1.5px solid var(--bd);border-radius:var(--rs);padding:10px 8px;cursor:pointer;font-family:inherit;transition:all 0.15s;text-align:left}
+.st.on{border-color:var(--pu);background:var(--pu-bg)}
+.st .stl{font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px}
+.st .stn{font-size:12px;font-weight:600;color:var(--tx);line-height:1.3}
+.st .stp{font-size:12px;color:var(--gr);font-weight:700;margin-top:3px}
+.st .std{font-size:11px;margin-top:2px}.st .stloc{font-size:10px;color:var(--mu);margin-top:5px;line-height:1.3}
+.st.on .stl{color:var(--pu)}
+/* DEFEITOS */
+.dfg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.dc{background:var(--sf);border:1.5px solid var(--bd);border-radius:var(--r);padding:14px;cursor:pointer;transition:all 0.15s;position:relative}
+.dc:active{transform:scale(0.97)}.dc.on{border-color:var(--re);background:var(--re-bg)}
+.dc .dci{font-size:22px;margin-bottom:6px;display:block}
+.dc .dcn{font-size:13px;font-weight:600;margin-bottom:3px}
+.dc .dcd{font-size:11px;color:var(--mu);line-height:1.3}
+.dc .dcv{font-size:13px;font-weight:700;color:var(--re);margin-top:8px;min-height:18px}
+.dc .dck{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--bd);background:var(--sf2);display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s}
+.dc.on .dck{background:var(--re);border-color:var(--re);color:white}
+.def-val-inp{background:var(--sf2);border:1px solid var(--re-bd);border-radius:var(--rs);padding:7px 10px;font-size:14px;font-weight:600;color:var(--tx);font-family:inherit;outline:none;width:100%}
+.def-val-inp::placeholder{color:var(--hi);font-size:13px;font-weight:400}
+.def-val-inp:focus{border-color:var(--re)}
+/* TELA QUALIDADE */
+.tqw{background:var(--sf);border:1px solid var(--re-bd);border-radius:var(--r);padding:14px;margin-bottom:10px;display:none}
+.tqw.on{display:block}
+.tql{font-size:11px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;display:block}
+.tqo{display:flex;flex-wrap:wrap;gap:6px}
+.tqb{background:var(--sf2);border:1.5px solid var(--bd);border-radius:var(--rs);padding:7px 10px;font-size:11px;font-weight:600;color:var(--mu);cursor:pointer;font-family:inherit;transition:all 0.15s;text-align:center;min-width:80px}
+.tqb.on{border-color:var(--re);color:var(--tx);background:var(--re-bg)}
+.tqb.na{opacity:0.3;cursor:default}
+.tqb .tqp{font-size:10px;color:var(--gr);display:block;margin-top:2px}
+/* OUTRO */
+.otc{background:var(--sf);border:1.5px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;transition:border-color 0.2s}
+.otc.on{border-color:var(--re);background:var(--re-bg)}
+.oth{display:flex;align-items:center;gap:10px;cursor:pointer}
+.ott{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--bd);background:var(--sf2);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.15s}
+.otc.on .ott{background:var(--re);border-color:var(--re);color:white}
+.otn{font-size:13px;font-weight:600}.ots{font-size:11px;color:var(--mu);margin-top:2px}
+.otf{margin-top:12px;display:none;flex-direction:column;gap:8px}.otf.on{display:flex}
+.ofi{display:flex;flex-direction:column;gap:4px}
+.ofi label{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.03em}
+.ofi input{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;font-size:14px;font-weight:500;color:var(--tx);font-family:inherit;outline:none;width:100%}
+.ofi input::placeholder{color:var(--hi);font-size:13px}
+/* DIFF BOX */
+.db{background:var(--gr-bg);border:1px solid var(--gr-bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.db.dw{background:var(--ye-bg);border-color:var(--ye-bd)}
+.db.dd{background:var(--re-bg);border-color:var(--re-bd)}
+.dbh{padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06)}
+.dbht{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--gr)}
+.db.dw .dbht{color:var(--ye)}.db.dd .dbht{color:var(--re)}
+.dbr{padding:12px 14px}
+.dbrow{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--bd)}
+.dbrow:last-child{border-bottom:none}
+.dbrow .dll{color:var(--mu)}.dbrow .dvv{font-weight:600}
+.dbf{padding:12px 14px;border-top:1px solid rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center}
+.dbf .dfl{font-size:12px;font-weight:600;color:var(--mu)}
+.dbf .dfv{font-size:26px;font-weight:700;letter-spacing:-0.5px;color:var(--gr)}
+.db.dw .dfv{color:var(--ye)}.db.dd .dfv{color:var(--re)}
+/* CONFIG */
+.cfs{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.cfr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd)}
+.cfr:last-child{border-bottom:none}
+.cfl{font-size:13px;font-weight:500}.cfsb{font-size:11px;color:var(--mu);margin-top:2px}
+.cfv{font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px}
+.cfi{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--rs);padding:6px 10px;font-size:14px;font-weight:600;color:var(--tx);font-family:inherit;outline:none;width:80px;text-align:right}
+.cfi:focus{border-color:#555}
+.tsw{width:44px;height:26px;background:#cbd5e1;border:1px solid #cbd5e1;border-radius:100px;cursor:pointer;position:relative;transition:background 0.2s}
+.tsw.on{background:var(--gr);border-color:var(--gr)}
+.tsw::after{content:'';position:absolute;width:20px;height:20px;background:white;border-radius:50%;top:2px;left:2px;transition:transform 0.2s}
+.tsw.on::after{transform:translateX(18px)}
+/* BUTTONS */
+.br{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.btn{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;color:var(--tx);cursor:pointer;font-family:inherit;text-align:center;transition:all 0.1s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(0.97);background:var(--sf2)}
+.btn.bpr{background:linear-gradient(135deg,#1E66FF,#0057D9);color:#fff;border-color:#1E66FF}.btn.bpr:active{background:linear-gradient(135deg,#1858e0,#004ec2)}
+.btn.bor{background:var(--or);color:white;border-color:var(--or)}.btn.bor:active{background:#d96010}
+.btn.bbl{background:var(--bl-bg);border-color:var(--bl-bd);color:var(--bl)}
+.btn.bfu{grid-column:1/-1}
+.es{text-align:center;padding:40px 20px;color:var(--hi);font-size:13px;line-height:1.7}
+.es .eb{font-size:36px;margin-bottom:10px}
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+72px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.bdg{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:100px}
+.bdg-g{background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr)}
+.bdg-o{background:var(--or-bg);border:1px solid var(--or-bd);color:var(--or)}
+/* OFERTA */
+.ohint{font-size:12px;color:var(--mu);line-height:1.5;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.ohint b{color:var(--tx);font-weight:700}
+.ofl{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.oflr{display:flex;flex-direction:column;gap:7px}
+.ofll{font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--mu)}
+.ochips{display:flex;gap:6px;flex-wrap:wrap}
+.ochip{background:var(--sf);border:1.5px solid var(--bd);border-radius:100px;padding:7px 13px;font-size:12px;font-weight:600;color:var(--mu);font-family:inherit;cursor:pointer;transition:all 0.15s}
+.ochip.on{border-color:var(--pu);background:var(--pu-bg);color:var(--pu)}
+.ocount{font-size:11px;color:var(--hi);margin-bottom:10px;font-weight:600}
+.ocd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.ocdh{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
+.ocdn{font-size:14px;font-weight:700;line-height:1.3}
+.ocdt{font-size:11px;color:var(--hi);font-weight:500}
+.ocdb{font-size:13px;font-weight:800;padding:2px 9px;border-radius:100px;flex-shrink:0}
+.ocdb.mgr{background:var(--gr-bg);color:var(--gr)}.ocdb.myr{background:var(--ye-bg);color:var(--ye)}.ocdb.mrr{background:var(--re-bg);color:var(--re)}
+.ocdm{font-size:11px;color:var(--mu);margin-bottom:8px}
+.ocdr{display:flex;gap:14px;font-size:12px;color:var(--mu);margin-bottom:10px}
+.oof{background:var(--bg);border-radius:var(--rs);padding:11px 13px}
+.oof.ono{color:var(--mu);font-size:12px;line-height:1.4}
+.oofm{font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--mu);margin-bottom:4px;display:flex;justify-content:space-between;gap:8px}
+.oofd{color:var(--pu);font-weight:800}
+.oofp{font-size:15px;font-weight:600;color:var(--mu)}.oofp strong{color:var(--gr);font-size:18px;font-weight:800}
+.oofb{width:100%;margin-top:10px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:9px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.1s}
+.oofb:active{transform:scale(0.98)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo lv" id="hl">🧮</div>
+  <div class="ht"><div class="hn" id="htt">Calculadora de Vendas</div><div class="hs">Pitstop Imports</div></div>
+  <div class="dbg">📅 <span id="hd"></span></div>
+</header>
+
+<!-- ══ ABA VENDA ══ -->
+<div class="pg on" id="pg-v">
+<div class="w">
+  <div class="sc">🔍 buscar modelo</div>
+  <div class="sw"><input type="text" id="vs" placeholder="Digite o modelo..." autocomplete="off" oninput="vSrch(this.value)" onfocus="vFcs()"><span class="si" id="vsi">⌕</span><button class="cb" id="vcb" onclick="vClr()">✕</button></div>
+  <div class="dd" id="vdd"></div>
+  <div class="card cg" id="vcard" style="display:none;margin-top:10px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span class="bdg bdg-g" id="vbdg">OPÇÃO A</span>
+      <span style="font-size:15px;font-weight:600" id="vcnm"></span>
+    </div>
+    <div class="cr"><span class="cl">Custo</span><span class="cv vgr" id="vcst"></span></div>
+    <div class="cr"><span class="cl">Fornecedor</span><span class="cv" id="vcfn"></span></div>
+    <div class="cr"><span class="cl">Local</span><span class="cv" id="vclc"></span></div>
+    <div class="cr"><span class="cl">Categoria</span><span class="cv" id="vcct"></span></div>
+    <div class="cw" id="vcw" style="display:none"><span class="cwl">🎨 cor</span><div class="cl2" id="vcl"></div></div>
+    <div class="chg" onclick="vClr()">✎ trocar modelo</div>
+  </div>
+  <div class="segw" id="vseg">
+    <div class="segh"><span class="segt">💡 segunda opção</span><span style="font-size:11px;color:var(--mu)">toque para comparar</span></div>
+    <div class="stabs" id="vsegtabs"></div>
+  </div>
+  <div class="sc">✏️ custo do aparelho</div>
+  <div class="fi"><label>CUSTO (R$)</label><input type="number" id="vcusto" placeholder="Auto ou manual" inputmode="decimal" oninput="vCalc()"><span class="fhint" id="vchint">Editável</span></div>
+  <div class="sc">🚚 frete / motoboy</div>
+  <div class="frw">
+    <label class="frl">VALOR DO FRETE (R$)</label>
+    <input type="number" class="fri" id="vfrete" placeholder="0,00" inputmode="decimal" oninput="vCalc()">
+    <div class="frs">Quem absorve?</div>
+    <div class="tgg">
+      <button class="tgb" id="vta" onclick="vFM('a')"><span class="tgi">🏪</span>Loja assume</button>
+      <button class="tgb on" id="vtd" onclick="vFM('d')"><span class="tgi">✂️</span>Dividir 50/50</button>
+      <button class="tgb" id="vtc" onclick="vFM('c')"><span class="tgi">👤</span>Cliente paga</button>
+    </div>
+    <div class="frr" id="vfrr"></div>
+  </div>
+  <div style="background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:10px 14px;font-size:13px;color:var(--mu);display:none;align-items:center;gap:8px;margin-bottom:10px" id="vmi"><span>📐</span><span id="vmit"></span></div>
+  <div class="al" id="val"></div>
+  <div id="vres" style="display:none">
+    <div class="sc">📊 resumo da venda</div>
+    <div class="rg">
+      <div class="mt wd"><div class="ml">CUSTO TOTAL DA LOJA</div><div class="mv" id="vrct"></div><div class="ms" id="vrcs"></div></div>
+      <div class="mt wd" id="vrafc" style="display:none"><div class="ml">📱 APARELHO (sem frete)</div><div class="mv" id="vrasf"></div><div class="ms">só o aparelho</div></div>
+      <div class="mt wd"><div class="ml" id="vravl">PREÇO À VISTA</div><div class="mv" id="vrav"></div><div class="ms">lucro: <span id="vrlu"></span></div></div>
+      <div class="mt" id="vrmc"><div class="ml">MARGEM À VISTA</div><div class="mv" id="vrma"></div><div class="ms">parc: <span id="vrmp"></span></div></div>
+    </div>
+    <div class="sc" id="vpsc">📆 parcelamento</div>
+    <div class="pd">
+      <div class="pc"><div class="pt">12 vezes</div><div class="pr"><span class="pl">Base</span><span id="d12b"></span></div><div class="pr"><span class="pl">Juros</span><span id="d12j"></span></div><div class="pr"><span class="pl">Parcela</span><span id="d12p"></span></div><div class="pr"><span class="pl">Total</span><span id="d12t"></span></div></div>
+      <div class="pc"><div class="pt">18 vezes</div><div class="pr"><span class="pl">Base</span><span id="d18b"></span></div><div class="pr"><span class="pl">Juros</span><span id="d18j"></span></div><div class="pr"><span class="pl">Parcela</span><span id="d18p"></span></div><div class="pr"><span class="pl">Total</span><span id="d18t"></span></div></div>
+    </div>
+    <div class="sc">💵 entrada do cliente (abatimento)</div>
+    <div class="fi"><label>VALOR ABATIDO À VISTA (R$)</label><input type="number" id="vab" placeholder="0,00" inputmode="decimal" oninput="vCalc()"><span class="fhint">Cliente paga parte à vista, o resto no cartão</span></div>
+    <div id="vabres" style="display:none;margin-bottom:20px"></div>
+    <div class="br" style="margin-bottom:20px">
+      <button class="btn bpr bfu" onclick="vWA()">📋 copiar WhatsApp (à vista + 12x + 18x)</button>
+      <button class="btn" onclick="vInt()">📊 interno</button>
+      <button class="btn" onclick="vLmp()">🗑 limpar</button>
+    </div>
+    <div class="sc">📋 todas as parcelas</div>
+    <div class="ptw"><div class="pth"><span>Prazo</span><span>Parcela</span><span>Total</span><span>Juros</span></div><div id="vpr"></div></div>
+    <div class="br" style="margin-bottom:24px"><button class="btn bbl bfu" onclick="vAllP()">📋 copiar todas as parcelas</button></div>
+  </div>
+  <div id="ves" class="es"><div class="eb">🧮</div>Busque um modelo ou insira<br>o custo manualmente</div>
+</div></div>
+
+<!-- ══ ABA UPGRADE ══ -->
+<div class="pg" id="pg-u">
+<div class="w">
+  <div class="sc">🆕 aparelho que o cliente quer comprar</div>
+  <div class="sw"><input type="text" id="uns" placeholder="Modelo novo..." autocomplete="off" oninput="unSrch(this.value)" onfocus="unFcs()"><span class="si" id="unsi">⌕</span><button class="cb" id="uncb" onclick="unClr()">✕</button></div>
+  <div class="dd" id="undd"></div>
+  <div class="card cg" id="uncard" style="display:none;margin-top:10px">
+    <div class="ct ctg">📱 MODELO NOVO — preço de venda</div>
+    <div class="cr"><span class="cl">Modelo</span><span class="cv" id="unnm"></span></div>
+    <div class="cr"><span class="cl">Fornecedor</span><span class="cv" id="unfn"></span></div>
+    <div class="cr"><span class="cl">Custo mínimo</span><span class="cv vgr" id="uncs"></span></div>
+    <div class="cr"><span class="cl">À vista (cliente)</span><span class="cv vgr vbi" id="unav"></span></div>
+    <div class="cr"><span class="cl">12x de</span><span class="cv" id="un12"></span></div>
+    <div class="cr"><span class="cl">18x de</span><span class="cv" id="un18"></span></div>
+    <div class="cw" id="uncw" style="display:none"><span class="cwl">🎨 cor do novo</span><div class="cl2" id="uncl"></div></div>
+    <div class="chg" onclick="unClr()">✎ trocar</div>
+  </div>
+  <div class="segw" id="unseg">
+    <div class="segh"><span class="segt">💡 outros fornecedores</span><span style="font-size:11px;color:var(--mu)">toque para comparar</span></div>
+    <div class="stabs" id="unsegtabs"></div>
+  </div>
+  <div class="sc" style="margin-top:24px">📲 aparelho que o cliente vai dar de entrada</div>
+  <div class="sw"><input type="text" id="uus" placeholder="Modelo usado..." autocomplete="off" oninput="uuSrch(this.value)" onfocus="uuFcs()"><span class="si" id="uusi">⌕</span><button class="cb" id="uucb" onclick="uuClr()">✕</button></div>
+  <div class="dd" id="uudd"></div>
+  <div class="card co" id="uucard" style="display:none;margin-top:10px">
+    <div class="ct cto">📲 ENTRADA</div>
+    <div class="cr"><span class="cl">Modelo</span><span class="cv" id="uunm"></span></div>
+    <div class="cr" id="rcusto"><span class="cl">Menor custo</span><span class="cv vor" id="uucs"></span></div>
+    <div class="cr" id="r300" style="display:none"><span class="cl">− Ajuste usado</span><span class="cv vre">− R$ <span id="r300v">300</span>,00</span></div>
+    <div class="cr"><span class="cl">Base de avaliação</span><span class="cv vor" id="uuba"></span></div>
+    <div class="cw" id="uucw" style="display:none"><span class="cwl">🎨 cor do usado</span><div class="cl2" id="uucl"></div></div>
+    <div class="chg" onclick="uuClr()">✎ trocar</div>
+  </div>
+  <div id="nf-alert" style="display:none;background:var(--ye-bg);border:1px solid var(--ye-bd);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--ye);font-weight:600;margin-top:8px;align-items:center;gap:6px">📄 Lembrar: solicitar <strong>Nota Fiscal</strong> do aparelho avaliado</div>
+  <div id="udefsec" style="display:none">
+    <div class="sc">🔧 defeitos / reparos</div>
+    <div class="dfg">
+      <div class="dc" id="dcb" onclick="uDef('b')"><div class="dck" id="chkb" onclick="if(UD.b){event.stopPropagation();uDefDesat('b')}"></div><span class="dci">🔋</span><div class="dcn">Bateria</div><div class="dcd">Troca necessária</div><div class="dcv" id="dvb">—</div><div class="def-inp" id="dvb-wrap" style="display:none;margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:10px;color:var(--mu);font-weight:600;letter-spacing:0.03em;display:block;margin-bottom:4px">VALOR (R$)</label><input type="number" id="dvb-val" class="def-val-inp" placeholder="0,00" inputmode="decimal" oninput="uDefVal('b',this.value)" onkeydown="if(event.key==='Enter')uDefAdd('b')"><button onclick="event.stopPropagation();uDefAdd('b')" style="width:100%;margin-top:8px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">✓ adicionar</button></div></div>
+      <div class="dc" id="dct" onclick="uDef('t')"><div class="dck" id="chkt" onclick="if(UD.t){event.stopPropagation();uDefDesat('t')}"></div><span class="dci">📱</span><div class="dcn">Tela</div><div class="dcd">Display danificado</div><div class="dcv" id="dvt">—</div><div class="def-inp" id="dvt-wrap" style="display:none;margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:10px;color:var(--mu);font-weight:600;letter-spacing:0.03em;display:block;margin-bottom:4px">VALOR (R$)</label><input type="number" id="dvt-val" class="def-val-inp" placeholder="0,00" inputmode="decimal" oninput="uDefVal('t',this.value)" onkeydown="if(event.key==='Enter')uDefAdd('t')"><button onclick="event.stopPropagation();uDefAdd('t')" style="width:100%;margin-top:8px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">✓ adicionar</button></div></div>
+      <div class="dc" id="dcc" onclick="uDef('c')"><div class="dck" id="chkc" onclick="if(UD.c){event.stopPropagation();uDefDesat('c')}"></div><span class="dci">📷</span><div class="dcn">Câmera</div><div class="dcd">Com defeito</div><div class="dcv" id="dvc" style="color:var(--ye)">a definir</div><div class="def-inp" id="dvc-wrap" style="display:none;margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:10px;color:var(--mu);font-weight:600;letter-spacing:0.03em;display:block;margin-bottom:4px">VALOR (R$)</label><input type="number" id="dvc-val" class="def-val-inp" placeholder="0,00" inputmode="decimal" oninput="uDefVal('c',this.value)" onkeydown="if(event.key==='Enter')uDefAdd('c')"><button onclick="event.stopPropagation();uDefAdd('c')" style="width:100%;margin-top:8px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">✓ adicionar</button></div></div>
+      <div class="dc" id="dcf" onclick="uDef('f')"><div class="dck" id="chkf" onclick="if(UD.f){event.stopPropagation();uDefDesat('f')}"></div><span class="dci">🪪</span><div class="dcn">Face ID</div><div class="dcd">Biometria</div><div class="dcv" id="dvf" style="color:var(--ye)">a definir</div><div class="def-inp" id="dvf-wrap" style="display:none;margin-top:8px" onclick="event.stopPropagation()"><label style="font-size:10px;color:var(--mu);font-weight:600;letter-spacing:0.03em;display:block;margin-bottom:4px">VALOR (R$)</label><input type="number" id="dvf-val" class="def-val-inp" placeholder="0,00" inputmode="decimal" oninput="uDefVal('f',this.value)" onkeydown="if(event.key==='Enter')uDefAdd('f')"><button onclick="event.stopPropagation();uDefAdd('f')" style="width:100%;margin-top:8px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">✓ adicionar</button></div></div>
+    </div>
+    <div class="tqw" id="tqw"><span class="tql">Qualidade da tela:</span><div class="tqo" id="tqo"></div></div>
+    <div class="otc" id="otc"><div class="oth" onclick="uOutro()"><div class="ott" id="ott"></div><div><div class="otn">🔩 Outro problema</div><div class="ots">Toque para descrever</div></div></div><div class="otf" id="otf"><div class="ofi"><label>DESCRIÇÃO</label><input type="text" id="otnm" placeholder="Ex: carcaça riscada..." oninput="uCalc()"></div><div class="ofi"><label>VALOR (R$)</label><input type="number" id="otv" placeholder="0,00" inputmode="decimal" oninput="uCalc()"></div></div></div>
+    <div class="sc">🚚 frete / motoboy</div>
+    <div class="frw">
+      <label class="frl">VALOR DO FRETE (R$)</label>
+      <input type="number" class="fri" id="ufrete" placeholder="0,00" inputmode="decimal" oninput="uCalc()">
+      <div class="frs">Quem absorve?</div>
+      <div class="tgg">
+        <button class="tgb" id="uta" onclick="uFM('a')"><span class="tgi">🏪</span>Loja assume</button>
+        <button class="tgb on" id="utd" onclick="uFM('d')"><span class="tgi">✂️</span>Dividir 50/50</button>
+        <button class="tgb" id="utc" onclick="uFM('c')"><span class="tgi">👤</span>Cliente paga</button>
+      </div>
+      <div class="frr" id="ufrr"></div>
+    </div>
+    <div class="sc">💰 resultado do upgrade</div>
+    <div class="al" id="ual"></div>
+    <div id="udbw"></div>
+    <div id="upw" style="display:none">
+      <div class="sc">📆 diferença parcelada</div>
+      <div class="pd" id="upd"></div>
+      <div class="sc">📋 todas as parcelas</div>
+      <div class="ptw"><div class="pth"><span>Prazo</span><span>Parcela</span><span>Total</span><span>Juros</span></div><div id="upr"></div></div>
+      <div class="br" style="margin-bottom:24px"><button class="btn bbl bfu" onclick="uAllP()">📋 copiar todas as parcelas</button></div>
+    </div>
+    <div class="sc" id="uabsc" style="display:none">💵 entrada do cliente (abatimento)</div>
+    <div class="fi" id="uabfi" style="display:none"><label>VALOR ABATIDO À VISTA (R$)</label><input type="number" id="uab" placeholder="0,00" inputmode="decimal" oninput="uCalc()"><span class="fhint">Cliente paga parte à vista, o resto no cartão</span></div>
+    <div id="uabw" style="display:none;margin-bottom:16px"></div>
+    <div class="br">
+      <button class="btn" onclick="uInt()">📊 interno</button>
+      <button class="btn" onclick="uLmp()">🗑 limpar</button>
+    </div>
+  </div>
+  <div id="ues" class="es"><div class="eb">🔄</div>Selecione o modelo novo<br>e o aparelho de entrada</div>
+</div></div>
+
+<!-- ══ ABA CONFIG ══ -->
+<div class="pg" id="pg-c">
+<div class="w">
+  <div class="sc">⚙️ configurações gerais</div>
+  <div class="cfs">
+    <div class="cfr"><div><div class="cfl">Desconto de entrada</div><div class="cfsb">Abatimento padrão no usado</div></div><div class="cfv">R$ <input type="number" class="cfi" id="cfd" value="300" oninput="cfSv()"></div></div>
+    <div class="cfr"><div><div class="cfl">Exibir desconto no card</div><div class="cfsb">Mostrar −R$300 na avaliação</div></div><div class="tsw" id="cfsw" onclick="cfT300()"></div></div>
+    <div class="cfr"><div><div class="cfl">Exibir menor custo</div><div class="cfsb">Mostrar o custo do usado no card</div></div><div class="tsw" id="cfswc" onclick="cfTcusto()"></div></div>
+    <div class="cfr"><div><div class="cfl">Margem iPhone/iPad/Watch</div><div class="cfsb">À vista / Parcelado</div></div><div class="cfv">R$<input type="number" class="cfi" id="cfia" value="550" oninput="cfSv()" style="width:65px"> / R$<input type="number" class="cfi" id="cfip" value="650" oninput="cfSv()" style="width:65px"></div></div>
+    <div class="cfr"><div><div class="cfl">Margem MacBook</div><div class="cfsb">À vista / Parcelado</div></div><div class="cfv">R$<input type="number" class="cfi" id="cfma" value="1200" oninput="cfSv()" style="width:65px"> / R$<input type="number" class="cfi" id="cfmp" value="1300" oninput="cfSv()" style="width:65px"></div></div>
+  </div>
+  <div class="sc">🔋 bateria genuína</div>
+  <div class="cfs" id="cfbl"></div>
+  <div class="sc">📱 tela frontal</div>
+  <div id="cftl"></div>
+  <div style="height:20px"></div>
+</div></div>
+
+<!-- ══ ABA OFERTA ══ -->
+<div class="pg" id="pg-o">
+<div class="w">
+  <div class="sc">🎯 direcionamento de oferta</div>
+  <div class="ohint"><b>Scanner de oportunidades.</b> Só aparece o que você <b>comprou bem</b>: custo bem abaixo do mercado (hoje, quando o fornecedor mais barato está ≥8% abaixo do 2º mais barato). Margem alta sozinha não é oferta, e acessório não entra. O <b>teto de desconto</b> mostra até onde dá pra baixar mantendo o piso.</div>
+  <div class="ofl">
+    <div class="oflr"><span class="ofll">Piso de margem</span><div class="ochips">
+      <button class="ochip on" id="opiso12" onclick="oPiso(12)">🟢 Verde 12%</button>
+      <button class="ochip" id="opiso7" onclick="oPiso(7)">🟡 Amarelo 7%</button>
+    </div></div>
+    <div class="oflr"><span class="ofll">Categoria</span><div class="ochips" id="ocat">
+      <button class="ochip on" onclick="oCat('all',this)">Todas</button>
+      <button class="ochip" onclick="oCat('iPhone',this)">iPhone</button>
+      <button class="ochip" onclick="oCat('MacBook',this)">MacBook</button>
+      <button class="ochip" onclick="oCat('iPad',this)">iPad</button>
+      <button class="ochip" onclick="oCat('Apple Watch',this)">Watch</button>
+    </div></div>
+    <div class="oflr"><span class="ofll">Tipo</span><div class="ochips" id="otipo">
+      <button class="ochip on" onclick="oTipo('all',this)">Todos</button>
+      <button class="ochip" onclick="oTipo('Lacrado',this)">Lacrado</button>
+      <button class="ochip" onclick="oTipo('Seminovo',this)">Seminovo</button>
+    </div></div>
+  </div>
+  <div class="ocount" id="ocount"></div>
+  <div id="olist"></div>
+  <div style="height:20px"></div>
+</div></div>
+
+<!-- ══ ABA REVERSO ══ -->
+<div class="pg" id="pg-r">
+<div class="w">
+  <div class="ohint" style="border-color:var(--te-bd)"><b>Cálculo reverso.</b> O cliente diz quanto quer que fique de <b>parcela</b> ou o <b>total no cartão</b>, e você vê na hora quanto a loja <b>recebe líquido</b> depois da taxa da maquininha. Use para negociar sem perder margem.</div>
+  <div class="sc">💳 total que o cliente vai passar no cartão</div>
+  <div class="fi"><label>TOTAL NO CARTÃO (R$)</label><input type="number" id="rvv" placeholder="0,00" inputmode="decimal" oninput="rvCalc()"><span class="fhint">O valor cheio que aparece na fatura, somando os juros</span></div>
+  <div id="rvres" style="display:none">
+    <div class="sc">📆 nos prazos principais</div>
+    <div class="pd">
+      <div class="pc" style="border-color:var(--te-bd)"><div class="pt" style="color:var(--te)">12 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="rv12p"></span></div><div class="pr"><span class="pl">Total cartão</span><span id="rv12t"></span></div><div class="pr"><span class="pl">Líquido loja</span><span id="rv12l" style="color:var(--gr)"></span></div></div>
+      <div class="pc" style="border-color:var(--te-bd)"><div class="pt" style="color:var(--te)">18 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="rv18p"></span></div><div class="pr"><span class="pl">Total cartão</span><span id="rv18t"></span></div><div class="pr"><span class="pl">Líquido loja</span><span id="rv18l" style="color:var(--gr)"></span></div></div>
+    </div>
+    <div class="br" style="margin-bottom:20px"><button class="btn bpr bfu" onclick="rvCopy()">📋 copiar resumo (12x + 18x)</button></div>
+    <div class="sc">📋 todos os prazos</div>
+    <div class="ptw"><div class="pth"><span>Prazo</span><span>Parcela</span><span>Líquido</span><span>Taxa</span></div><div id="rvpr"></div></div>
+    <div style="height:24px"></div>
+  </div>
+  <div id="rves" class="es"><div class="eb">💳</div>Digite o total no cartão<br>para ver o líquido da loja</div>
+</div></div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tb tv on" id="tbv" onclick="swTab('v')"><span class="ti">🧮</span>VENDA</button>
+  <button class="tb tu" id="tbu" onclick="swTab('u')"><span class="ti">🔄</span>UPGRADE</button>
+  <button class="tb tr" id="tbr" onclick="swTab('r')"><span class="ti">💳</span>REVERSO</button>
+  <button class="tb to" id="tbo" onclick="swTab('o')"><span class="ti">🎯</span>OFERTA</button>
+  <button class="tb tc" id="tbc" onclick="swTab('c')"><span class="ti">⚙️</span>CONFIG</button>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+// ── TAXAS ──
+const TX={2:1.05031,3:1.05698,4:1.06360,5:1.07043,6:1.07726,7:1.07863,8:1.08542,9:1.09217,10:1.09900,11:1.10609,12:1.11284,13:1.14117,14:1.14836,15:1.15568,16:1.16292,17:1.17028,18:1.17758};
+// ── DADOS (carregados de dados.js — NÃO editar aqui) ──
+let BAT=[],TELA=[],P=[];
+const TQL={jk:'JK/Vivid Incell',ba:'Basic Incell',pr:'Premium',or:'Original Retirada'};
+// ── UTILS ──
+let CFG={d:300,s300:false,scusto:true,iav:550,ipc:650,mav:1200,mpc:1300};
+function mg(c){return c==='MacBook'?{av:CFG.mav,pc:CFG.mpc}:{av:CFG.iav,pc:CFG.ipc}}
+function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fpt(v){return v.toFixed(1)+'%'}
+function r2(v){return Math.round(v*100)/100}
+function PB(v){return v>0?v+100:v}
+function cm(p){if(!p.cs||!p.cs.length)return p.v||0;return Math.min(...p.cs.map(x=>x.v))}
+function batV(n){for(const b of BAT){if(n.includes(b.k))return b.v;}return null}
+function telaO(n){for(const t of TELA){if(n.includes(t.k))return t;}return null}
+function best(nm,tp){const cs=P.filter(x=>x.n===nm&&x.t===tp);let mn=Infinity,bst=null;cs.forEach(p=>{const c=cm(p);if(c<mn){mn=c;bst=p;}});return{p:bst,mn,cs}}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast on';setTimeout(()=>t.className='toast',2500)}
+function cp(txt,m){if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast(m));}else{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast(m);}}
+// date
+(()=>{const d=new Date();document.getElementById('hd').textContent=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});})();
+// ── TABS ──
+const HDR={v:{e:'🧮',lc:'lv',t:'Calculadora de Vendas'},u:{e:'🔄',lc:'lu',t:'Calculadora de Upgrade'},r:{e:'💳',lc:'ltr',t:'Cálculo Reverso'},o:{e:'🎯',lc:'lo',t:'Oferta da Semana'},c:{e:'⚙️',lc:'lc',t:'Configurações'}};
+function swTab(id){
+  ['v','u','r','o','c'].forEach(x=>{
+    document.getElementById('tb'+x).className='tb t'+x+(x===id?' on':'');
+    document.getElementById('pg-'+x).className='pg'+(x===id?' on':'');
+  });
+  if(id==='o')oRender();
+  if(id==='r')rvCalc();
+  const h=HDR[id];
+  const lg=document.getElementById('hl');lg.textContent=h.e;lg.className='logo '+h.lc;
+  document.getElementById('htt').textContent=h.t;
+}
+// ── DROPDOWN ──
+function bDD(q,ddId,fn){
+  const dd=document.getElementById(ddId);
+  const ql=q.toLowerCase().trim();
+  let fl=ql?P.filter(p=>p.n.toLowerCase().includes(ql)||p.c.toLowerCase().includes(ql)):P;
+  if(!fl.length){dd.innerHTML='<div class="ddi"><div class="ddn" style="color:var(--hi)">Sem resultado</div></div>';dd.className='dd on';return;}
+  const vis={};
+  fl.forEach(p=>{const k=p.n+'|'+p.t;if(!vis[k]||cm(p)<cm(vis[k]))vis[k]=p;});
+  const dup=Object.values(vis);
+  const cats={};dup.forEach(p=>{if(!cats[p.c])cats[p.c]=[];cats[p.c].push(p);});
+  let html='',tot=0;
+  Object.keys(cats).forEach(cat=>{
+    if(tot>=40)return;
+    html+=`<div class="ddc">${cat}</div>`;
+    cats[cat].forEach(p=>{
+      if(tot>=40)return;
+      const idx=P.findIndex(x=>x.n===p.n&&x.t===p.t&&x.f===p.f);
+      const nf=P.filter(x=>x.n===p.n&&x.t===p.t).length;
+      const fi=nf>1?`<span style="color:var(--bl)">${nf} fornecedores</span>`:`<span>📍 ${p.f}</span>`;
+      html+=`<div class="ddi" onclick="${fn}(${idx})"><div class="ddn">${p.n} <span style="font-size:11px;color:var(--hi)">${p.t}</span></div><div class="ddm"><span class="ddp">${fmt(cm(p))}</span>${fi}</div></div>`;
+      tot++;
+    });
+  });
+  dd.innerHTML=html;dd.className='dd on';
+}
+function rCores(p,lid,wid,ac,fn){
+  const cs=p.cs||[];const w=document.getElementById(wid);const l=document.getElementById(lid);
+  if(!cs.length){w.style.display='none';return'';}
+  const temVariado=cs.some(x=>x.v!==cs[0].v);
+  l.innerHTML=cs.map((c,i)=>{
+    const tagPreco=temVariado?` <span style="font-size:10px;color:var(--gr)">${fmt(c.v)}</span>`:'';
+    return`<button class="corb${i===0?' '+ac:''}" onclick="${fn}(this,'${c.n.replace(/'/g,"\\'")}',${c.v})"><span class="cdot" style="background:${c.h}"></span>${c.n}${tagPreco}</button>`;
+  }).join('');
+  w.style.display='block';return cs[0].n;
+}
+// ════════ ABA VENDA ════════
+let VS={idx:-1,si:-1,cat:null,fm:'d',cor:'',av:0,pc:0,avsf:0,nm:''};
+let vTO=null;
+function vSrch(v){document.getElementById('vcb').className=v?'cb on':'cb';document.getElementById('vsi').style.display=v?'none':'block';clearTimeout(vTO);vTO=setTimeout(()=>bDD(v,'vdd','vSel'),150);}
+function vFcs(){if(!document.getElementById('vs').value)bDD('','vdd','vSel');}
+function vSel(idx){
+  const{p,mn,cs}=best(P[idx].n,P[idx].t);
+  VS.idx=P.indexOf(p);VS.si=-1;VS.cor='';VS.cat=p.c;
+  document.getElementById('vdd').className='dd';
+  document.getElementById('vs').value=p.n;
+  document.getElementById('vcb').className='cb on';
+  document.getElementById('vsi').style.display='none';
+  document.getElementById('vcard').style.display='block';
+  document.getElementById('vbdg').textContent='OPÇÃO A';
+  document.getElementById('vbdg').className='bdg bdg-g';
+  document.getElementById('vcnm').textContent=p.n;
+  document.getElementById('vcst').textContent=fmt(mn);
+  document.getElementById('vcfn').textContent=p.f+(cs.length>1?` (+${cs.length-1})`:'');
+  document.getElementById('vclc').textContent=p.l||'—';
+  document.getElementById('vcct').textContent=p.c+' — '+p.t;
+  VS.cor=rCores(p,'vcl','vcw','ag','vCC');
+  document.getElementById('vcusto').value=mn;
+  document.getElementById('vchint').textContent='Editável — '+p.n;
+  document.getElementById('vmi').style.display='flex';
+  const mg2=mg(p.c);
+  document.getElementById('vmit').innerHTML=`Cat <strong>${p.c}</strong> → à vista +<strong>R$${mg2.av}</strong> / parc +<strong>R$${mg2.pc}</strong>`;
+  vRSeg(VS.idx);vCalc();
+}
+function vCC(btn,n,v){document.querySelectorAll('#vcl .corb').forEach(b=>b.className='corb');btn.className='corb ag';VS.cor=n;document.getElementById('vcusto').value=v;document.getElementById('vcst').textContent=fmt(v);vCalc();}
+function vFM(m){VS.fm=m;['a','d','c'].forEach(x=>document.getElementById('vt'+x).className='tgb'+(x===m?' on':''));vCalc();}
+function vFA(){const f=parseFloat(document.getElementById('vfrete').value)||0;if(VS.fm==='a')return f;if(VS.fm==='d')return r2(f/2);return 0;}
+function vFC(){const f=parseFloat(document.getElementById('vfrete').value)||0;if(VS.fm==='c')return f;if(VS.fm==='d')return r2(f/2);return 0;}
+function vRSeg(ip){
+  const p=P[ip];const cp2=cm(p);
+  const sm=P.map((q,i)=>({q,i})).filter(({q,i})=>i!==ip&&q.n===p.n&&q.t===p.t).sort((a,b)=>cm(a.q)-cm(b.q));
+  const base=p.n.replace(/\s+\d+(GB|TB)/gi,'').replace(/\s+CPO/i,'').trim();
+  const al=P.map((q,i)=>({q,i})).filter(({q,i})=>i!==ip&&q.n!==p.n&&q.n.replace(/\s+\d+(GB|TB)/gi,'').replace(/\s+CPO/i,'').trim()===base&&q.t===p.t).sort((a,b)=>cm(a.q)-cm(b.q));
+  const sugs=[];
+  if(!sm.length){sugs.push({av:true});if(al.length)sugs.push({i:al[0].i,r:'💾 storage alt.'});}
+  else{const vis=new Set();for(const s of sm){if(sugs.length>=2)break;if(vis.has(s.q.f))continue;vis.add(s.q.f);const cc=cm(s.q);sugs.push({i:s.i,r:cc<cp2?'💰 mais barato':cc===cp2?'🔄 mesmo preço':'📦 alternativa'});} if(sugs.length<2&&al.length)sugs.push({i:al[0].i,r:'💾 storage alt.'});}
+  const w=document.getElementById('vseg');const tabs=document.getElementById('vsegtabs');
+  if(!sugs.length){w.className='segw';return;}
+  tabs.innerHTML=sugs.map(s=>{
+    if(s.av)return`<div class="st" style="opacity:0.6;cursor:default;grid-column:1/-1"><div class="stl">🔒 único fornecedor</div><div class="stn" style="color:var(--mu)">Só disponível aqui</div></div>`;
+    const q=P[s.i];const diff=cm(q)-cp2;
+    const dc=diff>0?'var(--re)':diff<0?'var(--gr)':'var(--mu)';
+    const ds=diff===0?'mesmo preço':diff>0?`+${fmt(diff)} a mais`:`${fmt(Math.abs(diff))} a menos`;
+    const dots=(q.cs||[]).map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c.h};border:1px solid rgba(0,0,0,0.12);display:inline-block"></span>`).join('');
+    return`<button class="st" onclick="vSS(${s.i},this)"><div class="stl">${s.r}</div><div class="stn">${q.n}</div><div class="stp">${fmt(cm(q))}</div><div class="std" style="color:${dc}">${ds} · ${q.t}</div><div class="stloc">📍 ${q.f}</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${dots}</div></button>`;
+  }).join('');
+  w.className='segw on';
+}
+function vSS(i,btn){
+  const al=VS.si===i;
+  document.querySelectorAll('#vsegtabs .st').forEach(b=>b.classList.remove('on'));
+  if(al){VS.si=-1;const p=P[VS.idx];const cs=P.filter(x=>x.n===p.n&&x.t===p.t);document.getElementById('vbdg').className='bdg bdg-g';document.getElementById('vbdg').textContent='OPÇÃO A';document.getElementById('vcnm').textContent=p.n;document.getElementById('vcst').textContent=fmt(cm(p));document.getElementById('vcfn').textContent=p.f+(cs.length>1?` (+${cs.length-1})`:'');document.getElementById('vclc').textContent=p.l||'—';document.getElementById('vcct').textContent=p.c+' — '+p.t;VS.cor=rCores(p,'vcl','vcw','ag','vCC');document.getElementById('vcusto').value=cm(p);VS.cat=p.c;toast('↩️ Opção A');}
+  else{VS.si=i;btn.classList.add('on');const q=P[i];document.getElementById('vbdg').className='bdg bdg-o';document.getElementById('vbdg').textContent='OPÇÃO B';document.getElementById('vcnm').textContent=q.n;document.getElementById('vcst').textContent=fmt(cm(q));document.getElementById('vcfn').textContent=q.f;document.getElementById('vclc').textContent=q.l||'—';document.getElementById('vcct').textContent=q.c+' — '+q.t;VS.cor=rCores(q,'vcl','vcw','ag','vCC');document.getElementById('vcusto').value=cm(q);VS.cat=q.c;toast('🟣 Opção B — '+q.f);}
+  vCalc();
+}
+function vCalc(){
+  const cu=parseFloat(document.getElementById('vcusto').value)||0;
+  const fr=parseFloat(document.getElementById('vfrete').value)||0;
+  const fa=vFA();const fc=vFC();
+  const frr=document.getElementById('vfrr');
+  if(fr>0){let m='';if(VS.fm==='a')m=`🏪 Loja assume <strong>${fmt(fr)}</strong>`;else if(VS.fm==='d')m=`✂️ Loja absorve <strong>${fmt(fa)}</strong> · Cliente paga <strong>${fmt(fc)}</strong>`;else m=`👤 Cliente paga <strong>${fmt(fr)}</strong>`;frr.innerHTML=m;frr.className='frr on';}else frr.className='frr';
+  if(!cu){document.getElementById('ves').style.display='block';document.getElementById('vres').style.display='none';document.getElementById('val').className='al';document.getElementById('vabres').style.display='none';return;}
+  document.getElementById('ves').style.display='none';document.getElementById('vres').style.display='block';
+  const cat=VS.cat||'iPhone';if(!VS.cat){document.getElementById('vmi').style.display='flex';const mg2=mg(cat);document.getElementById('vmit').innerHTML=`Cat <strong>${cat}</strong> → +<strong>R$${mg2.av}</strong> av / +<strong>R$${mg2.pc}</strong> parc`;}
+  const m=mg(cat);
+  const cl=cu+fa;const avsf=cl+m.av;const av=avsf+fc;const pc=cl+m.pc+fc;
+  const lav=m.av-fa;const lpc=m.pc-fa;const mav=(lav/av)*100;const mpc=(lpc/pc)*100;
+  VS.av=av;VS.pc=pc;VS.avsf=avsf;VS.nm=(VS.si>=0&&P[VS.si]?P[VS.si].n:(VS.idx>=0&&P[VS.idx]?P[VS.idx].n:document.getElementById('vs').value))||'Aparelho';
+  document.getElementById('vrct').textContent=fmt(cl);
+  document.getElementById('vrcs').textContent=VS.fm==='a'?'aparelho + frete total':VS.fm==='d'?'aparelho + metade do frete':'só aparelho';
+  if(fc>0){document.getElementById('vrafc').style.display='block';document.getElementById('vrasf').textContent=fmt(avsf);document.getElementById('vravl').textContent='💰 À VISTA (frete embutido)';}
+  else{document.getElementById('vrafc').style.display='none';document.getElementById('vravl').textContent='PREÇO À VISTA';}
+  document.getElementById('vrav').textContent=fmt(av);
+  document.getElementById('vrlu').textContent=fmt(lav);
+  document.getElementById('vrma').textContent=fpt(mav);
+  document.getElementById('vrmp').textContent=fpt(mpc);
+  const al=document.getElementById('val');const mc=document.getElementById('vrmc');
+  if(mav>=12){al.className='al on ag';al.textContent='✅ Boa margem — venda segura.';mc.className='mt mg';}
+  else if(mav>=7){al.className='al on ay';al.textContent='⚠️ Margem apertada — não dê desconto.';mc.className='mt my';}
+  else{al.className='al on ar';al.textContent='🔴 Margem baixa — revise o custo.';mc.className='mt mr';}
+  const _entVal=parseFloat(document.getElementById('vab').value)||0;
+  const finPc=(_entVal>0&&_entVal<pc)?r2(pc-_entVal):pc;
+  VS.fin=finPc;VS.ent=(_entVal>0&&_entVal<pc)?_entVal:0;
+  const _vpsc=document.getElementById('vpsc');if(_vpsc)_vpsc.innerHTML=VS.ent>0?`📆 parcelamento <span style="color:var(--gr);font-weight:700">· saldo de ${fmt(finPc)} após entrada de ${fmt(VS.ent)}</span>`:'📆 parcelamento';
+  [12,18].forEach(n=>{const tx=TX[n];const _b=PB(finPc);const tot=r2(_b*tx);const par=r2(tot/n);const j=r2(tot-_b);const p2=n===12?'d12':'d18';document.getElementById(p2+'b').textContent=fmt(finPc);document.getElementById(p2+'j').textContent=fmt(j);document.getElementById(p2+'p').textContent=fmt(par);document.getElementById(p2+'t').textContent=fmt(tot);});
+  let rows='';for(let n=2;n<=18;n++){const tx=TX[n];const _b=PB(finPc);const tot=r2(_b*tx);const par=r2(tot/n);const j=r2(tot-_b);rows+=`<div class="ptr"><span class="pn">${n}x</span><span class="pp">${fmt(par)}</span><span class="ptot">${fmt(tot)}</span><span class="pj">+${fmt(j)}</span></div>`;}
+  document.getElementById('vpr').innerHTML=rows;
+  vAbCalc();
+}
+function vAbCalc(){
+  const box=document.getElementById('vabres');
+  const E=parseFloat(document.getElementById('vab').value)||0;
+  if(!VS.pc||E<=0){box.style.display='none';return;}
+  const pc=VS.pc;box.style.display='block';
+  if(E>=pc){box.innerHTML=`<div class="db dd"><div class="dbh"><div class="dbht">💵 Entrada cobre o valor</div></div><div class="dbr"><div class="dbrow"><span class="dll">Cliente paga à vista</span><span class="dvv" style="color:var(--gr)">${fmt(pc)}</span></div></div><div class="dbf"><div class="dfl">SALDO NO CARTÃO</div><div class="dfv">R$ 0,00</div></div></div>`;return;}
+  const sd=r2(pc-E);
+  const mk=n=>{const t=r2(PB(sd)*TX[n]);return{par:r2(t/n),tot:t,j:r2(t-PB(sd))};};
+  const a=mk(12),b=mk(18);
+  box.innerHTML=`<div class="db"><div class="dbh"><div class="dbht">💵 Entrada + Cartão</div></div>
+   <div class="dbr">
+     <div class="dbrow"><span class="dll">💵 Entrada (à vista)</span><span class="dvv" style="color:var(--gr)">${fmt(E)}</span></div>
+     <div class="dbrow"><span class="dll">💳 Saldo a financiar</span><span class="dvv">${fmt(sd)}</span></div>
+   </div>
+   <div class="pd" style="margin-top:10px">
+     <div class="pc"><div class="pt">12 vezes</div><div class="pr"><span class="pl">Base</span><span>${fmt(sd)}</span></div><div class="pr"><span class="pl">Juros</span><span>${fmt(a.j)}</span></div><div class="pr"><span class="pl">Parcela</span><span>${fmt(a.par)}</span></div><div class="pr"><span class="pl">Total c/ entrada</span><span>${fmt(r2(E+a.tot))}</span></div></div>
+     <div class="pc"><div class="pt">18 vezes</div><div class="pr"><span class="pl">Base</span><span>${fmt(sd)}</span></div><div class="pr"><span class="pl">Juros</span><span>${fmt(b.j)}</span></div><div class="pr"><span class="pl">Parcela</span><span>${fmt(b.par)}</span></div><div class="pr"><span class="pl">Total c/ entrada</span><span>${fmt(r2(E+b.tot))}</span></div></div>
+   </div>
+   <button class="btn bpr bfu" style="margin-top:12px" onclick="vAbWA()">📋 copiar WhatsApp (entrada + cartão)</button>
+  </div>`;
+}
+function vAbWA(){
+  const E=parseFloat(document.getElementById('vab').value)||0;
+  if(!VS.pc||E<=0){toast('⚠️ Informe o abatimento');return;}
+  const cor=VS.cor?` — ${VS.cor}`:'';
+  if(E>=VS.pc){cp(`📱 *${VS.nm}${cor}*\n\n💵 Entrada à vista: ${fmt(VS.pc)}\n✅ Sem saldo a parcelar!`,'✅ Copiado!');return;}
+  const sd=r2(VS.pc-E);
+  const t12=r2(PB(sd)*TX[12]),p12=r2(t12/12),t18=r2(PB(sd)*TX[18]),p18=r2(t18/18);
+  cp(`📱 *${VS.nm}${cor}*\n\n💵 Entrada à vista: *${fmt(E)}*\n💳 Saldo no cartão: ${fmt(sd)}\n\n📆 12x de *${fmt(p12)}* · Total: ${fmt(t12)}\n📆 18x de *${fmt(p18)}* · Total: ${fmt(t18)}\n\n💰 Total final: ${fmt(r2(E+t12))} (em 12x) · ${fmt(r2(E+t18))} (em 18x)`,'✅ Copiado!');
+}
+function vWA(){
+  if(!VS.av){toast('⚠️ Preencha o custo');return;}
+  if(VS.ent>0){vAbWA();return;}
+  const _b=PB(VS.pc);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+  const cor=VS.cor?` — ${VS.cor}`:'';const op=VS.si>=0?' (Opção B)':'';
+  const fc=vFC();let avL=`💰 À vista: ${fmt(VS.av)}`;if(fc>0)avL+=`\n   (aparelho: ${fmt(VS.avsf)} + frete: ${fmt(fc)})`;
+  cp(`📱 *${VS.nm}${cor}*${op}\n\n${avL}\n\n📆 12x de ${fmt(p12)}\n💳 Total: ${fmt(t12)}\n\n📆 18x de ${fmt(p18)}\n💳 Total: ${fmt(t18)}`,'✅ Copiado!');
+}
+function vAllP(){
+  if(!VS.av){toast('⚠️ Preencha o custo');return;}
+  const cor=VS.cor?` — ${VS.cor}`:'';
+  const _base=VS.ent>0?VS.fin:VS.pc;
+  let txt=`📱 *${VS.nm}${cor}*\n\n💰 À vista: ${fmt(VS.av)}\n`;
+  if(VS.ent>0)txt+=`💵 Entrada à vista: ${fmt(VS.ent)}\n💳 Saldo no cartão: ${fmt(_base)}\n`;
+  txt+=`\n`;
+  for(let n=2;n<=18;n++){const tot=r2(PB(_base)*TX[n]);const par=r2(tot/n);txt+=`📆 ${n}x de ${fmt(par)} · Total: ${fmt(tot)}\n`;}
+  cp(txt,'✅ Todas as parcelas!');
+}
+function vInt(){
+  if(!VS.av){toast('⚠️ Preencha o custo');return;}
+  const cu=parseFloat(document.getElementById('vcusto').value)||0;const fr=parseFloat(document.getElementById('vfrete').value)||0;
+  const fa=vFA();const fc=vFC();const lav=VS.av-(cu+fa);const ma=((lav/VS.av)*100).toFixed(1);
+  const mds={a:'Loja assume',d:'Dividido 50/50',c:'Cliente paga'};
+  const _b=PB(VS.pc);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+  const cor=VS.cor?` | Cor: ${VS.cor}`:'';const op=VS.si>=0?' [B]':' [A]';
+  cp(`🧮 INTERNO — ${VS.nm}${cor}${op}\nCusto:${fmt(cu)} | Frete:${fmt(fr)} (${mds[VS.fm]})\nCusto loja:${fmt(cu+fa)}\nÀ vista:${fmt(VS.av)} | Lucro:${fmt(lav)} | Margem:${ma}%\nBase parc:${fmt(VS.pc)}\n12x:${fmt(p12)}/Tot:${fmt(t12)}\n18x:${fmt(p18)}/Tot:${fmt(t18)}`,'✅ Interno copiado!');
+}
+function vClr(){
+  document.getElementById('vs').value='';document.getElementById('vdd').className='dd';
+  document.getElementById('vcard').style.display='none';document.getElementById('vcb').className='cb';
+  document.getElementById('vsi').style.display='block';document.getElementById('vcusto').value='';
+  document.getElementById('vfrr').className='frr';document.getElementById('vmi').style.display='none';
+  document.getElementById('vcw').style.display='none';document.getElementById('vseg').className='segw';
+  document.getElementById('vres').style.display='none';document.getElementById('ves').style.display='block';
+  document.getElementById('val').className='al';document.getElementById('vab').value='';document.getElementById('vabres').style.display='none';VS={idx:-1,si:-1,cat:null,fm:VS.fm,cor:'',av:0,pc:0,avsf:0,nm:''};
+}
+function vLmp(){vClr();document.getElementById('vfrete').value='';}
+
+// ════════ ABA UPGRADE ════════
+let UN={idx:-1,bi:-1,si:-1,cu:0,av:0,pc:0,nm:'',cor:'',fm:'d'};
+let UU={idx:-1,cu:0,nm:'',cor:''};
+let UD={b:false,t:false,c:false,f:false};
+let UTQ=null,UOUT=false;
+let unTO=null,uuTO=null;
+function unSrch(v){document.getElementById('uncb').className=v?'cb on':'cb';document.getElementById('unsi').style.display=v?'none':'block';clearTimeout(unTO);unTO=setTimeout(()=>bDD(v,'undd','unSel'),150);}
+function unFcs(){if(!document.getElementById('uns').value)bDD('','undd','unSel');}
+function unSel(idx){
+  const{p}=best(P[idx].n,P[idx].t);
+  document.getElementById('undd').className='dd';document.getElementById('uns').value=p.n;
+  document.getElementById('uncb').className='cb on';document.getElementById('unsi').style.display='none';
+  document.getElementById('uncard').style.display='block';
+  unShow(p);UN.bi=P.indexOf(p);UN.si=-1;
+  unRSeg(UN.bi);uCalc();
+}
+function unShow(p){
+  const c=cm(p);const m=mg(p.c);
+  UN.idx=P.indexOf(p);UN.cu=c;UN.nm=p.n;UN.cor='';UN.av=c+m.av;UN.pc=c+m.pc;
+  document.getElementById('unnm').textContent=p.n;
+  document.getElementById('unfn').textContent=p.f+(p.l?' · '+p.l:'');
+  document.getElementById('uncs').textContent=fmt(c);
+  document.getElementById('unav').textContent=fmt(UN.av);
+  const _b=PB(UN.pc);const t12=r2(_b*TX[12]);const t18=r2(_b*TX[18]);
+  document.getElementById('un12').textContent=fmt(r2(t12/12));
+  document.getElementById('un18').textContent=fmt(r2(t18/18));
+  UN.cor=rCores(p,'uncl','uncw','ag','unCC');
+}
+function unRSeg(ip){
+  const p=P[ip];const cp2=cm(p);
+  const sm=P.map((q,i)=>({q,i})).filter(({q,i})=>i!==ip&&q.n===p.n&&q.t===p.t).sort((a,b)=>cm(a.q)-cm(b.q));
+  const base=p.n.replace(/\s+\d+(GB|TB)/gi,'').replace(/\s+CPO/i,'').trim();
+  const al=P.map((q,i)=>({q,i})).filter(({q,i})=>i!==ip&&q.n!==p.n&&q.n.replace(/\s+\d+(GB|TB)/gi,'').replace(/\s+CPO/i,'').trim()===base&&q.t===p.t).sort((a,b)=>cm(a.q)-cm(b.q));
+  const sugs=[];
+  if(!sm.length){sugs.push({av:true});if(al.length)sugs.push({i:al[0].i,r:'💾 storage alt.'});}
+  else{const vis=new Set();for(const s of sm){if(sugs.length>=2)break;if(vis.has(s.q.f))continue;vis.add(s.q.f);const cc=cm(s.q);sugs.push({i:s.i,r:cc<cp2?'💰 mais barato':cc===cp2?'🔄 mesmo preço':'📦 alternativa'});} if(sugs.length<2&&al.length)sugs.push({i:al[0].i,r:'💾 storage alt.'});}
+  const w=document.getElementById('unseg');const tabs=document.getElementById('unsegtabs');
+  if(!sugs.length){w.className='segw';return;}
+  tabs.innerHTML=sugs.map(s=>{
+    if(s.av)return`<div class="st" style="opacity:0.6;cursor:default;grid-column:1/-1"><div class="stl">🔒 único fornecedor</div><div class="stn" style="color:var(--mu)">Só disponível aqui</div></div>`;
+    const q=P[s.i];const diff=cm(q)-cp2;
+    const dc=diff>0?'var(--re)':diff<0?'var(--gr)':'var(--mu)';
+    const ds=diff===0?'mesmo preço':diff>0?`+${fmt(diff)} a mais`:`${fmt(Math.abs(diff))} a menos`;
+    const dots=(q.cs||[]).map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c.h};border:1px solid rgba(0,0,0,0.12);display:inline-block"></span>`).join('');
+    return`<button class="st" onclick="unSS(${s.i},this)"><div class="stl">${s.r}</div><div class="stn">${q.n}</div><div class="stp">${fmt(cm(q))}</div><div class="std" style="color:${dc}">${ds} · ${q.t}</div><div class="stloc">📍 ${q.f}</div><div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${dots}</div></button>`;
+  }).join('');
+  w.className='segw on';
+}
+function unSS(i,btn){
+  const al=UN.si===i;
+  document.querySelectorAll('#unsegtabs .st').forEach(b=>b.classList.remove('on'));
+  if(al){UN.si=-1;unShow(P[UN.bi]);toast('↩️ Opção principal');}
+  else{UN.si=i;btn.classList.add('on');unShow(P[i]);toast('🟣 Outro fornec. — '+P[i].f);}
+  uCalc();
+}
+function unCC(btn,n,v){
+  document.querySelectorAll('#uncl .corb').forEach(b=>b.className='corb');btn.className='corb ag';
+  UN.cor=n;UN.cu=v;
+  const p=P[UN.idx];const m=mg(p.c);UN.av=v+m.av;UN.pc=v+m.pc;
+  document.getElementById('uncs').textContent=fmt(v);
+  document.getElementById('unav').textContent=fmt(UN.av);
+  const _b=PB(UN.pc);const t12=r2(_b*TX[12]);const t18=r2(_b*TX[18]);
+  document.getElementById('un12').textContent=fmt(r2(t12/12));
+  document.getElementById('un18').textContent=fmt(r2(t18/18));
+  uCalc();
+}
+function unClr(){document.getElementById('uns').value='';document.getElementById('undd').className='dd';document.getElementById('uncard').style.display='none';document.getElementById('uncb').className='cb';document.getElementById('unsi').style.display='block';document.getElementById('uncw').style.display='none';document.getElementById('unseg').className='segw';UN={idx:-1,bi:-1,si:-1,cu:0,av:0,pc:0,nm:'',cor:'',fm:UN.fm};uCalc();}
+function uuSrch(v){document.getElementById('uucb').className=v?'cb on':'cb';document.getElementById('uusi').style.display=v?'none':'block';clearTimeout(uuTO);uuTO=setTimeout(()=>bDD(v,'uudd','uuSel'),150);}
+function uuFcs(){if(!document.getElementById('uus').value)bDD('','uudd','uuSel');}
+function uuSel(idx){
+  const{p,mn}=best(P[idx].n,P[idx].t);
+  UU.idx=P.indexOf(p);UU.cu=mn;UU.nm=p.n;UU.cor='';
+  UD={b:false,t:false,c:false,f:false};UTQ=null;UOUT=false;
+  document.getElementById('uudd').className='dd';document.getElementById('uus').value=p.n;
+  document.getElementById('uucb').className='cb on';document.getElementById('uusi').style.display='none';
+  document.getElementById('uucard').style.display='block';
+  document.getElementById('uunm').textContent=p.n;document.getElementById('uucs').textContent=fmt(mn);
+  document.getElementById('uuba').textContent=fmt(mn-CFG.d);
+  document.getElementById('r300').style.display=CFG.s300?'flex':'none';
+  document.getElementById('rcusto').style.display=CFG.scusto?'flex':'none';
+  document.getElementById('r300v').textContent=CFG.d;
+  UU.cor=rCores(p,'uucl','uucw','ao','uuCC');
+  ['b','t','c','f'].forEach(d=>{document.getElementById('dc'+d).classList.remove('on');document.getElementById('chk'+d).textContent='';document.getElementById('dv'+d+'-wrap').style.display='none';document.getElementById('dv'+d+'-val').value='';});
+  document.getElementById('dvc').textContent='a definir';document.getElementById('dvc').style.color='var(--ye)';
+  document.getElementById('dvf').textContent='a definir';document.getElementById('dvf').style.color='var(--ye)';
+  document.getElementById('tqw').className='tqw';
+  document.getElementById('otc').classList.remove('on');document.getElementById('otf').className='otf';document.getElementById('ott').textContent='';
+  document.getElementById('otnm').value='';document.getElementById('otv').value='';
+  const bv=batV(p.n);document.getElementById('dvb').textContent=bv?`− ${fmt(bv)}`:'a definir';document.getElementById('dvb').style.color=bv?'var(--re)':'var(--ye)';
+  const tv=telaO(p.n);const tvs=tv?['jk','ba','pr','or'].map(k=>tv[k]).filter(x=>x!==null):[];
+  document.getElementById('dvt').textContent=tvs.length?`desde ${fmt(Math.min(...tvs))}`:'a definir';document.getElementById('dvt').style.color=tvs.length?'var(--re)':'var(--ye)';
+  document.getElementById('udefsec').style.display='block';document.getElementById('ues').style.display='none';
+  document.getElementById('nf-alert').style.display='flex';
+  uCalc();
+}
+function uuCC(btn,n,v){
+  document.querySelectorAll('#uucl .corb').forEach(b=>b.className='corb');btn.className='corb ao';
+  UU.cor=n;UU.cu=v;
+  document.getElementById('uucs').textContent=fmt(v);
+  document.getElementById('uuba').textContent=fmt(v-CFG.d);
+  uCalc();
+}
+function uuClr(){document.getElementById('uus').value='';document.getElementById('uudd').className='dd';document.getElementById('uucard').style.display='none';document.getElementById('uucb').className='cb';document.getElementById('uusi').style.display='block';document.getElementById('uucw').style.display='none';document.getElementById('udefsec').style.display='none';document.getElementById('nf-alert').style.display='none';['b','t','c','f'].forEach(d=>{document.getElementById('dv'+d+'-wrap').style.display='none';document.getElementById('dv'+d+'-val').value='';});UU={idx:-1,cu:0,nm:'',cor:''};UD={b:false,t:false,c:false,f:false};UTQ=null;UOUT=false;uCalc();}
+// ── helpers visuais de defeito ──
+function uDefFechar(d){
+  // fecha o input. Para tela, NÃO fecha os botões de qualidade (ficam como opção).
+  document.getElementById('dv'+d+'-wrap').style.display='none';
+}
+function uDefAbrir(d){
+  const wrap=document.getElementById('dv'+d+'-wrap');const inp=document.getElementById('dv'+d+'-val');
+  if(d==='t'){
+    // Tela: botões de qualidade ficam visíveis como opções persistentes + input manual abaixo.
+    document.getElementById('tqw').className='tqw on';uRTQ();
+    wrap.style.display='block';
+    return;
+  }
+  wrap.style.display='block';setTimeout(()=>{inp.focus();if(inp.value)inp.select();},50);
+}
+function uDefLbl(d,v){
+  const lbl=document.getElementById('dv'+d);
+  if(v>0){lbl.textContent='− '+fmt(v);lbl.style.color='var(--re)';}
+  else{lbl.textContent='a definir';lbl.style.color='var(--ye)';}
+}
+function uDefReset(d){
+  // desativa completamente
+  const inp=document.getElementById('dv'+d+'-val');
+  UD[d]=false;inp.value='';
+  document.getElementById('dc'+d).classList.remove('on');
+  document.getElementById('chk'+d).textContent='';
+  document.getElementById('dv'+d+'-wrap').style.display='none';
+  if(d==='t'){document.getElementById('tqw').className='tqw';UTQ=null;
+    const tv=telaO(UU.nm);const tvs=tv?['jk','ba','pr','or'].map(k=>tv[k]).filter(Boolean):[];
+    uDefLbl('t',tvs.length?Math.min(...tvs):0);
+  }else if(d==='b'){const bv=batV(UU.nm);uDefLbl('b',bv||0);}
+  else{uDefLbl(d,0);}
+  uCalc();
+}
+// ── clique no card ──
+function uDef(d){
+  if(UD[d]){
+    // já ativo: reabre input / botões de qualidade para editar
+    uDefAbrir(d);
+    return;
+  }
+  // ativar
+  UD[d]=true;
+  document.getElementById('dc'+d).classList.add('on');
+  document.getElementById('chk'+d).textContent='✓';
+  uDefLbl(d,0);
+  if(d==='b'){
+    const bv=batV(UU.nm);
+    if(bv){
+      // valor tabelado: preenche direto, sem abrir input
+      document.getElementById('dvb-val').value=bv;
+      uDefLbl('b',bv);
+      uCalc();
+    }else{
+      uDefAbrir('b');
+    }
+  }else{
+    uDefAbrir(d);
+  }
+}
+// ── clique no ✓ (dck) → desativar ──
+function uDefDesat(d){uDefReset(d);}
+// ── digitando no input ──
+function uDefVal(d,v){
+  const val=parseFloat(v)||0;
+  // Tela: valor manual sobrepõe a qualidade selecionada (limpa o destaque dos botões).
+  if(d==='t'&&val>0&&UTQ){UTQ=null;uRTQ();}
+  uDefLbl(d,val);
+  uCalc();
+}
+// ── saiu do input (blur / Enter) ──
+function uDefConfirm(d){
+  // delay para não conflitar com clique em botão de qualidade (tela)
+  setTimeout(()=>{
+    const v=parseFloat(document.getElementById('dv'+d+'-val').value)||0;
+    if(d==='t'){
+      // Só reseta a tela se NÃO houver valor manual E NENHUMA qualidade selecionada.
+      if(v<=0&&!UTQ)uDefReset('t');
+      return; // os botões de qualidade permanecem disponíveis
+    }
+    if(v>0){uDefFechar(d);}
+    else{uDefReset(d);}
+  },150);
+}
+// ── botão "adicionar" → confirma o valor e ESCONDE o campo de digitação ──
+function uDefAdd(d){
+  const v=parseFloat(document.getElementById('dv'+d+'-val').value)||0;
+  if(d==='t'){
+    // tela: aceita valor manual OU qualidade selecionada
+    if(v<=0&&!UTQ){toast('⚠️ Informe o valor ou escolha a qualidade');return;}
+    document.getElementById('tqw').className='tqw';   // some os botões de qualidade
+    uDefFechar('t');                                   // some o input
+  }else{
+    if(v<=0){toast('⚠️ Informe o valor');return;}
+    uDefFechar(d);                                     // some o input, mantém o valor
+  }
+  uDefLbl(d,v>0?v:(UTQ?parseFloat(document.getElementById('dv'+d+'-val').value)||0:0));
+  uCalc();
+}
+// ── seletor de qualidade (tela) — funciona como botão de opção ──
+function uRTQ(){
+  const tv=telaO(UU.nm);const wrap=document.getElementById('tqo');
+  const ks=['jk','ba','pr','or'];const lbls={jk:'JK/Vivid',ba:'Basic',pr:'Premium',or:'Original'};
+  if(!tv){wrap.innerHTML='<span style="font-size:12px;color:var(--ye)">⚠️ Não tabelado — insira o valor no campo abaixo</span>';return;}
+  wrap.innerHTML=ks.map(k=>{
+    const val=tv[k];const na=val===null;const act=UTQ===k;
+    return`<button class="tqb${na?' na':''}${act?' on':''}" onclick="${na?'void(0)':`uTQ('${k}')`}">${lbls[k]}${na?'<span class="tqp">—</span>':`<span class="tqp">${fmt(val)}</span>`}</button>`;
+  }).join('');
+}
+// ── selecionar qualidade → preenche valor e mantém os botões visíveis ──
+function uTQ(k){
+  const tv=telaO(UU.nm);const val=tv?tv[k]:null;
+  if(val===null||val===undefined) return; // qualidade indisponível
+  UTQ=(UTQ===k)?null:k; // opção: seleciona; reclicar a mesma desmarca
+  const inp=document.getElementById('dvt-val');
+  if(UTQ){inp.value=val;uDefLbl('t',val);}
+  else{inp.value='';uDefLbl('t',0);}
+  uRTQ(); // re-renderiza mantendo visível e destacando a seleção
+  uCalc();
+}
+function uOutro(){
+  UOUT=!UOUT;const card=document.getElementById('otc');const f=document.getElementById('otf');const t=document.getElementById('ott');
+  if(UOUT){card.classList.add('on');f.className='otf on';t.textContent='✓';}else{card.classList.remove('on');f.className='otf';t.textContent='';document.getElementById('otnm').value='';document.getElementById('otv').value='';}
+  uCalc();
+}
+function uFM(m){UN.fm=m;['a','d','c'].forEach(x=>document.getElementById('ut'+x).className='tgb'+(x===m?' on':''));uCalc();}
+function uFA(){const f=parseFloat(document.getElementById('ufrete').value)||0;if(UN.fm==='a')return f;if(UN.fm==='d')return r2(f/2);return 0;}
+function uFC(){const f=parseFloat(document.getElementById('ufrete').value)||0;if(UN.fm==='c')return f;if(UN.fm==='d')return r2(f/2);return 0;}
+function uDefs(){
+  let tot=0;const its=[];let pend=false;
+  if(UD.b){const bv=parseFloat(document.getElementById('dvb-val').value)||0;if(bv>0){tot+=bv;its.push({l:'🔋 Bateria',v:bv});}else{its.push({l:'🔋 Bateria',v:0,p:true});pend=true;}}
+  if(UD.t){
+    const tv=parseFloat(document.getElementById('dvt-val').value)||0;
+    const lbs={jk:'JK/Vivid',ba:'Basic',pr:'Premium',or:'Original'};
+    if(tv>0){tot+=tv;its.push({l:UTQ?`📱 Tela ${lbs[UTQ]}`:'📱 Tela',v:tv});}
+    else if(UTQ){const tbl=telaO(UU.nm);const val=tbl?tbl[UTQ]:null;if(val){tot+=val;its.push({l:`📱 Tela ${lbs[UTQ]}`,v:val});}else{its.push({l:`📱 Tela ${lbs[UTQ]}`,v:0,p:true});pend=true;}}
+    else{its.push({l:'📱 Tela (selecione qualidade ou insira valor)',v:0,p:true});pend=true;}
+  }
+  if(UD.c){const cv=parseFloat(document.getElementById('dvc-val').value)||0;if(cv>0){tot+=cv;its.push({l:'📷 Câmera',v:cv});}else{its.push({l:'📷 Câmera',v:0,p:true});pend=true;}}
+  if(UD.f){const fv=parseFloat(document.getElementById('dvf-val').value)||0;if(fv>0){tot+=fv;its.push({l:'🪪 Face ID',v:fv});}else{its.push({l:'🪪 Face ID',v:0,p:true});pend=true;}}
+  if(UOUT){const nm=document.getElementById('otnm').value.trim()||'Outro';const v=parseFloat(document.getElementById('otv').value)||0;if(v>0){tot+=v;its.push({l:'🔩 '+nm,v});}else{its.push({l:'🔩 '+(nm||'Outro'),v:0,p:true});pend=true;}}
+  return{tot,its,pend};
+}
+function uCalc(){
+  const dbw=document.getElementById('udbw');const ual=document.getElementById('ual');const upw=document.getElementById('upw');
+  const fr=parseFloat(document.getElementById('ufrete').value)||0;
+  const ufrr=document.getElementById('ufrr');
+  if(fr>0){const fa=uFA();const fc=uFC();let m='';if(UN.fm==='a')m=`🏪 Loja assume <strong>${fmt(fr)}</strong>`;else if(UN.fm==='d')m=`✂️ Loja absorve <strong>${fmt(fa)}</strong> · Cliente paga <strong>${fmt(fc)}</strong>`;else m=`👤 Cliente paga <strong>${fmt(fr)}</strong>`;ufrr.innerHTML=m;ufrr.className='frr on';}else ufrr.className='frr';
+  const hasU=!!UN.av;const hasE=!!UU.cu;
+  const ds=document.getElementById('udefsec');
+  document.getElementById('nf-alert').style.display=hasE?'flex':'none';
+  if(!hasU&&!hasE){dbw.innerHTML='';ual.className='al';upw.style.display='none';ds.style.display='none';document.getElementById('ues').style.display='block';return;}
+  ds.style.display='block';document.getElementById('ues').style.display='none';
+  const fa=uFA();const fc=uFC();
+  const{tot,its,pend}=uDefs();
+  const baseAval=hasE?Math.max(0,UU.cu-CFG.d):0;   // valor base da avaliação (sem reparos)
+  const ent=hasE?Math.max(0,baseAval-tot):0;        // entrada líquida (após reparos)
+  const avNovo=hasU?UN.av+fc:0;const pcNovo=hasU?UN.pc+fc:0;
+  // ── linhas do resumo ──
+  let rows='';
+  if(hasU){
+    rows+=`<div class="dbrow"><span class="dll">📱 ${UN.nm||'Novo'}${UN.cor?' — '+UN.cor:''}</span><span class="dvv">${fmt(UN.av)}</span></div>`;
+    if(fc>0)rows+=`<div class="dbrow"><span class="dll">🚚 Frete (cliente)</span><span class="dvv">${fmt(fc)}</span></div>`;
+  }
+  if(hasE){
+    // valor de AVALIAÇÃO do aparelho (informativo, sem operação no total)
+    rows+=`<div class="dbrow"><span class="dll">📲 ${UU.nm||'Entrada'}${UU.cor?' — '+UU.cor:''}${hasU?' (avaliação)':''}</span><span class="dvv" style="color:var(--or)">${fmt(baseAval)}</span></div>`;
+    if(CFG.s300)rows+=`<div class="dbrow"><span class="dll" style="color:var(--mu)">  ↳ custo ${fmt(UU.cu)} − ajuste R$ ${CFG.d}</span><span class="dvv"></span></div>`;
+    // reparos SEMPRE subtraem do valor da entrada
+    its.forEach(it=>{rows+=it.p?`<div class="dbrow"><span class="dll">${it.l}</span><span class="dvv" style="color:var(--ye)">⚠️ a definir</span></div>`:`<div class="dbrow"><span class="dll">${it.l}</span><span class="dvv" style="color:var(--re)">− ${fmt(it.v)}</span></div>`;});
+    // no upgrade: entrada líquida (após reparos) é o que efetivamente abate
+    if(hasU&&!pend&&tot>0)rows+=`<div class="dbrow"><span class="dll">📲 Entrada após reparos</span><span class="dvv" style="color:var(--or)">− ${fmt(ent)}</span></div>`;
+    else if(hasU&&!pend)rows+=`<div class="dbrow"><span class="dll" style="color:var(--mu)">  ↳ abate da compra</span><span class="dvv" style="color:var(--or)">− ${fmt(ent)}</span></div>`;
+  }
+  if(fa>0&&hasU)rows+=`<div class="dbrow"><span class="dll">🚚 Frete (loja absorve)</span><span class="dvv" style="color:var(--re)">− ${fmt(fa)}</span></div>`;
+  // ── helper de parcelas ──
+  const renderParc=(diffP)=>{
+    upw.style.display='block';
+    const waP=(n,par)=>`<button onclick="uWAn(${n})" style="width:100%;margin-top:8px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:8px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">📋 copiar ${n}x (${fmt(par)})</button>`;
+    let ph='';[12,18].forEach(n=>{const tx=TX[n];const _b=PB(diffP);const tot2=r2(_b*tx);const par=r2(tot2/n);const j=r2(tot2-_b);ph+=`<div class="pc"><div class="pt">${n}x</div><div class="pr"><span class="pl">Base</span><span>${fmt(diffP)}</span></div><div class="pr"><span class="pl">Juros</span><span>${fmt(j)}</span></div><div class="pr"><span class="pl">Parcela</span><span>${fmt(par)}</span></div><div class="pr"><span class="pl">Total</span><span>${fmt(tot2)}</span></div>${waP(n,par)}</div>`;});
+    document.getElementById('upd').innerHTML=ph;
+    let rows2='';for(let n=2;n<=18;n++){const tx=TX[n];const _b=PB(diffP);const tot2=r2(_b*tx);const par=r2(tot2/n);const j=r2(tot2-_b);rows2+=`<div class="ptr"><span class="pn">${n}x</span><span class="pp">${fmt(par)}</span><span class="ptot">${fmt(tot2)}</span><span class="pj">+${fmt(j)}</span></div>`;}
+    document.getElementById('upr').innerHTML=rows2;
+  };
+  const waBtn=`<button onclick="uWA()" style="width:100%;margin-top:12px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">📋 copiar WhatsApp</button>`;
+  const wa1218=`<button onclick="uWA1218()" style="width:100%;margin-top:8px;background:var(--bl-bg,#16243a);border:1px solid var(--bl-bd,#2c4f8c);color:var(--bl,#7ab0ff);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">📋 copiar 12x + 18x</button>`;
+  const waTot=`<button onclick="uWAtot()" style="width:100%;margin-top:8px;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">📋 resumo total</button>`;
+  let ufin=0;
+  if(hasU&&hasE){
+    // ── UPGRADE: novo + entrada ──
+    const diff=avNovo-ent;const diffP=pcNovo-ent;
+    const cls=pend?'':(diff<=0?'dd':(diff<avNovo*0.3?'dw':''));
+    const btns=!pend?(diff>0?waBtn+wa1218+waTot:waBtn+waTot):'';
+    dbw.innerHTML=`<div class="db ${cls}"><div class="dbh"><div class="dbht">📊 Resumo do Upgrade</div></div><div class="dbr">${rows}</div><div class="dbf"><div class="dfl">${diff<=0?'SEM DIFERENÇA A PAGAR':'DIFERENÇA À VISTA'}</div><div class="dfv">${pend?'Incompleto':fmt(Math.max(0,diff))}</div></div>${btns}</div>`;
+    if(pend){ual.className='al on ay';ual.textContent='⚠️ Itens pendentes — complete para ver o total.';}
+    else if(diff<=0){ual.className='al on ag';ual.textContent='✅ A entrada cobre o aparelho novo!';}
+    else if(diff<avNovo*0.2){ual.className='al on ag';ual.textContent='✅ Diferença pequena — upgrade acessível.';}
+    else if(diff<avNovo*0.5){ual.className='al on ay';ual.textContent='⚠️ Diferença moderada — apresente as parcelas.';}
+    else{ual.className='al on ar';ual.textContent='🔴 Diferença alta — verifique antes de apresentar.';}
+    if(!pend&&diff>0){renderParc(diffP);ufin=diffP;}else upw.style.display='none';
+  }else if(hasU&&!hasE){
+    // ── só modelo de compra: venda cheia (sem entrada) ──
+    dbw.innerHTML=`<div class="db"><div class="dbh"><div class="dbht">📊 Resumo — Venda</div></div><div class="dbr">${rows}</div><div class="dbf"><div class="dfl">À VISTA</div><div class="dfv">${fmt(avNovo)}</div></div>${waBtn}${wa1218}${waTot}</div>`;
+    ual.className='al on ag';ual.textContent='💡 Sem entrada — valor cheio. Adicione um aparelho de entrada para abater.';
+    renderParc(pcNovo);ufin=pcNovo;
+  }else{
+    // ── só entrada: avaliação ──
+    const btns=!pend?waBtn+wa1218+waTot:'';
+    dbw.innerHTML=`<div class="db"><div class="dbh"><div class="dbht">📊 Resumo — Avaliação</div></div><div class="dbr">${rows}</div><div class="dbf"><div class="dfl">VALOR DE ENTRADA</div><div class="dfv">${pend?'Incompleto':fmt(ent)}</div></div>${btns}</div>`;
+    if(pend){upw.style.display='none';ual.className='al on ay';ual.textContent='⚠️ Itens pendentes — informe o valor dos reparos.';}
+    else{renderParc(ent);ufin=ent;ual.className='al on ag';ual.textContent='💡 Adicione o modelo que o cliente quer comprar para ver a diferença, ou parcele o valor de entrada.';}
+  }
+  uAbCalc(ufin);
+}
+function uAbCalc(base){
+  const sc=document.getElementById('uabsc'),fi=document.getElementById('uabfi'),box=document.getElementById('uabw');
+  if(!base||base<=0){sc.style.display='none';fi.style.display='none';box.style.display='none';return;}
+  sc.style.display='block';fi.style.display='block';
+  const E=parseFloat(document.getElementById('uab').value)||0;
+  if(E<=0){box.style.display='none';return;}
+  box.style.display='block';
+  if(E>=base){box.innerHTML=`<div class="db dd"><div class="dbh"><div class="dbht">💵 Entrada cobre o saldo</div></div><div class="dbr"><div class="dbrow"><span class="dll">Cliente paga à vista</span><span class="dvv" style="color:var(--gr)">${fmt(base)}</span></div></div><div class="dbf"><div class="dfl">SALDO NO CARTÃO</div><div class="dfv">R$ 0,00</div></div></div>`;return;}
+  const sd=r2(base-E);
+  const mk=n=>{const t=r2(PB(sd)*TX[n]);return{par:r2(t/n),tot:t,j:r2(t-PB(sd))};};
+  const a=mk(12),b=mk(18);
+  box.innerHTML=`<div class="db"><div class="dbh"><div class="dbht">💵 Entrada + Cartão</div></div>
+   <div class="dbr">
+     <div class="dbrow"><span class="dll">💵 Entrada (à vista)</span><span class="dvv" style="color:var(--gr)">${fmt(E)}</span></div>
+     <div class="dbrow"><span class="dll">💳 Saldo a financiar</span><span class="dvv">${fmt(sd)}</span></div>
+   </div>
+   <div class="pd" style="margin-top:10px">
+     <div class="pc"><div class="pt">12x</div><div class="pr"><span class="pl">Parcela</span><span>${fmt(a.par)}</span></div><div class="pr"><span class="pl">Total</span><span>${fmt(a.tot)}</span></div><div class="pr"><span class="pl">Juros</span><span>${fmt(a.j)}</span></div><div class="pr"><span class="pl">Total c/ entrada</span><span>${fmt(r2(E+a.tot))}</span></div></div>
+     <div class="pc"><div class="pt">18x</div><div class="pr"><span class="pl">Parcela</span><span>${fmt(b.par)}</span></div><div class="pr"><span class="pl">Total</span><span>${fmt(b.tot)}</span></div><div class="pr"><span class="pl">Juros</span><span>${fmt(b.j)}</span></div><div class="pr"><span class="pl">Total c/ entrada</span><span>${fmt(r2(E+b.tot))}</span></div></div>
+   </div>
+   <button class="btn bpr bfu" style="margin-top:12px" onclick="uAbWA(${base})">📋 copiar WhatsApp (entrada + cartão)</button>
+  </div>`;
+}
+function uAbWA(base){
+  const E=parseFloat(document.getElementById('uab').value)||0;
+  if(!base||E<=0){toast('⚠️ Informe o abatimento');return;}
+  const nm=UN.av?UN.nm:(UU.nm||'Aparelho');const cor=UN.av?(UN.cor?` — ${UN.cor}`:''):(UU.cor?` — ${UU.cor}`:'');
+  if(E>=base){cp(`📱 *${nm}${cor}*\n\n💵 Entrada à vista: ${fmt(base)}\n✅ Sem saldo a parcelar!`,'✅ Copiado!');return;}
+  const sd=r2(base-E);
+  const t12=r2(PB(sd)*TX[12]),p12=r2(t12/12),t18=r2(PB(sd)*TX[18]),p18=r2(t18/18);
+  cp(`📱 *${nm}${cor}*\n\n💵 Entrada à vista: *${fmt(E)}*\n💳 Saldo no cartão: ${fmt(sd)}\n\n📆 12x de *${fmt(p12)}* · Total: ${fmt(t12)}\n📆 18x de *${fmt(p18)}* · Total: ${fmt(t18)}\n\n💰 Total final: ${fmt(r2(E+t12))} (em 12x) · ${fmt(r2(E+t18))} (em 18x)`,'✅ Copiado!');
+}
+function uWAn(n){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fc=uFC();
+  const ent=hasE?Math.max(0,UU.cu-CFG.d-tot):0;
+  const avNovo=hasU?UN.av+fc:0;const pcNovo=hasU?UN.pc+fc:0;
+  const diff=Math.max(0,avNovo-ent);const diffP=Math.max(0,pcNovo-ent);
+  const cn=UN.cor?` — ${UN.cor}`:'';const cu=UU.cor?` — ${UU.cor}`:'';
+  const repars=its.filter(x=>!x.p);
+  let txt;
+  if(hasU&&hasE){
+    const tot2=r2(PB(diffP)*TX[n]);const par=r2(tot2/n);
+    txt=`🔄 *Proposta de Upgrade*\n\n📱 Novo: *${UN.nm}${cn}*\n📲 Entrada: ${UU.nm}${cu}\n`;
+    if(repars.length)txt+=`⚠️ Reparos: ${repars.map(i=>`${i.l} (−${fmt(i.v)})`).join(', ')}\n`;
+    txt+=`\n💰 À vista: *${fmt(avNovo)}*\n📲 Entrada: *${fmt(ent)}*\n\n`;
+    if(diff<=0)txt+=`✅ Sem diferença a pagar!`;
+    else txt+=`💳 Diferença: *${fmt(diff)}* à vista\n📆 Ou ${n}x de *${fmt(par)}* · Total: ${fmt(tot2)}`;
+  }else if(hasU){
+    const tot2=r2(PB(pcNovo)*TX[n]);const par=r2(tot2/n);
+    txt=`📱 *${UN.nm}${cn}*\n\n💰 À vista: *${fmt(avNovo)}*\n📆 ${n}x de *${fmt(par)}* · Total: ${fmt(tot2)}`;
+  }else{
+    const tot2=r2(PB(ent)*TX[n]);const par=r2(tot2/n);
+    txt=`📲 *${UU.nm}${cu}*\n\n💰 Valor: *${fmt(ent)}*\n📆 ${n}x de *${fmt(par)}* · Total: ${fmt(tot2)}`;
+  }
+  cp(txt,`✅ Copiado ${n}x!`);
+}
+function uWA(){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fc=uFC();
+  const ent=hasE?Math.max(0,UU.cu-CFG.d-tot):0;
+  const cn=UN.cor?` — ${UN.cor}`:'';const cu=UU.cor?` — ${UU.cor}`:'';
+  const repars=its.filter(x=>!x.p);
+  let txt;
+  if(hasU&&hasE){
+    const avNovo=UN.av+fc;const pcNovo=UN.pc+fc;const diff=Math.max(0,avNovo-ent);const diffP=Math.max(0,pcNovo-ent);
+    txt=`🔄 *Proposta de Upgrade*\n\n📱 Novo: *${UN.nm}${cn}*`;
+    if(fc>0)txt+=` + frete ${fmt(fc)}`;
+    txt+=`\n📲 Entrada: ${UU.nm}${cu}\n`;
+    if(repars.length)txt+=`⚠️ Reparos: ${repars.map(i=>`${i.l} (−${fmt(i.v)})`).join(', ')}\n`;
+    txt+=`\n💰 À vista: *${fmt(avNovo)}*\n📲 Entrada: *${fmt(ent)}*\n\n`;
+    if(diff<=0)txt+=`✅ Sem diferença a pagar!`;
+    else{const _b=PB(diffP);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);txt+=`💳 Diferença: *${fmt(diff)}* à vista\n📆 Ou 12x de ${fmt(p12)} · Total: ${fmt(t12)}\n📆 Ou 18x de ${fmt(p18)} · Total: ${fmt(t18)}`;}
+  }else if(hasU){
+    const avNovo=UN.av+fc;const pcNovo=UN.pc+fc;
+    const _b=PB(pcNovo);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+    txt=`📱 *${UN.nm}${cn}*\n\n💰 À vista: *${fmt(avNovo)}*\n📆 12x de ${fmt(p12)} · Total: ${fmt(t12)}\n📆 18x de ${fmt(p18)} · Total: ${fmt(t18)}`;
+  }else{
+    txt=`📲 *Avaliação de Entrada*\n\n${UU.nm}${cu}\n`;
+    if(repars.length)txt+=`⚠️ Reparos: ${repars.map(i=>`${i.l} (−${fmt(i.v)})`).join(', ')}\n`;
+    txt+=`\n💰 Valor de entrada: *${fmt(ent)}*`;
+  }
+  cp(txt,'✅ Copiado!');
+}
+// ── copiar SÓ 12x + 18x ──
+function uWA1218(){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fc=uFC();
+  const ent=hasE?Math.max(0,UU.cu-CFG.d-tot):0;
+  const base=hasU?Math.max(0,UN.pc+fc-ent):ent;   // diferença (upgrade) ou valor de entrada
+  const cn=UN.cor?` — ${UN.cor}`:'';const cu=UU.cor?` — ${UU.cor}`:'';
+  const _b=PB(base);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+  let txt;
+  if(hasU){txt=`📱 *${UN.nm}${cn}*\n`;if(hasE)txt+=`📲 Entrada: ${UU.nm}${cu} (−${fmt(ent)})\n`;}
+  else{txt=`📲 *${UU.nm}${cu}*\n💰 Valor: ${fmt(ent)}\n`;}
+  txt+=`\n📆 12x de *${fmt(p12)}* · Total: ${fmt(t12)}\n📆 18x de *${fmt(p18)}* · Total: ${fmt(t18)}`;
+  cp(txt,'✅ Copiado 12x + 18x!');
+}
+// ── resumo TOTAL do upgrade (cliente) ──
+function uWAtot(){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fc=uFC();
+  const baseAval=hasE?Math.max(0,UU.cu-CFG.d):0;
+  const ent=hasE?Math.max(0,baseAval-tot):0;
+  const cn=UN.cor?` — ${UN.cor}`:'';const cu=UU.cor?` — ${UU.cor}`:'';
+  const repars=its.filter(x=>!x.p);
+  let txt=`🔄 *RESUMO DO UPGRADE — Pitstop Imports*\n`;
+  txt+=`━━━━━━━━━━━━━━\n`;
+  if(hasU){
+    const avNovo=UN.av+fc;
+    txt+=`📱 *Aparelho novo:* ${UN.nm}${cn}\n💰 Valor à vista: *${fmt(avNovo)}*\n`;
+    if(fc>0)txt+=`🚚 Frete (cliente): ${fmt(fc)}\n`;
+  }
+  if(hasE){
+    txt+=`\n📲 *Entrada:* ${UU.nm}${cu}\n💵 Valor base: ${fmt(baseAval)}\n`;
+    if(repars.length)txt+=`🔧 Reparos:\n${repars.map(i=>`   • ${i.l}: −${fmt(i.v)}`).join('\n')}\n💳 Entrada líquida: *${fmt(ent)}*\n`;
+  }
+  txt+=`━━━━━━━━━━━━━━\n`;
+  if(hasU&&hasE){
+    const avNovo=UN.av+fc;const pcNovo=UN.pc+fc;
+    const diff=Math.max(0,avNovo-ent);const diffP=Math.max(0,pcNovo-ent);
+    if(diff<=0)txt+=`✅ *Sem diferença a pagar!* A entrada cobre o aparelho.`;
+    else{
+      const _b=PB(diffP);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+      txt+=`💳 *Diferença à vista: ${fmt(diff)}*\n\n📆 *Parcelado:*\n   • 12x de ${fmt(p12)} · Total ${fmt(t12)}\n   • 18x de ${fmt(p18)} · Total ${fmt(t18)}`;
+    }
+  }else if(hasU){
+    const avNovo=UN.av+fc;const pcNovo=UN.pc+fc;
+    const _b=PB(pcNovo);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+    txt+=`💰 *À vista: ${fmt(avNovo)}*\n📆 12x de ${fmt(p12)} · Total ${fmt(t12)}\n📆 18x de ${fmt(p18)} · Total ${fmt(t18)}`;
+  }else{
+    txt+=`💵 *Valor de entrada do aparelho: ${fmt(ent)}*`;
+  }
+  cp(txt,'✅ Resumo total copiado!');
+}
+function uAllP(){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fc=uFC();
+  const ent=hasE?Math.max(0,UU.cu-CFG.d-tot):0;
+  const base=hasU?Math.max(0,UN.pc+fc-ent):ent;   // diferença (upgrade) ou valor de entrada
+  const cn=UN.cor?` — ${UN.cor}`:'';const cu=UU.cor?` — ${UU.cor}`:'';
+  let txt;
+  if(hasU){txt=`📱 *${UN.nm}${cn}*\n`;if(hasE)txt+=`📲 Entrada: ${UU.nm}${cu} (−${fmt(ent)})\n💳 Diferença à vista: ${fmt(Math.max(0,UN.av+fc-ent))}\n`;else txt+=`💰 À vista: ${fmt(UN.av+fc)}\n`;}
+  else{txt=`📲 *${UU.nm}${cu}*\n💰 Valor: ${fmt(ent)}\n`;}
+  txt+=`\n`;
+  for(let n=2;n<=18;n++){const tot2=r2(PB(base)*TX[n]);const par=r2(tot2/n);txt+=`📆 ${n}x de ${fmt(par)} · Total: ${fmt(tot2)}\n`;}
+  cp(txt,'✅ Todas as parcelas!');
+}
+function uInt(){
+  const hasU=!!UN.av,hasE=!!UU.cu;
+  if(!hasU&&!hasE){toast('⚠️ Selecione um modelo');return;}
+  const{tot,its}=uDefs();const fa=uFA();const fc=uFC();const fr=parseFloat(document.getElementById('ufrete').value)||0;
+  const ent=hasE?Math.max(0,UU.cu-CFG.d-tot):0;
+  const avNovo=hasU?UN.av+fc:0;const diff=Math.max(0,avNovo-ent);const diffP=Math.max(0,(hasU?UN.pc+fc:0)-ent);
+  const mds={a:'Loja assume',d:'Dividido 50/50',c:'Cliente paga'};
+  const _b=PB(diffP);const t12=r2(_b*TX[12]);const p12=r2(t12/12);const t18=r2(_b*TX[18]);const p18=r2(t18/18);
+  cp(`🔄 UPGRADE INTERNO\nNovo: ${hasU?UN.nm:'—'}${UN.cor?' | '+UN.cor:''} | custo:${fmt(UN.cu)} | av:${fmt(UN.av)}\nFrete:${fmt(fr)} (${mds[UN.fm]}) | loja:${fmt(fa)} | cliente:${fmt(fc)}\nUsado: ${hasE?UU.nm:'—'} | mercado:${fmt(UU.cu)} | ajuste:-${CFG.d} | reparos:-${fmt(tot)}\nEntrada:${fmt(ent)} | Diferença à vista:${fmt(diff)}\nBase parc:${fmt(diffP)}\n12x:${fmt(p12)}/Tot:${fmt(t12)}\n18x:${fmt(p18)}/Tot:${fmt(t18)}`,'✅ Interno!');
+}
+function uLmp(){unClr();uuClr();document.getElementById('ufrete').value='';document.getElementById('ufrr').className='frr';document.getElementById('uab').value='';document.getElementById('uabw').style.display='none';}
+// ════════ ABA OFERTA ════════
+let OF={piso:12,cat:'all',tipo:'all',top:[]};
+function oPiso(v){OF.piso=v;document.getElementById('opiso12').className='ochip'+(v===12?' on':'');document.getElementById('opiso7').className='ochip'+(v===7?' on':'');oRender();}
+function oCat(c,el){OF.cat=c;document.querySelectorAll('#ocat .ochip').forEach(b=>b.className='ochip');el.className='ochip on';oRender();}
+function oTipo(t,el){OF.tipo=t;document.querySelectorAll('#otipo .ochip').forEach(b=>b.className='ochip');el.className='ochip on';oRender();}
+function sigCfg(k){
+  if(k==='hot')return{c:'#15a34a',bg:'#dcfce7',lbl:'menor preço 14d'};
+  if(k==='hist')return{c:'#1e66ff',bg:'#e0ecff',lbl:'abaixo do histórico'};
+  return{c:'#e8863f',bg:'#fbe4cf',lbl:'abaixo do mercado'};
+}
+function oRender(){
+  const wrap=document.getElementById('olist');if(!wrap||!P.length)return;
+  const f=OF.piso/100;
+  // agrupa por modelo+tipo; acessório nunca entra no scanner
+  const grp={};
+  P.forEach(p=>{if(p.c==='Acessório')return;const cst=cm(p);if(cst<=0)return;const k=p.n+'|'+p.t;(grp[k]=grp[k]||[]).push({p,cst});});
+  const rank={hot:3,hist:2,comp:1};
+  const rows=[];
+  Object.values(grp).forEach(list=>{
+    list.sort((a,b)=>a.cst-b.cst);
+    const win=list[0],p=win.p,custo=win.cst;
+    // sinal: hist/hot vêm do dados.js (op, quando houver histórico); comp é calculado ao vivo
+    let sig=null;
+    if(p.op&&(p.op.k==='hot'||p.op.k==='hist')){sig={k:p.op.k,p:p.op.p,ref:0};}
+    else if(list.length>=2){const c2=list[1].cst;const d=(c2-custo)/c2*100;if(d>=8)sig={k:'comp',p:Math.round(d),ref:c2};}
+    if(!sig)return;                       // sem sinal = não é oferta = fora do scanner
+    if(OF.cat!=='all'&&p.c!==OF.cat)return;
+    if(OF.tipo!=='all'&&p.t!==OF.tipo)return;
+    const m=mg(p.c),preco=custo+m.av,lucro=m.av,marg=lucro/preco*100;
+    const descMax=(lucro-f*preco)/(1-f);
+    rows.push({p,custo,preco,lucro,marg,descMax,sig,nf:list.length});
+  });
+  rows.sort((a,b)=>(rank[b.sig.k]-rank[a.sig.k])||(b.sig.p-a.sig.p));
+  OF.top=rows;
+  document.getElementById('ocount').textContent=rows.length?(rows.length+' oportunidade'+(rows.length!==1?'s':'')+' detectada'+(rows.length!==1?'s':'')):'';
+  if(!rows.length){
+    wrap.innerHTML='<div class="ohint" style="text-align:center;padding:26px 18px">🔍 <b>Nenhuma oportunidade nos filtros atuais.</b><br><br>O scanner só acende quando o custo está <b>bem abaixo do mercado</b>: hoje, quando o fornecedor mais barato está ≥8% abaixo do 2º mais barato. Margem alta sozinha <b>não</b> é oferta, e acessório não entra.</div>';
+    return;
+  }
+  let html='';
+  rows.forEach((r,i)=>{
+    const g=sigCfg(r.sig.k);
+    const badge=`<span class="ocdb" style="background:${g.bg};color:${g.c};border:none">−${r.sig.p}%</span>`;
+    let why;
+    if(r.sig.k==='comp')why=`Custo <b>${r.sig.p}% abaixo</b> do 2º fornecedor mais barato (${fmt(r.sig.ref)}). Você comprou bem.`;
+    else if(r.sig.k==='hist')why=`Custo <b>${r.sig.p}% abaixo</b> da média das últimas 2 semanas.`;
+    else why=`<b>Menor preço</b> registrado nas últimas 2 semanas.`;
+    let oferta='';
+    if(r.descMax<=0){
+      oferta=`<div class="oof ono">margem já em ${fpt(r.marg)} · pouco espaço no piso ${OF.piso}%</div>`;
+    }else{
+      const pf=Math.ceil((r.preco-r.descMax)/10)*10;
+      oferta=`<div class="oof"><div class="oofm"><span>Teto de desconto · piso ${OF.piso}%</span><span class="oofd">até ${fmt(r.descMax)}</span></div><div class="oofp">${fmt(r.preco)} → <strong>${fmt(pf)}</strong></div><button class="oofb" onclick="oCopy(${i})">📋 copiar oferta</button></div>`;
+    }
+    html+=`<div class="ocd"><div class="ocdh"><div class="ocdn">${r.p.n} <span class="ocdt">${r.p.t}</span></div>${badge}</div><div class="ocdm">📍 ${r.p.f}${r.p.l?' · '+r.p.l:''}${r.nf>1?' · <span style="color:var(--bl)">'+r.nf+' fornec.</span>':''} · <span style="color:${g.c};font-weight:600">${g.lbl}</span></div><div style="font-size:12px;color:var(--tx);margin:9px 0;line-height:1.45">${why}</div><div class="ocdr"><span>Custo ${fmt(r.custo)}</span><span>Margem ${fpt(r.marg)}</span></div>${oferta}</div>`;
+  });
+  wrap.innerHTML=html;
+}
+function oCopy(i){
+  const r=OF.top[i];if(!r)return;
+  if(r.descMax<=0){toast('Sem espaço de desconto no piso atual');return;}
+  const pf=Math.ceil((r.preco-r.descMax)/10)*10;
+  cp(`🔥 *OFERTA DA SEMANA — Pitstop Imports*\n\n📱 ${r.p.n} (${r.p.t})\n💰 *${fmt(pf)}* à vista\n\n📲 Chama pra garantir!`,'✅ Oferta copiada!');
+}
+// ════════ ABA REVERSO ════════
+// Cliente informa o TOTAL que vai passar no cartão; a loja vê o líquido após a taxa.
+// Relação inversa de PB/TX: total = (liquido+100)*TX[n]  →  liquido = total/TX[n] − 100
+function rvLiq(T,n){return Math.max(0,r2(T/TX[n]-100));}
+function rvCalc(){
+  const T=parseFloat(document.getElementById('rvv').value)||0;
+  const res=document.getElementById('rvres'),es=document.getElementById('rves');
+  if(T<=0){res.style.display='none';es.style.display='block';return;}
+  es.style.display='none';res.style.display='block';
+  [12,18].forEach(n=>{
+    const liq=rvLiq(T,n),par=r2(T/n);
+    document.getElementById('rv'+n+'p').textContent=fmt(par);
+    document.getElementById('rv'+n+'t').textContent=fmt(T);
+    document.getElementById('rv'+n+'l').textContent=fmt(liq);
+  });
+  let rows='';for(let n=2;n<=18;n++){const liq=rvLiq(T,n),par=r2(T/n),taxa=r2(T-liq);rows+=`<div class="ptr"><span class="pn">${n}x</span><span class="pp">${fmt(par)}</span><span class="ptot" style="color:var(--gr)">${fmt(liq)}</span><span class="pj">−${fmt(taxa)}</span></div>`;}
+  document.getElementById('rvpr').innerHTML=rows;
+}
+function rvCopy(){
+  const T=parseFloat(document.getElementById('rvv').value)||0;
+  if(T<=0){toast('⚠️ Informe o total no cartão');return;}
+  const l12=rvLiq(T,12),p12=r2(T/12),l18=rvLiq(T,18),p18=r2(T/18);
+  cp(`💳 *Cálculo reverso — total no cartão ${fmt(T)}*\n\n📆 12x de ${fmt(p12)}\n   Líquido loja: *${fmt(l12)}*\n\n📆 18x de ${fmt(p18)}\n   Líquido loja: *${fmt(l18)}*`,'✅ Copiado!');
+}
+// ════════ CONFIG ════════
+function cfSv(){
+  CFG.d=parseFloat(document.getElementById('cfd').value)||300;
+  CFG.iav=parseFloat(document.getElementById('cfia').value)||550;
+  CFG.ipc=parseFloat(document.getElementById('cfip').value)||650;
+  CFG.mav=parseFloat(document.getElementById('cfma').value)||1200;
+  CFG.mpc=parseFloat(document.getElementById('cfmp').value)||1300;
+  if(VS.av>0)vCalc();if(UN.av>0)uCalc();
+}
+function cfT300(){
+  CFG.s300=!CFG.s300;document.getElementById('cfsw').className='tsw'+(CFG.s300?' on':'');
+  document.getElementById('r300').style.display=CFG.s300?'flex':'none';
+  if(UN.av>0||UU.cu>0)uCalc();
+}
+function cfTcusto(){
+  CFG.scusto=!CFG.scusto;document.getElementById('cfswc').className='tsw'+(CFG.scusto?' on':'');
+  document.getElementById('rcusto').style.display=CFG.scusto?'flex':'none';
+}
+function cfSvB(i,v){BAT[i].v=parseFloat(v)||0;}
+function cfSvT(k,q,v){const r=TELA.find(t=>t.k===k);if(r)r[q]=parseFloat(v)||null;}
+function rCfgB(){
+  document.getElementById('cfbl').innerHTML=BAT.map((b,i)=>`<div class="cfr"><div><div class="cfl">${b.k}</div></div><div class="cfv">R$ <input type="number" class="cfi" value="${b.v}" oninput="cfSvB(${i},this.value)"></div></div>`).join('');
+}
+function rCfgT(){
+  const ks=['jk','ba','pr','or'];const lbs={jk:'JK/Vivid Incell',ba:'Basic Incell',pr:'Premium',or:'Original'};
+  document.getElementById('cftl').innerHTML=TELA.map(t=>`
+    <div class="cfs" style="margin-bottom:10px">
+      <div style="padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--bd)"><span style="font-size:12px;font-weight:700;color:var(--mu)">${t.k}</span></div>
+      ${ks.map(q=>`<div class="cfr"><div><div class="cfl" style="font-size:12px">${lbs[q]}</div></div><div class="cfv">R$ <input type="number" class="cfi" value="${t[q]!==null?t[q]:''}" placeholder="—" oninput="cfSvT('${t.k}','${q}',this.value)"></div></div>`).join('')}
+    </div>`).join('');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.sw')&&!e.target.closest('.dd'))document.querySelectorAll('.dd').forEach(d=>d.className='dd');});
+// ════════ CARGA + BLINDAGEM DOS DADOS ════════
+function validarDados(D){
+  const e=[];
+  if(!D||typeof D!=='object'){e.push('DADOS ausente'); return e;}
+  if(!Array.isArray(D.produtos)||!D.produtos.length){e.push('Lista de produtos vazia ou ausente');}
+  else D.produtos.forEach((p,i)=>{
+    const id=`Produto #${i+1} "${p&&p.n?p.n:'sem nome'}"${p&&p.f?' / '+p.f:''}`;
+    if(!p||!p.n||!p.f||!p.l||!p.c||!p.t){e.push(id+': faltando n/f/l/c/t');return;}
+    const temCor=Array.isArray(p.cs)&&p.cs.length>0;
+    if(temCor){
+      p.cs.forEach(c=>{ if(!c||!c.n||typeof c.v!=='number'||!(c.v>0)) e.push(id+': cor "'+((c&&c.n)||'?')+'" com preço inválido'); });
+    } else if(!(typeof p.v==='number'&&p.v>0)){
+      e.push(id+': sem preço válido (defina v, ou cores com v>0)');
+    }
+  });
+  if(!Array.isArray(D.bateria)) e.push('bateria ausente ou inválida');
+  if(!Array.isArray(D.tela)) e.push('tela ausente ou inválida');
+  return e;
+}
+function mostrarErro(lista){
+  const arr=Array.isArray(lista)?lista:[lista];
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0 0 auto 0;z-index:99999;background:#1a0505;border-bottom:2px solid #ef4444;color:#ef4444;padding:16px 18px;font:600 13px/1.55 -apple-system,sans-serif;max-height:70vh;overflow:auto';
+  d.innerHTML='<div style="font-size:15px;margin-bottom:8px">⛔ Erro nos dados — preços NÃO foram carregados</div>'
+    +'<div style="font-weight:400;color:#f88;margin-bottom:10px">Corrija o dados.js e atualize. Nada é exibido enquanto houver erro.</div>'
+    +arr.map(x=>'• '+x).join('<br>');
+  document.body.appendChild(d);
+}
+function aplicarDados(D){
+  P=D.produtos; BAT=D.bateria; TELA=D.tela;
+  if(D.config) Object.assign(CFG,D.config);
+  const setv=(id,v)=>{const el=document.getElementById(id); if(el&&v!=null) el.value=v;};
+  setv('cfd',CFG.d); setv('cfia',CFG.iav); setv('cfip',CFG.ipc); setv('cfma',CFG.mav); setv('cfmp',CFG.mpc);
+  rCfgB(); rCfgT();
+  document.getElementById('cfsw').className='tsw'+(CFG.s300?' on':'');
+  document.getElementById('cfswc').className='tsw'+(CFG.scusto?' on':'');
+}
+function boot(){
+  if(typeof DADOS==='undefined'){ mostrarErro('dados.js não carregou — confirme que o arquivo está na mesma pasta do index.html'); return; }
+  const e=validarDados(DADOS);
+  if(e.length){ mostrarErro(e); return; }
+  aplicarDados(DADOS);
+}
+</script>
+<script>
+// ── CARGA DOS DADOS: Supabase atras do login (nao mais dados.js publico) ──
+// Os precos de fornecedor sao dado comercial sensivel. Ficam na tabela
+// public.calc_dados, protegida por RLS, lida so apos login no Pit Wall.
+// A sessao e compartilhada com o app principal (mesmo projeto, mesmo storage).
+(async function(){
+  var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
+  var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
+  if(!window.supabase||!window.supabase.createClient){ mostrarErro('supabase-js nao carregou. Confira a conexao e atualize.'); return; }
+  var sb=window.supabase.createClient(SB_URL,SB_ANON);
+  var sess=null;
+  try{ sess=(await sb.auth.getSession()).data.session; }catch(e){ sess=null; }
+  if(!sess){ location.replace('/'); return; }   // sem login: volta pro Pit Wall (tela de login)
+  var r;
+  try{ r=await sb.from('calc_dados').select('dados').single(); }
+  catch(e){ mostrarErro('Erro ao buscar precos: '+e.message); return; }
+  if(r.error||!r.data||!r.data.dados){ mostrarErro('Nao foi possivel carregar os precos'+(r.error?': '+r.error.message:'. Tabela vazia?')); return; }
+  window.DADOS=r.data.dados;
+  try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); }
+})();
+</script>
+</body>
+</html>
