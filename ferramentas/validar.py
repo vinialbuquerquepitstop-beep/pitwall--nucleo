@@ -234,10 +234,38 @@ APROVADOS_F6 = [
 fora = sorted(s for s in novos_sel if not any(a in s for a in APROVADOS_F6))
 ck(not fora, f'uso NOVO de var(--accent) fora da lista aprovada: {fora}')
 
-# 11.2 zero token novo: o bloco :root e byte a byte o da baseline
+# 11.2 zero token novo: o :root e o da baseline, MAIS a excecao nomeada abaixo.
+# Excecao aberta em 20/07/2026, decisao consciente do dono: o sistema de trilho
+# de categoria precisa de 7 tokens, e a regra 11.3 (zero hex no app.js) impede
+# que essa cor viva no JS. Os 7 valores sao MEDIDOS, nao escolhidos no olho:
+# 3.80 a 5.21 contra branco, alvo 3:1.
+# Prova reexecutavel: python ferramentas/prova_trilho.py
+# A guarda segue valendo para todo o resto: qualquer OUTRA adicao reprova, e
+# remocao de token reprova sempre, inclusive de trilho.
+TOKENS_TRILHO = {
+    '--tr-fila-follow-up:#5B6BA8', '--tr-captacao:#3E8C8C',
+    '--tr-conteudo:#7A5FA8', '--tr-loja-estoque:#A87155',
+    '--tr-pos-venda:#6B8C5B', '--tr-analise:#5F7386',
+    '--tr-fechamento:#8C5F7A',
+    # tipo de peca de conteudo, mesma decisao e mesma disciplina:
+    # medidos (5.36 / 6.96 / 4.55 contra branco) e sempre com icone.
+    '--tp-story:#A8497E', '--tp-reels:#5B4BA8', '--tp-feed:#2F7DA8',
+    '--tp-carrossel:#2E7D5B',
+}
 root_novo = novo_css.split(':root{',1)[1].split('}',1)[0]
 root_velho = velho_css.split(':root{',1)[1].split('}',1)[0]
-ck(root_novo == root_velho, 'o :root mudou: token de cor novo ou alterado (decisao 8: zero token novo)')
+def _decls(bloco):
+    # comentario CSS tem que sair ANTES de separar por ';', senao ele gruda
+    # na declaracao seguinte e o token vira 'comentario+--tp-story:#A8497E'.
+    bloco = re.sub(r'/\*.*?\*/', '', bloco, flags=re.S)
+    return set(d.strip().replace(' ', '') for d in bloco.split(';') if d.strip())
+_novas   = _decls(root_novo) - _decls(root_velho)
+_sumidas = _decls(root_velho) - _decls(root_novo)
+_faltando = TOKENS_TRILHO - _decls(root_novo)
+ck(not _sumidas,   f'token REMOVIDO do :root: {sorted(_sumidas)}')
+ck(not _faltando,  f'token de trilho sumiu do :root: {sorted(_faltando)}')
+ck(not (_novas - TOKENS_TRILHO),
+   f'token novo no :root fora da excecao dos trilhos: {sorted(_novas - TOKENS_TRILHO)}')
 
 # 11.3 zero hex no app.js: cor mora no CSS, sempre
 hexes = re.findall(r'#[0-9a-fA-F]{3,8}\b', novo_js)

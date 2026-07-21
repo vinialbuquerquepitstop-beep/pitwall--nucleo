@@ -240,12 +240,54 @@ Inserir logo apos a linha `--erro-linha:#F2C2CE;`, mantendo o estilo compacto do
 --tr-fechamento:#8C5F7A;
 ```
 
+- [ ] **Step 3b: Abrir a excecao nomeada na guarda do `:root`**
+
+**Conflito descoberto durante a execucao, resolvido por decisao consciente do dono em 20/07/2026.**
+
+`ferramentas/validar.py` (por volta da linha 238) exige que o bloco `:root` seja byte a byte igual ao da baseline, com a mensagem `decisao 8: zero token novo`. Os 7 trilhos violam isso. A regra 11.3 logo abaixo (`zero hex no app.js`) impede a saida alternativa de por a cor no JS.
+
+**O dono escolheu abrir excecao nomeada, nao derrubar a guarda.** A guarda continua valendo para todo o resto.
+
+**Nao repontar `ferramentas/app.css.antes` para calar a guarda.** Foi o que uma tentativa anterior fez, e e derrotar um guard-rail em silencio: a baseline deixa de responder "o que esta obra mudou". Se a guarda reclamar, a resposta e esta excecao explicita, nunca mover a baseline.
+
+Substituir o bloco `# 11.2 zero token novo` inteiro por:
+
+```python
+# 11.2 zero token novo: o :root e o da baseline, MAIS a excecao nomeada abaixo.
+# Excecao aberta em 20/07/2026, decisao consciente do dono: o sistema de trilho
+# de categoria precisa de 7 tokens, e a regra 11.3 (zero hex no app.js) impede
+# que essa cor viva no JS. Os 7 valores sao MEDIDOS, nao escolhidos no olho:
+# 3.80 a 5.21 contra branco, alvo 3:1.
+# Prova reexecutavel: python ferramentas/prova_trilho.py
+# A guarda segue valendo para todo o resto: qualquer OUTRA adicao reprova, e
+# remocao de token reprova sempre, inclusive de trilho.
+TOKENS_TRILHO = {
+    '--tr-fila-follow-up:#5B6BA8', '--tr-captacao:#3E8C8C',
+    '--tr-conteudo:#7A5FA8', '--tr-loja-estoque:#A87155',
+    '--tr-pos-venda:#6B8C5B', '--tr-analise:#5F7386',
+    '--tr-fechamento:#8C5F7A',
+}
+root_novo = novo_css.split(':root{',1)[1].split('}',1)[0]
+root_velho = velho_css.split(':root{',1)[1].split('}',1)[0]
+def _decls(bloco):
+    return set(d.strip().replace(' ', '') for d in bloco.split(';') if d.strip())
+_novas   = _decls(root_novo) - _decls(root_velho)
+_sumidas = _decls(root_velho) - _decls(root_novo)
+ck(not _sumidas, f'token REMOVIDO do :root: {sorted(_sumidas)}')
+ck(not (_novas - TOKENS_TRILHO),
+   f'token novo no :root fora da excecao dos trilhos: {sorted(_novas - TOKENS_TRILHO)}')
+```
+
+**Provar que a guarda continua mordendo**, e nao virou decoracao. Acrescentar um oitavo token falso ao `:root` do `public/app.css`, rodar `python ferramentas/validar.py`, confirmar que ele REPROVA nomeando o token falso, e entao remover o token falso. Registrar essa saida no relatorio: sem ela nao ha prova de que a excecao nao abriu um buraco geral.
+
 - [ ] **Step 4: Rodar a prova e a suite**
 
 ```bash
 python ferramentas/prova_trilho.py
-python ferramentas/validar.py
+python ferramentas/validar.py; echo "EXIT: $?"
 ```
+
+**Conferir o EXIT, nao so o texto.** `validar.py` imprime `REPROVOU:` e sai com codigo 1. Uma tentativa anterior leu a saida por cima, chamou a reprova de "esperada" e commitou vermelho.
 
 Esperado em `prova_trilho.py`: sete linhas `[OK]` com os valores 5.11, 3.94, 5.21, 4.07, 3.80, 4.90, 5.21, e a mensagem final. Exit 0.
 Esperado em `validar.py`: verde.
@@ -253,7 +295,7 @@ Esperado em `validar.py`: verde.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add public/app.css ferramentas/prova_trilho.py
+git add public/app.css ferramentas/prova_trilho.py ferramentas/validar.py
 git commit -m "feat(css): 7 tokens de trilho de categoria, com contraste provado
 
 Medidos contra branco: 3.80 a 5.21, todos acima do alvo de 3:1.
@@ -932,21 +974,27 @@ Esperado: working tree limpo (tudo commitado) e as tres suites verdes.
 - [ ] **Step 2: Conferir que a Fila nao foi tocada**
 
 ```bash
-git diff --stat 4685893..HEAD -- public/
-git log -p 4685893..HEAD -- public/app.js | grep -c "sugerirMensagem\|pintarVariante\|copiarScript\|waHrefFila"
+git diff --stat 87030b7..HEAD -- public/
+git log -p 87030b7..HEAD -- public/app.js | grep -c "sugerirMensagem\|pintarVariante\|copiarScript\|waHrefFila"
 ```
 
 Esperado do `grep -c`: **0**. Qualquer numero acima de zero significa que a obra encostou nos invariantes 13 a 16 e precisa ser revertida naquele ponto.
 
-- [ ] **Step 3: Deploy (push e o deploy, via Workers Builds)**
+- [ ] **Step 3: NAO fazer deploy ainda**
+
+A obra vive na branch `frontend-hierarquia`, decisao do dono nesta sessao. **Nao dar push em `main` nesta tarefa:** push em main e o deploy, e o merge so acontece depois da revisao final de branch inteira. Publicar aqui pularia o portao.
+
+Para provar na tela antes do merge, servir o `public/` local:
 
 ```bash
-git push origin main
+python -m http.server 8000 --directory public
 ```
+
+E abrir `http://localhost:8000`. As RPCs batem no Supabase real, entao os numeros conferidos no Step 4 sao os do banco de verdade.
 
 - [ ] **Step 4: Prova na tela real, contra os numeros do banco**
 
-Abrir `https://flat-resonance-09ba.pitstopimports.workers.dev`, entrar, e conferir olhando:
+Abrir `http://localhost:8000` (servido no Step 3), entrar, e conferir olhando:
 
 1. Aba **Rotina**: a barra de carga mostra `10 8 8 9 10 3 0`. A coluna de hoje esta marcada. Domingo aparece vazio, escrito `livre`.
 2. Aba **Conteúdo**: coluna `A produzir` com 45 e `7 vencidas`; `Em produção` 4 com `3 vencidas`; `Pronto` 3 com `2 vencidas`; `Publicado` 3; `Descartado` colapsado com 6.
@@ -973,7 +1021,6 @@ git add docs/handoffs/handoff_migracao_pitwall_v33.md
 git commit -m "docs: handoff v33 (hierarquia do frontend reorganizada)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
-git push origin main
 ```
 
 ---

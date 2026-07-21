@@ -40,14 +40,55 @@ var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS,
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
 // REAL das RPCs (painel_do_dia etc.), lido de pg_get_functiondef em 17/07/2026.
-var ROT_CATS = [{ codigo: 'atendimento', rotulo: 'Atendimento & Vendas', ordem: 1 }];
-var ROT_TAREFAS = [{ id: 'rt1', categoria: 'atendimento', titulo: 'Abertura: responder WhatsApp + Direct', dias_semana: null, ordem: 1, ativa: true }];
-var DIA = [{ id: 'dt1', categoria: 'atendimento', titulo: 'Abertura: responder WhatsApp + Direct', origem: 'molde', concluida: false, removida: false }];
+// Molde REAL lido do banco em 20/07/2026: 7 categorias, 17 tarefas ativas.
+// A carga derivada tem que dar seg 10 | ter 8 | qua 8 | qui 9 | sex 10 | sab 3 | dom 0.
+// Nao inventar linha aqui: o harness so vale se o dado for o que o banco entrega.
+var ROT_CATS = [
+  { codigo: 'fila_follow_up', rotulo: 'Fila & Follow-up', ordem: 1 },
+  { codigo: 'captacao',       rotulo: 'Captação',         ordem: 2 },
+  { codigo: 'conteudo',       rotulo: 'Conteúdo',         ordem: 3 },
+  { codigo: 'loja_estoque',   rotulo: 'Loja & Estoque',   ordem: 4 },
+  { codigo: 'pos_venda',      rotulo: 'Pós-venda',        ordem: 5 },
+  { codigo: 'analise',        rotulo: 'Análise',          ordem: 6 },
+  { codigo: 'fechamento',     rotulo: 'Fechamento',       ordem: 7 }];
+var ROT_TAREFAS = [
+  { id:'t01', categoria:'fila_follow_up', titulo:'Rodar a Fila do dia até zerar',                  dias_semana:[1,2,3,4,5],   ordem:1, ativa:true },
+  { id:'t02', categoria:'fila_follow_up', titulo:'Atualizar quem respondeu',                       dias_semana:[1,2,3,4,5],   ordem:2, ativa:true },
+  { id:'t03', categoria:'fila_follow_up', titulo:'Revisar lista fria',                             dias_semana:[5],           ordem:3, ativa:true },
+  { id:'t04', categoria:'captacao',       titulo:'Registrar as abordagens do dia',                 dias_semana:[1,2,3,4,5,6], ordem:1, ativa:true },
+  { id:'t05', categoria:'conteudo',       titulo:'Conferir o card de hoje',                        dias_semana:[1,2,3,4,5],   ordem:1, ativa:true },
+  { id:'t06', categoria:'conteudo',       titulo:'Publicar a peça do dia',                         dias_semana:[1,2,3,4,5],   ordem:2, ativa:true },
+  { id:'t07', categoria:'conteudo',       titulo:'Responder DM e comentário',                      dias_semana:[1,2,3,4,5,6], ordem:3, ativa:true },
+  { id:'t08', categoria:'conteudo',       titulo:'Produzir os cards da semana seguinte',           dias_semana:[4],           ordem:4, ativa:true },
+  { id:'t09', categoria:'conteudo',       titulo:'Agendar as publicações da semana',               dias_semana:[1],           ordem:5, ativa:true },
+  { id:'t10', categoria:'loja_estoque',   titulo:'Conferir estoque e preço',                       dias_semana:[1],           ordem:1, ativa:true },
+  { id:'t11', categoria:'loja_estoque',   titulo:'Revisar preço vs concorrência',                  dias_semana:[3],           ordem:2, ativa:true },
+  { id:'t12', categoria:'pos_venda',      titulo:'Checar quem comprou na semana',                  dias_semana:[4],           ordem:1, ativa:true },
+  { id:'t13', categoria:'pos_venda',      titulo:'Pedir depoimento de quem comprou',               dias_semana:[2],           ordem:2, ativa:true },
+  { id:'t14', categoria:'analise',        titulo:'Ler a auditoria da semana e escolher 1 ação',    dias_semana:[1],           ordem:1, ativa:true },
+  { id:'t15', categoria:'analise',        titulo:'Revisar o funil: leads entrados vs convertidos', dias_semana:[5],           ordem:2, ativa:true },
+  { id:'t16', categoria:'analise',        titulo:'Fechar a semana: o que funcionou, o que corta',  dias_semana:[5],           ordem:3, ativa:true },
+  { id:'t17', categoria:'fechamento',     titulo:'Fechar o dia: nota e pendências',                dias_semana:[1,2,3,4,5,6], ordem:1, ativa:true }];
+// categoria tem que existir em ROT_CATS, senao a aba Hoje nao agrupa a tarefa
+var DIA = [{ id: 'dt1', categoria: 'fila_follow_up', titulo: 'Rodar a Fila do dia até zerar', origem: 'molde', concluida: false, removida: false }];
 var DIA_NOTA = ''; var LEMB = [];
 var SYNC = { ok: true, quando: '2026-07-17T05:30:00Z', msg: null, horas: 3 };
+// Datas RELATIVAS a hoje: com data fixa as assercoes de nivel apodreceriam
+// amanha. Os cinco status_codigo reais do banco: a_produzir, em_producao,
+// pronto, publicado, descartado. O stub antigo usava 'planejado', que NAO
+// existe em lugar nenhum.
+function _dISO(off) {
+  var d = new Date(); d.setDate(d.getDate() + off);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
 var CONT = [
-  { id: 'c1', titulo: 'Reel bastidores iPhone 17', data: '2026-07-17', tipo_rotulo: 'Reel', tipo_codigo: 'reel', status_rotulo: 'A produzir', status_codigo: 'a_produzir', semana: null, url: 'https://www.notion.so/c1', hoje: true },
-  { id: 'c2', titulo: 'Story enquete de acessórios', data: '2026-07-18', tipo_rotulo: 'Story', tipo_codigo: 'story', status_rotulo: 'Planejado', status_codigo: 'planejado', semana: null, url: null, hoje: false }];
+  { id:'c1', titulo:'Story bastidores',  data:_dISO(-5), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S29', url:'https://www.notion.so/c1', hoje:false },
+  { id:'c2', titulo:'Reels comparativo', data:_dISO(-2), tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'Em produção', status_codigo:'em_producao', semana:'S29', url:null, hoje:false },
+  { id:'c3', titulo:'Reel bastidores',   data:_dISO(0),  tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S30', url:null, hoje:true },
+  { id:'c4', titulo:'Feed lancamento',   data:_dISO(3),  tipo_rotulo:'Feed',  tipo_codigo:'feed',  status_rotulo:'Pronto',      status_codigo:'pronto',      semana:'S30', url:null, hoje:false },
+  { id:'c5', titulo:'Reels tutorial',    data:_dISO(20), tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S32', url:null, hoje:false },
+  { id:'c6', titulo:'Story recap',       data:_dISO(-6), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Publicado',   status_codigo:'publicado',   semana:'S29', url:null, hoje:false },
+  { id:'c7', titulo:'Story ideia velha', data:_dISO(-7), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Descartado',  status_codigo:'descartado',  semana:'S29', url:null, hoje:false }];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
 window.supabase = {
@@ -171,6 +212,12 @@ window.supabase = {
 
 # ---- o teste: roda depois do init, clica, e afirma sobre o DOM ----
 TESTE = """
+// telaTxt() inclui o texto das tags <script>, e este harness
+// injeta o app.js inteiro dentro do <body>. Assertar sobre body.textContent
+// testa o CODIGO-FONTE, nao a tela: provado em 21/07/2026 com a string
+// 'TRILHO_ANEL' (identificador JS, nunca renderizavel) sendo encontrada.
+// telaTxt() le so #lista, que nao contem script nenhum.
+function telaTxt() { var l = document.getElementById('lista'); return l ? l.textContent : ''; }
 function ok(nome, cond, extra) { window.__log.push((cond ? 'PASSOU  ' : 'FALHOU  ') + nome + (extra ? '  <' + extra + '>' : '')); }
 function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 async function rodar() {
@@ -377,11 +424,21 @@ async function rodar() {
   var catRot = document.querySelector('#lista .dia-cat-rot');
   ok('rótulo de categoria existe', !!catRot);
   var corCat = catRot ? getComputedStyle(catRot).color : '';
-  ok('cor computada da categoria é --dim (92,102,117)', corCat === 'rgb(92, 102, 117)', corCat);
+  // Prova o trilho de ponta a ponta: trilhoDe('fila_follow_up') -> var(--tr-fila-follow-up)
+  // -> #5B6BA8 -> rgb(91,107,168) COMPUTADO pelo browser. Se o token sumir do
+  // :root ou o style inline quebrar, isto cai. Nao ha como passar por acidente.
+  ok('categoria computa a cor do trilho (#5B6BA8)', corCat === 'rgb(91, 107, 168)', corCat);
+  ok('cabecalho de categoria tem icone', !!document.querySelector('#lista .dia-cat-rot svg.tr-ico'));
+
+  // ---- ordem da aba Hoje: a nota e o ato de FECHAMENTO, vai por ultimo ----
+  var tits = [].map.call(document.querySelectorAll('#lista .dia-sec-tit'), function (e) { return e.textContent; });
+  ok('ordem: Rotina, Conteúdo, Lembretes, Nota',
+     tits.join(' | ') === 'Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+
 
   // marcar risca e persiste
   var tarefa = document.querySelector('#lista .dia-tarefa');
-  ok('tarefa do molde renderizou', !!tarefa && tarefa.textContent.indexOf('Abertura') >= 0);
+  ok('tarefa do molde renderizou', !!tarefa && tarefa.textContent.indexOf('Rodar a Fila') >= 0);
   tarefa.click();
   await espera(260);
   var chMarcar = window.__rpcChamadas.filter(function (r) { return r.nome === 'marcar_tarefa'; });
@@ -421,10 +478,17 @@ async function rodar() {
   document.getElementById('lembNovo').value = 'Separar película do 17 Pro';
   document.querySelector('[data-acao="lemb-add"]').click();
   await espera(260);
-  ok('lembrete apareceu', document.body.textContent.indexOf('Separar película') >= 0);
+  ok('lembrete apareceu', telaTxt().indexOf('Separar película') >= 0);
 
-  ok('"sincronizado há 3h" aparece', document.body.textContent.indexOf('sincronizado há 3h') >= 0);
-  ok('conteúdo de hoje lista o Reel', document.body.textContent.indexOf('Reel bastidores') >= 0);
+  // Rede contra o risco nomeado no spec: perder um data-acao na reescrita
+  // quebraria um botao EM SILENCIO. Conferido AQUI, e nao antes, porque
+  // lemb-marcar e lemb-remover so existem depois que ha um lembrete na tela.
+  var acoes8 = ['dia-marcar','dia-remover','dia-add','dia-puxar','lemb-marcar','lemb-remover','lemb-add','dia-nota-ok'];
+  var faltando = acoes8.filter(function (a) { return !document.querySelector('#lista [data-acao="' + a + '"]'); });
+  ok('os 8 data-acao da aba Hoje sobreviveram', faltando.length === 0, faltando.join(',') || 'todos presentes');
+
+  ok('"sincronizado há 3h" aparece', telaTxt().indexOf('sincronizado há 3h') >= 0);
+  ok('conteúdo de hoje lista o Reel', telaTxt().indexOf('Reel bastidores') >= 0);
 
   // ================= FASE 6: aba Conteúdo =================
   document.getElementById('abaConteudo').click();
@@ -432,7 +496,68 @@ async function rodar() {
   ok('título virou Conteúdo', document.getElementById('topoTit').textContent === 'Conteúdo');
   ok('pitboard de LEAD escondido no Conteúdo',
      getComputedStyle(document.getElementById('pitboard')).display === 'none');
-  ok('agrupou por data com marcador de hoje', !!document.querySelector('#lista .cont-data .hoje-tag'));
+  // ---- kanban de funil: 4 colunas, e a DATA carrega o sinal de urgencia ----
+  var kcols = document.querySelectorAll('#lista .cont-col');
+  ok('kanban tem 4 colunas de funil', kcols.length === 4, String(kcols.length));
+  function colN(cod) {
+    var c = document.querySelector('#lista .cont-col[data-col="' + cod + '"]');
+    return c ? c.querySelector('.cont-col-n').textContent : 'sem coluna';
+  }
+  ok('a_produzir conta 3', colN('a_produzir') === '3', colN('a_produzir'));
+  ok('em_producao conta 1', colN('em_producao') === '1', colN('em_producao'));
+  ok('pronto conta 1', colN('pronto') === '1', colN('pronto'));
+  ok('publicado conta 1', colN('publicado') === '1', colN('publicado'));
+
+  // A className carrega nivel-* E tipo-*, entao a comparacao e por conter.
+  function nivelDe(titulo) {
+    var cs = document.querySelectorAll('#lista .cont-card');
+    for (var i = 0; i < cs.length; i++)
+      if (cs[i].textContent.indexOf(titulo) >= 0) return cs[i].className.replace('cont-card ', '');
+    return 'nao achou';
+  }
+  function temNivel(titulo, nv) { return nivelDe(titulo).indexOf(nv) >= 0; }
+  function tipoDeCard(titulo) {
+    var m = nivelDe(titulo).match(/tipo-(\w+)/); return m ? m[1] : 'sem tipo';
+  }
+  ok('peca de 5 dias atras = vencido', temNivel('Story bastidores', 'nivel-vencido'), nivelDe('Story bastidores'));
+  ok('peca de hoje = quente', temNivel('Reel bastidores', 'nivel-quente'), nivelDe('Reel bastidores'));
+  ok('peca em 3 dias = morno', temNivel('Feed lancamento', 'nivel-morno'), nivelDe('Feed lancamento'));
+  ok('peca em 20 dias = frio', temNivel('Reels tutorial', 'nivel-frio'), nivelDe('Reels tutorial'));
+  ok('publicada = ok, nao pede acao', temNivel('Story recap', 'nivel-ok'), nivelDe('Story recap'));
+
+  var colAP = document.querySelector('#lista .cont-col[data-col="a_produzir"]');
+  ok('a_produzir avisa 1 vencida', !!colAP && colAP.querySelector('.cont-col-venc') &&
+     colAP.querySelector('.cont-col-venc').textContent === '1 vencida',
+     colAP && colAP.querySelector('.cont-col-venc') ? colAP.querySelector('.cont-col-venc').textContent : 'sem aviso');
+  ok('publicado NAO conta vencida', !document.querySelector('#lista .cont-col[data-col="publicado"] .cont-col-venc'));
+  // ---- tipo da peca: Story / Reels / Feed com cor e icone proprios ----
+  ok('Story marcado como story', tipoDeCard('Story bastidores') === 'story', tipoDeCard('Story bastidores'));
+  ok('Reels marcado como reels', tipoDeCard('Reels tutorial') === 'reels', tipoDeCard('Reels tutorial'));
+  ok('Feed marcado como feed', tipoDeCard('Feed lancamento') === 'feed', tipoDeCard('Feed lancamento'));
+  var semTipoIco = [].filter.call(document.querySelectorAll('#lista .cont-tipo'),
+    function (e) { return !e.querySelector('svg.tp-ico'); }).length;
+  ok('todo rotulo de tipo tem icone (matiz sozinho nao separa)', semTipoIco === 0, semTipoIco + ' sem icone');
+  var stCard = null, cs2 = document.querySelectorAll('#lista .cont-card');
+  for (var q = 0; q < cs2.length; q++) if (cs2[q].textContent.indexOf('Story bastidores') >= 0) stCard = cs2[q];
+  var corTipo = stCard ? getComputedStyle(stCard.querySelector('.cont-tipo')).color : 'sem card';
+  ok('Story computa a cor do tipo (#A8497E)', corTipo === 'rgb(168, 73, 126)', corTipo);
+
+  ok('so as 2 vencidas ganham o selo', document.querySelectorAll('#lista .cont-venc').length === 2,
+     String(document.querySelectorAll('#lista .cont-venc').length));
+
+  ok('cabecalho diz ha quantos dias foi a ultima publicacao',
+     telaTxt().indexOf('última publicação há 6 dias') >= 0);
+  ok('a janela e declarada, senao a coluna Publicado mente', !!document.querySelector('#lista .cont-janela'));
+
+  // descartado: existe, mas colapsado. Apagar seria mentir sobre a base.
+  var dsc = document.querySelector('#lista .cont-desc-cab');
+  ok('descartado nasce colapsado', !!dsc && dsc.getAttribute('aria-expanded') === 'false');
+  ok('descartado conta 1', !!dsc && dsc.textContent.indexOf('1') >= 0);
+  ok('corpo do descartado escondido', !!document.querySelector('#lista .cont-desc') &&
+     getComputedStyle(document.querySelector('#lista .cont-desc-corpo')).display === 'none');
+  dsc.click(); await espera(80);
+  ok('descartado abre no clique', getComputedStyle(document.querySelector('#lista .cont-desc-corpo')).display !== 'none');
+  dsc.click(); await espera(80);
   ok('link do Notion presente', !!document.querySelector('#lista .cont-link'));
 
   // token ausente: mostra mensagem, NÃO trava, e a lista NÃO esvazia
@@ -442,8 +567,8 @@ async function rodar() {
   ok('functions.invoke foi chamado', window.__invocacoes.length === 1, 'n=' + window.__invocacoes.length);
   ok('a falha do token vira toast de erro', document.getElementById('toast').className.indexOf('erro') >= 0,
      document.getElementById('toast').className);
-  ok('a lista NÃO esvaziou com o sync falhando', document.querySelectorAll('#lista .cont-lin').length >= 2,
-     'n=' + document.querySelectorAll('#lista .cont-lin').length);
+  ok('a lista NÃO esvaziou com o sync falhando', document.querySelectorAll('#lista .cont-card').length >= 2,
+     'n=' + document.querySelectorAll('#lista .cont-card').length);
   window.__SYNC_FALHA = 0;
 
   // sync >24h ganha o aviso
@@ -451,13 +576,24 @@ async function rodar() {
   document.getElementById('abaHoje').click(); await espera(200);
   document.getElementById('abaConteudo').click(); await espera(260);
   ok('sync velho (>24h) ganha a classe de aviso', !!document.querySelector('#lista .sync-lin.velho'));
-  SYNC.horas = 3;
+
 
   // ================= FASE 6: aba Rotina =================
   document.getElementById('abaRotina').click();
   await espera(260);
   ok('título virou Rotina', document.getElementById('topoTit').textContent === 'Rotina');
-  ok('molde mostra "todos os dias"', document.body.textContent.indexOf('todos os dias') >= 0);
+  // ---- grade de 7 colunas: a carga por dia era invisivel na tela antiga ----
+  var cols = document.querySelectorAll('#lista .rot-col');
+  ok('a grade tem 7 colunas', cols.length === 7, String(cols.length));
+  var carga = [].map.call(document.querySelectorAll('#lista .rot-carga-num'), function (e) { return e.textContent; }).join(' ');
+  ok('carga medida no banco: 10 8 8 9 10 3 0', carga === '10 8 8 9 10 3 0', carga);
+  ok('domingo aparece vazio, nao some', cols.length === 7 && cols[6].textContent.indexOf('livre') >= 0);
+  var cels = document.querySelectorAll('#lista .rot-cel');
+  var semIco = [].filter.call(cels, function (e) { return !e.querySelector('svg.tr-ico'); }).length;
+  ok('toda celula tem icone de trilho (matiz sozinho nao separa)', cels.length > 0 && semIco === 0, semIco + ' sem icone');
+  var fila5 = [].filter.call(cols, function (col) { return col.textContent.indexOf('Rodar a Fila do dia até zerar') >= 0; }).length;
+  ok('tarefa de seg-sex aparece em 5 colunas', fila5 === 5, String(fila5));
+  ok('legenda lista as 7 categorias', document.querySelectorAll('#lista .rot-leg-item').length === 7);
 
   // nova categoria: o código é slug ESTÁVEL do rótulo (a chave nunca é o rótulo)
   document.getElementById('rotNovaCatRot').value = 'Conteúdo & Marketing';
@@ -467,7 +603,9 @@ async function rodar() {
   ok('slug sem acento e sem &', !!chCat && chCat.args.p_codigo === 'conteudo_marketing',
      chCat ? chCat.args.p_codigo : 'não chamou');
   ok('rótulo preservado com acento', !!chCat && chCat.args.p_rotulo === 'Conteúdo & Marketing');
-  ok('a categoria nova apareceu', document.body.textContent.indexOf('Conteúdo & Marketing') >= 0);
+  ok('categoria nova (ainda sem tarefa) aparece na legenda', 
+     [].some.call(document.querySelectorAll('#lista .rot-leg-item'), function (e) {
+       return e.textContent.indexOf('Conteúdo & Marketing') >= 0; }));
 
   // nova tarefa seg/qua/sex: ISODOW [1,3,5], o off-by-one seria silencioso
   document.getElementById('rotNovoTit').value = 'Preparar Reel da semana';
@@ -479,7 +617,14 @@ async function rodar() {
   var chRt = window.__rpcChamadas.filter(function (r) { return r.nome === 'salvar_rotina_tarefa'; }).pop();
   ok('dias_semana = [1,3,5] (ISODOW 1=seg)', !!chRt && JSON.stringify(chRt.args.p_dias_semana) === '[1,3,5]',
      chRt ? JSON.stringify(chRt.args.p_dias_semana) : 'não chamou');
-  ok('a tarefa aparece com seg · qua · sex', document.body.textContent.indexOf('seg · qua · sex') >= 0);
+  // ISODOW off-by-one seria silencioso: a tarefa [1,3,5] tem que cair em
+  // seg/qua/sex e em NENHUM outro dia. Na grade isso e verificavel por coluna.
+  var cols2 = document.querySelectorAll('#lista .rot-col');
+  var caiu = [];
+  [].forEach.call(cols2, function (col) {
+    if (col.textContent.indexOf('Preparar Reel da semana') >= 0) caiu.push(col.getAttribute('data-dia'));
+  });
+  ok('tarefa [1,3,5] cai exatamente em seg/qua/sex', caiu.join(',') === '1,3,5', caiu.join(',') || 'nenhuma coluna');
 
   var rmMolde = document.querySelector('#lista [data-acao="rot-rm-tarefa"]');
   rmMolde.click();
@@ -511,7 +656,15 @@ function fim() {
   d.textContent = window.__log.join('\\n'); document.body.appendChild(d);
 }
 window.addEventListener('error', function (e) { window.__log.push('FALHOU  erro de runtime: ' + e.message); });
-rodar();
+// Se rodar() estourar no meio, o <pre id=RESULTADO> nunca nascia e o lado
+// Python morria com IndexError, sem dizer ONDE parou. Agora o erro vira a
+// ultima linha do log e o RESULTADO sai mesmo assim.
+rodar().catch(function (e) {
+  window.__log.push('FALHOU  rodar() estourou: ' + (e && e.message ? e.message : e));
+  var d = document.getElementById('RESULTADO');
+  if (!d) { d = document.createElement('pre'); d.id = 'RESULTADO'; document.body.appendChild(d); }
+  d.textContent = window.__log.join('\\n');
+});
 """
 
 pagina = f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head>
@@ -530,8 +683,16 @@ out = subprocess.run([CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
                       '--dump-dom', tmp.as_uri()],
                      capture_output=True, text=True, encoding='utf-8', timeout=120)
 dom = out.stdout or ''
-if 'RESULTADO' not in dom:
-    print('o teste nao chegou ao fim. DOM:', len(dom), 'chars'); print(out.stderr[-1500:]); sys.exit(1)
+# Procurar 'RESULTADO' cru engana: a string existe no proprio <script> injetado,
+# entao o guard passava e o split estourava com IndexError. Procurar a TAG.
+if 'id="RESULTADO">' not in dom:
+    print('o teste nao chegou ao fim. DOM:', len(dom), 'chars')
+    import re as _re
+    for _ln in (out.stderr or '').splitlines():
+        if 'Uncaught' in _ln or 'ERROR:' in _ln:
+            print('  JS:', _ln[:400])
+    print((out.stderr or '')[-2000:])
+    sys.exit(1)
 res = dom.split('id="RESULTADO">', 1)[1].split('</pre>', 1)[0]
 import html as H
 res = H.unescape(res)
