@@ -186,9 +186,26 @@ Sem segundo layout em JS, sem DOM alternativo. Custo contido, e o mesmo padrao q
 ## 5. Conteudo: kanban de funil com a data em vista
 
 **Quatro colunas** por `status_codigo`, na ordem do funil:
-`A produzir` (45) · `Em produção` (4) · `Pronto` (3) · `Publicado` (8).
-`Descartado` (6) fica colapsado atras de um contador, expansivel: e ruido para a
+`a_produzir` · `em_producao` · `pronto` · `publicado`.
+`descartado` fica colapsado atras de um contador, expansivel: e ruido para a
 decisao do dia, mas apagar seria mentir sobre a base.
+
+**Cuidado com a janela, achado durante o planejamento.** `conteudo_fonte` tem
+`janela_atras_dias=7` e `janela_frente_dias=28`, entao a chamada padrao cobre
+hoje-7 a hoje+28. Contagens **dentro da janela padrao** em 20/07/2026:
+
+| Coluna | Na janela | Vencidas |
+|---|---|---|
+| `a_produzir` | 45 | 7 |
+| `descartado` | 6 | 0 |
+| `em_producao` | 4 | 3 |
+| `pronto` | 3 | 2 |
+| `publicado` | **3** | 0 |
+
+`publicado` e **3 na janela, nao 8**. Oito e o total da base de 66 cards; as outras
+cinco sao de 10 a 12/07 e caem fora de `janela_atras_dias=7`. **Por isso o cabecalho
+do painel declara a janela** (`de X a Y`): sem isso a coluna `Publicado` mente por
+omissao, e mentir sobre publicacao e exatamente o que esta obra veio consertar.
 
 **Ordenacao dentro da coluna:** data crescente. As vencidas primeiro.
 
@@ -278,8 +295,10 @@ python ferramentas/harness.py
    aplicado. 31 assercoes hoje. Permite afirmar sobre **cor computada**, nao so sobre
    classe presente, que e exatamente o que esta obra precisa provar.
 3. Prova com dado real, nao inventado: a grade da Rotina tem que reproduzir
-   `seg 10 | ter 8 | qua 8 | qui 9 | sex 10 | sáb 3 | dom 0`, e o kanban do Conteudo
-   tem que reproduzir 45 / 4 / 3 / 8 / 6. Numero que nao bate com o banco reprova.
+   `seg 10 | ter 8 | qua 8 | qui 9 | sex 10 | sáb 3 | dom 0`, e o kanban do Conteudo,
+   **na janela padrao**, tem que reproduzir `a_produzir` 45 (7 vencidas),
+   `em_producao` 4 (3), `pronto` 3 (2), `publicado` 3, `descartado` 6.
+   Numero que nao bate com o banco reprova.
 4. Contraste dos trilhos: **ja medido e aprovado**, secao 3.2.
 
 Duas armadilhas de baseline herdadas, a tratar antes de rodar a suite:
