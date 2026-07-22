@@ -633,7 +633,7 @@ async function rodar() {
 
   // ---- decisão 7: barra de 5 + Mais (viewport headless = 800px, mobile)
   ok('botão Mais existe', !!document.getElementById('abaMais'));
-  ok('4 abas raras', document.querySelectorAll('.aba-rara').length === 4);
+  ok('6 abas raras', document.querySelectorAll('.aba-rara').length === 6);
   ok('rara começa escondida no mobile', getComputedStyle(document.getElementById('abaDash')).display === 'none');
   document.getElementById('abaMais').click();
   await espera(80);
@@ -642,6 +642,23 @@ async function rodar() {
   document.getElementById('abaMais').click();
   await espera(80);
   ok('Mais fecha de novo', getComputedStyle(document.getElementById('abaDash')).display === 'none');
+
+  // ================= aba Clientes: leads que compraram (perfil=comprou) =================
+  ok('a aba Clientes existe', !!document.getElementById('abaClientes'));
+  ok('Clientes e uma rara (nao ocupa slot fixo da barra)',
+     document.getElementById('abaClientes').className.indexOf('aba-rara') >= 0);
+  document.getElementById('abaClientes').click();
+  await espera(140);
+  ok('título virou Clientes', document.getElementById('topoTit').textContent === 'Clientes',
+     document.getElementById('topoTit').textContent);
+  ok('aba Clientes ficou marcada', document.getElementById('abaClientes').getAttribute('aria-selected') === 'true');
+  // o fixture só tem leads 'consulta': nenhum comprou -> estado vazio próprio,
+  // o que prova que filtClientes filtra por perfil (não mostra os 2 consulta)
+  ok('sem comprou, aparece o estado vazio de cliente', telaTxt().indexOf('Nenhum cliente ainda') >= 0,
+     telaTxt().slice(0, 60));
+  ok('nenhum card de lead vaza para a aba Clientes', document.querySelectorAll('#lista .card').length === 0,
+     'n=' + document.querySelectorAll('#lista .card').length);
+  ok('a busca fica visível em Clientes', getComputedStyle(document.getElementById('blocoBusca')).display !== 'none');
 
   // ---- voltar para a Fila não pode deixar resíduo
   document.getElementById('abaFila').click();
