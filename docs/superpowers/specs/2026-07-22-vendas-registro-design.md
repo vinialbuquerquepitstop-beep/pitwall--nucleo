@@ -36,6 +36,9 @@ so teria uma venda, sem historico de recompra nem IMEI/NF por venda).
   nao como lucro/custo da venda atual.
 - **Lista fechada de iPhones** em tabela-catalogo (padrao do projeto: config em
   dado, nao enum no codigo).
+- **Pre-venda e a venda sao o MESMO registro** mudando de `status`
+  (`pre_venda`/`concluida`/`cancelada`), nao uma entidade separada. O relatorio do
+  motoboy (folha de rota) e gerado da propria venda em `pre_venda`. Ver 7.5.
 - **Venda amarrada a lead promove o lead a `comprou` e o poe no pos-venda, APOS
   confirmacao explicita no cadastro.** Contra a recomendacao inicial de adiar; o
   dono quis, com o gate de confirmacao pra nao disparar a regua sem querer. Por
@@ -98,10 +101,17 @@ Nota fiscal:
 - `nf_numero` text NULL (o numero)
 - `nf_url` text NULL (o arquivo; Storage, fatia 4; nasce vazio)
 
+Entrega e ciclo de vida (a pre-venda; ver secao 7.5):
+- `status` text CHECK `pre_venda`/`concluida`/`cancelada`. Mesmo registro muda de
+  estado; nao ha tabela separada de pre-venda.
+- `endereco_entrega` text NULL (do cliente)
+- `valor_a_cobrar` numeric NULL (quando o motoboy recebe na entrega; pode ser o
+  `valor_venda` cheio ou parcial)
+
 Operacional e sistema:
 - `motoboy` text NULL (nome)
 - `forma_pagamento` text CHECK `pix`/`dinheiro`/`cartao`/`misto`
-- `data_venda` date
+- `data_venda` date (data da conclusao da venda)
 - `observacoes` text NULL
 - `criado_por` uuid FK app_usuario
 - `criado_em` timestamptz default now() · `atualizado_em` timestamptz
@@ -155,6 +165,23 @@ Sem confirmacao, a venda fica como registro puro e a faixa ja acende pela agrega
 Detalhe do gatilho de regua (RPC vs atualizacao de `cadencia_estado`) fica pro plano
 da fatia 3.
 
+## 7.5 Pre-venda e relatorio do motoboy
+
+A venda tem ciclo de vida por `status`: `pre_venda` (negociada, motoboy a despachar
+ou em rota) -> `concluida` (entregue e paga) -> ou `cancelada` (cliente desistiu). E
+o MESMO registro mudando de estado, decisao consciente do dono (mais simples que uma
+entidade separada de ordem de entrega). No cadastro, a venda pode nascer como
+`pre_venda` (quando vai operar a entrega) ou ja `concluida` (registro retroativo);
+default sugerido `concluida`, a confirmar no plano.
+
+**Relatorio do motoboy:** geracao de texto read-only, no molde do `sugerir_mensagem`
+da Fila (nada de texto fixo no JS; monta a partir do dado da venda). Um botao na venda
+em `pre_venda` gera a folha de rota pra copiar e mandar no WhatsApp do motoboy, com:
+retirada no fornecedor (`fornecedor_local_retirada`, `fornecedor_contato`), entrega
+(`endereco_entrega`), `modelo`, `valor_a_cobrar`, contato do cliente. Nao viola o
+invariante 13 (aquele fala de texto de abordagem a cliente na Fila); segue o mesmo
+principio de read-only e fonte unica.
+
 ## 8. Fatias de entrega
 
 | Fatia | Entrega | Abrivel | Toca banco/regua |
@@ -163,9 +190,12 @@ da fatia 3.
 | 2 — Faixa | `v_lead` soma vendas por `lead_id`; `qtd_compras · valor_total` na aba Clientes | faixa do cliente acende | so leitura (view) |
 | 3 — Comprou | confirmacao no cadastro promove lead a `comprou` + pos-venda | cliente vira comprou e cai no pos-venda | mexe na regua |
 | 4 — Anexos | NF + comprovante PIX: Storage, bucket privado, RLS, upload, URL assinada | anexa e reabre o PDF | Storage + policy |
+| 4.5 — Pre-venda + motoboy | `status` operavel no form/lista; botao Relatorio do motoboy gera a folha de rota read-only pra copiar | despacha o motoboy com o texto pronto | so leitura/geracao |
 | 5 — Futuro | renomear "Clientes", trade-in ligando saida a origem, despesas discriminadas, aba Clientes rica, placar de faturamento/lucro | varia | varia |
 
-Fatia 1 e o alvo imediato. 2 e 3 sao pequenas e vem na sequencia; 4 e a mais pesada.
+Fatia 1 e o alvo imediato (a tabela ja nasce com `status`/`endereco_entrega`/
+`valor_a_cobrar`, mas o fluxo de pre-venda e o relatorio vem na 4.5). 2 e 3 sao
+pequenas e vem na sequencia; 4 e 4.5 sao as mais pesadas.
 
 ## 9. Telas (fatia 1)
 
@@ -173,8 +203,9 @@ Fatia 1 e o alvo imediato. 2 e 3 sao pequenas e vem na sequencia; 4 e a mais pes
 - Cabecalho: titulo Vendas, subtitulo com data e contagem; botao `+ Nova venda`.
 - Card por venda (reusa o padrao existente): `venda_code`, modelo + capacidade + cor,
   chip de `condicao`, cliente (nome do lead/comprador ou "sem cliente"), data, IMEI,
-  `valor_venda` e `lucro` (destaque; verde se positivo), chip `[trade-in]` quando
-  houver. Na fatia 4, chip `NF` quando houver anexo.
+  `valor_venda` e `lucro` (destaque; verde se positivo), chip de `status`
+  (pre_venda/concluida/cancelada) e chip `[trade-in]` quando houver. Na fatia 4, chip
+  `NF` quando houver anexo.
 - Busca reusa `blocoBusca` (modelo / IMEI / cliente / venda_code).
 - Estado vazio proprio: "Nenhuma venda ainda. Toque em Nova venda."
 
@@ -183,8 +214,10 @@ Painel em blocos: 1) Cliente (buscar lead OU avulso: nome, whatsapp, CPF, nascim
 Instagram); 2) Aparelho (modelo do catalogo, capacidade, cor, condicao, IMEI);
 3) Fornecedor (nome, contato, local de retirada); 4) Dinheiro (valor, custo, frete,
 taxas -> lucro calculado ao vivo); 5) Trade-in (toggle -> modelo/IMEI/valor);
-6) Fechamento (motoboy, forma de pagamento, data, numero NF, observacoes); 7) Anexos
-desabilitados com "em breve" (ativam na fatia 4). Salvar gera venda + auditoria.
+6) Entrega (status pre_venda/concluida/cancelada, endereco de entrega, valor a cobrar,
+motoboy); 7) Fechamento (forma de pagamento, data, numero NF, observacoes); 8) Anexos
+desabilitados com "em breve" (ativam na fatia 4). Salvar gera venda + auditoria. O
+botao Relatorio do motoboy (venda em pre_venda) chega na fatia 4.5.
 O passo de confirmacao "marcar como comprou" so aparece na fatia 3 e so com cliente.
 
 ### 9.3 Navegacao
