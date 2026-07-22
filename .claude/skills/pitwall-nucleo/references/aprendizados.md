@@ -38,7 +38,15 @@ dinamica relevante acontecer. Consolidado a partir do historico de handoffs (ate
 - `apply_migration` para acento e insert em massa (transacional). `execute_sql` corrompe
   acento em payload grande.
 - Simulacao autenticada: `set_config(request.jwt.claims...)` + `set role authenticated`
-  antes; `reset role` separado depois.
+  antes; `reset role` separado depois. Melhor: envolver em `begin; ... rollback;` com
+  `set local` para nao vazar estado entre chamadas.
+- **Simular OUTRO tenant e pelo `sub`, nunca pelo `app_metadata`.** `fn_tenant_atual()`
+  resolve `select tenant_id from app_usuario where id = auth.uid()`, e `auth.uid()` le
+  o claim `sub`. Forjar `app_metadata.tenant_id` nao muda nada: o helper ignora. Para
+  provar isolamento, usar um `sub` que NAO existe em `app_usuario` (helper retorna null,
+  policy fecha, ve 0) ou o `sub` de um usuario de outro tenant. Um teste com o `sub` do
+  dono "vendo tudo" nao prova vazamento, prova teste errado. Pago em 22/07/2026 na
+  tabela `catalogo_iphone`.
 - Prova destrutiva sem mutar: `DO $$ ... RAISE EXCEPTION 'PROVA >> %', r; END $$`.
 - Contagem de usuarios do dashboard e nao confiavel para tabela pequena: consultar
   `auth.users` direto.

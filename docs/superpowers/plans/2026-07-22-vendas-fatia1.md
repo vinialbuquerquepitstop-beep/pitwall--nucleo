@@ -237,7 +237,9 @@ git commit -m "feat(vendas): tabela venda com RLS e isolamento provado"
 
 - [ ] **Step 1: Escrever a migration dos triggers**
 
-Arquivo `supabase/migrations/20260722_venda_code_auditoria.sql` (trocar `privado.fn_auditoria` pelo nome real do pre-flight):
+Arquivo `supabase/migrations/20260722_venda_code_auditoria.sql`. Auditoria REUSA a
+funcao generica existente `public.fn_auditar()` (confirmada no pre-flight: le
+`tenant_id`/`id` de qualquer tabela via `to_jsonb`), nao cria funcao nova:
 ```sql
 create or replace function privado.fn_venda_code() returns trigger
 language plpgsql security definer set search_path = public, privado as $$
@@ -254,8 +256,8 @@ end $$;
 create trigger venda_code_bi before insert on public.venda
   for each row execute function privado.fn_venda_code();
 
-create trigger venda_auditoria after insert or update or delete on public.venda
-  for each row execute function privado.fn_auditoria();
+create trigger trg_auditar_venda after insert or update or delete on public.venda
+  for each row execute function public.fn_auditar();
 ```
 
 - [ ] **Step 2: Aplicar via MCP**
