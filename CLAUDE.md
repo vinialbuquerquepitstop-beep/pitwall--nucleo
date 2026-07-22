@@ -10,7 +10,7 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v34.md`. Conferir a pasta em vez de confiar nesta
+   `handoff_migracao_pitwall_v35.md`. Conferir a pasta em vez de confiar nesta
    linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026).
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
