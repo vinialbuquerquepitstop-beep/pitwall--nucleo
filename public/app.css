@@ -276,6 +276,17 @@ a{color:inherit}
 /* ---------- faixa de cliente (aba Clientes) ---------- */
 .card-cliente{display:flex;flex-wrap:wrap;margin-top:7px;font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
 .card-cliente .cli-seg+.cli-seg::before{content:"\00B7";margin:0 8px;color:var(--line-forte)}
+/* ---------- aba Vendas ---------- */
+.card-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
+.venda-vals{display:flex;justify-content:space-between;align-items:baseline;margin-top:7px;font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.v-venda{color:var(--text)}
+.v-lucro{color:var(--ok)}
+.v-lucro.neg{color:var(--erro)}
+.venda-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.venda-cont{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.fv-lucro{font-family:var(--mono);font-size:14px;color:var(--ok);margin:4px 0 14px;font-variant-numeric:tabular-nums}
+.cad-grupo{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:16px 0 6px;font-weight:600}
 .btn-editar{
   background:0 0;border:none;color:var(--dim);font-size:11.5px;padding:2px 0;
   text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--line-forte);

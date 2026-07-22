@@ -35,7 +35,13 @@ STUB = """
 window.__PITWALL_SEM_INIT = 1;
 window.__log = [];
 var LEADS = %s, ROTULOS = %s, HIST = %s;
-var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS,
+// Fixture de venda: uma venda concluida, com lucro ja derivado pela v_venda
+// (3200 - 2600 - 30 - 30 = 540). O card tem que exibir o code e o lucro.
+var VENDAS_STUB = [{ id:'v1', venda_code:'VENDA-0001', modelo_rotulo:'iPhone 13', capacidade:'128GB',
+  cor:'Meia-noite', condicao:'seminovo', imei:'355000000000001', cliente_nome:'Diego Souza',
+  data_venda:'2026-07-18', valor_venda:3200, lucro:540, status:'concluida', tem_trade_in:false }];
+var CATALOGO_STUB = [{ id:'m1', rotulo:'iPhone 13' }, { id:'m2', rotulo:'iPhone 15' }];
+var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB, catalogo_iphone: CATALOGO_STUB,
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -103,6 +109,7 @@ window.supabase = {
         var payload = { data: TABELAS[tabela] || [], error: null };
         var api = {};
         api.select = function () { return api; };
+        api.eq = function () { return api; };
         api.order = function () { return Promise.resolve(payload); };
         api.then = function (f, r) { return Promise.resolve(payload).then(f, r); };
         return api;
@@ -117,6 +124,15 @@ window.supabase = {
           if (!args.p_texto || !args.p_texto.trim())
             return Promise.resolve({ data: { ok: false, msg: 'Nota vazia' }, error: null });
           return Promise.resolve({ data: { ok: true, msg: 'Nota registrada' }, error: null });
+        }
+        // ---- Vendas: espelha a validacao REAL da RPC registrar_venda ----
+        if (nome === 'registrar_venda') {
+          var pv = (args && args.payload) || {};
+          if (!(parseFloat(pv.valor_venda) > 0))
+            return Promise.resolve({ data: { ok: false, erro: 'valor_venda obrigatorio' }, error: null });
+          if (!pv.modelo_id)
+            return Promise.resolve({ data: { ok: false, erro: 'modelo obrigatorio' }, error: null });
+          return Promise.resolve({ data: { ok: true, id: 'nova', venda_code: 'VENDA-0002' }, error: null });
         }
         // ---- Fase 5. O stub espelha as regras REAIS, conferidas contra o banco em
         // transacao revertida: dedup com a data, e reabordagem bloqueada apos opt-out.
@@ -659,6 +675,39 @@ async function rodar() {
   ok('nenhum card de lead vaza para a aba Clientes', document.querySelectorAll('#lista .card').length === 0,
      'n=' + document.querySelectorAll('#lista .card').length);
   ok('a busca fica visível em Clientes', getComputedStyle(document.getElementById('blocoBusca')).display !== 'none');
+
+  // ================= aba Vendas: registro de venda (fatia 1) =================
+  ok('a aba Vendas existe', !!document.getElementById('abaVendas'));
+  ok('Vendas e aba principal (nao rara)', document.getElementById('abaVendas').className.indexOf('aba-rara') < 0);
+  document.getElementById('abaVendas').click();
+  await espera(160);
+  ok('título virou Vendas', document.getElementById('topoTit').textContent === 'Vendas',
+     document.getElementById('topoTit').textContent);
+  ok('aba Vendas ficou marcada', document.getElementById('abaVendas').getAttribute('aria-selected') === 'true');
+  ok('a venda do fixture aparece com o code', telaTxt().indexOf('VENDA-0001') >= 0, telaTxt().slice(0, 80));
+  ok('o lucro derivado aparece no card', telaTxt().indexOf('540,00') >= 0, telaTxt().slice(0, 120));
+  ok('a busca fica visível em Vendas', getComputedStyle(document.getElementById('blocoBusca')).display !== 'none');
+  // abrir o form e provar o lucro ao vivo
+  document.querySelector('[data-acao="nova-venda"]').click();
+  await espera(140);
+  ok('o painel de venda abriu', document.getElementById('painelVenda').className.indexOf('oculto') < 0);
+  document.getElementById('fvValor').value = '3200';
+  document.getElementById('fvCusto').value = '2600';
+  document.getElementById('fvFrete').value = '30';
+  document.getElementById('fvTaxas').value = '30';
+  document.getElementById('fvValor').dispatchEvent(new Event('input'));
+  ok('lucro ao vivo calcula 540', document.getElementById('fvLucro').textContent.indexOf('540,00') >= 0,
+     document.getElementById('fvLucro').textContent);
+  // salvar chama a RPC com o payload certo e fecha o painel
+  var selM = document.getElementById('fvModelo');
+  selM.value = selM.options.length > 1 ? selM.options[1].value : '';
+  document.getElementById('btnSalvarVenda').click();
+  await espera(180);
+  var chVenda = window.__rpcChamadas.filter(function (x) { return x.nome === 'registrar_venda'; })[0];
+  ok('salvar chamou registrar_venda', !!chVenda);
+  ok('o payload levou valor e modelo',
+     !!(chVenda && chVenda.args && chVenda.args.payload && chVenda.args.payload.valor_venda && chVenda.args.payload.modelo_id));
+  ok('o painel fechou apos salvar', document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
 
   // ---- voltar para a Fila não pode deixar resíduo
   document.getElementById('abaFila').click();
