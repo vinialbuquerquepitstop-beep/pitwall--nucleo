@@ -78,7 +78,11 @@ for nome,fn in esperado.items():
 
 # ---------- 5. INVARIANTES QUE NAO PODEM QUEBRAR ----------
 ck('sugerir_mensagem' in novo_js, 'a RPC sugerir_mensagem sumiu do JS')
-ck(novo_js.count('rpc("sugerir_mensagem"')==velho_js.count('rpc("sugerir_mensagem"'), 'mudou o numero de chamadas a sugerir_mensagem')
+# fatia 2 (23/07/2026): a previa da Fila no Hoje pre-carrega o sugerir_mensagem
+# (prefetchFilaSug) pra montar o href do Enviar. Isso soma UMA chamada legitima.
+# O texto de abordagem continua vindo do sugerir_mensagem, nunca fixo no JS
+# (invariante 13 intacto). Exececao nomeada: o guard passa a exigir baseline + 1.
+ck(novo_js.count('rpc("sugerir_mensagem"')==velho_js.count('rpc("sugerir_mensagem"')+1, 'mudou o numero de chamadas a sugerir_mensagem alem da previa da Fila (esperado: baseline + 1)')
 # LGPD: o link da Fila so sai com consentimento
 ck('!0!==a.consentimento' in novo_js, 'a trava de consentimento (LGPD) do waHrefFila sumiu')
 # as 3 variantes continuam

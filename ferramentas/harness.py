@@ -117,6 +117,13 @@ window.supabase = {
       rpc: function (nome, args) {
         window.__rpcChamadas.push({ nome: nome, args: args });
         if (nome === 'historico_lead') return Promise.resolve({ data: { ok: true, eventos: HIST }, error: null });
+        if (nome === 'sugerir_mensagem') {
+          // read-only, so devolve texto (invariante 13). 3 variantes; a 1a alimenta o Enviar da Fila.
+          return Promise.resolve({ data: { ok: true, whatsapp: '5521990000000', opcoes: [
+            { rotulo_variante: 'Direto',     texto: 'Texto sugerido variante 1' },
+            { rotulo_variante: 'Consultivo', texto: 'Variante consultiva' },
+            { rotulo_variante: 'Leve',       texto: 'Variante leve' } ] }, error: null });
+        }
         if (nome === 'registrar_nota') {
           // espelha a regra REAL de registrar_nota(): recusa data futura.
           if (args.p_data && args.p_data > '2026-07-16')
@@ -461,6 +468,21 @@ async function rodar() {
      !document.querySelector('#lista .fila-lin [data-acao="tocar"]') &&
      !document.querySelector('#lista .fila-lin [data-acao="fechou"]'));
   ok('Fila tem botao "ver todos"', !!document.querySelector('#lista [data-acao="hoje-verfila"]'));
+
+  // ---- Fatia 2: botao Enviar na linha da Fila (texto sugerido, LGPD-gated) ----
+  var envs = document.querySelectorAll('#lista .fila-lin a.fila-wa');
+  ok('Fila tem botao Enviar (wa.me) nas linhas com consentimento', envs.length > 0, 'n=' + envs.length);
+  ok('Enviar aponta pra wa.me com o texto sugerido (variante 1)',
+     envs.length > 0
+       && envs[0].getAttribute('href').indexOf('wa.me/') >= 0
+       && envs[0].getAttribute('href').indexOf('Texto%20sugerido') >= 0,
+     envs.length ? envs[0].getAttribute('href') : '(nenhum)');
+  ok('prefetch chamou sugerir_mensagem pros leads da previa (invariante 13)',
+     window.__rpcChamadas.some(function (c) { return c.nome === 'sugerir_mensagem'; }));
+  var semConsent = document.querySelector('#lista .fila-lin[data-lead="LEAD-9001"]');
+  ok('linha do lead sem consentimento renderizou na Fila', !!semConsent);
+  ok('trava LGPD: lead sem consentimento NAO tem Enviar (invariante 16)',
+     !!semConsent && !semConsent.querySelector('a.fila-wa'));
 
 
   // marcar risca e persiste

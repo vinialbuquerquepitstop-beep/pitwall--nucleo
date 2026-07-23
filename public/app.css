@@ -750,6 +750,7 @@ a{color:inherit}
 .fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim)}
 .fila-atraso{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:999px;padding:1px 7px}
 .fila-sug{margin-left:auto}
+.fila-wa{flex:0 0 auto;padding:5px 12px;font-size:12px}
 .fila-vertodos{background:none;border:none;color:var(--dim);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
 .fila-vertodos:hover{color:var(--text)}
 /* --- lembrete: estados vencido / agendado (Peca B) --- */
