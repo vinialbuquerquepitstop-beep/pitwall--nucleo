@@ -222,6 +222,12 @@ window.supabase = {
         // de token ausente (200 + ok:false), provado contra o servico no ar
         invoke: function (nome, opts) {
           window.__invocacoes.push({ nome: nome, opts: opts });
+          if (nome === 'mover-conteudo') {
+            var b = (opts && opts.body) || {};
+            var rot = { a_produzir: 'A produzir', em_producao: 'Em produção', pronto: 'Pronto', publicado: 'Publicado' }[b.para];
+            CONT.forEach(function (x) { if (x.id === b.id) { x.status_codigo = b.para; x.status_rotulo = rot; } });
+            return Promise.resolve({ data: { ok: true, status_codigo: b.para, status_rotulo: rot }, error: null });
+          }
           if (window.__SYNC_FALHA)
             return Promise.resolve({ data: { ok: false, msg: 'Token do Notion nao configurado.' }, error: null });
           SYNC = { ok: true, quando: '2026-07-17T08:00:00Z', msg: null, horas: 0 };
@@ -741,11 +747,56 @@ async function rodar() {
      !!(chVenda && chVenda.args && chVenda.args.payload && chVenda.args.payload.valor_venda && chVenda.args.payload.modelo_texto));
   ok('o painel fechou apos salvar', document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
 
+  // ---- fluidez: painel aberto NAO pode sobreviver a troca de aba (sem sobreposicao)
+  document.querySelector('[data-acao="nova-venda"]').click();
+  await espera(140);
+  ok('painel de venda reaberto para o teste de troca', document.getElementById('painelVenda').className.indexOf('oculto') < 0);
+  document.getElementById('abaTodos').click();
+  await espera(160);
+  ok('trocar de aba fecha o painel aberto (sem sobreposicao)',
+     document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
+
   // ---- voltar para a Fila não pode deixar resíduo
   document.getElementById('abaFila').click();
   await espera(200);
   ok('pitboard de lead volta na Fila', getComputedStyle(document.getElementById('pitboard')).display !== 'none');
   ok('a Fila volta a mostrar cards', document.querySelectorAll('#lista .card').length > 0);
+
+  // ---- kanban: mover card escreve no Notion (Notion-first, via mover-conteudo) ----
+  document.getElementById('abaConteudo').click();
+  await espera(260);
+  var cardC1 = [].filter.call(
+    document.querySelectorAll('#lista .cont-col[data-col="a_produzir"] .cont-card'),
+    function (el) { return el.getAttribute('data-id') === 'c1'; })[0];
+  ok('c1 nasce na coluna A produzir e e arrastavel', !!cardC1 && cardC1.getAttribute('draggable') === 'true');
+  // drop na coluna inteira (sem mirar em card, sem rolar pra cima): no desktop as
+  // colunas ficam da mesma altura via align-items:stretch. O harness roda em
+  // viewport estreito (kanban empilha), entao a prova viewport-independente e que
+  // a regra stretch esta aplicada; a igualdade de altura vem dela no desktop.
+  ok('o kanban usa align-items:stretch (coluna inteira vira area de drop)',
+     getComputedStyle(document.querySelector('#lista .cont-kanban')).alignItems === 'stretch',
+     getComputedStyle(document.querySelector('#lista .cont-kanban')).alignItems);
+  var btMover = cardC1 && cardC1.querySelector('[data-acao="cont-mover"]');
+  ok('todo card do kanban tem o botao Mover (fallback do celular)', !!btMover);
+  btMover.click();
+  await espera(60);
+  var opPronto = cardC1.querySelector('[data-acao="cont-mover-para"][data-col="pronto"]');
+  ok('o menu Mover oferece a coluna Pronto e nao a coluna atual',
+     !!opPronto && !cardC1.querySelector('[data-acao="cont-mover-para"][data-col="a_produzir"]'));
+  opPronto.click();
+  await espera(280);
+  var chMover = window.__invocacoes.filter(function (x) { return x.nome === 'mover-conteudo'; })[0];
+  ok('mover chamou a Edge Function mover-conteudo', !!chMover);
+  ok('mover levou o id do card e a coluna destino',
+     !!chMover && chMover.opts && chMover.opts.body && chMover.opts.body.id === 'c1' && chMover.opts.body.para === 'pronto',
+     chMover ? JSON.stringify(chMover.opts.body) : 'sem chamada');
+  ok('apos mover, c1 aparece na coluna Pronto',
+     !![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="pronto"] .cont-card'),
+       function (el) { return el.getAttribute('data-id') === 'c1'; })[0]);
+  ok('e some da coluna A produzir',
+     ![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="a_produzir"] .cont-card'),
+       function (el) { return el.getAttribute('data-id') === 'c1'; })[0]);
+
   fim();
 
 }
