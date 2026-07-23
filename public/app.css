@@ -724,6 +724,43 @@ a{color:inherit}
 .btn-cad.perigo{background:var(--erro-bg);color:var(--erro-fg);border-color:var(--erro-linha)}
 .btn-cad.perigo:hover{background:#FBDDE4}
 .cad-erro{margin-top:10px;color:var(--erro-fg);font-size:13px}
+.fv-cli-lista{display:flex;flex-direction:column;gap:4px}
+.fv-cli-lista:not(:empty){margin:0 0 8px}
+.fv-cli-hit{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-p);padding:9px 12px;cursor:pointer}
+.fv-cli-hit:hover{background:var(--bg);border-color:var(--line-forte)}
+.fv-cli-hit strong{font-size:13px;color:var(--text);font-weight:600}
+.fv-cli-hit span{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.fv-cli-vazio{font-size:12.5px;color:var(--dim);padding:6px 2px}
+.fv-lead-status{font-size:12.5px;color:var(--dim)}
+.fv-lead-status:not(:empty){margin:0 0 8px}
+.fv-cli-desfazer{background:none;border:0;color:var(--dim);text-decoration:underline;font-size:12px;cursor:pointer;padding:0 0 0 6px}
+.fv-cli-desfazer:hover{color:var(--text)}
+/* --- Fila embutida no Hoje (Peca A) --- */
+.fila-lin{display:flex;flex-direction:column;gap:0;padding:8px 0;border-top:1px solid var(--line)}
+.dia-sec-cab+.fila-lin{border-top:none}
+.fila-lin-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fila-ident{display:flex;align-items:center;gap:7px;min-width:0;flex:1}
+.fila-ponto{width:8px;height:8px;border-radius:999px;flex:0 0 auto;background:var(--quente)}
+.fila-ponto.n-morno{background:var(--morno)}
+.fila-ponto.n-frio{background:var(--frio)}
+.fila-nome{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila-nivel{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg)}
+.fila-nivel.n-morno{color:var(--morno-fg)}
+.fila-nivel.n-frio{color:var(--frio-fg)}
+.fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.fila-atraso{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:999px;padding:1px 7px}
+.fila-sug{margin-left:auto}
+.fila-vertodos{background:none;border:none;color:var(--dim);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.fila-vertodos:hover{color:var(--text)}
+/* --- lembrete: estados vencido / agendado (Peca B) --- */
+.lemb-vencido{background:var(--quente-bg);border-radius:var(--radius-p)}
+.lemb-agendado{background:var(--surface);border-left:3px solid var(--line-forte);border-radius:var(--radius-p)}
+.lemb-tag{font-family:var(--mono);font-size:10px;font-weight:500;border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+.lemb-tag.venc{color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha)}
+.lemb-tag.agnd{color:var(--text);background:var(--surface);border:1px solid var(--line-forte)}
+.lemb-quando{display:flex;gap:6px;margin-top:6px}
+.lemb-q{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-p);font-size:12px;color:var(--text);cursor:pointer;padding:3px 10px}
+.lemb-q:hover{background:var(--bg);border-color:var(--line-forte)}
 .cad-dup{
   display:none;margin-top:10px;border:1px solid var(--morno-linha);background:var(--morno-bg);
   border-radius:var(--radius-p);padding:10px;font-size:13px;color:var(--morno-fg);

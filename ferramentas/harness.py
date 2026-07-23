@@ -130,7 +130,7 @@ window.supabase = {
           var pv = (args && args.payload) || {};
           if (!(parseFloat(pv.valor_venda) > 0))
             return Promise.resolve({ data: { ok: false, erro: 'valor_venda obrigatorio' }, error: null });
-          if (!pv.modelo_id)
+          if (!pv.modelo_id && !pv.modelo_texto)
             return Promise.resolve({ data: { ok: false, erro: 'modelo obrigatorio' }, error: null });
           return Promise.resolve({ data: { ok: true, id: 'nova', venda_code: 'VENDA-0002' }, error: null });
         }
@@ -448,8 +448,19 @@ async function rodar() {
 
   // ---- ordem da aba Hoje: a nota e o ato de FECHAMENTO, vai por ultimo ----
   var tits = [].map.call(document.querySelectorAll('#lista .dia-sec-tit'), function (e) { return e.textContent; });
-  ok('ordem: Rotina, Conteúdo, Lembretes, Nota',
-     tits.join(' | ') === 'Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+  ok('ordem: Fila, Rotina, Conteúdo, Lembretes, Nota',
+     tits.join(' | ') === 'Fila de hoje | Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+
+  // ---- Fila embutida no Hoje (Peca A): preview read-only, so acao Sugerir ----
+  var filaLins = document.querySelectorAll('#lista .fila-lin');
+  ok('Fila no Hoje renderiza linhas de lead', filaLins.length > 0, 'n=' + filaLins.length);
+  ok('Fila mostra no maximo 5 linhas', filaLins.length <= 5, 'n=' + filaLins.length);
+  ok('linha da Fila tem a acao Sugerir (invariante 13)',
+     !!document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]'));
+  ok('Fila NAO tem toque nem desfecho (so leitura)',
+     !document.querySelector('#lista .fila-lin [data-acao="tocar"]') &&
+     !document.querySelector('#lista .fila-lin [data-acao="fechou"]'));
+  ok('Fila tem botao "ver todos"', !!document.querySelector('#lista [data-acao="hoje-verfila"]'));
 
 
   // marcar risca e persiste
@@ -699,14 +710,13 @@ async function rodar() {
   ok('lucro ao vivo calcula 540', document.getElementById('fvLucro').textContent.indexOf('540,00') >= 0,
      document.getElementById('fvLucro').textContent);
   // salvar chama a RPC com o payload certo e fecha o painel
-  var selM = document.getElementById('fvModelo');
-  selM.value = selM.options.length > 1 ? selM.options[1].value : '';
+  document.getElementById('fvModelo').value = 'iPhone 13 Pro';
   document.getElementById('btnSalvarVenda').click();
   await espera(180);
   var chVenda = window.__rpcChamadas.filter(function (x) { return x.nome === 'registrar_venda'; })[0];
   ok('salvar chamou registrar_venda', !!chVenda);
-  ok('o payload levou valor e modelo',
-     !!(chVenda && chVenda.args && chVenda.args.payload && chVenda.args.payload.valor_venda && chVenda.args.payload.modelo_id));
+  ok('o payload levou valor e modelo (texto livre)',
+     !!(chVenda && chVenda.args && chVenda.args.payload && chVenda.args.payload.valor_venda && chVenda.args.payload.modelo_texto));
   ok('o painel fechou apos salvar', document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
 
   // ---- voltar para a Fila não pode deixar resíduo

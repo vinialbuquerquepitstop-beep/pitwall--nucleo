@@ -206,13 +206,13 @@
     <div id="painelVenda" class="painel-cadastro oculto">
       <h2>Nova venda</h2>
       <p class="cad-grupo">Aparelho</p>
-      <div class="campo"><label for="fvModelo">Modelo *</label><select id="fvModelo"></select></div>
-      <div class="campo"><label for="fvCapacidade">Capacidade</label><input id="fvCapacidade" type="text" placeholder="128GB" autocomplete="off"></div>
+      <div class="campo"><label for="fvModelo">Modelo *</label><input id="fvModelo" list="fvModeloLista" type="text" placeholder="iPhone 13, iPad 11, MacBook Air…" autocomplete="off"><datalist id="fvModeloLista"></datalist></div>
+      <div class="campo"><label for="fvCapacidade">Armazenamento</label><input id="fvCapacidade" list="fvCapacidadeLista" type="text" placeholder="128GB" autocomplete="off"><datalist id="fvCapacidadeLista"></datalist></div>
       <div class="campo"><label for="fvCor">Cor</label><input id="fvCor" type="text" autocomplete="off"></div>
       <div class="campo"><label for="fvCondicao">Condição</label><select id="fvCondicao"><option value="">—</option><option value="lacrado">Lacrado</option><option value="vitrine">Vitrine</option><option value="seminovo">Seminovo</option></select></div>
       <div class="campo"><label for="fvImei">IMEI</label><input id="fvImei" type="text" inputmode="numeric" autocomplete="off"></div>
 
-      <p class="cad-grupo">Dinheiro</p>
+      <p class="cad-grupo">Valores</p>
       <div class="campo"><label for="fvValor">Valor da venda (R$) *</label><input id="fvValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="campo"><label for="fvCusto">Custo do aparelho (R$)</label><input id="fvCusto" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="campo"><label for="fvFrete">Frete / motoboy (R$)</label><input id="fvFrete" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
@@ -220,6 +220,9 @@
       <div class="fv-lucro" id="fvLucro">lucro R$ 0,00</div>
 
       <p class="cad-grupo">Cliente (opcional)</p>
+      <div class="campo"><label for="fvClienteBusca">Já está na base? Busque por nome ou WhatsApp</label><input id="fvClienteBusca" type="search" placeholder="Nome ou WhatsApp do cliente…" autocomplete="off"></div>
+      <div id="fvClienteResultados" class="fv-cli-lista"></div>
+      <div id="fvLeadStatus" class="fv-lead-status"></div>
       <div class="campo"><label for="fvNome">Nome</label><input id="fvNome" type="text" autocomplete="off"></div>
       <div class="campo"><label for="fvWhats">WhatsApp</label><input id="fvWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"></div>
       <div class="campo"><label for="fvCpf">CPF</label><input id="fvCpf" type="text" inputmode="numeric" autocomplete="off"></div>
