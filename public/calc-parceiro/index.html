@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f7fa">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<title>Pitstop Imports — Tabela do Parceiro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f5f7fa;--sf:#ffffff;--sf2:#eef2f8;--bd:#dbe3ee;
+  --tx:#0a1633;--mu:#5a6b85;--hi:#9aa8bf;
+  --gr:#15a34a;--gr-bg:#e7f8ee;--gr-bd:#bce7cd;
+  --bl:#1e66ff;--bl-bg:#e8f0ff;
+  --r:18px;--rs:12px
+}
+body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+.w{padding:20px;max-width:520px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;padding:20px 20px 0;max-width:520px;margin:0 auto}
+.logo{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,#1E66FF,#0057D9);color:#fff;flex-shrink:0}
+.hn{font-size:17px;font-weight:800;letter-spacing:-0.3px}
+.hs{font-size:12px;color:var(--mu)}
+.hout{margin-left:auto;background:var(--sf);border:1px solid var(--bd);border-radius:100px;padding:6px 12px;font-size:11px;color:var(--mu);cursor:pointer;font-family:inherit;font-weight:600}
+/* ESTADOS */
+.msg{text-align:center;color:var(--mu);font-size:14px;padding:40px 20px;line-height:1.5}
+.msg .eb{font-size:34px;margin-bottom:10px}
+.err{background:var(--sf);border:1px solid #f5c2c2;color:#b01235;border-radius:var(--r);padding:16px;font-size:13px;font-weight:600;margin:16px 0;line-height:1.5}
+/* LOGIN */
+#login{max-width:360px;margin:60px auto 0;padding:0 24px}
+#login .lt{font-size:20px;font-weight:800;letter-spacing:-0.4px;text-align:center;margin-bottom:6px}
+#login .ls{font-size:13px;color:var(--mu);text-align:center;margin-bottom:24px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--mu);margin-bottom:6px}
+.fld input{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs);padding:13px 15px;font-size:16px;color:var(--tx);font-family:inherit;outline:none;transition:border-color .2s}
+.fld input:focus{border-color:var(--bl)}
+.pbtn{width:100%;background:var(--bl);color:#fff;border:none;border-radius:var(--rs);padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:8px}
+.pbtn:disabled{opacity:.55;cursor:default}
+/* BUSCA */
+.sw{position:relative;margin:18px 0 8px}
+.sw input{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 44px 14px 16px;font-size:16px;color:var(--tx);font-family:inherit;outline:none;transition:border-color .2s}
+.sw input:focus{border-color:var(--bl)}
+.sw input::placeholder{color:var(--hi)}
+.si{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--mu);pointer-events:none}
+.cnt{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--mu);margin:4px 2px 0}
+/* GRUPO + CARD */
+.grp{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--hi);margin:22px 2px 10px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.crt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.cn{font-size:15px;font-weight:700;letter-spacing:-.2px}
+.ct{font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap}
+.dots{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+.prices{display:flex;gap:10px;margin-top:12px}
+.pbox{flex:1;background:var(--sf2);border-radius:var(--rs);padding:10px 12px}
+.pbox.av{background:var(--gr-bg);border:1px solid var(--gr-bd)}
+.pl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.pv{font-size:17px;font-weight:800;letter-spacing:-.3px;margin-top:2px}
+.pbox.av .pv{color:var(--gr)}
+.foot{text-align:center;font-size:11px;color:var(--hi);margin-top:24px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" style="display:none">
+  <div class="lt">Tabela do Parceiro</div>
+  <div class="ls">Pitstop Imports · preços de venda</div>
+  <div class="fld"><label>E-mail</label><input id="email" type="email" autocomplete="username" placeholder="voce@email.com"></div>
+  <div class="fld"><label>Senha</label><input id="senha" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+  <div id="lerr" class="err" style="display:none"></div>
+  <button id="lbtn" class="pbtn" onclick="entrar()">Entrar</button>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <header>
+    <div class="logo">🏁</div>
+    <div>
+      <div class="hn">Tabela do Parceiro</div>
+      <div class="hs" id="hsub">preços de venda</div>
+    </div>
+    <button class="hout" onclick="sair()">sair</button>
+  </header>
+  <div class="w">
+    <div class="sw"><input id="busca" type="text" placeholder="Buscar modelo..." autocomplete="off" oninput="render()"><span class="si">🔍</span></div>
+    <div class="cnt" id="cnt"></div>
+    <div id="lista"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<!-- CARREGANDO / ERRO GLOBAL -->
+<div id="boot" class="msg"><div class="eb">⏳</div>Carregando...</div>
+<div id="gerr" class="err" style="display:none;max-width:480px;margin:40px auto"></div>
+
+<script>
+var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
+var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
+var sb=null, PRODUTOS=[];
+
+function fmt(v){return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function show(id){['login','app','boot','gerr'].forEach(function(x){var e=document.getElementById(x);if(e)e.style.display=(x===id?'':'none');});}
+function gerr(m){document.getElementById('gerr').textContent=m;show('gerr');}
+
+// ── LOGIN ──
+async function entrar(){
+  var em=document.getElementById('email').value.trim();
+  var pw=document.getElementById('senha').value;
+  var b=document.getElementById('lbtn'), le=document.getElementById('lerr');
+  le.style.display='none';
+  if(!em||!pw){le.textContent='Preencha e-mail e senha.';le.style.display='block';return;}
+  b.disabled=true;b.textContent='Entrando...';
+  var r=await sb.auth.signInWithPassword({email:em,password:pw});
+  b.disabled=false;b.textContent='Entrar';
+  if(r.error){le.textContent='Não foi possível entrar: '+r.error.message;le.style.display='block';return;}
+  carregar();
+}
+async function sair(){ await sb.auth.signOut(); show('login'); }
+
+// ── CARGA DA VITRINE (endpoint derivado; sem custo, sem fornecedor) ──
+async function carregar(){
+  show('boot');
+  var r;
+  try{ r=await sb.rpc('calc_dados_parceiro'); }
+  catch(e){ gerr('Erro ao buscar a tabela: '+e.message); return; }
+  if(r.error){ gerr('Erro ao buscar a tabela: '+r.error.message); return; }
+  var d=r.data||{};
+  PRODUTOS=(d.produtos||[]).filter(function(p){return p&&p.n;});
+  if(!PRODUTOS.length){ gerr('Tabela vazia. Fale com a Pitstop.'); return; }
+  var dt=d.atualizado_em?new Date(d.atualizado_em):null;
+  document.getElementById('hsub').textContent='preços de venda'+(dt?' · atualizado '+dt.toLocaleDateString('pt-BR'):'');
+  document.getElementById('foot').textContent='À vista embutido · parcelado é o valor base (sem juros do cartão).';
+  show('app');
+  render();
+}
+
+// ── BUSCA + AGRUPAMENTO POR CATEGORIA ──
+var ORDEM=['iPhone','iPad','MacBook','Apple Watch','Acessório'];
+function render(){
+  var q=(document.getElementById('busca').value||'').toLowerCase().trim();
+  var itens=PRODUTOS.filter(function(p){
+    if(!q)return true;
+    return (p.n+' '+(p.t||'')+' '+(p.c||'')).toLowerCase().indexOf(q)>=0;
+  });
+  document.getElementById('cnt').textContent=itens.length+' '+(itens.length===1?'modelo':'modelos');
+  if(!itens.length){ document.getElementById('lista').innerHTML='<div class="msg"><div class="eb">🔍</div>Nenhum modelo encontrado.</div>'; return; }
+  var grupos={};
+  itens.forEach(function(p){ var c=p.c||'Outros'; (grupos[c]=grupos[c]||[]).push(p); });
+  var cats=Object.keys(grupos).sort(function(a,b){
+    var ia=ORDEM.indexOf(a), ib=ORDEM.indexOf(b);
+    if(ia<0)ia=99; if(ib<0)ib=99;
+    return ia-ib || a.localeCompare(b);
+  });
+  var html='';
+  cats.forEach(function(c){
+    html+='<div class="grp">'+esc(c)+'</div>';
+    grupos[c].forEach(function(p){ html+=cardHtml(p); });
+  });
+  document.getElementById('lista').innerHTML=html;
+}
+function cardHtml(p){
+  var dots=(p.cs||[]).filter(function(c){return c&&c.h;}).map(function(c){
+    return '<span class="dot" style="background:'+esc(c.h)+'" title="'+esc(c.n||'')+'"></span>';
+  }).join('');
+  return '<div class="card">'
+    +'<div class="crt"><span class="cn">'+esc(p.n)+'</span><span class="ct">'+esc(p.t||'')+'</span></div>'
+    +(dots?'<div class="dots">'+dots+'</div>':'')
+    +'<div class="prices">'
+      +'<div class="pbox av"><div class="pl">À vista</div><div class="pv">'+fmt(p.av)+'</div></div>'
+      +'<div class="pbox"><div class="pl">Parcelado (base)</div><div class="pv">'+fmt(p.pc)+'</div></div>'
+    +'</div>'
+  +'</div>';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+// ── BOOT ──
+(async function(){
+  if(!window.supabase||!window.supabase.createClient){ gerr('Falha ao carregar a biblioteca. Verifique a conexão e atualize.'); return; }
+  sb=window.supabase.createClient(SB_URL,SB_ANON);
+  var sess=null;
+  try{ sess=(await sb.auth.getSession()).data.session; }catch(e){ sess=null; }
+  if(sess){ carregar(); } else { show('login'); }
+  document.getElementById('senha').addEventListener('keydown',function(e){ if(e.key==='Enter')entrar(); });
+})();
+</script>
+</body>
+</html>
