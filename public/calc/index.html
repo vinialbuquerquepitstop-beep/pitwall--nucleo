@@ -1335,24 +1335,78 @@ function boot(){
 }
 </script>
 <script>
-// ── CARGA DOS DADOS: Supabase atras do login (nao mais dados.js publico) ──
+// ── LOGIN PROPRIO + CARGA DOS DADOS ──
 // Os precos de fornecedor sao dado comercial sensivel. Ficam na tabela
-// public.calc_dados, protegida por RLS, lida so apos login no Pit Wall.
-// A sessao e compartilhada com o app principal (mesmo projeto, mesmo storage).
+// public.calc_dados, protegida por RLS, lida so APOS login. Antes, sem sessao,
+// a calc jogava pro painel do Pit Wall; agora ela tem login proprio, entao o
+// colaborador/parceiro entra com a conta dele sem passar pelo painel.
 (async function(){
   var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
   var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
   if(!window.supabase||!window.supabase.createClient){ mostrarErro('supabase-js nao carregou. Confira a conexao e atualize.'); return; }
   var sb=window.supabase.createClient(SB_URL,SB_ANON);
+
+  // So o dono ve o botao "interno" (custo/margem). Para qualquer outro papel,
+  // esconde os dois botoes. Default seguro: se nao confirmar 'dono', esconde.
+  async function esconderInternoSeNaoDono(){
+    var papel=null;
+    try{
+      var u=(await sb.auth.getUser()).data.user;
+      if(u){ var pr=await sb.from('app_usuario').select('papel').eq('id',u.id).maybeSingle(); papel=pr.data&&pr.data.papel; }
+    }catch(e){ papel=null; }
+    if(papel!=='dono'){
+      var btns=document.querySelectorAll('button');
+      for(var i=0;i<btns.length;i++){
+        var oc=btns[i].getAttribute('onclick')||'';
+        if(/Int\(\)/.test(oc)) btns[i].style.display='none';
+      }
+    }
+  }
+
+  async function carregarPrecos(){
+    var r;
+    try{ r=await sb.from('calc_dados').select('dados').single(); }
+    catch(e){ mostrarErro('Erro ao buscar precos: '+e.message); return; }
+    if(r.error||!r.data||!r.data.dados){ mostrarErro('Nao foi possivel carregar os precos'+(r.error?': '+r.error.message:'. Tabela vazia?')); return; }
+    window.DADOS=r.data.dados;
+    try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
+    esconderInternoSeNaoDono();
+  }
+
+  function mostrarLogin(){
+    var o=document.createElement('div');
+    o.id='calc-login';
+    o.style.cssText='position:fixed;inset:0;z-index:99998;background:#f5f7fa;display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,sans-serif';
+    o.innerHTML=''
+      +'<div style="width:100%;max-width:340px">'
+      +'<div style="font-size:20px;font-weight:800;letter-spacing:-.4px;text-align:center;color:#0a1633;margin-bottom:4px">Pitstop Imports</div>'
+      +'<div style="font-size:13px;color:#5a6b85;text-align:center;margin-bottom:22px">Entre para ver os precos</div>'
+      +'<input id="cl-em" type="email" autocomplete="username" placeholder="E-mail" style="width:100%;box-sizing:border-box;background:#fff;border:1px solid #dbe3ee;border-radius:12px;padding:13px 15px;font-size:16px;color:#0a1633;outline:none;margin-bottom:10px">'
+      +'<input id="cl-pw" type="password" autocomplete="current-password" placeholder="Senha" style="width:100%;box-sizing:border-box;background:#fff;border:1px solid #dbe3ee;border-radius:12px;padding:13px 15px;font-size:16px;color:#0a1633;outline:none;margin-bottom:10px">'
+      +'<div id="cl-err" style="display:none;color:#b01235;font-size:13px;font-weight:600;margin-bottom:10px"></div>'
+      +'<button id="cl-btn" style="width:100%;background:#0025cc;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Entrar</button>'
+      +'</div>';
+    document.body.appendChild(o);
+    var em=o.querySelector('#cl-em'), pw=o.querySelector('#cl-pw'), bt=o.querySelector('#cl-btn'), er=o.querySelector('#cl-err');
+    async function entrar(){
+      er.style.display='none';
+      var e1=(em.value||'').trim(), p1=pw.value||'';
+      if(!e1||!p1){ er.textContent='Preencha e-mail e senha.'; er.style.display='block'; return; }
+      bt.disabled=true; bt.textContent='Entrando...';
+      var res=await sb.auth.signInWithPassword({email:e1,password:p1});
+      bt.disabled=false; bt.textContent='Entrar';
+      if(res.error){ er.textContent='Nao foi possivel entrar: '+res.error.message; er.style.display='block'; return; }
+      o.remove();
+      carregarPrecos();
+    }
+    bt.addEventListener('click',entrar);
+    pw.addEventListener('keydown',function(ev){ if(ev.key==='Enter')entrar(); });
+    em.focus();
+  }
+
   var sess=null;
   try{ sess=(await sb.auth.getSession()).data.session; }catch(e){ sess=null; }
-  if(!sess){ location.replace('/'); return; }   // sem login: volta pro Pit Wall (tela de login)
-  var r;
-  try{ r=await sb.from('calc_dados').select('dados').single(); }
-  catch(e){ mostrarErro('Erro ao buscar precos: '+e.message); return; }
-  if(r.error||!r.data||!r.data.dados){ mostrarErro('Nao foi possivel carregar os precos'+(r.error?': '+r.error.message:'. Tabela vazia?')); return; }
-  window.DADOS=r.data.dados;
-  try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); }
+  if(sess){ carregarPrecos(); } else { mostrarLogin(); }
 })();
 </script>
 </body>
