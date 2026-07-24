@@ -1344,7 +1344,9 @@ function boot(){
   var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
   var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
   if(!window.supabase||!window.supabase.createClient){ mostrarErro('supabase-js nao carregou. Confira a conexao e atualize.'); return; }
-  var sb=window.supabase.createClient(SB_URL,SB_ANON);
+  // Sessao PROPRIA da calc (storageKey dedicado): nao herda o login do Pit Wall,
+  // entao a calc sempre pede login proprio e o logout aqui nao desloga o painel.
+  var sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{storageKey:'sb-calc-auth',persistSession:true,autoRefreshToken:true}});
 
   // So o dono ve o botao "interno" (custo/margem). Para qualquer outro papel,
   // esconde os dois botoes. Default seguro: se nao confirmar 'dono', esconde.
@@ -1363,6 +1365,15 @@ function boot(){
     }
   }
 
+  function botaoSair(){
+    if(document.getElementById('calc-sair')) return;
+    var b=document.createElement('button');
+    b.id='calc-sair'; b.textContent='sair';
+    b.style.cssText='position:fixed;top:10px;right:10px;z-index:99997;background:#fff;border:1px solid #dbe3ee;border-radius:100px;padding:6px 14px;font:600 12px -apple-system,sans-serif;color:#5a6b85;cursor:pointer;box-shadow:0 1px 4px rgba(10,22,51,.08)';
+    b.onclick=async function(){ b.disabled=true; b.textContent='saindo...'; try{ await sb.auth.signOut(); }catch(e){} location.reload(); };
+    document.body.appendChild(b);
+  }
+
   async function carregarPrecos(){
     var r;
     try{ r=await sb.from('calc_dados').select('dados').single(); }
@@ -1371,6 +1382,7 @@ function boot(){
     window.DADOS=r.data.dados;
     try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
     esconderInternoSeNaoDono();
+    botaoSair();
   }
 
   function mostrarLogin(){
