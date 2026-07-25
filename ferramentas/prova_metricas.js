@@ -14,6 +14,7 @@ function recorte(de, ate) {
 // helpers reais tirados do proprio arquivo
 const escReal = recorte('function c(a){return String(null==a?', 'function d(a){');
 const blocoAfericao = recorte('function fmtNum(n)', 'function contMoverCtl(x)');
+const blocoDia = recorte('function hojeContCard(x)', 'async function renderHoje()');
 const blocoDash = recorte('var METRICA_DIAS=90;', 'async function renderDash()');
 
 const HOJE = '2026-07-25';
@@ -25,15 +26,17 @@ const preludio = `
   function tipoDe(cod){return 'var(--tp-'+(cod||'outro')+')'}
   function brlV(n){return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
   function I(){}
+  function syncLinha(){return ''}
   var n='conteudo';
   async function renderConteudo(){}
   async function renderHoje(){}
   async function renderDash(){}
   var O=async function(){return {ok:true}};
 `;
-const api = new Function(preludio + blocoAfericao + blocoDash + `
+const api = new Function(preludio + blocoAfericao + blocoDia + blocoDash + `
   return {fmtNum,contAferivel,contMetricaNums,contMetrica,metBarra,metLinOrigem,
           metOrigem,metTipoChip,metPeca,metConteudo,metTopo,
+          hojeContCard,hojeContPlacar,hojeConteudo,
           setDias:function(d){METRICA_DIAS=d},getDias:function(){return METRICA_DIAS}};
 `)();
 
@@ -84,6 +87,41 @@ const antiga = api.contMetrica(Object.assign({}, pubOntem, { metrica: { alcance:
 ass('medido ha N dias quando N>1', antiga.indexOf('medido há 7 dias') >= 0, antiga);
 const zerado = api.contMetrica(Object.assign({}, pubOntem, { metrica: { alcance: 0, conversas: 0, medido_dias: 2 } }));
 ass('zero aferido e diferente de nao aferido', zerado.indexOf('sem aferição') < 0 && zerado.indexOf('>0</span> alcance') >= 0, zerado);
+
+console.log('\n--- aba Hoje: card retangular de conferencia do dia ---');
+const diaAProduzir = { id: 'h1', status_codigo: 'a_produzir', status_rotulo: 'A produzir', data: HOJE, titulo: 'S4 · Story Sáb 25/07 · Presença leve', tipo_codigo: 'story', tipo_rotulo: 'Story', semana: 'S4 · Dia dos Pais', url: 'https://notion.so/x' };
+const diaPublicado = Object.assign({}, diaAProduzir, { id: 'h2', status_codigo: 'publicado', status_rotulo: 'Publicado' });
+const diaAferido = Object.assign({}, diaPublicado, { id: 'h3', metrica: { alcance: 980, conversas: 2, medido_dias: 0 } });
+const diaDescartado = Object.assign({}, diaAProduzir, { id: 'h4', status_codigo: 'descartado', status_rotulo: 'Descartado' });
+
+const cA = api.hojeContCard(diaAProduzir);
+ass('card do dia e retangular (dia-cont-card), nao o do kanban',
+  cA.indexOf('class="dia-cont-card') >= 0 && cA.indexOf('class="cont-card') < 0);
+ass('mostra tipo, semana e status', cA.indexOf('Story') >= 0 && cA.indexOf('S4 · Dia dos Pais') >= 0 && cA.indexOf('A produzir') >= 0);
+ass('mostra o titulo', cA.indexOf('Presença leve') >= 0);
+ass('leva pro Notion', cA.indexOf('href="https://notion.so/x"') >= 0);
+ass('nao publicada oferece "Publiquei", nao "Aferir"',
+  cA.indexOf('data-acao="cont-publiquei"') >= 0 && cA.indexOf('data-acao="cont-aferir"') < 0);
+ass('nao publicada explica por que nao da pra aferir', cA.indexOf('ainda não marcada como publicada') >= 0);
+
+const cP = api.hojeContCard(diaPublicado);
+ass('publicada troca Publiquei por Aferir',
+  cP.indexOf('data-acao="cont-aferir"') >= 0 && cP.indexOf('data-acao="cont-publiquei"') < 0);
+ass('status publicado ganha marca propria', cP.indexOf('dia-cont-st pub') >= 0);
+const cAf = api.hojeContCard(diaAferido);
+ass('aferida mostra o numero no card do dia', cAf.indexOf('980') >= 0 && cAf.indexOf('conversas') >= 0);
+ass('descartada nao pede acao nenhuma',
+  api.hojeContCard(diaDescartado).indexOf('data-acao=') < 0);
+
+ass('placar do dia conta pecas, publicadas e aferidas',
+  api.hojeContPlacar([diaAProduzir, diaPublicado, diaAferido]).indexOf('3 peças · 2 publicadas · 1 aferida') >= 0,
+  api.hojeContPlacar([diaAProduzir, diaPublicado, diaAferido]));
+ass('placar no singular com uma peca so',
+  api.hojeContPlacar([diaAferido]).indexOf('1 peça · 1 publicada · 1 aferida') >= 0);
+const secao = api.hojeConteudo({ conteudo: [diaAProduzir, diaAferido] });
+ass('secao do dia usa a lista retangular', secao.indexOf('class="dia-cont-lista"') >= 0);
+ass('secao vazia avisa em vez de sumir', api.hojeConteudo({ conteudo: [] }).indexOf('Nada no calendário para hoje') >= 0);
+ass('secao vazia nao mostra placar', api.hojeConteudo({ conteudo: [] }).indexOf('dia-cont-placar') < 0);
 
 console.log('\n--- painel: barra proporcional ---');
 ass('barra vazia com valor 0', api.metBarra(0, 9).indexOf('width:0%') >= 0);

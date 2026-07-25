@@ -20,8 +20,11 @@ No ar em `main` (Cloudflare publica no push): commit `183c7db`.
 - **Aba Conteudo -> coluna Publicado**: cada card tem bloco de afericao. Sem
   numero, mostra "sem afericao" + botao **Aferir**. Com numero, mostra
   `1.240 alcance / 3 conversas / medido ontem` + **Aferir de novo**.
-- **Aba Hoje -> Conteudo de hoje**: mesmo bloco (reusa `contCard`), para fechar
-  o dia medindo o que foi ao ar.
+- **Aba Hoje -> Conteudo de hoje**: **card RETANGULAR de linha inteira**, um por
+  peca do dia, com cabecalho do dia contando `3 pecas · 2 publicadas · 1 aferida`.
+  E aqui que o dia se confere (correcao pedida pelo dono no meio da sessao, ver
+  secao 4b). Peca ainda nao marcada como publicada mostra **Publiquei**; depois
+  disso, os campos de afericao abrem sozinhos.
 - **Aba Dashboard** (em "Analise", entra pelo "Mais" no celular): painel real
   com janela de **30 / 90 / 365 dias** declarada no topo. Dois blocos:
   **De onde veio** (origem x leads x clientes x conversao x R$) e
@@ -96,7 +99,8 @@ Cada item passa a carregar `metrica` (a ultima afericao) e, no caso do
 ## 4. Frontend
 
 - `contMetrica(x)` / `contMetricaNums(m)` / `contAferivel(x)` / `salvarAfericao()`
-  em `public/app.js`, area legivel, logo antes de `contMoverCtl`.
+  / `marcarPublicado()` em `public/app.js`, area legivel, logo antes de
+  `contMoverCtl`.
 - `contAferivel`: so peca `publicado` **e** com data <= hoje. Medir o que nao foi
   ao ar seria inventar dado; a RPC recusa igual, entao a regra vale nas duas pontas.
 - Aba Dashboard: `renderDash()` + `metTopo` / `metOrigem` / `metConteudo` /
@@ -110,6 +114,39 @@ Cada item passa a carregar `metrica` (a ultima afericao) e, no caso do
 - CSS: blocos `.cont-met-*` (afericao no card) e `.met-*` (painel) em
   `public/app.css`. Saiu o `.dash-grade` / `.dash-slot` / `.vazio-marca`, que
   eram so a moldura vazia e ficaram sem uso.
+
+## 4b. Correcao de rumo no meio da sessao: a aba Hoje e o lugar
+
+Dito pelo dono depois da primeira entrega: **"o botao era na aba hoje. cards
+retangulares para conferir no dia. ali e onde deve deter as informacoes
+necessarias do dia."**
+
+O que estava errado: a aba Hoje reusava o `contCard` do kanban, um card estreito
+(`max-width: 340px`) desenhado para caber em coluna. Pior: o botao so aparecia em
+peca com status `publicado`, e as duas pecas de hoje estavam em `A produzir` no
+Notion. Resultado pratico: o dono abriu a aba Hoje e **nao viu botao nenhum**.
+
+O que passou a valer:
+- `hojeContCard(x)`: card retangular de linha inteira, so da aba Hoje. Cabecalho
+  com tipo (icone + cor do tipo), semana e status; titulo; link do Notion; e a
+  faixa de acao embaixo. O `contCard` estreito segue valendo na aba Conteudo,
+  onde a largura e a da coluna do kanban.
+- `hojeContPlacar(l)`: `N pecas · N publicadas · N aferidas` no cabecalho da
+  secao. Mesma regra da aba Conteudo: afericao sem o total de publicadas nao diz
+  se o dia foi conferido inteiro ou pela metade.
+- **Botao "Publiquei"** em peca ainda nao publicada. Reusa a MESMA escrita do
+  botao Mover do kanban (Edge Function `mover-conteudo` -> PATCH no Notion), com
+  a ordem ja decidida na v33: **Notion primeiro, tela depois**. Se o PATCH
+  falhar, nada muda aqui e o toast diz.
+- Depois do "Publiquei", os campos de afericao **abrem sozinhos** e o cursor cai
+  no campo de alcance (`AFERIR_ABRIR`): quem acabou de dizer que postou esta com
+  o numero na mao.
+- Peca `descartado` no dia nao pede acao nenhuma.
+- `.cont-solto` ficou sem uso e a regra `max-width:340px` dela saiu do CSS.
+
+Nao se aferiu peca fora de `publicado`: medir alcance de coisa que o sistema acha
+que nem foi ao ar seria numero solto. O caminho continua sendo declarar que
+publicou (que e escrita real no Notion) e so entao medir.
 
 ### Bug corrigido de passagem
 `hojeConteudo` e o bloco Descartado chamavam `.map(contCard)`, o que passa o
@@ -125,13 +162,18 @@ contCard(x)})`, igual ao que `contColuna` ja fazia de proposito com `true`.
 | prova | resultado |
 |---|---|
 | `node --check public/app.js` | EXIT 0 |
-| `node ferramentas/prova_metricas.js public/app.js` (**novo**) | 50 assercoes, 0 falhas, EXIT 0 |
+| `node ferramentas/prova_metricas.js public/app.js` (**novo**) | 65 assercoes, 0 falhas, EXIT 0 |
 | RLS como dono (`fb2aad8e…`) | insere e le |
 | RLS como vendedor (Brendon, `130353b1…`) | le 1 linha, painel ok |
 | RLS como tenant errado (uid sem `app_usuario`) | 0 linhas, "Sessao invalida", insert negado |
 | append-only como `authenticated` | UPDATE, DELETE e TRUNCATE negados (`insufficient_privilege`) |
 | auditoria | exatamente 1 registro por escrita, `antes` nulo no INSERT, `usuario_id` correto |
 | CSS aplicado | conferido no Chrome com pagina estatica gerada a partir do `app.css` e das funcoes reais |
+
+**Nao conferido: o layout no CELULAR.** O resize da janela do Chrome nao pegou em
+duas tentativas, entao o card retangular e o painel foram vistos so em largura de
+desktop. O CSS usa `flex-wrap` em toda linha e ha regra em `@media`, mas isso e
+argumento, nao medicao. Conferir no celular ao abrir.
 
 **A suite Python do repo (`validar.py`, `harness.py`, `prova_trilho.py`) NAO
 rodou: nao ha Python nesta maquina** (so o stub da Microsoft Store). Existe node
@@ -148,13 +190,15 @@ o INSERT e o DELETE. O primeiro numero de verdade e o que o dono aferir.
 ## 6. Como usar (caminho exato)
 
 1. Publicou o post no Instagram.
-2. No Pit Wall, aba **Conteudo**. Se o card ainda nao esta em Publicado, use o
-   **Mover** do proprio card (escreve de volta no Notion pela Edge Function
-   `mover-conteudo`).
-3. No card da coluna **Publicado**, toque em **Aferir**, digite alcance e
-   conversas, **Salvar**.
-4. Aba **Dashboard** para ver o acumulado. Se so quer o dia, o mesmo bloco esta
-   na aba **Hoje**.
+2. No Pit Wall, aba **Hoje**, secao **Conteudo de hoje**. Cada peca do dia e um
+   card retangular.
+3. Toque em **Publiquei** (isso marca Publicado no Notion). Os campos abrem
+   sozinhos: digite alcance e conversas, **Salvar**.
+   Se a peca ja estava marcada como publicada, o botao ja e **Aferir**.
+4. Aba **Dashboard** para ver o acumulado por origem e por peca.
+
+Peca publicada em dia ANTERIOR nao aparece na aba Hoje: essa mora na aba
+**Conteudo**, coluna Publicado, onde o card estreito tem o mesmo **Aferir**.
 
 Aferir de novo dias depois nao apaga nada: entra como nova leitura e a mais
 recente e a que aparece.

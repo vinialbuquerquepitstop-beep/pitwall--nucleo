@@ -738,8 +738,8 @@ a{color:inherit}
   text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--line-forte);
 }
 .cont-link:hover{color:var(--accent);text-decoration-color:currentColor}
-/* dentro da secao "Conteúdo de hoje" as linhas ficam soltas, sem a moldura do log */
-.cont-solto .cont-lin{padding:8px 0}
+/* .cont-solto ficou sem uso em 25/07/2026: a secao "Conteúdo de hoje" passou do
+   card estreito do kanban para o card retangular .dia-cont-card */
 
 /* rotina: formularios de edicao do molde (so o dono ve) */
 .rot-form{display:flex;flex-direction:column;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
@@ -1061,11 +1061,45 @@ a{color:inherit}
 .cont-met-cancel{background:var(--bg);border:1px solid var(--line-forte);color:var(--dim)}
 .cont-met-cancel:hover{color:var(--text);border-color:var(--dim)}
 
+/* ---------- Conteudo do dia: card RETANGULAR de conferencia (25/07/2026) ----------
+   Na aba Hoje a peca ocupa a linha inteira: o dia se confere aqui, entao o que
+   se precisa saber e o que se precisa fazer moram no mesmo card. O card estreito
+   (.cont-card, max-width 340) continua valendo na aba Conteudo, onde a largura
+   e a da coluna do kanban. */
+.dia-cont-lista{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.dia-cont-card{
+  position:relative;padding:10px 13px 11px 15px;
+  border:1px solid var(--line);border-radius:var(--radius-p);background:var(--surface);
+}
+.dia-cont-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;background:var(--tp)}
+.dia-cont-cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dia-cont-tipo{
+  display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--tp);
+}
+.dia-cont-sem{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.04em}
+.dia-cont-st{
+  margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--dim);
+  border:1px solid var(--line-forte);border-radius:99px;padding:1px 8px;white-space:nowrap;
+}
+.dia-cont-st.pub{color:var(--ok-fg);background:var(--ok-bg);border-color:var(--ok-linha)}
+.dia-cont-placar{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.dia-cont-tit{font-size:14px;line-height:1.35;margin-top:5px}
+/* no card largo, numero e acao cabem na MESMA linha; no estreito do kanban nao */
+.dia-cont-card .cont-met{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:9px;padding-top:9px}
+.dia-cont-card .cont-met-quando{margin-top:0}
+.dia-cont-card .cont-met-vazio{text-transform:none;letter-spacing:.02em;font-size:11px;opacity:.85}
+.dia-cont-card .cont-met-btn{margin-top:0;margin-left:auto}
+.dia-cont-card .cont-met-btn.publiquei{color:var(--accent);border-color:var(--accent-linha);background:var(--accent-tint)}
+.dia-cont-card .cont-met-btn.publiquei:hover{color:var(--accent-forte);border-color:var(--accent)}
+.dia-cont-card .cont-met-form{flex-direction:row;align-items:center;flex-basis:100%;flex-wrap:wrap}
+.dia-cont-card .cont-met-campo{flex:0 1 210px}
+.dia-cont-card .cont-met-acoes{margin-left:auto}
+
 /* ---------- Hoje: trilho de categoria no cabecalho de secao ---------- */
 .dia-cat-rot{display:flex;align-items:center;gap:6px;padding-left:9px;position:relative;color:var(--tr)}
 .dia-cat-rot::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--tr)}
 .dia-cat-rot .tr-ico{width:13px;height:13px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
-.cont-solto .cont-card{max-width:340px}
 
 /* ---------- Conteudo: a barra diz o TIPO; a urgencia fica na data ---------- */
 .cont-card::before{background:var(--tp)}
