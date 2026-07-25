@@ -324,8 +324,10 @@ a{color:inherit}
 .silencio.alerta{color:var(--quente-fg)}
 
 /* --- acoes do card --- */
-.card-acoes{display:flex;gap:7px;margin-top:10px}
+.card-acoes{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .card-acoes.escrita{margin-top:7px}
+/* na Fila o WhatsApp e a acao principal: linha inteira acima de Sugerir/Historico */
+.card-acoes .card-wa-linha{order:-1;flex:1 1 100%}
 .btn-wa{
   flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
   background:var(--ok-bg);border:1px solid var(--ok-linha);color:var(--ok-fg);
