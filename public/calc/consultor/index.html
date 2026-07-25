@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f7fa">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<title>Consultor Pitstop</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#f5f7fa;--sf:#ffffff;--sf2:#eef2f8;--bd:#dbe3ee;
+  --tx:#0a1633;--mu:#5a6b85;--hi:#9aa8bf;
+  --gr:#15a34a;--gr-bg:#e7f8ee;--gr-bd:#bce7cd;
+  --re:#dc2626;--re-bg:#fdecec;--re-bd:#f5c2c2;
+  --bl:#1e66ff;--bl-bg:#e8f0ff;--bl-bd:#bcd4ff;
+  --or:#ea580c;--or-bg:#fff1e8;--or-bd:#fbcfae;
+  --r:18px;--rs:12px
+}
+body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;min-height:100vh;padding-bottom:calc(env(safe-area-inset-bottom,0px)+80px);-webkit-font-smoothing:antialiased}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);display:grid;grid-template-columns:repeat(2,1fr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tb{padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;background:none;border:none;font-family:inherit;color:var(--mu);font-size:10px;font-weight:600;letter-spacing:0.04em}
+.tb .ti{font-size:20px}.tb.on{color:var(--tx)}
+.tb.on.tv .ti{color:var(--gr)}.tb.on.tu .ti{color:var(--or)}
+.pg{display:none}.pg.on{display:block}
+header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:linear-gradient(135deg,#1E66FF,#0057D9)}
+.ht .hn{font-size:17px;font-weight:800;letter-spacing:-0.3px}.ht .hs{font-size:12px;color:var(--mu)}
+.selo{margin-left:auto;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:700;white-space:nowrap}
+.selo.venc{background:var(--re-bg);border-color:var(--re-bd);color:var(--re)}
+.w{padding:20px;max-width:500px;margin:0 auto}
+.sc{font-size:11px;font-weight:600;letter-spacing:0.08em;color:var(--mu);text-transform:uppercase;margin:24px 0 12px}
+.banner{border-radius:var(--rs);padding:12px 14px;font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.45;border:1px solid;display:none}
+.banner.on{display:block}
+.banner.bre{background:var(--re-bg);border-color:var(--re-bd);color:var(--re)}
+.banner.bsem{background:var(--or-bg);border-color:var(--or-bd);color:var(--or)}
+.nivw{max-width:500px;margin:14px auto 0;padding:0 20px}
+.nivl{font-size:11px;font-weight:600;letter-spacing:0.08em;color:var(--mu);text-transform:uppercase;display:block;margin-bottom:7px}
+.nivs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.nivb{background:var(--sf);border:1.5px solid var(--bd);border-radius:100px;padding:8px 4px;font-size:12px;font-weight:700;color:var(--mu);cursor:pointer;font-family:inherit}
+.nivb.ag{background:var(--bl-bg);border-color:var(--bl-bd);color:var(--bl)}
+.nivh{font-size:11px;color:var(--hi);margin-top:7px;line-height:1.45}
+.nota{font-size:12px;color:var(--mu);line-height:1.5;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;margin-bottom:4px}
+.nota b{color:var(--tx)}
+.sw{position:relative}
+.sw input{width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 44px 14px 16px;font-size:16px;color:var(--tx);font-family:inherit;outline:none}
+.sw input:focus{border-color:#444}.sw input::placeholder{color:var(--hi)}
+.si{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--mu);pointer-events:none}
+.cb{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:var(--sf2);border:none;color:var(--mu);cursor:pointer;font-size:14px;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center}
+.cb.on{display:flex}
+.dd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-top:6px;overflow:hidden;display:none;max-height:300px;overflow-y:auto}
+.dd.on{display:block}
+.ddi{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--bd)}
+.ddi:last-child{border-bottom:none}.ddi:active{background:var(--sf2)}
+.ddn{font-size:14px;font-weight:500}
+.ddm{font-size:12px;color:var(--mu);margin-top:3px}
+.ddp{color:var(--gr);font-weight:600}
+.ddc{padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--hi);background:var(--bg);border-bottom:1px solid var(--bd)}
+.card{background:var(--sf);border:1px solid var(--gr-bd);border-radius:var(--r);padding:14px 16px;margin-top:10px}
+.cr{display:flex;justify-content:space-between;font-size:13px;padding:3px 0}
+.cl{color:var(--mu)}.cv{font-weight:500}
+.chg{font-size:12px;color:var(--bl);margin-top:8px;cursor:pointer}
+.cw{margin-top:10px}
+.cwl{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;display:block}
+.cl2{display:flex;flex-wrap:wrap;gap:6px}
+.corb{display:flex;align-items:center;gap:5px;background:var(--sf2);border:1.5px solid var(--bd);border-radius:100px;padding:5px 10px 5px 5px;cursor:pointer;font-size:12px;font-weight:500;color:var(--mu);font-family:inherit}
+.corb.ag{border-color:var(--gr);color:var(--tx);background:var(--gr-bg)}
+.cdot{width:13px;height:13px;border-radius:50%;border:1px solid rgba(0,0,0,0.12);flex-shrink:0}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.mt{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+.mt.wd{grid-column:1/-1}
+.mt .ml{font-size:11px;color:var(--mu);margin-bottom:4px;font-weight:600;letter-spacing:0.03em}
+.mt .mv{font-size:21px;font-weight:700;letter-spacing:-0.5px}
+.mt .ms{font-size:11px;color:var(--hi);margin-top:3px}
+.mt.mg{background:var(--gr-bg);border-color:var(--gr-bd)}.mt.mg .ml,.mt.mg .mv{color:var(--gr)}
+.mt.mb{background:var(--bl-bg);border-color:var(--bl-bd)}.mt.mb .ml,.mt.mb .mv{color:var(--bl)}
+.pd{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.pc{background:var(--sf);border:1px solid var(--bl-bd);border-radius:var(--r);padding:14px}
+.pc .pt{font-size:13px;font-weight:700;color:var(--bl);margin-bottom:10px}
+.pc .pr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.pc .pr:last-child{border-bottom:none;font-weight:700;padding-top:7px}
+.pc .pl{color:var(--mu)}
+.ptw{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.pth{display:grid;grid-template-columns:45px 1fr 1fr;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--bd)}
+.pth span{font-size:11px;font-weight:600;color:var(--mu);letter-spacing:0.05em;text-transform:uppercase}
+.ptr{display:grid;grid-template-columns:45px 1fr 1fr;padding:9px 14px;border-bottom:1px solid var(--bd);align-items:center}
+.ptr:last-child{border-bottom:none}
+.ptr .pn{font-size:13px;font-weight:700}.ptr .pp{font-size:13px;font-weight:600}
+.ptr .ptot{font-size:12px;color:var(--mu)}
+.fi{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.fi:focus-within{border-color:#444}
+.fi label{font-size:11px;color:var(--mu);font-weight:600;letter-spacing:0.03em}
+.fi input,.fi select{background:none;border:none;outline:none;font-size:16px;font-weight:500;color:var(--tx);width:100%;font-family:inherit}
+.fi input::placeholder{color:var(--hi);font-weight:400;font-size:15px}
+.fhint{font-size:11px;color:var(--hi)}
+.btn{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px;font-size:14px;font-weight:600;color:var(--tx);cursor:pointer;font-family:inherit;text-align:center;width:100%;margin-bottom:10px}
+.btn:active{transform:scale(0.97);background:var(--sf2)}
+.btn.bpr{background:linear-gradient(135deg,#1E66FF,#0057D9);color:#fff;border-color:#1E66FF}
+.btn.bor{background:var(--or);color:white;border-color:var(--or)}
+.es{text-align:center;padding:40px 20px;color:var(--hi);font-size:13px;line-height:1.7}
+.es .eb{font-size:36px;margin-bottom:10px}
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+72px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.bdg{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:100px}
+.bdg-g{background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr)}
+.bdg-o{background:var(--or-bg);border:1px solid var(--or-bd);color:var(--or)}
+.db{background:var(--gr-bg);border:1px solid var(--gr-bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.dbh{padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06)}
+.dbht{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--gr)}
+.dbr{padding:12px 14px}
+.dbrow{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--bd)}
+.dbrow:last-child{border-bottom:none}
+.dbrow .dll{color:var(--mu)}.dbrow .dvv{font-weight:600}
+.dbf{padding:12px 14px;border-top:1px solid rgba(0,0,0,0.06);display:flex;justify-content:space-between;align-items:center}
+.dbf .dfl{font-size:12px;font-weight:600;color:var(--mu)}
+.dbf .dfv{font-size:26px;font-weight:700;letter-spacing:-0.5px;color:var(--gr)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<!-- Guard de sessao: a calc do consultor tambem exige login. Mesmo storageKey
+     da /calc/, entao a sessao do login vale nas duas. Sem sessao, volta pra /calc/
+     (que mostra a tela de login). A cobertura evita mostrar a calc antes de checar. -->
+<div id="cons-gate" style="position:fixed;inset:0;z-index:99990;background:#f5f7fa;display:flex;align-items:center;justify-content:center;font:800 20px/1 -apple-system,sans-serif;color:#0a1633;letter-spacing:-.4px">Pitstop Imports</div>
+<script>
+(async function(){
+  var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
+  var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
+  if(!window.supabase||!window.supabase.createClient){ location.replace('/calc/'); return; }
+  var sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{storageKey:'sb-calc-auth',persistSession:true,autoRefreshToken:true}});
+  var sess=null; try{ sess=(await sb.auth.getSession()).data.session; }catch(e){ sess=null; }
+  if(!sess){ location.replace('/calc/'); return; }
+  var g=document.getElementById('cons-gate'); if(g)g.remove();
+  var b=document.createElement('button'); b.id='cons-sair'; b.textContent='sair';
+  b.style.cssText='position:fixed;top:10px;right:10px;z-index:99997;background:#fff;border:1px solid #dbe3ee;border-radius:100px;padding:6px 14px;font:600 12px -apple-system,sans-serif;color:#5a6b85;cursor:pointer;box-shadow:0 1px 4px rgba(10,22,51,.08)';
+  b.onclick=async function(){ b.disabled=true; b.textContent='saindo...'; try{ await sb.auth.signOut(); }catch(e){} location.replace('/calc/'); };
+  document.body.appendChild(b);
+})();
+</script>
+<header>
+  <div class="logo">&#129309;</div>
+  <div class="ht"><div class="hn">Consultor Pitstop</div><div class="hs">Tabela oficial</div></div>
+  <div class="selo" id="selo">&hellip;</div>
+</header>
+
+<div class="nivw">
+  <span class="nivl">&#127894; seu n&iacute;vel</span>
+  <div class="nivs" id="nivs"></div>
+  <div class="nivh">Simulador. A comiss&atilde;o paga segue o n&iacute;vel vigente registrado pela loja.</div>
+</div>
+
+<!-- ABA VENDA -->
+<div class="pg on" id="pg-v">
+<div class="w">
+  <div class="banner bre" id="bven">&#9940; Tabela vencida. N&atilde;o cote e n&atilde;o feche. Fale com a Pitstop para receber a tabela nova.</div>
+  <div class="banner bsem" id="bsem">&#9888; Seminovo depende de <b>confirma&ccedil;&atilde;o e disponibilidade da loja</b>. Confirme com a Pitstop ANTES de apresentar ao cliente.</div>
+  <div class="nota"><b>Pre&ccedil;o de tabela &eacute; pre&ccedil;o final, desconto zero.</b> Qualquer d&uacute;vida, consulte a loja.</div>
+
+  <div class="sc">&#128269; buscar modelo</div>
+  <div class="sw"><input type="text" id="qs" placeholder="Digite o modelo..." autocomplete="off" oninput="qSrch(this.value)" onfocus="qFcs()"><span class="si" id="qsi">&#8981;</span><button class="cb" id="qcb" onclick="qClr()">&#10005;</button></div>
+  <div class="dd" id="qdd"></div>
+
+  <div class="card" id="qcard" style="display:none">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span class="bdg" id="qbdg"></span>
+      <span style="font-size:15px;font-weight:600" id="qnm"></span>
+    </div>
+    <div class="cr"><span class="cl">Categoria</span><span class="cv" id="qct"></span></div>
+    <div class="cr"><span class="cl">&#128737; Garantia</span><span class="cv" id="qgar"></span></div>
+    <div class="cw" id="qcw" style="display:none"><span class="cwl">&#127912; cor</span><div class="cl2" id="qcl"></div></div>
+    <div class="chg" onclick="qClr()">&#9998; trocar modelo</div>
+  </div>
+
+  <div id="qres" style="display:none">
+    <div class="sc">&#128202; valores ao cliente</div>
+    <div class="rg">
+      <div class="mt wd mg"><div class="ml">PRE&Ccedil;O &Agrave; VISTA</div><div class="mv" id="rav"></div><div class="ms">pre&ccedil;o final, sem desconto</div></div>
+      <div class="mt wd mb"><div class="ml">&#128188; SUA COMISS&Atilde;O NESTA VENDA</div><div class="mv" id="rcom"></div><div class="ms">simulado no n&iacute;vel selecionado. PIX em at&eacute; 48h ap&oacute;s entrega e pagamento compensado</div></div>
+    </div>
+    <div class="sc">&#128198; parcelamento</div>
+    <div class="pd">
+      <div class="pc"><div class="pt">12 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="p12p"></span></div><div class="pr"><span class="pl">Total</span><span id="p12t"></span></div></div>
+      <div class="pc"><div class="pt">18 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="p18p"></span></div><div class="pr"><span class="pl">Total</span><span id="p18t"></span></div></div>
+    </div>
+    <button class="btn bpr" onclick="qWA()">&#128203; copiar WhatsApp (&agrave; vista + 12x + 18x)</button>
+    <div class="sc">&#128203; todas as parcelas</div>
+    <div class="ptw"><div class="pth"><span>Prazo</span><span>Parcela</span><span>Total</span></div><div id="qpr"></div></div>
+
+    <div class="sc">&#128230; montar pedido</div>
+    <div class="fi"><label>SEU NOME (CONSULTOR)</label><input type="text" id="fcons" placeholder="Seu nome"></div>
+    <div class="fi"><label>NOME DO CLIENTE</label><input type="text" id="fcli" placeholder="Nome do cliente"></div>
+    <div class="fi"><label>WHATSAPP DO CLIENTE</label><input type="tel" id="fwpp" placeholder="(21) 9...."></div>
+    <div class="fi"><label>FORMA DE PAGAMENTO</label><select id="fpag"><option value="av">&Agrave; vista</option></select></div>
+    <div class="fi"><label>BAIRRO DE ENTREGA (RIO)</label><input type="text" id="fbai" placeholder="Bairro"></div>
+    <button class="btn bor" onclick="qPed()">&#128230; copiar pedido para a Pitstop</button>
+    <div class="nota" style="margin-top:2px">O pedido vai para a Pitstop <b>antes</b> de o cliente pagar. A loja valida e gera o link de pagamento. Nunca prometa data de entrega. Qualquer d&uacute;vida, consulte a loja.</div>
+  </div>
+  <div id="qes" class="es"><div class="eb">&#129309;</div>Busque um modelo para cotar</div>
+</div></div>
+
+<!-- ABA UPGRADE -->
+<div class="pg" id="pg-u">
+<div class="w">
+  <div class="banner bre" id="bven2">&#9940; Tabela vencida. N&atilde;o cote e n&atilde;o feche. Fale com a Pitstop.</div>
+  <div class="banner bsem" id="bsem2">&#9888; Seminovo depende de <b>confirma&ccedil;&atilde;o e disponibilidade da loja</b>. Confirme com a Pitstop ANTES de apresentar ao cliente.</div>
+  <div class="nota"><b>Como funciona:</b> a avalia&ccedil;&atilde;o do aparelho usado &eacute; feita pela loja. Pe&ccedil;a o valor &agrave; Pitstop, digite abaixo e o site calcula a diferen&ccedil;a. Sem valor da loja por escrito, n&atilde;o apresente n&uacute;mero ao cliente. Qualquer d&uacute;vida, consulte a loja.</div>
+
+  <div class="sc">&#128241; aparelho que o cliente quer comprar</div>
+  <div class="sw"><input type="text" id="us" placeholder="Modelo novo..." autocomplete="off" oninput="uSrch(this.value)" onfocus="uFcs()"><span class="si" id="usi">&#8981;</span><button class="cb" id="ucb" onclick="uClr()">&#10005;</button></div>
+  <div class="dd" id="udd"></div>
+
+  <div class="card" id="ucard" style="display:none">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <span class="bdg" id="ubdg"></span>
+      <span style="font-size:15px;font-weight:600" id="unm"></span>
+    </div>
+    <div class="cr"><span class="cl">Categoria</span><span class="cv" id="uct"></span></div>
+    <div class="cr"><span class="cl">&#128737; Garantia</span><span class="cv" id="ugar"></span></div>
+    <div class="cr"><span class="cl">&Agrave; vista</span><span class="cv" style="color:var(--gr);font-weight:700" id="uav"></span></div>
+    <div class="cw" id="ucw" style="display:none"><span class="cwl">&#127912; cor</span><div class="cl2" id="ucl"></div></div>
+    <div class="chg" onclick="uClr()">&#9998; trocar</div>
+  </div>
+
+  <div class="sc">&#128242; entrada do cliente (avaliada pela loja)</div>
+  <div class="fi"><label>MODELO DO APARELHO USADO</label><input type="text" id="uusado" placeholder="Ex: iPhone 13 128GB" oninput="uCalc()"></div>
+  <div class="fi"><label>VALOR DE AVALIA&Ccedil;&Atilde;O INFORMADO PELA LOJA (R$)</label><input type="number" id="uaval" placeholder="0,00" inputmode="decimal" oninput="uCalc()"><span class="fhint">Esse n&uacute;mero vem da Pitstop, por escrito. Voc&ecirc; n&atilde;o avalia aparelho.</span></div>
+
+  <div id="ures" style="display:none">
+    <div id="udb"></div>
+    <div class="rg"><div class="mt wd mb"><div class="ml">&#128188; SUA COMISS&Atilde;O NESTA VENDA</div><div class="mv" id="ucom"></div><div class="ms">simulado no n&iacute;vel selecionado. PIX em at&eacute; 48h ap&oacute;s entrega e pagamento compensado</div></div></div>
+    <div id="upw" style="display:none">
+      <div class="sc">&#128198; diferen&ccedil;a parcelada</div>
+      <div class="pd">
+        <div class="pc"><div class="pt">12 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="u12p"></span></div><div class="pr"><span class="pl">Total</span><span id="u12t"></span></div></div>
+        <div class="pc"><div class="pt">18 vezes</div><div class="pr"><span class="pl">Parcela</span><span id="u18p"></span></div><div class="pr"><span class="pl">Total</span><span id="u18t"></span></div></div>
+      </div>
+      <div class="sc">&#128203; todas as parcelas</div>
+      <div class="ptw"><div class="pth"><span>Prazo</span><span>Parcela</span><span>Total</span></div><div id="upr"></div></div>
+    </div>
+    <button class="btn bpr" onclick="uWA()">&#128203; copiar WhatsApp (proposta de upgrade)</button>
+
+    <div class="sc">&#128230; montar pedido</div>
+    <div class="fi"><label>SEU NOME (CONSULTOR)</label><input type="text" id="gcons" placeholder="Seu nome"></div>
+    <div class="fi"><label>NOME DO CLIENTE</label><input type="text" id="gcli" placeholder="Nome do cliente"></div>
+    <div class="fi"><label>WHATSAPP DO CLIENTE</label><input type="tel" id="gwpp" placeholder="(21) 9...."></div>
+    <div class="fi"><label>FORMA DE PAGAMENTO DA DIFEREN&Ccedil;A</label><select id="gpag"><option value="av">&Agrave; vista</option></select></div>
+    <div class="fi"><label>BAIRRO DE ENTREGA (RIO)</label><input type="text" id="gbai" placeholder="Bairro"></div>
+    <button class="btn bor" onclick="uPed()">&#128230; copiar pedido para a Pitstop</button>
+  </div>
+  <div id="ues" class="es"><div class="eb">&#128260;</div>Selecione o modelo novo e digite<br>a avalia&ccedil;&atilde;o informada pela loja</div>
+</div></div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tb tv on" id="tbv" onclick="swTab('v')"><span class="ti">&#129518;</span>VENDA</button>
+  <button class="tb tu" id="tbu" onclick="swTab('u')"><span class="ti">&#128260;</span>UPGRADE</button>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+let P=[],C={},VENC=false;
+let SEL={i:-1,cor:'',pv:0,pp:0,nm:'',cat:'',tp:''};
+let USEL={i:-1,cor:'',pv:0,pp:0,nm:'',cat:'',tp:''};
+
+/* ===== NIVEL (escada C1/C2/C3) ===== */
+const NIVEIS=['Embaixador','C1','C2','C3'];
+let NIVEL='C1';
+try{const s=localStorage.getItem('pit_nivel');if(NIVEIS.includes(s))NIVEL=s;}catch(e){}
+function renderNiv(){
+  document.getElementById('nivs').innerHTML=NIVEIS.map(n=>
+    '<button class="nivb'+(n===NIVEL?' ag':'')+'" onclick="setNiv(\''+n+'\')">'+(n==='Embaixador'?'Emb.':n)+'</button>').join('');
+}
+function setNiv(n){
+  if(!NIVEIS.includes(n))return;
+  NIVEL=n;try{localStorage.setItem('pit_nivel',n);}catch(e){}
+  renderNiv();
+  if(SEL.pv)document.getElementById('rcom').textContent=comTxt(SEL.cat,SEL.tp);
+  if(USEL.pv)uCalc();
+}
+function com(cat,tp){
+  const t=C.comissao&&C.comissao[NIVEL];if(!t)return null;
+  const tab=(tp==='Lacrado')?t.lacrado:t.seminovo;
+  if(!tab||typeof tab[cat]!=='number')return null;
+  return tab[cat];
+}
+function comTxt(cat,tp){const v=com(cat,tp);return v===null?'Consultar loja':fmt(v);}
+function avisoSem(tp){
+  const on=(tp==='Seminovo');
+  ['bsem','bsem2'].forEach(id=>{const e=document.getElementById(id);if(e)e.className='banner bsem'+(on?' on':'');});
+}
+
+function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function r2(v){return Math.round(v*100)/100}
+function PB(v){return v>0?v+C.pb:v}
+function gar(tp){return tp==='Lacrado'?'1 ano':'3 meses'}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast on';setTimeout(()=>t.className='toast',2500)}
+function cp(txt,m){if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast(m));}else{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast(m);}}
+function swTab(id){['v','u'].forEach(x=>{document.getElementById('tb'+x).className='tb t'+x+(x===id?' on':'');document.getElementById('pg-'+x).className='pg'+(x===id?' on':'');});}
+function checkValidade(){
+  const s=document.getElementById('selo');
+  if(!C.validade){s.textContent='sem validade';s.className='selo venc';VENC=true;return;}
+  s.textContent='valida ate '+C.validade;
+  const m=C.validade.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m)return;
+  const lim=new Date(+m[3],+m[2]-1,+m[1],23,59,59);
+  if(new Date()>lim){VENC=true;s.className='selo venc';s.textContent='vencida em '+C.validade;document.getElementById('bven').className='banner bre on';document.getElementById('bven2').className='banner bre on';}
+}
+function bDD(q,ddId,fn){
+  const dd=document.getElementById(ddId);
+  const ql=q.toLowerCase().trim();
+  let fl=ql?P.filter(p=>p.n.toLowerCase().includes(ql)||p.c.toLowerCase().includes(ql)):P;
+  if(!fl.length){dd.innerHTML='<div class="ddi"><div class="ddn" style="color:var(--hi)">Sem resultado</div></div>';dd.className='dd on';return;}
+  const cats={};fl.forEach(p=>{(cats[p.c]=cats[p.c]||[]).push(p);});
+  let html='',tot=0;
+  Object.keys(cats).forEach(cat=>{
+    if(tot>=40)return;
+    html+='<div class="ddc">'+cat+'</div>';
+    cats[cat].forEach(p=>{
+      if(tot>=40)return;
+      const idx=P.indexOf(p);
+      const mn=Math.min(...p.cs.map(x=>x.pv));
+      html+='<div class="ddi" onclick="'+fn+'('+idx+')"><div class="ddn">'+p.n+' <span style="font-size:11px;color:var(--hi)">'+p.t+'</span></div><div class="ddm"><span class="ddp">'+fmt(mn)+'</span> &agrave; vista</div></div>';
+      tot++;
+    });
+  });
+  dd.innerHTML=html;dd.className='dd on';
+}
+function renderCores(p,idx,lid,wid,fn){
+  const l=document.getElementById(lid),w=document.getElementById(wid);
+  const varia=p.cs.some(x=>x.pv!==p.cs[0].pv);
+  l.innerHTML=p.cs.map((c,i)=>{
+    const tag=varia?' <span style="font-size:10px;color:var(--gr)">'+fmt(c.pv)+'</span>':'';
+    return'<button class="corb'+(i===0?' ag':'')+'" onclick="'+fn+'(this,'+idx+','+i+')"><span class="cdot" style="background:'+c.h+'"></span>'+c.n+tag+'</button>';
+  }).join('');
+  w.style.display='block';
+}
+/* ===== VENDA ===== */
+let qTO=null;
+function qSrch(v){document.getElementById('qcb').className=v?'cb on':'cb';document.getElementById('qsi').style.display=v?'none':'block';clearTimeout(qTO);qTO=setTimeout(()=>bDD(v,'qdd','qSel'),150);}
+function qFcs(){if(!document.getElementById('qs').value)bDD('','qdd','qSel');}
+function qSel(idx){
+  const p=P[idx];SEL={i:idx,cor:'',pv:0,pp:0,nm:p.n,cat:p.c,tp:p.t};
+  document.getElementById('qdd').className='dd';
+  document.getElementById('qs').value=p.n;
+  document.getElementById('qcb').className='cb on';
+  document.getElementById('qsi').style.display='none';
+  document.getElementById('qcard').style.display='block';
+  document.getElementById('qbdg').textContent=p.t;
+  document.getElementById('qbdg').className='bdg '+(p.t==='Lacrado'?'bdg-g':'bdg-o');
+  document.getElementById('qnm').textContent=p.n;
+  document.getElementById('qct').textContent=p.c;
+  document.getElementById('qgar').textContent=gar(p.t);
+  renderCores(p,idx,'qcl','qcw','qCC');
+  qAplica(p.cs[0]);
+}
+function qCC(btn,idx,ci){document.querySelectorAll('#qcl .corb').forEach(b=>b.className='corb');btn.className='corb ag';qAplica(P[idx].cs[ci]);}
+function qAplica(c){
+  SEL.cor=c.n;SEL.pv=c.pv;SEL.pp=c.pp;
+  document.getElementById('qes').style.display='none';
+  document.getElementById('qres').style.display='block';
+  document.getElementById('rav').textContent=fmt(SEL.pv);
+  document.getElementById('rcom').textContent=comTxt(SEL.cat,SEL.tp);
+  avisoSem(SEL.tp);
+  const b=PB(SEL.pp);
+  [12,18].forEach(n=>{const tot=r2(b*C.taxas[n]);document.getElementById('p'+n+'p').textContent=fmt(r2(tot/n));document.getElementById('p'+n+'t').textContent=fmt(tot);});
+  let rows='',opts='<option value="av">&Agrave; vista</option>';
+  for(let n=2;n<=18;n++){const tot=r2(b*C.taxas[n]);const par=r2(tot/n);rows+='<div class="ptr"><span class="pn">'+n+'x</span><span class="pp">'+fmt(par)+'</span><span class="ptot">'+fmt(tot)+'</span></div>';opts+='<option value="'+n+'">'+n+'x de '+fmt(par)+'</option>';}
+  document.getElementById('qpr').innerHTML=rows;
+  document.getElementById('fpag').innerHTML=opts;
+}
+function qWA(){
+  if(VENC){toast('Tabela vencida. Fale com a Pitstop.');return;}
+  if(!SEL.pv){toast('Selecione um modelo');return;}
+  const b=PB(SEL.pp);
+  const t12=r2(b*C.taxas[12]),p12=r2(t12/12),t18=r2(b*C.taxas[18]),p18=r2(t18/18);
+  const cor=SEL.cor&&SEL.cor!=='Padrao'?' \u00b7 '+SEL.cor:'';
+  cp('\ud83d\udcf1 *'+SEL.nm+cor+'* ('+SEL.tp+')\n\ud83d\udee1 Garantia: '+gar(SEL.tp)+'\n\n\ud83d\udcb0 \u00c0 vista: *'+fmt(SEL.pv)+'*\n\n\ud83d\udcc6 12x de '+fmt(p12)+'\n\ud83d\udcb3 Total: '+fmt(t12)+'\n\n\ud83d\udcc6 18x de '+fmt(p18)+'\n\ud83d\udcb3 Total: '+fmt(t18),'Copiado!');
+}
+function qPed(){
+  if(VENC){toast('Tabela vencida. Fale com a Pitstop.');return;}
+  if(!SEL.pv){toast('Selecione um modelo');return;}
+  const cons=document.getElementById('fcons').value.trim(),cli=document.getElementById('fcli').value.trim(),wpp=document.getElementById('fwpp').value.trim(),bai=document.getElementById('fbai').value.trim();
+  if(!cons||!cli||!wpp){toast('Preencha consultor, cliente e WhatsApp');return;}
+  const pg=document.getElementById('fpag').value;
+  let precoTxt,pagTxt;
+  if(pg==='av'){precoTxt=fmt(SEL.pv);pagTxt='\u00e0 vista';}
+  else{const n=+pg;const tot=r2(PB(SEL.pp)*C.taxas[n]);precoTxt=fmt(tot)+' ('+n+'x de '+fmt(r2(tot/n))+')';pagTxt=n+'x no cart\u00e3o';}
+  const cor=SEL.cor&&SEL.cor!=='Padrao'?' \u00b7 '+SEL.cor:'';
+  cp('PEDIDO \u00b7 '+cons+'\nCliente: '+cli+' \u00b7 '+wpp+'\nModelo: '+SEL.nm+cor+'\nCondi\u00e7\u00e3o: '+SEL.tp+(SEL.tp==='Seminovo'?' [PENDENTE DE CONFIRMACAO DA LOJA]':'')+'\nNivel informado pelo Consultor: '+NIVEL+'\nPre\u00e7o acordado: '+precoTxt+'\nPagamento: '+pagTxt+'\nEntrega: '+(bai||'a definir')+' \u00b7 data prometida ao cliente: NENHUMA\nTabela: v\u00e1lida at\u00e9 '+C.validade,'Pedido copiado! Envie no WhatsApp da Pitstop.');
+}
+function qClr(){
+  document.getElementById('qs').value='';document.getElementById('qdd').className='dd';
+  document.getElementById('qcard').style.display='none';document.getElementById('qcb').className='cb';
+  document.getElementById('qsi').style.display='block';document.getElementById('qcw').style.display='none';
+  document.getElementById('qres').style.display='none';document.getElementById('qes').style.display='block';
+  SEL={i:-1,cor:'',pv:0,pp:0,nm:'',cat:'',tp:''};
+  avisoSem('');
+}
+/* ===== UPGRADE ===== */
+let uTO=null;
+function uSrch(v){document.getElementById('ucb').className=v?'cb on':'cb';document.getElementById('usi').style.display=v?'none':'block';clearTimeout(uTO);uTO=setTimeout(()=>bDD(v,'udd','uSel'),150);}
+function uFcs(){if(!document.getElementById('us').value)bDD('','udd','uSel');}
+function uSel(idx){
+  const p=P[idx];USEL={i:idx,cor:'',pv:0,pp:0,nm:p.n,cat:p.c,tp:p.t};
+  document.getElementById('udd').className='dd';
+  document.getElementById('us').value=p.n;
+  document.getElementById('ucb').className='cb on';
+  document.getElementById('usi').style.display='none';
+  document.getElementById('ucard').style.display='block';
+  document.getElementById('ubdg').textContent=p.t;
+  document.getElementById('ubdg').className='bdg '+(p.t==='Lacrado'?'bdg-g':'bdg-o');
+  document.getElementById('unm').textContent=p.n;
+  document.getElementById('uct').textContent=p.c;
+  document.getElementById('ugar').textContent=gar(p.t);
+  renderCores(p,idx,'ucl','ucw','uCC');
+  uAplica(p.cs[0]);
+}
+function uCC(btn,idx,ci){document.querySelectorAll('#ucl .corb').forEach(b=>b.className='corb');btn.className='corb ag';uAplica(P[idx].cs[ci]);}
+function uAplica(c){USEL.cor=c.n;USEL.pv=c.pv;USEL.pp=c.pp;document.getElementById('uav').textContent=fmt(c.pv);uCalc();}
+function uCalc(){
+  const E=parseFloat(document.getElementById('uaval').value)||0;
+  const usado=document.getElementById('uusado').value.trim();
+  if(!USEL.pv||E<=0){document.getElementById('ures').style.display='none';document.getElementById('ues').style.display=USEL.pv?'none':'block';return;}
+  document.getElementById('ues').style.display='none';
+  document.getElementById('ures').style.display='block';
+  document.getElementById('ucom').textContent=comTxt(USEL.cat,USEL.tp);
+  avisoSem(USEL.tp);
+  const diff=Math.max(0,r2(USEL.pv-E));
+  const diffP=Math.max(0,r2(USEL.pp-E));
+  const cor=USEL.cor&&USEL.cor!=='Padrao'?' \u00b7 '+USEL.cor:'';
+  let rows='<div class="dbrow"><span class="dll">\ud83d\udcf1 '+USEL.nm+cor+' ('+USEL.tp+')</span><span class="dvv">'+fmt(USEL.pv)+'</span></div>';
+  rows+='<div class="dbrow"><span class="dll">\ud83d\udee1 Garantia</span><span class="dvv">'+gar(USEL.tp)+'</span></div>';
+  rows+='<div class="dbrow"><span class="dll">\ud83d\udcf2 Entrada: '+(usado||'aparelho usado')+' (avalia\u00e7\u00e3o da loja)</span><span class="dvv" style="color:var(--or)">\u2212 '+fmt(E)+'</span></div>';
+  document.getElementById('udb').innerHTML='<div class="db"><div class="dbh"><div class="dbht">\ud83d\udcca Resumo do Upgrade</div></div><div class="dbr">'+rows+'</div><div class="dbf"><div class="dfl">'+(diff<=0?'SEM DIFEREN\u00c7A A PAGAR':'DIFEREN\u00c7A \u00c0 VISTA')+'</div><div class="dfv">'+fmt(diff)+'</div></div></div>';
+  const upw=document.getElementById('upw');
+  let opts='<option value="av">\u00c0 vista</option>';
+  if(diff>0){
+    upw.style.display='block';
+    const b=PB(diffP);
+    [12,18].forEach(n=>{const tot=r2(b*C.taxas[n]);document.getElementById('u'+n+'p').textContent=fmt(r2(tot/n));document.getElementById('u'+n+'t').textContent=fmt(tot);});
+    let prows='';
+    for(let n=2;n<=18;n++){const tot=r2(b*C.taxas[n]);const par=r2(tot/n);prows+='<div class="ptr"><span class="pn">'+n+'x</span><span class="pp">'+fmt(par)+'</span><span class="ptot">'+fmt(tot)+'</span></div>';opts+='<option value="'+n+'">'+n+'x de '+fmt(par)+'</option>';}
+    document.getElementById('upr').innerHTML=prows;
+  }else{upw.style.display='none';}
+  document.getElementById('gpag').innerHTML=opts;
+}
+function uWA(){
+  if(VENC){toast('Tabela vencida. Fale com a Pitstop.');return;}
+  const E=parseFloat(document.getElementById('uaval').value)||0;
+  if(!USEL.pv||E<=0){toast('Selecione o modelo e a avalia\u00e7\u00e3o da loja');return;}
+  const usado=document.getElementById('uusado').value.trim()||'aparelho usado';
+  const diff=Math.max(0,r2(USEL.pv-E));
+  const diffP=Math.max(0,r2(USEL.pp-E));
+  const cor=USEL.cor&&USEL.cor!=='Padrao'?' \u00b7 '+USEL.cor:'';
+  let txt='\ud83d\udd04 *Proposta de Upgrade*\n\n\ud83d\udcf1 Novo: *'+USEL.nm+cor+'* ('+USEL.tp+')\n\ud83d\udee1 Garantia: '+gar(USEL.tp)+'\n\ud83d\udcf2 Entrada: '+usado+': *'+fmt(E)+'*\n\n';
+  if(diff<=0){txt+='\u2705 Sem diferen\u00e7a a pagar!';}
+  else{
+    const b=PB(diffP);
+    const t12=r2(b*C.taxas[12]),p12=r2(t12/12),t18=r2(b*C.taxas[18]),p18=r2(t18/18);
+    txt+='\ud83d\udcb3 Diferen\u00e7a: *'+fmt(diff)+'* \u00e0 vista\n\ud83d\udcc6 Ou 12x de '+fmt(p12)+' \u00b7 Total: '+fmt(t12)+'\n\ud83d\udcc6 Ou 18x de '+fmt(p18)+' \u00b7 Total: '+fmt(t18);
+  }
+  cp(txt,'Copiado!');
+}
+function uPed(){
+  if(VENC){toast('Tabela vencida. Fale com a Pitstop.');return;}
+  const E=parseFloat(document.getElementById('uaval').value)||0;
+  if(!USEL.pv||E<=0){toast('Selecione o modelo e a avalia\u00e7\u00e3o da loja');return;}
+  const cons=document.getElementById('gcons').value.trim(),cli=document.getElementById('gcli').value.trim(),wpp=document.getElementById('gwpp').value.trim(),bai=document.getElementById('gbai').value.trim();
+  if(!cons||!cli||!wpp){toast('Preencha consultor, cliente e WhatsApp');return;}
+  const usado=document.getElementById('uusado').value.trim()||'aparelho usado';
+  const diff=Math.max(0,r2(USEL.pv-E));
+  const diffP=Math.max(0,r2(USEL.pp-E));
+  const pg=document.getElementById('gpag').value;
+  let precoTxt,pagTxt;
+  if(pg==='av'){precoTxt=fmt(diff);pagTxt='\u00e0 vista';}
+  else{const n=+pg;const tot=r2(PB(diffP)*C.taxas[n]);precoTxt=fmt(tot)+' ('+n+'x de '+fmt(r2(tot/n))+')';pagTxt=n+'x no cart\u00e3o';}
+  const cor=USEL.cor&&USEL.cor!=='Padrao'?' \u00b7 '+USEL.cor:'';
+  cp('PEDIDO (UPGRADE) \u00b7 '+cons+'\nCliente: '+cli+' \u00b7 '+wpp+'\nModelo novo: '+USEL.nm+cor+'\nCondi\u00e7\u00e3o: '+USEL.tp+(USEL.tp==='Seminovo'?' [PENDENTE DE CONFIRMACAO DA LOJA]':'')+'\nNivel informado pelo Consultor: '+NIVEL+'\nEntrada: '+usado+' \u00b7 avalia\u00e7\u00e3o da loja: '+fmt(E)+'\nDiferen\u00e7a acordada: '+precoTxt+'\nPagamento: '+pagTxt+'\nEntrega: '+(bai||'a definir')+' \u00b7 data prometida ao cliente: NENHUMA\nTabela: v\u00e1lida at\u00e9 '+C.validade,'Pedido copiado! Envie no WhatsApp da Pitstop.');
+}
+function uClr(){
+  document.getElementById('us').value='';document.getElementById('udd').className='dd';
+  document.getElementById('ucard').style.display='none';document.getElementById('ucb').className='cb';
+  document.getElementById('usi').style.display='block';document.getElementById('ucw').style.display='none';
+  document.getElementById('ures').style.display='none';document.getElementById('ues').style.display='block';
+  USEL={i:-1,cor:'',pv:0,pp:0,nm:'',cat:'',tp:''};
+  avisoSem('');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.sw')&&!e.target.closest('.dd'))document.querySelectorAll('.dd').forEach(d=>d.className='dd');});
+function mostrarErro(msg){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0 0 auto 0;z-index:99999;background:#1a0505;border-bottom:2px solid #ef4444;color:#ef4444;padding:16px 18px;font:600 13px/1.55 -apple-system,sans-serif';
+  d.innerHTML='Erro ao carregar a tabela. Avise a Pitstop.<br><span style="font-weight:400;color:#f88">'+msg+'</span>';
+  document.body.appendChild(d);
+}
+function boot(){
+  if(typeof DADOS==='undefined'){mostrarErro('dados.js n\u00e3o carregou');return;}
+  if(!Array.isArray(DADOS.produtos)||!DADOS.produtos.length){mostrarErro('lista de produtos vazia');return;}
+  if(!DADOS.config||!DADOS.config.taxas||!DADOS.config.comissao){mostrarErro('config incompleta');return;}
+  if(!DADOS.config.comissao.C1||!DADOS.config.comissao.C1.lacrado){mostrarErro('config antiga: comissao sem escada C1/C2/C3');return;}
+  P=DADOS.produtos;C=DADOS.config;
+  checkValidade();
+  renderNiv();
+}
+</script>
+<script>
+(function(){
+  var bust=location.protocol==='file:'?'':'?v='+Date.now();
+  var s=document.createElement('script');
+  s.src='dados.js'+bust;
+  s.onload=function(){try{boot();}catch(err){mostrarErro(err.message);}};
+  s.onerror=function(){mostrarErro('Falha ao carregar dados.js');};
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

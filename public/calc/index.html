@@ -235,6 +235,9 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
 </style>
 </head>
 <body>
+<!-- Cobertura anti-flash: some so quando a calc do dono carrega (carregarPrecos).
+     Pro vendedor fica ate o redirect; pro login, a tela de login cobre por cima. -->
+<div id="calc-gate" style="position:fixed;inset:0;z-index:99990;background:#f5f7fa;display:flex;align-items:center;justify-content:center;font:800 20px/1 -apple-system,sans-serif;color:#0a1633;letter-spacing:-.4px">Pitstop Imports</div>
 <header>
   <div class="logo lv" id="hl">🧮</div>
   <div class="ht"><div class="hn" id="htt">Calculadora de Vendas</div><div class="hs">Pitstop Imports</div></div>
@@ -1383,6 +1386,20 @@ function boot(){
     try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
     esconderInternoSeNaoDono();
     botaoSair();
+    var g=document.getElementById('calc-gate'); if(g)g.remove();
+  }
+
+  // Roteia por papel apos login: 'dono' ve esta calc completa (custo/margem);
+  // qualquer outro papel (ou papel indefinido = default seguro) vai pra
+  // /calc/consultor/, que le so preco de venda (pv/pp) e nao tem custo nenhum.
+  async function rotearPorPapel(){
+    var papel=null;
+    try{
+      var u=(await sb.auth.getUser()).data.user;
+      if(u){ var pr=await sb.from('app_usuario').select('papel').eq('id',u.id).maybeSingle(); papel=pr.data&&pr.data.papel; }
+    }catch(e){ papel=null; }
+    if(papel==='dono'){ carregarPrecos(); }
+    else { location.replace('/calc/consultor/'); }
   }
 
   function mostrarLogin(){
@@ -1409,7 +1426,7 @@ function boot(){
       bt.disabled=false; bt.textContent='Entrar';
       if(res.error){ er.textContent='Nao foi possivel entrar: '+res.error.message; er.style.display='block'; return; }
       o.remove();
-      carregarPrecos();
+      rotearPorPapel();
     }
     bt.addEventListener('click',entrar);
     pw.addEventListener('keydown',function(ev){ if(ev.key==='Enter')entrar(); });
@@ -1418,7 +1435,7 @@ function boot(){
 
   var sess=null;
   try{ sess=(await sb.auth.getSession()).data.session; }catch(e){ sess=null; }
-  if(sess){ carregarPrecos(); } else { mostrarLogin(); }
+  if(sess){ rotearPorPapel(); } else { mostrarLogin(); }
 })();
 </script>
 </body>
