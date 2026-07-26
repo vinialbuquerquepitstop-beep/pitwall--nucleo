@@ -62,6 +62,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.2 11a2 2 0 0 1-2 1.8H7.2a2 2 0 0 1-2-1.8L4 7z" stroke-linejoin="round"/><path d="M8.5 7a3.5 3.5 0 0 1 7 0" stroke-linecap="round"/></svg>
         <span class="aba-txt">Vendas</span>
       </button>
+      <button class="aba aba-rara" id="abaNfs" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" stroke-linejoin="round"/><path d="M14 3v4h4" stroke-linejoin="round"/><path d="M9 12h6M9 16h4" stroke-linecap="round"/></svg>
+        <span class="aba-txt">Notas fiscais</span>
+      </button>
       <button class="aba aba-rara" id="abaClientes" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0" stroke-linecap="round"/></svg>
         <span class="aba-txt">Clientes</span>
@@ -250,6 +254,7 @@
       <div class="campo"><label for="fvPgto">Forma de pagamento</label><select id="fvPgto"><option value="">—</option><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="misto">Misto</option></select></div>
       <div class="campo"><label for="fvData">Data da venda</label><input id="fvData" type="date"></div>
       <div class="campo"><label for="fvNfNum">Número da NF</label><input id="fvNfNum" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="fvNfArq">Arquivo da NF (PDF ou foto)</label><input id="fvNfArq" type="file" accept="application/pdf,image/*,.xml"><span class="campo-nota">Sobe logo depois de a venda ser salva. Dá pra anexar depois, no card da venda.</span></div>
       <div class="campo"><label for="fvObs">Observação</label><input id="fvObs" type="text" autocomplete="off"></div>
 
       <div class="cad-acoes">
@@ -257,6 +262,20 @@
         <button id="btnCancelarVenda" class="btn-cad secundario">Cancelar</button>
       </div>
       <div id="fvErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <div id="painelNf" class="painel-cadastro oculto">
+      <h2>Nota fiscal</h2>
+      <p class="nf-alvo" id="nfAlvo"></p>
+      <div id="nfLista" class="nf-lista"></div>
+      <p class="cad-grupo">Anexar</p>
+      <div class="campo"><label for="nfArq">Arquivo (PDF ou foto)</label><input id="nfArq" type="file" accept="application/pdf,image/*,.xml"></div>
+      <div class="campo"><label for="nfNum">Número da NF</label><input id="nfNum" type="text" autocomplete="off"><span class="campo-nota">Opcional. Preenche o número da nota na venda se ainda estiver vazio.</span></div>
+      <div class="cad-acoes">
+        <button id="btnSalvarNf" class="btn-cad">Anexar NF</button>
+        <button id="btnFecharNf" class="btn-cad secundario">Fechar</button>
+      </div>
+      <div id="nfErro" class="cad-erro" role="alert"></div>
     </div>
 
     <div class="busca" id="blocoBusca">

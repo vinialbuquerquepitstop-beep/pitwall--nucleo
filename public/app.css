@@ -1114,3 +1114,55 @@ a{color:inherit}
 .cont-card .cont-tipo{display:flex;align-items:center;gap:5px;color:var(--tp)}
 .tp-ico{width:12px;height:12px;flex:0 0 auto;stroke:var(--tp);fill:none;stroke-width:1.7}
 .tipo-story,.tipo-reels,.tipo-feed,.tipo-carrossel,.tipo-outro{}
+
+/* ---------- NF: a nota fiscal da venda ----------
+   O arquivo mora em bucket privado; aqui so existe o estado (tem / falta) e a
+   acao. "Falta nota" e pendencia, entao usa a semantica de morno: nao e erro do
+   sistema (--erro), e trabalho que ainda nao foi feito. */
+.nf-linha{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin-top:8px;padding-top:7px;border-top:1px solid var(--line);
+}
+.nf-tem{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+.nf-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+/* .btn-acao nasce com flex:1 para preencher a linha em .card-acoes; aqui o
+   botao divide a linha com o rotulo de estado, entao nao cresce */
+.nf-linha .btn-acao,.nf-item-acoes .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px}
+.btn-acao.nf-pede{background:var(--morno-bg);border-color:var(--morno-linha);color:var(--morno-fg)}
+.btn-acao.nf-pede:hover{border-color:var(--morno);color:var(--morno-fg)}
+.nf-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin-top:8px;padding:8px 10px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+}
+.nf-item-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px}
+.nf-item-txt strong{font-size:12.5px;font-weight:500;color:var(--text);overflow-wrap:anywhere}
+.nf-item-txt span{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.02em}
+.nf-item-acoes{display:flex;gap:6px;flex:0 0 auto}
+.nf-vazio{
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.06em;
+  text-transform:uppercase;opacity:.7;padding:6px 0 2px;
+}
+.nf-alvo{font-family:var(--mono);font-size:11px;color:var(--dim);margin:-6px 0 12px;overflow-wrap:anywhere}
+.nf-lista{margin-bottom:6px}
+/* segmentos da aba: com nota x falta nota, com a contagem dentro do botao,
+   porque "12 notas" sem "3 vendas sem nota" ao lado mente por omissao */
+.nf-segs{display:flex;gap:6px;flex-wrap:wrap}
+.nf-seg{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  background:none;border:1px solid var(--line);border-radius:var(--radius-p);
+  padding:5px 11px;font-family:var(--body);font-size:12px;color:var(--dim);
+}
+.nf-seg span{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums;opacity:.75}
+.nf-seg:hover{color:var(--text);border-color:var(--line-forte);background:var(--surface)}
+.nf-seg.on{background:var(--accent-tint);border-color:var(--accent-linha);color:var(--accent)}
+.nf-seg.on span{opacity:1}
+.campo-nota{display:block;font-size:10.5px;color:var(--dim);margin-top:5px;line-height:1.45}
+.campo input[type=file]{padding:9px 11px;font-size:13px;background:var(--surface)}
+.campo input[type=file]::file-selector-button{
+  margin-right:10px;background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
+  border-radius:var(--radius-p);padding:5px 10px;font-family:var(--body);font-size:12px;cursor:pointer;
+}
