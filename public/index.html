@@ -223,7 +223,8 @@
       <div class="campo"><label for="fvTaxas">Taxas / maquininha (R$)</label><input id="fvTaxas" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="fv-lucro" id="fvLucro">lucro R$ 0,00</div>
 
-      <p class="cad-grupo">Cliente (opcional)</p>
+      <p class="cad-grupo">Cliente *</p>
+      <p class="cad-nota">Toda venda tem dono. Escolha quem já está na base ou digite o nome: o comprador vira cliente no mesmo ato.</p>
       <div class="campo"><label for="fvClienteBusca">Já está na base? Busque por nome ou WhatsApp</label><input id="fvClienteBusca" type="search" placeholder="Nome ou WhatsApp do cliente…" autocomplete="off"></div>
       <div id="fvClienteResultados" class="fv-cli-lista"></div>
       <div id="fvLeadStatus" class="fv-lead-status"></div>
@@ -262,6 +263,27 @@
         <button id="btnCancelarVenda" class="btn-cad secundario">Cancelar</button>
       </div>
       <div id="fvErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <!-- ---------- Dados do cliente (identidade: CPF, RG, endereço) ---------- -->
+    <div id="painelCliente" class="painel-cadastro oculto">
+      <h2 id="pcTitulo">Dados do cliente</h2>
+      <p class="cad-nota">É o que a nota fiscal e a entrega pedem. Fica no cadastro do cliente, não na venda: a pessoa é uma só e as vendas são várias.</p>
+      <p class="cad-grupo">Documentos</p>
+      <div class="campo"><label for="pcCpf">CPF</label><input id="pcCpf" type="text" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off"><span class="campo-nota">Conferido no dígito verificador. Em branco apaga o que estiver gravado.</span></div>
+      <div class="campo"><label for="pcRg">RG</label><input id="pcRg" type="text" autocomplete="off"></div>
+      <p class="cad-grupo">Endereço</p>
+      <div class="campo"><label for="pcCep">CEP</label><input id="pcCep" type="text" inputmode="numeric" placeholder="00000-000" autocomplete="off"></div>
+      <div class="campo"><label for="pcEndereco">Logradouro e número</label><input id="pcEndereco" type="text" placeholder="Rua das Laranjeiras, 100" autocomplete="off"></div>
+      <div class="campo"><label for="pcComplemento">Complemento</label><input id="pcComplemento" type="text" placeholder="apto 501" autocomplete="off"></div>
+      <div class="campo"><label for="pcBairro">Bairro</label><input id="pcBairro" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="pcCidade">Cidade</label><input id="pcCidade" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="pcUf">UF</label><input id="pcUf" type="text" maxlength="2" placeholder="RJ" autocomplete="off"></div>
+      <div class="cad-acoes">
+        <button id="btnSalvarCliente" class="btn-cad">Salvar dados</button>
+        <button id="btnCancelarCliente" class="btn-cad secundario">Cancelar</button>
+      </div>
+      <div id="pcErro" class="cad-erro" role="alert"></div>
     </div>
 
     <div id="painelNf" class="painel-cadastro oculto">

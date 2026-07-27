@@ -1166,3 +1166,57 @@ a{color:inherit}
   margin-right:10px;background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
   border-radius:var(--radius-p);padding:5px 10px;font-family:var(--body);font-size:12px;cursor:pointer;
 }
+
+/* ---------- Cliente: identidade e o vinculo com a venda ----------
+   Cliente e o lead que comprou, e a identidade (CPF, RG, endereco) mora nele,
+   nao na venda: a pessoa e uma so e as vendas sao varias.
+   Cadastro incompleto usa a MESMA semantica da NF que falta: morno (trabalho
+   pendente), nunca --erro (falha de sistema). Sem CPF e endereco nao sai nota,
+   entao a frase diz para que serve o dado em vez de so acusar o vazio. */
+.cad-nota{font-size:12.5px;color:var(--dim);line-height:1.5;margin:-6px 0 14px}
+.cli-ident{
+  display:flex;flex-direction:column;gap:3px;margin-top:8px;
+  padding-top:7px;border-top:1px solid var(--line);
+}
+.cli-doc{display:flex;gap:8px;align-items:baseline;min-width:0}
+.cli-doc-rot{
+  flex:0 0 62px;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.cli-doc-val{font-family:var(--mono);font-size:11.5px;color:var(--text);overflow-wrap:anywhere}
+.cli-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;margin-top:2px;
+}
+.cli-seg.pede{color:var(--morno-fg)}
+/* O agregado do CRM antigo nao tem lastro linha a linha: aparece rotulado e
+   apagado, para nunca ser lido como se fosse a soma das vendas registradas. */
+.cli-seg.herdado{opacity:.75}
+/* As vendas daquele cliente, dentro do card dele: e a ligacao visivel dos dois
+   lados (do outro, o card da venda leva de volta pro cadastro). */
+.cli-vendas{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.cli-venda-lin{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  padding:6px 10px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+}
+.cli-venda-code{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.04em}
+.cli-venda-mod{flex:1 1 auto;font-size:12.5px;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.cli-venda-val{font-family:var(--mono);font-size:12px;color:var(--text);font-variant-numeric:tabular-nums}
+.cli-venda-dt{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.venda-cli{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:8px;padding-top:7px;border-top:1px solid var(--line);
+}
+.venda-cli-code{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.04em}
+.venda-cli-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+/* mesmo motivo do .nf-linha: .btn-acao nasce com flex:1 para preencher a linha
+   em .card-acoes, e aqui ele divide espaco com o rotulo */
+.venda-cli .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px;margin-left:auto}
+.fv-cli-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;
+}
