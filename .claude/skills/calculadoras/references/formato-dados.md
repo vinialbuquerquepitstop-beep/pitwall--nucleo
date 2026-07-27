@@ -211,6 +211,36 @@ o consultor leem. Cor nova entra com hex plausivel e e conferida com o dono.
 
 ---
 
+## 4b. Mac e iPad: regras de faixa (implantadas em 27/07/2026)
+
+Mac e iPad quebravam o parse porque o nome canonico junta quatro coisas
+(`MacBook Air M4 13" 16/256GB` = linha, chip, polegada, RAM/SSD) e o fornecedor
+escreve em qualquer ordem. As faixas nao se cruzam, entao a leitura e determinista:
+
+| Numero | Faixa | E |
+|---|---|---|
+| RAM | 8, 16, 24, 32 (com `GB` ou antes de `Memoria`) | memoria |
+| Armazenamento | 128, 256, 512 GB, ou 1TB / 2TB | SSD |
+| Polegada | 11, 13, 14, 15, 16 sem `GB` (com `"`, entre parenteses, ou logo apos a linha) | tela |
+
+Padrao `16/512` (com ou sem `GB`) e sempre RAM/SSD nessa ordem.
+
+Deducoes seguras quando o fornecedor omite: **Air** e 13" (a 15" sempre vem escrita),
+**Neo** e 13" e 8GB de RAM, **Mac Mini** nao tem polegada. **MacBook Pro sem polegada e
+PENDENCIA**, nunca chute: 14 e 16 existem e a diferenca de preco e grande.
+
+`iPad A16 11"` e o MESMO produto que `iPad 11` (confirmado pelo dono em 27/07/2026).
+Consolidar no nome curto `iPad 11 <capacidade>`.
+
+**Trava de outlier**, obrigatoria nesta categoria: preco acima de 1.6x o menor da mesma
+combinacao entre fornecedores e descarte. Pegou um `iPad 11 128GB` lido a 5.100 quando o
+menor real era 2.570.
+
+Resultado medido na carga de 27/07/2026: 15 combinacoes, 35 precos, 2 pendencias, ambas
+o mesmo caso legitimo (MacBook Pro da Five Cell sem polegada).
+
+---
+
 ## 5. Normalizacao: como a lista do fornecedor vira nome canonico
 
 Regras de leitura, em ordem:
