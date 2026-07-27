@@ -5,6 +5,38 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 27/07/2026 (tarde) — Primeiro export real: e WhatsApp, nao Telegram
+
+O dono mandou `Downloads/27_7 WhatsApp Chat - FORNECEDORES PITS.zip`. Conteudo:
+`_chat.txt`, 348 KB, export do **WhatsApp** (iOS), nao do Telegram. Extrair sempre para o
+scratchpad, **nunca para dentro do repo**: e custo de fornecedor.
+
+Formato de linha: `[dd/mm/aa, hh:mm:ss] Remetente: texto`, ano com DOIS digitos, remetente
+com marcas invisiveis (U+202A/U+202C) que precisam ser removidas antes de agrupar.
+Mensagem multilinha continua nas linhas seguintes ate o proximo cabecalho.
+
+**O chat tem UM fornecedor, nao onze.** 157 mensagens de 03/06 a 27/07, tres remetentes:
+o fornecedor (137 msgs, 258 KB), a propria Pitstop (19) e o aviso do sistema. O
+fornecedor se identifica como "ATACADO E REVENDA DA RAPOSA", retirada em Niteroi.
+Amarrar ao catalogo de 11 fornecedores antes de gravar qualquer coisa.
+
+Layout da lista dele: secoes `*LACRADO*` e `*SEMINOVOS*`, uma linha por modelo no padrao
+`📲 MODELO CAPACIDADE 🎨 COR - 🔋XX% 💰 R$X.XXX,00`, varias cores por preco, as vezes
+varias unidades da mesma cor com baterias diferentes e preco unico.
+
+**Cobertura medida** com parser rustico de teste, sem calibrar: lista de 27/07 casou 27
+itens com 2 pendencias (93%); 21/07, 76%; 16/07, 72%; listas de junho, 0% (layout
+antigo, diferente). Media bruta das 8 listas: 46%. Ou seja: **o formato recente casa bem,
+o formato antigo nao casa nada.** Nao vale gastar parser com historico velho.
+
+Tres coisas que o modelo de dados nao absorve e viram decisao, nunca chute:
+1. **Bateria por unidade** (`🔋88%`). A calc guarda preco por cor, nao por unidade; o
+   array `bateria` do blob esta vazio. Seminovo de 84% e de 100% viram a mesma linha.
+2. **Observacao que muda o produto** ("C/ tela nova e mensagem", "PERFEITO", "com caixa").
+   Muda o preco e nao tem onde morar. Pendencia por definicao.
+3. **Modelo fora do catalogo** (ex.: iPhone 11 Pro Max 512GB apareceu e nao existe no
+   banco). Nao e falha de parse: e item novo, decisao do dono.
+
 ## 27/07/2026 — Nascimento da skill
 
 Contexto: o dono pediu o passo a passo de atualizacao das calculadoras e, ao ver o
