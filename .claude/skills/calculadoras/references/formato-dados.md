@@ -209,10 +209,26 @@ Regras de leitura, em ordem:
    `seminovo`, `usado`, `vitrine` -> `Seminovo` (confirmar `vitrine` uma vez).
 4. **Cor.** Casar contra a tabela acima, aceitando maiuscula/minuscula e acento faltando.
    Cor desconhecida vira pendencia; nunca inventar hex sem avisar.
-5. **Preco.** `4.299`, `4299`, `R$ 4.299,00` -> `4299`. `4299,99` -> `4299.99`.
+5. **Aparelho com "mensagem": DESCARTAR.** Decisao do dono em 27/07/2026. Aparelho com
+   peca trocada que faz o iOS exibir aviso de peca nao genuina nao e revendido pela
+   Pitstop. Linha que trouxer `mensagem`, `msg`, `aviso`, `peca nao genuina` ou
+   equivalente **sai da carga**: nao vira preco e nao vira pendencia, vira descarte.
+   Reportar so a contagem no diff, para o dono ver que existiram.
+
+   O efeito colateral e o que torna essa regra critica: e comum o mesmo modelo aparecer
+   duas vezes na mesma lista, um com mensagem e mais barato, outro sem e mais caro (visto
+   em 27/07: iPhone 15 Pro 128GB a 3200 "C/ tela nova e mensagem", e a 3550 "PERFEITO").
+   Como a derivacao usa o MENOR custo, deixar o barato entrar puxaria o preco de venda
+   para baixo em cima de um aparelho que a loja nao vende. **Descartar primeiro, calcular
+   o minimo depois.**
+
+   `tela nova` SEM mensagem nao e descarte automatico. Se o mesmo modelo, cor e condicao
+   vier com dois precos e nenhum tiver mensagem, e pendencia: o dono decide.
+
+6. **Preco.** `4.299`, `4299`, `R$ 4.299,00` -> `4299`. `4299,99` -> `4299.99`.
    Numero com condicao pendurada (`4200 a vista`, `so hoje`, `3 unidades`) e pendencia:
    a calc nao tem onde guardar condicao, e ignorar a condicao e mentir sobre o preco.
-6. **Fornecedor.** Vem do remetente/chat do export, nao do texto da mensagem. Fornecedor
+7. **Fornecedor.** Vem do remetente/chat do export, nao do texto da mensagem. Fornecedor
    fora da tabela das 11 pracas e pendencia: falta a praca `l`, que o validador exige.
 
 Toda pendencia vai numerada para o dono, com a linha original copiada, para ele resolver

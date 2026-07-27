@@ -191,6 +191,9 @@ curl -s https://flat-resonance-09ba.pitstopimports.workers.dev/calc/consultor/da
 6. Validade do consultor reposta em toda rodada.
 7. Ordem: banco primeiro, `dados.js` depois. Invertido, gera divergencia.
 8. Push e do dono. Deploy e provado por `curl`, nao por F5.
+9. Aparelho com "mensagem" (aviso de peca nao genuina) e DESCARTADO antes de qualquer
+   calculo de minimo. A loja nao revende. Ver a regra 5 de
+   `references/formato-dados.md`, que explica por que descartar depois nao serve.
 
 ---
 

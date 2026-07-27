@@ -29,6 +29,18 @@ itens com 2 pendencias (93%); 21/07, 76%; 16/07, 72%; listas de junho, 0% (layou
 antigo, diferente). Media bruta das 8 listas: 46%. Ou seja: **o formato recente casa bem,
 o formato antigo nao casa nada.** Nao vale gastar parser com historico velho.
 
+**Duas decisoes do dono, mesma data:**
+
+- **Bateria por unidade: adiar.** "Vale adicionar depois a opcao de colocar tambem as
+  baterias, nao agora." Entao a carga de hoje ignora o `🔋XX%` e o array `bateria` do
+  blob segue vazio. Quando entrar, e feature de tela e de modelo de dados (preco por
+  faixa de bateria), nao ajuste de parser.
+- **Aparelho com "mensagem": nao entra.** "Nao adicione modelos com mensagem." Aparelho
+  com peca trocada que faz o iOS avisar nao e revendido. Vira descarte, nao pendencia, e
+  o descarte acontece ANTES do calculo do menor custo, senao o item barato que a loja nao
+  vende puxa o preco de venda para baixo. Regra completa em `formato-dados.md`, item 5 da
+  normalizacao.
+
 Tres coisas que o modelo de dados nao absorve e viram decisao, nunca chute:
 1. **Bateria por unidade** (`🔋88%`). A calc guarda preco por cor, nao por unidade; o
    array `bateria` do blob esta vazio. Seminovo de 84% e de 100% viram a mesma linha.
