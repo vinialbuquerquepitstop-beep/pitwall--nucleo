@@ -228,8 +228,15 @@ Regras de leitura, em ordem:
 6. **Preco.** `4.299`, `4299`, `R$ 4.299,00` -> `4299`. `4299,99` -> `4299.99`.
    Numero com condicao pendurada (`4200 a vista`, `so hoje`, `3 unidades`) e pendencia:
    a calc nao tem onde guardar condicao, e ignorar a condicao e mentir sobre o preco.
-7. **Fornecedor.** Vem do remetente/chat do export, nao do texto da mensagem. Fornecedor
-   fora da tabela das 11 pracas e pendencia: falta a praca `l`, que o validador exige.
+7. **Fornecedor: vem do CABECALHO da mensagem, nunca do remetente.** Medido em
+   27/07/2026 e corrigido no mesmo dia: o chat `FORNECEDORES PITS` e um agregador de
+   listas ENCAMINHADAS. O remetente do WhatsApp e quase sempre o mesmo numero, entao
+   agrupar por remetente da a conclusao errada de "um fornecedor so". Quem identifica e a
+   primeira linha (`🦊 ATACADO E REVENDA DA RAPOSA`, `Quality`, `_ LBR IMPORTADOS_`,
+   `Cristiano`, `MELHOR DE CAXIAS`...). Duas listas seguidas com o mesmo link de grupo no
+   rodape sao do MESMO fornecedor, partidas em duas mensagens (ex.: seminovos e lacrados).
+   Fornecedor que nao casar com a tabela das pracas e pendencia: falta a praca `l`, que o
+   validador exige.
 
 Toda pendencia vai numerada para o dono, com a linha original copiada, para ele resolver
 em bloco. Pendencia nunca vira preco por conta propria.

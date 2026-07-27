@@ -15,12 +15,16 @@ Formato de linha: `[dd/mm/aa, hh:mm:ss] Remetente: texto`, ano com DOIS digitos,
 com marcas invisiveis (U+202A/U+202C) que precisam ser removidas antes de agrupar.
 Mensagem multilinha continua nas linhas seguintes ate o proximo cabecalho.
 
-**O chat tem UM fornecedor, nao onze.** 157 mensagens de 03/06 a 27/07, tres remetentes:
-o fornecedor (137 msgs, 258 KB), a propria Pitstop (19) e o aviso do sistema. O
-fornecedor se identifica como "ATACADO E REVENDA DA RAPOSA", retirada em Niteroi.
-Amarrar ao catalogo de 11 fornecedores antes de gravar qualquer coisa.
+**ERRO QUE EU COMETI, corrigido no mesmo dia: agrupei por remetente e concluí "um
+fornecedor so".** Falso. O chat e um AGREGADOR de listas encaminhadas: o remetente do
+WhatsApp e quase sempre o mesmo numero, e quem identifica o fornecedor e o **cabecalho**
+da mensagem. Medido depois da correcao: **104 listas** no periodo, **13 no dia 27/07**,
+de pelo menos 13 fornecedores distintos. Licao: neste export, agrupar por remetente e
+uma leitura sem sentido. Sempre agrupar pelo cabecalho, e conferir o link de grupo no
+rodape para juntar listas partidas em duas mensagens.
 
-Layout da lista dele: secoes `*LACRADO*` e `*SEMINOVOS*`, uma linha por modelo no padrao
+Layout tipico (exemplo da Raposa): secoes `*LACRADO*` e `*SEMINOVOS*`, uma linha por
+modelo no padrao
 `📲 MODELO CAPACIDADE 🎨 COR - 🔋XX% 💰 R$X.XXX,00`, varias cores por preco, as vezes
 varias unidades da mesma cor com baterias diferentes e preco unico.
 
