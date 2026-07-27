@@ -2,6 +2,11 @@
 
 Escrito em 27/07/2026. Estado medido nesta data, nao lembrado.
 
+> Este documento e a versao para LER. A fonte operacional de record e a skill
+> `.claude/skills/calculadoras/`, que o Claude carrega sozinho quando voce cola uma lista
+> de fornecedor. Se os dois divergirem, a skill esta certa: e ela que tem a regra de
+> auto-atualizacao a cada mudanca.
+
 ---
 
 ## 1. Mapa: quais calculadoras existem

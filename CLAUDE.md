@@ -18,7 +18,7 @@ aponte para arquivo inexistente.
    ANTES de escrever CSS. Ela e a referencia de record, aprovada pelo dono.
 4. So entao abrir a skill do dominio do pedido.
 
-Nota sobre skills: hoje sao SEIS em `.claude/skills/`, todas COMPLETAS. As tres do
+Nota sobre skills: hoje sao SETE em `.claude/skills/`, todas COMPLETAS. As tres do
 nucleo do produto:
 - `pitwall-nucleo` (backend e frontend do sistema novo: Supabase, RLS, regua, deploy),
 - `pitwall-conteudo` (pipeline Notion -> Pit Wall: cards, sync, Vetores, auditoria),
@@ -29,6 +29,12 @@ E tres adicionadas depois da v25:
   braco propositivo Evolucao & Propostas; 4 `references/`),
 - `apple-strategist` (estrategia de revenda Apple no varejo local),
 - `socialmedia` (planejamento e CRM de Instagram).
+
+E uma criada em 27/07/2026:
+- `calculadoras` (alimentacao de preco das duas calcs ativas: `/calc/` do dono, que le
+  `calc_dados` no Supabase, e `/calc/consultor/`, que le o `dados.js` do repo; 4
+  `references/`). O gatilho principal e o dono colar export de chat ou lista de
+  fornecedor. A skill tem regra propria de auto-atualizacao a cada mudanca de caminho.
 
 Conferido em 16/07/2026: os 8 `references/` que a `pitwall-nucleo/SKILL.md` pede
 existem e tem conteudo (`invariantes.md` 126 linhas, `modelo-de-dados.md` 117,
