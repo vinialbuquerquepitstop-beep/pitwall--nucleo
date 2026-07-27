@@ -134,6 +134,21 @@ normalizacao acontece no parse, nunca no arquivo final.
 | FMATA | Centro — RJ | 16 |
 | Real Comércio | Centro — RJ | 11 |
 
+Tres entraram em 27/07/2026, aprovados pelo dono, ainda sem carga no banco:
+
+| Fornecedor (`f`) | Praca (`l`) | Como se identifica na lista |
+|---|---|---|
+| Raposa | Niterói — RJ | `ATACADO E REVENDA DA RAPOSA`, retirada Niteroi |
+| DG Jacarepaguá | Taquara — RJ | `DG Jacarepaguá`, retirada Taquara |
+| Rafael | Barra da Tijuca — RJ | `Fornecedor Rafael Barra da Tijuca` |
+
+Cabecalhos que enganam, ja resolvidos: `MELHOR DE CAXIAS` e **Five Cell**;
+`ATENÇÃO! NÃO TROCAMOS APARELHO SEM OS SELOS` e `TABELA ATUALIZADA - dd/mm` sao as duas
+partes da lista da **MP Imports** (confirmado pelo dono em 27/07/2026); `Charles revel`,
+`REVEL IMPORTS` e `APARELHOS AMERICANOS` sao **Revel**; `Fábio souza`, `davi fabio` e
+`Fábio Sousa davi Sobral` sao **Davi/Fábio**; `Júnior recreio` e `Recreio` sao **Júnior**.
+`CHIQ CELL` aparece no chat e **nao esta no banco**: pendencia ate o dono decidir.
+
 Acentos e o travessao das pracas sao valores reais do sistema: copiar exato.
 
 ### iPhone (66 nomes)
@@ -225,10 +240,17 @@ Regras de leitura, em ordem:
    `tela nova` SEM mensagem nao e descarte automatico. Se o mesmo modelo, cor e condicao
    vier com dois precos e nenhum tiver mensagem, e pendencia: o dono decide.
 
-6. **Preco.** `4.299`, `4299`, `R$ 4.299,00` -> `4299`. `4299,99` -> `4299.99`.
+6. **Paralelo e replica: DESCARTAR.** Decisao do dono em 27/07/2026 ("tire o fone
+   paralelo"). A Pitstop vende Apple original; produto paralelo na tabela de custo
+   contamina a comparacao de menor preco. Sinais: `1ª linha`, `primeira linha`,
+   `réplica`, `similar`, `genérico`, e **preco cotado em dolar** (`$69,99`), que nas
+   listas observadas so aparece em item paralelo. Descarte, com contagem reportada no
+   diff.
+
+7. **Preco.** `4.299`, `4299`, `R$ 4.299,00` -> `4299`. `4299,99` -> `4299.99`.
    Numero com condicao pendurada (`4200 a vista`, `so hoje`, `3 unidades`) e pendencia:
    a calc nao tem onde guardar condicao, e ignorar a condicao e mentir sobre o preco.
-7. **Fornecedor: vem do CABECALHO da mensagem, nunca do remetente.** Medido em
+8. **Fornecedor: vem do CABECALHO da mensagem, nunca do remetente.** Medido em
    27/07/2026 e corrigido no mesmo dia: o chat `FORNECEDORES PITS` e um agregador de
    listas ENCAMINHADAS. O remetente do WhatsApp e quase sempre o mesmo numero, entao
    agrupar por remetente da a conclusao errada de "um fornecedor so". Quem identifica e a

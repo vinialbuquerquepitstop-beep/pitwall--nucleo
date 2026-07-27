@@ -5,6 +5,29 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 27/07/2026 (carga) — Duas armadilhas de parse que viraram preco falso
+
+Ambas foram pegas pela trava de variacao acima de 15%, antes de gravar. Sem ela, teriam
+entrado em silencio. **A trava nao e burocracia: e o unico ponto onde erro de leitura
+aparece.**
+
+1. **Numero dentro de URL vira preco.** O link `chat.whatsapp.com/FJVlVp2TEI3434LI9aYqpL`
+   entregou `3434` para o bloco aberto acima dele: iPhone 17 Pro Max 512GB registrado a
+   R$ 3.434, queda falsa de 60% sobre 8.600. Regra: **linha com `http`, `wa.me` ou `.com`
+   nao tem preco.** Idem para telefone no padrao `(21) 9xxxx-xxxx`.
+
+2. **Modelo + capacidade colados viram preco.** `🍎13 256 eSIM lacrado` (iPhone 13, 256GB)
+   virou **R$ 13.256** nas listas do Cristiano e da Quality, porque o regex aceitava espaco
+   como separador de milhar. Regra: **separador de milhar so por PONTO** (`3.250,00`),
+   nunca por espaco. Sintoma: preco de iPhone acima de 9 mil quando o teto real do
+   catalogo e ~10.300 no 17 Pro Max 1TB.
+
+Verificacao barata que pega os dois: conferir a **faixa de preco** do que foi parseado.
+Se o minimo cair abaixo de ~900 ou o maximo passar de ~10.500 em iPhone, tem erro de
+leitura, nao promocao.
+
+---
+
 ## 27/07/2026 (tarde) — Primeiro export real: e WhatsApp, nao Telegram
 
 O dono mandou `Downloads/27_7 WhatsApp Chat - FORNECEDORES PITS.zip`. Conteudo:
