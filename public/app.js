@@ -428,18 +428,57 @@ if(x.cidade)p.push(x.cidade+(x.uf?"/"+x.uf:""));
 else if(x.uf)p.push(x.uf);
 if(x.cep)p.push("CEP "+cliFmtCep(x.cep));
 return p.join(" · ")}
-// Falta de CPF/endereco e trabalho pendente (morno), nao falha de sistema (erro):
-// e o mesmo criterio do "SEM NOTA FISCAL". A frase diz PARA QUE serve o dado.
+// As TRES linhas aparecem sempre, mesmo vazias: a aba Clientes tem que CONTER
+// CPF, RG e endereco para que se veja o que falta sem abrir nada. Linha vazia
+// vira um "adicionar" que abre o painel ja naquele cliente, entao o campo em
+// branco e o proprio caminho de preenchimento, nao so uma acusacao.
+// Falta de dado e trabalho pendente (morno), nunca falha de sistema (--erro):
+// mesmo criterio do "SEM NOTA FISCAL".
+function cliDocLinha(rot,val,id){
+return '<div class="cli-doc"><span class="cli-doc-rot">'+rot+"</span>"+
+(val?'<span class="cli-doc-val">'+c(val)+"</span>"
+:'<button class="cli-doc-add" data-acao="cli-dados" data-id="'+c(id)+'">adicionar</button>')+"</div>"}
 function cliIdent(x){
-var l=[],en=cliEndereco(x);
-if(x.cpf)l.push('<div class="cli-doc"><span class="cli-doc-rot">CPF</span><span class="cli-doc-val">'+c(cliFmtCpf(x.cpf))+"</span></div>");
-if(x.rg)l.push('<div class="cli-doc"><span class="cli-doc-rot">RG</span><span class="cli-doc-val">'+c(x.rg)+"</span></div>");
-if(en)l.push('<div class="cli-doc"><span class="cli-doc-rot">endereço</span><span class="cli-doc-val">'+c(en)+"</span></div>");
-var falta=[];
+var en=cliEndereco(x),falta=[];
+// o RG nao entra na cobranca: quem trava a nota fiscal e o CPF e o endereco
 if(!x.cpf)falta.push("CPF");
 if(!en)falta.push("endereço");
-if(falta.length)l.push('<div class="cli-falta">Falta '+c(falta.join(" e "))+" para emitir nota fiscal</div>");
-return '<div class="cli-ident">'+l.join("")+"</div>"}
+return '<div class="cli-ident">'+
+cliDocLinha("CPF",x.cpf?cliFmtCpf(x.cpf):"",x.id)+
+cliDocLinha("RG",x.rg||"",x.id)+
+cliDocLinha("endereço",en,x.id)+
+(falta.length?'<div class="cli-falta">Falta '+c(falta.join(" e "))+" para emitir nota fiscal</div>":"")+
+"</div>"}
+// Cliente nao deixa de ser lead: perfil, status e quem indicou continuam valendo
+// depois da compra (e o que diz se cabe recompra, indicacao, pos-venda).
+function cliChips(x){
+var p=[];
+if(x.perfil)p.push('<span class="chip">'+c(s("perfil",x.perfil))+"</span>");
+if(x.status)p.push('<span class="chip st-'+c(x.status)+'">'+c(s("status",x.status))+"</span>");
+if("indicacao"===x.origem&&x.indicado_por)p.push('<span class="chip ind">Ind. por '+c(x.indicado_por)+"</span>");
+return p.length?'<div class="chips">'+p.join("")+"</div>":""}
+// Gaveta Detalhes: o resto do que a pessoa ja tinha como lead. Aprovada pelo
+// dono em 21/07/2026 (commit e6d797b) e perdida num rebase; volta aqui igual,
+// com Situacao vinda do v_cliente. So mostra linha que tem dado.
+function detCli(x){
+var r=[];
+function row(k,v){r.push('<div class="cli-det-row"><span class="cli-det-k">'+k+'</span><span class="cli-det-v">'+v+"</span></div>")}
+function dt(v){var d=String(v).split("-");return 3===d.length?d[2]+"/"+d[1]+"/"+d[0]:c(v)}
+if(x.aparelho_entrada)row("Troca",c(x.aparelho_entrada)+(x.upgrade_entrada?" (upgrade)":""));
+if(x.valor_oferta>0)row("Avaliação",brlV(x.valor_oferta));
+if(x.origem)row("Origem",c(s("origem",x.origem)));
+if(x.situacao)row("Situação",c(x.situacao));
+if(x.produto)row("Interesse",c(x.produto)+(x.condicao?" · "+c(s("condicao",x.condicao)):""));
+if(x.data_contato)row("Primeiro contato",dt(x.data_contato));
+if(x.ultima_resposta)row("Última resposta",dt(x.ultima_resposta));
+return r.length?'<button class="btn-clidet" data-acao="cli-detalhe" data-id="'+c(x.id||"")+'" aria-expanded="false">Detalhes</button><div class="cli-det" data-clidet>'+r.join("")+"</div>":""}
+function alternarDetalhe(card){
+var d=card&&card.querySelector?card.querySelector("[data-clidet]"):null;
+if(!d)return;
+var ab=d.className.indexOf("aberto")>=0;
+d.className="cli-det"+(ab?"":" aberto");
+var b=card.querySelector(".btn-clidet");
+if(b){b.setAttribute("aria-expanded",ab?"false":"true");b.textContent=ab?"Detalhes":"Ocultar"}}
 function cliFaixa(x){
 var p=[],nv=Number(x.vendas_qtd||0);
 p.push('<span class="cli-seg'+(nv?"":" pede")+'">'+(nv?nv+(nv>1?" vendas":" venda")+" · "+brlV(x.vendas_total):"sem venda registrada")+"</span>");
@@ -456,14 +495,20 @@ if(!meus.length)return"";
 meus=meus.slice().sort(function(a,b){return String(b.data_venda||"")<String(a.data_venda||"")?-1:1});
 return '<div class="cli-vendas">'+meus.map(function(v){
 return '<div class="cli-venda-lin"><span class="cli-venda-code">'+c(v.venda_code||"")+'</span><span class="cli-venda-mod">'+c(v.modelo_rotulo||"")+(v.capacidade?" "+c(v.capacidade):"")+'</span><span class="cli-venda-val">'+brlV(v.valor_venda)+"</span>"+(v.data_venda?'<span class="cli-venda-dt">'+c(fmtDia(v.data_venda))+"</span>":"")+"</div>"}).join("")+"</div>"}
+// Dois botoes no topo, e eles editam coisas diferentes: "Editar" e o cadastro de
+// LEAD (nome, telefone, produto, perfil), "Dados" e a identidade do CLIENTE
+// (CPF, RG, endereco). Juntar os dois num painel so misturaria o funil com a
+// nota fiscal.
 function cardCliente(x){
 var id=c(x.id),tel=f(x.whatsapp_digitos);
 var wa=x.whatsapp_digitos?'<a class="btn-wa" target="_blank" rel="noopener" href="https://wa.me/'+c(cliDig(x.whatsapp_digitos))+'">Abrir conversa</a>':'<div class="sem-tel">Sem telefone na base</div>';
 return '<article class="card cliente" data-lead="'+c(x.lead_code||"")+'">'+
-'<div class="card-topo"><div class="card-nome">'+c(x.nome||"")+'</div><div class="card-topo-dir"><div class="card-code">'+c(x.lead_code||"")+'</div><button class="btn-editar" data-acao="cli-dados" data-id="'+id+'">Dados</button></div></div>'+
+'<div class="card-topo"><div class="card-nome">'+c(x.nome||"")+'</div><div class="card-topo-dir"><div class="card-code">'+c(x.lead_code||"")+'</div><div class="card-topo-btns"><button class="btn-editar" data-acao="editar" data-id="'+id+'">Editar</button><button class="btn-editar" data-acao="cli-dados" data-id="'+id+'">Dados</button></div></div></div>'+
 (x.produto?'<div class="card-prod">'+c(x.produto)+"</div>":"")+
 (tel?'<div class="card-tel">'+c(tel)+"</div>":"")+
-cliFaixa(x)+cliIdent(x)+cliVendas(x.id)+
+cliFaixa(x)+cliIdent(x)+cliChips(x)+
+(x.observacoes?'<div class="obs">'+c(x.observacoes)+"</div>":"")+
+cliVendas(x.id)+detCli(x)+
 '<div class="card-acoes">'+wa+'<button class="btn-acao" data-acao="cli-venda" data-id="'+id+'">Registrar venda</button><button class="btn-acao" data-acao="historico" data-id="'+id+'">Histórico</button></div>'+
 '<div class="hist" data-hist></div></article>'}
 function cliDoSeg(lista,seg){
@@ -550,6 +595,7 @@ abrirPainelVenda(id)}
 // Roteador dos cliques da aba Clientes, chamado pelo delegado A antes do resto.
 function cliAcao(o,id,el){
 if("cli-seg"===o){cliSeg=el.getAttribute("data-seg")||"todos";renderClientes(E("lista"));return!0}
+if("cli-detalhe"===o){alternarDetalhe(el.closest?el.closest(".card"):null);return!0}
 if("cli-dados"===o){abrirPainelCliente(id);return!0}
 if("cli-venda"===o){abrirPainelVenda(id);return!0}
 if("cli-ver"===o){cliVerCliente(el);return!0}

@@ -1220,3 +1220,26 @@ a{color:inherit}
   font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
   letter-spacing:.06em;text-transform:uppercase;
 }
+
+/* Identidade sempre visivel no card: linha vazia vira "adicionar", que abre o
+   painel naquele cliente. Campo em branco e o caminho, nao so a acusacao. */
+.cli-doc-add{
+  background:none;border:0;padding:0;cursor:pointer;
+  font-family:var(--mono);font-size:11px;color:var(--morno-fg);
+  text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--morno-linha);
+}
+.cli-doc-add:hover{color:var(--accent);text-decoration-color:currentColor}
+.card-topo-btns{display:flex;gap:10px;align-items:center}
+/* gaveta Detalhes: o resto do que a pessoa ja tinha como lead (commit e6d797b,
+   aprovado em 21/07/2026, perdido num rebase e reposto aqui) */
+.btn-clidet{
+  background:0 0;border:none;color:var(--dim);font-family:var(--mono);font-size:11px;
+  padding:4px 0;margin-top:6px;cursor:pointer;text-decoration:underline;
+  text-underline-offset:2px;text-decoration-color:var(--line-forte);
+}
+.btn-clidet:hover{color:var(--accent);text-decoration-color:currentColor}
+.cli-det{display:none;flex-direction:column;gap:5px;margin-top:7px}
+.cli-det.aberto{display:flex}
+.cli-det-row{display:flex;gap:10px;font-size:12px;line-height:1.5}
+.cli-det-k{flex:0 0 96px;color:var(--dim);font-family:var(--mono);font-size:11px}
+.cli-det-v{color:var(--text)}

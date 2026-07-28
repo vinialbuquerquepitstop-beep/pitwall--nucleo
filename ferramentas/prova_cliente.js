@@ -32,6 +32,9 @@ const preludio = `
    'pcComplemento','pcBairro','pcCidade','pcUf','btnSalvarCliente'].forEach(function(id){CAMPOS[id]=novoCampo()});
   function E(id){return CAMPOS[id]||null}
   function I(m,e){TOASTS.push({msg:m,erro:!!e})}
+  var ROTULOS={perfil:{comprou:'Lead — Comprou'},status:{convertido:'Convertido'},
+    origem:{indicacao:'Indicação',instagram:'Instagram'},condicao:{lacrado:'Lacrado'}};
+  function s(dom,cod){return cod?(ROTULOS[dom]&&ROTULOS[dom][cod])||cod:''}
   function B(){RECARGAS++}
   function G(x){ABAS.push(x)}
   function fmtDia(a){return a?String(a):''}
@@ -48,6 +51,7 @@ const preludio = `
 
 const api = new Function(preludio + blocoVendas + blocoCliente + `
   return {cliFmtCpf,cliFmtCep,cliEndereco,cliIdent,cliFaixa,cliVendas,cardCliente,
+          cliChips,detCli,alternarDetalhe,cliDocLinha,
           cliDoSeg,filtCliBusca,carregarClientes,renderClientes,cliAcao,
           abrirPainelCliente,fecharPainelCliente,salvarCliente,fecharComVenda,
           cliVerCliente,vendaCliLinha,cardVenda,carregarVendas,
@@ -69,7 +73,10 @@ function ass(nome, cond, extra) {
 // --- dados de mentira, no formato exato do v_cliente / v_venda -------------
 const VICTOR = {
   id: 'L18', lead_code: 'LEAD-0018', nome: 'Victor Maia Dargains', whatsapp_digitos: '5521988887777',
-  produto: 'iPhone 17 Pro Max', perfil: 'comprou', data_nascimento: '1994-05-09',
+  produto: 'iPhone 17 Pro Max', condicao: 'lacrado', perfil: 'comprou', status: 'convertido',
+  origem: 'instagram', situacao: 'Negociação parada', observacoes: 'Prefere retirada no centro',
+  aparelho_entrada: 'iPhone 12', upgrade_entrada: true, valor_oferta: 2300,
+  data_contato: '2026-07-09', ultima_resposta: '2026-07-15', data_nascimento: '1994-05-09',
   cpf: '52998224725', rg: '12.345.678-9', cep: '22240000', endereco: 'Rua das Laranjeiras, 100',
   complemento: 'apto 501', bairro: 'Laranjeiras', cidade: 'Rio de Janeiro', uf: 'RJ',
   tem_cpf: true, tem_endereco: true, qtd_compras: null, valor_total: null,
@@ -110,20 +117,64 @@ const VENDAS = [
   ass('cliente sem endereco devolve vazio', api.cliEndereco(DIEGO) === '');
   ass('objeto nulo nao explode', api.cliEndereco(null) === '');
 
-  console.log('\n--- identidade no card ---');
+  console.log('\n--- identidade no card (sempre visivel) ---');
   const idV = api.cliIdent(VICTOR), idD = api.cliIdent(DIEGO);
   ass('CPF aparece formatado', idV.indexOf('529.982.247-25') >= 0);
   ass('RG aparece', idV.indexOf('12.345.678-9') >= 0);
   ass('endereco aparece', idV.indexOf('Laranjeiras') >= 0);
   ass('cadastro completo nao cobra nada', idV.indexOf('cli-falta') < 0);
+  ass('os TRES rotulos existem mesmo no cliente cheio',
+    idV.indexOf('>CPF<') >= 0 && idV.indexOf('>RG<') >= 0 && idV.indexOf('>endereço<') >= 0, idV);
+  ass('os TRES rotulos existem tambem no cliente vazio',
+    idD.indexOf('>CPF<') >= 0 && idD.indexOf('>RG<') >= 0 && idD.indexOf('>endereço<') >= 0, idD);
+  ass('campo vazio vira botao adicionar, que abre o painel naquele cliente',
+    (idD.match(/data-acao="cli-dados" data-id="L01"/g) || []).length === 3, idD);
+  ass('campo preenchido nao oferece adicionar',
+    idV.indexOf('cli-doc-add') < 0);
+  ass('RG vazio oferece adicionar mesmo com CPF e endereco cheios',
+    api.cliIdent({ id: 'z', cpf: '52998224725', endereco: 'Rua A, 1' }).indexOf('cli-doc-add') >= 0);
   ass('cadastro vazio cobra os dois, dizendo pra que serve',
     idD.indexOf('Falta CPF e endereço para emitir nota fiscal') >= 0, idD);
   ass('falta so o endereco quando o CPF existe',
     api.cliIdent({ cpf: '52998224725' }).indexOf('Falta endereço para emitir') >= 0);
+  ass('RG sozinho ausente NAO e cobrado (nao trava NF)',
+    api.cliIdent({ id: 'z', cpf: '52998224725', endereco: 'Rua A, 1' }).indexOf('cli-falta') < 0);
   ass('cobranca usa morno (cli-falta), nunca a classe de erro',
     idD.indexOf('cli-falta') >= 0 && idD.indexOf('erro') < 0);
   ass('nome hostil no endereco e escapado',
     api.cliIdent({ endereco: '<img src=x onerror=1>' }).indexOf('<img') < 0);
+
+  console.log('\n--- o cliente aproveita o que ja era lead ---');
+  const chips = api.cliChips(VICTOR);
+  ass('perfil vira chip com o rotulo do dicionario', chips.indexOf('Lead — Comprou') >= 0, chips);
+  ass('status vira chip com a classe certa', chips.indexOf('chip st-convertido') >= 0);
+  ass('indicacao mostra quem indicou',
+    api.cliChips({ origem: 'indicacao', indicado_por: 'Jessica' }).indexOf('Ind. por Jessica') >= 0);
+  ass('origem que nao e indicacao nao vira chip de indicacao',
+    api.cliChips({ origem: 'instagram' }).indexOf('Ind. por') < 0);
+  ass('lead sem nada nao ganha barra de chips vazia', api.cliChips({}) === '');
+  const det = api.detCli(VICTOR);
+  ass('gaveta traz Origem com rotulo legivel', det.indexOf('Origem') >= 0 && det.indexOf('Instagram') >= 0, det);
+  ass('gaveta traz Situação', det.indexOf('Negociação parada') >= 0);
+  ass('gaveta traz Interesse com a condicao', det.indexOf('iPhone 17 Pro Max · Lacrado') >= 0);
+  ass('gaveta traz Troca com a marca de upgrade', det.indexOf('iPhone 12 (upgrade)') >= 0);
+  ass('gaveta traz Avaliação em BRL', det.indexOf('R$ 2.300,00') >= 0);
+  ass('datas na gaveta em dd/mm/aaaa', det.indexOf('09/07/2026') >= 0, det);
+  ass('gaveta nasce fechada', det.indexOf('aria-expanded="false"') >= 0 && det.indexOf('cli-det aberto') < 0);
+  ass('cliente sem nenhum extra nao ganha o botao Detalhes', api.detCli({ id: 'z' }) === '');
+  // toggle puro, sem RPC: o mesmo comportamento aprovado na v34
+  const fakeCard = {
+    _det: { className: 'cli-det' }, _btn: { className: 'btn-clidet', textContent: 'Detalhes', attrs: {},
+      setAttribute: function (k, v) { this.attrs[k] = v } },
+    querySelector: function (sel) { return sel === '[data-clidet]' ? this._det : this._btn }
+  };
+  api.alternarDetalhe(fakeCard);
+  ass('primeiro toque abre a gaveta', fakeCard._det.className === 'cli-det aberto');
+  ass('botao vira Ocultar e anuncia expandido',
+    fakeCard._btn.textContent === 'Ocultar' && fakeCard._btn.attrs['aria-expanded'] === 'true');
+  api.alternarDetalhe(fakeCard);
+  ass('segundo toque fecha', fakeCard._det.className === 'cli-det' && fakeCard._btn.textContent === 'Detalhes');
+  ass('card sem gaveta nao quebra', (function () { try { api.alternarDetalhe({ querySelector: function () { return null } }); return true } catch (e) { return false } })());
 
   console.log('\n--- faixa: lastro x agregado herdado ---');
   const fxV = api.cliFaixa(VICTOR), fxD = api.cliFaixa(DIEGO);
@@ -149,6 +200,11 @@ const VENDAS = [
   const card = api.cardCliente(VICTOR);
   ass('card carrega o codigo do lead (chave estavel)', card.indexOf('data-lead="LEAD-0018"') >= 0);
   ass('botao Dados abre a identidade', card.indexOf('data-acao="cli-dados" data-id="L18"') >= 0);
+  ass('botao Editar (cadastro de lead) voltou pro card',
+    card.indexOf('data-acao="editar" data-id="L18"') >= 0, card.slice(0, 400));
+  ass('chips do lead aparecem no card', card.indexOf('Lead — Comprou') >= 0);
+  ass('observacao do lead aparece no card', card.indexOf('Prefere retirada no centro') >= 0);
+  ass('gaveta Detalhes aparece no card', card.indexOf('data-acao="cli-detalhe"') >= 0);
   ass('botao Registrar venda leva o cliente junto', card.indexOf('data-acao="cli-venda" data-id="L18"') >= 0);
   ass('Historico continua disponivel', card.indexOf('data-acao="historico"') >= 0 && card.indexOf('data-hist') >= 0);
   ass('classe .card mantem o delegado A funcionando', card.indexOf('class="card cliente"') >= 0);
@@ -276,6 +332,13 @@ const VENDAS = [
   ass('cli-dados e roteado', api.cliAcao('cli-dados', 'L18', {}) === true);
   ass('cli-venda leva o id do cliente',
     api.cliAcao('cli-venda', 'L18', {}) === true && api.espiar().ABERTO[0] === 'L18');
+  const cardFake = {
+    _det: { className: 'cli-det' }, _btn: { textContent: 'Detalhes', setAttribute: function () { } },
+    querySelector: function (sel) { return sel === '[data-clidet]' ? this._det : this._btn }
+  };
+  ass('cli-detalhe abre a gaveta pelo card mais proximo',
+    api.cliAcao('cli-detalhe', 'L18', { closest: function () { return cardFake } }) === true &&
+    cardFake._det.className === 'cli-det aberto');
   ass('acao de outro dominio nao e sequestrada', api.cliAcao('nova-venda', null, {}) === false);
   ass('acao desconhecida devolve false', api.cliAcao('xpto', null, {}) === false);
 
