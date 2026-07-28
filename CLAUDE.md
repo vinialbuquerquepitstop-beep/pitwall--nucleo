@@ -10,9 +10,9 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v37.md`. Conferir a pasta em vez de confiar nesta
-   linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026 e
-   no v35 ate 23/07/2026).
+   `handoff_migracao_pitwall_v42.md`. Conferir a pasta em vez de confiar nesta
+   linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026,
+   no v35 ate 23/07/2026 e no v37 ate 28/07/2026).
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
    ANTES de escrever CSS. Ela e a referencia de record, aprovada pelo dono.
@@ -303,3 +303,67 @@ se o PATCH passar.
 
 Registrar decisoes, nao so estado. Criar `docs/handoffs/handoff_migracao_pitwall_vNN.md`
 com a versao incrementada. O novo substitui os anteriores.
+
+---
+
+## A Torre: orquestracao do time de agentes (instalado em 28/07/2026)
+
+**A Torre NAO e um subagent.** A Torre e esta sessao principal mais este arquivo.
+Ela roteia, encadeia e cobra handoff. Subagent nao fala com subagent: cada um roda
+no proprio contexto e reporta so para ca. Quem encadeia e a Torre, colando o
+resultado de um no prompt do proximo.
+
+Agentes carregam no STARTUP. Criou ou editou `.claude/agents/*.md`, reinicie a
+sessao, senao o arquivo simplesmente nao existe para o Claude.
+
+### Roteamento (quem delego)
+
+- Schema, RLS, RPC, migration, cron, view, grant -> subagent `base`
+- Tela, layout, mobile, `app.js`/`app.css`, Worker -> subagent `vitrine`
+- Seguranca, isolamento de tenant, incidente, PII -> subagent `pit-guard`
+- Prova, regressao, criterio de aceite, "isso passa?" -> subagent `bandeira`
+- Log, metrica, alerta, "por que caiu" -> modo Painel (a Torre, por ora)
+- Deploy, backup, restore, dependencia, CI -> modo Box (a Torre, por ora)
+- Prioridade, roadmap, LGPD de politica, timing de SaaS -> modo Estrategista (idem)
+- Recorrente (semana, mes, trimestre, deploy) -> `/cadencia <periodo>`
+
+Ordem quando o pedido cruza dominio: Estrategista decide SE e QUANDO -> `pit-guard`
+modela a ameaca -> `base` / `vitrine` constroem -> `pit-guard` endurece -> `bandeira`
+prova -> deploy -> handoff.
+
+Painel, Box e Estrategista viram arquivo proprio em `.claude/agents/` so quando a
+fila daquele dominio passar a competir por atencao dentro da mesma sessao. Antes
+disso e modo, pelo invariante 17: nao construir superficie antes da demanda.
+
+### Escopo de ferramenta (a primeira linha de defesa)
+
+| Agente | Escreve no disco? | Escreve no banco? |
+|---|---|---|
+| `pit-guard` | so `Write` (handoff e SQL de harden como texto) | **nao** |
+| `base` | sim (`Edit`, `Write`) | **sim, unico com `apply_migration`** |
+| `vitrine` | sim, em `public/` | nao tem acesso ao banco |
+| `bandeira` | **nao** (sem `Edit`, sem `Write`) | so leitura |
+
+`apply_migration` e exclusivo do `base`: um unico ponto de escrita no schema e o
+que mantem a mudanca auditavel. `pit-guard` desenha o harden e o `base` aplica.
+A `bandeira` nao tem caminho de escrita nenhum: quem prova nao constroi, e o
+relatorio dela e gravado pela Torre.
+
+### Agente e skill: quem carrega o que
+
+O corpo do `.md` do agente carrega **papel e espinha**: missao, fronteira,
+invariantes, padroes de MCP, criterio de aceite, formato de handoff. **Fato de
+dominio nao entra no corpo**, vem da skill, senao passa a existir em dois lugares
+que divergem, que e exatamente como este arquivo ficou 17 versoes desatualizado.
+
+Medido em 28/07/2026, dentro de um subagent: **invocar a Skill carrega SO o corpo
+do `SKILL.md`. Os `references/` sao ponteiro, nao conteudo.** Quem so invoca a
+skill leu o resumo, nao a substancia. Por isso todo agente tem `Read` e o corpo
+manda abrir os `references/` por caminho. Prova: um subagent com a skill
+`pitwall-nucleo` carregada nao soube responder o formato do `lead_code`, quais
+perfis tem `respondido_freia = false`, nem o que e o passo 0.
+
+### Ao fim de todo processo
+
+Exigir o handoff do subagent que atuou e atualizar
+`docs/handoffs/handoff_indice_pitwall.md`.
