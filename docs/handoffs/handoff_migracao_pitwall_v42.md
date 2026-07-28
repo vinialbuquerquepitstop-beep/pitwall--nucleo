@@ -196,10 +196,7 @@ cadastro**.
    LEAD-0014 e LEAD-0003 divergem entre `perfil` e `qtd_compras`. Nao tocada: com
    `v_cliente` separando lastro de herdado, agora da pra decidir com o numero na
    mao.
-4. **A gaveta Detalhes do cliente (commit `e6d797b`, v34) NAO esta em `main`.**
-   Conferido com `git merge-base --is-ancestor`: perdida em algum rebase. O patch
-   esta salvo em `docs/patches/0001-feat-clientes-gaveta-Detalhes...`. Parte do
-   que ela mostrava (Troca, Avaliacao, Origem) segue fora do card novo.
+4. ~~A gaveta Detalhes do cliente nao esta em `main`.~~ **Resolvida na secao 9.**
 5. Arquivo orfao no bucket de NF (v41 item 2) e pendencias da v39 (vazamento do
    `dados.js` da Netlify, custo real exposto na `/calc/`) seguem abertas.
 
@@ -215,3 +212,51 @@ sessoes pelo OneDrive no meio do trabalho.
 
 Preview local: `node ferramentas/servir.js` -> `http://localhost:8788` (arquivo
 novo nesta sessao; serve o `public/` real e fala com o Supabase de producao).
+
+---
+
+## 9. Correcao dentro da propria sessao (commit `875db82`)
+
+O dono abriu a aba no ar e devolveu: *"ainda sem informacoes de cpf, rg e
+endereco. aba clientes deve conter, para ja adiantar o processo da aba venda"*.
+Duas falhas da primeira entrega, as duas minhas:
+
+1. **A identidade so aparecia quando havia dado.** Cliente vazio via a cobranca
+   (`Falta CPF e endereço...`) e nenhum campo. Ou seja: a aba nao CONTINHA os
+   dados, exibia a ausencia deles. Agora as tres linhas (CPF, RG, endereco)
+   existem sempre, e a linha vazia vira um botao **adicionar** que abre o painel
+   ja naquele cliente. O campo em branco virou o caminho de preenchimento.
+   RG ausente nao entra na cobranca: quem trava a nota fiscal e CPF e endereco.
+2. **O card perdeu o que a pessoa ja tinha como LEAD** quando a aba foi
+   reescrita. Voltaram os chips (perfil, status, indicado por), a observacao e o
+   botao **Editar** — que e coisa DIFERENTE de **Dados**: Editar mexe no cadastro
+   de lead (nome, telefone, produto, perfil), Dados mexe na identidade do cliente
+   (CPF, RG, endereco). Juntar num painel so misturaria funil com nota fiscal.
+
+Voltou tambem a **gaveta Detalhes** (Troca, Avaliacao, Origem, Situacao,
+Interesse, Primeiro contato, Ultima resposta), aprovada em 21/07/2026 no commit
+`e6d797b` e perdida num rebase; o patch estava parado em `docs/patches/`. Ganhou
+duas linhas novas (Situacao e Interesse) que o `v_cliente` agora carrega.
+
+Banco: migration `v_cliente_traz_situacao`. `l.situacao` entrou no **FIM** da
+lista de colunas porque `CREATE OR REPLACE VIEW` nao insere no meio (erro
+`42P16: cannot change name of view column`). `security_invoker` reconferido.
+
+Provas depois da correcao: **`prova_cliente.js` 109 assercoes** (era 81), 0
+falhas; `prova_nf` 54/0, `prova_metricas` 65/0, `prova_sessao` 18/0; `node
+--check` EXIT 0; carga do arquivo inteiro em VM OK.
+
+### Licao de deploy (vale para a proxima sessao)
+A Cloudflare serve **as duas versoes ao mesmo tempo** durante o rollout: medindo
+o `app.js` seis vezes seguidas vieram 103.209 e 90.676 bytes alternando. Conferir
+uma vez so mente. O jeito certo e repetir a leitura ate o tamanho estabilizar:
+
+```
+until [ "$(for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{size_download}\n" \
+  "https://flat-resonance-09ba.pitstopimports.workers.dev/app.js?cb=$RANDOM$i"; done \
+  | sort -u | wc -l)" = "1" ]; do sleep 10; done
+```
+
+Outra armadilha medida aqui: **`/index.html` responde 0 byte** no worker (a rota
+servida e `/`). Conferir marcador em `/index.html` da sempre "ausente", mesmo com
+o deploy correto. Medir pela raiz, com `curl -sL`.
