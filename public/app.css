@@ -800,15 +800,21 @@ a{color:inherit}
 .fila-lin{display:flex;flex-direction:column;gap:0;padding:8px 0;border-top:1px solid var(--line)}
 .dia-sec-cab+.fila-lin{border-top:none}
 .fila-lin-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fila-ident{display:flex;align-items:center;gap:7px;min-width:0;flex:1}
+/* .fila-ident tinha `flex:1`, ou seja base ZERO: a linha nunca quebrava, ela
+   espremia o bloco do nome abaixo do proprio conteudo, e ai o "Quente" saia
+   pintando POR CIMA do perfil ao lado. Medido em 31/07/2026 a 360px: 265px de
+   sobreposicao entre .fila-nivel e .fila-cad, letra sobre letra.
+   Com base real (170px) a linha QUEBRA antes de espremer, e o overflow fecha a
+   porta no caso limite. No desktop nada muda: o flex-grow continua enchendo. */
+.fila-ident{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 170px;overflow:hidden}
 .fila-ponto{width:8px;height:8px;border-radius:999px;flex:0 0 auto;background:var(--quente)}
 .fila-ponto.n-morno{background:var(--morno)}
 .fila-ponto.n-frio{background:var(--frio)}
 .fila-nome{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fila-nivel{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg)}
+.fila-nivel{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);flex:0 0 auto}
 .fila-nivel.n-morno{color:var(--morno-fg)}
 .fila-nivel.n-frio{color:var(--frio-fg)}
-.fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fila-atraso{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:999px;padding:1px 7px}
 .fila-sug{margin-left:auto}
 .fila-wa{flex:0 0 auto;padding:5px 12px;font-size:12px}
@@ -867,7 +873,15 @@ a{color:inherit}
    .abas usa position:fixed, entao escapa do flex e a .side vira barra de topo.
    ========================================================================== */
 @media (max-width:860px){
-  .app{grid-template-columns:1fr}
+  /* Os dois tokens da barra inferior moram AQUI, no .app, e nao no :root: sao
+     medida de layout de celular, nao paleta global, e o :root e guardado pela
+     secao 13 do validar.py (que reprovou, com razao, quando eles entraram la).
+     Existem para que a ALTURA da barra e o RESPIRO que o .conteudo reserva
+     saiam da MESMA fonte: enquanto eram dois numeros soltos (63 real contra 76
+     reservado) a barra cresceu sozinha e passou a cobrir o card.
+     --nav-alt = 6 (padding) + 50 (item) + 6 + 1 (borda). O
+     env(safe-area-inset-bottom) entra por fora, nos dois lugares. */
+  .app{grid-template-columns:1fr;--nav-item-h:50px;--nav-alt:63px}
   .side{
     position:sticky;top:0;z-index:40;height:auto;flex-direction:row;align-items:center;
     justify-content:space-between;gap:10px;padding:9px 14px;
@@ -881,45 +895,64 @@ a{color:inherit}
 
   /* .abas usa position:fixed, entao escapa do flex da .side e a barra de topo
      fica so com marca + avatar. Rotulo de grupo nao faz sentido na barra: some.
-     Decisao 7 (v29, edita a referencia v3): 8 abas dariam ~45px por item em
-     360px, abaixo do alvo de toque. Barra de 5 — Hoje, Fila, Todos, Conteúdo,
-     Mais — e as raras (Indicações, Captação, Dashboard, Rotina) sobem numa
-     segunda linha do grid quando o Mais abre. MESMOS botoes, mesmo DOM. */
+
+     Decisao 7 (v29) desenhou uma barra de 5. Depois entraram Vendas e Notas
+     fiscais e NINGUEM as mapeou aqui: o grid auto-posicionava as duas numa
+     linha extra, a barra ia de 57px para 109px, e como o .conteudo reservava
+     76px fixos ela passava a COBRIR o card. Medido em 31/07/2026 a 390px:
+     37 sobreposicoes, todas .aba-txt em cima de texto de conteudo.
+
+     O desenho novo tira a armadilha da classe, nao so o sintoma:
+     - a BARRA e a linha 3 e e a unica coisa curada por id (decisao do dono em
+       31/07/2026: 6 lugares, ninguem sai — 65px por botao a 390px, acima do
+       alvo de toque de 44px);
+     - a GAVETA sao as linhas 1 e 2, SEM placement nenhum: toda .aba-rara
+       auto-posiciona ali. Aba nova nunca mais cai fora do mapa, basta marcar
+       .aba-rara. O `#abaClientes{grid-area:1/1/2/6}` de largura inteira era
+       sobra da epoca de 8 abas e saiu.
+     - o respiro do .conteudo deixa de ser numero magico: sai de --nav-alt, o
+       mesmo token que dimensiona a linha da barra. ferramentas/diag_mobile.py
+       REPROVA se a barra ficar mais alta que o respiro. */
   .abas{
     position:fixed;left:0;right:0;bottom:0;z-index:50;
-    display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:var(--surface);
+    display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;background:var(--surface);
     border-top:1px solid var(--line);
     padding:6px 6px calc(6px + env(safe-area-inset-bottom));
   }
   #abaHoje{grid-area:3/1}
   #abaFila{grid-area:3/2}
   #abaTodos{grid-area:3/3}
-  #abaConteudo{grid-area:3/4}
-  .aba-mais{grid-area:3/5;display:flex}
+  #abaVendas{grid-area:3/4}
+  #abaConteudo{grid-area:3/5}
+  .aba-mais{grid-area:3/6;display:flex}
   .aba-rara{display:none}
-  #abaClientes{grid-area:1/1/2/6}
-  #abaIndicacoes{grid-area:2/1}
-  #abaCaptacao{grid-area:2/2}
-  #abaDash{grid-area:2/3}
-  #abaRotina{grid-area:2/4}
-  #abaCalc{grid-area:2/5}
-  .abas.mais-aberto{row-gap:8px}
-  .abas.mais-aberto .aba-rara{display:flex}
+  /* gaveta aberta: as raras ganham respiro e um fio que as separa da barra,
+     senao as tres linhas leem como um bloco so */
+  .abas.mais-aberto{row-gap:6px;padding-top:10px}
+  .abas.mais-aberto .aba-rara{display:flex;background:var(--bg);border:1px solid var(--line)}
+  /* na gaveta o rotulo pode ocupar duas linhas: ela e transitoria e a altura
+     dela nao entra no respiro do .conteudo. A 360px "Notas fiscais" virava
+     "Notas fisc…", e rotulo pela metade nao serve de navegacao. A BARRA segue
+     travada em uma linha, que e o que mantem --nav-alt honesto. */
+  .abas.mais-aberto .aba-rara .aba-txt{white-space:normal;line-height:1.25}
   .abas.mais-aberto .aba-mais{background:var(--accent-tint);color:var(--accent)}
   .nav-rot{display:none}
   .aba{
     position:relative;flex:1;flex-direction:column;justify-content:center;gap:3px;
     text-align:center;font-size:10px;padding:6px 2px;border-radius:var(--radius-p);
+    min-height:var(--nav-item-h);
   }
   .aba svg{width:19px;height:19px}
-  .aba-txt{flex:none}
+  /* uma linha SEMPRE: rotulo que quebra ("Fila do dia" virando tres linhas)
+     muda a altura da barra por baixo do pano, que e a raiz do bug acima */
+  .aba-txt{flex:none;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* no celular o contador vira ponto sobre o icone: nao ha largura pra pilula */
   .nav-badge{
     position:absolute;top:3px;left:calc(50% + 5px);padding:1px 4px;font-size:8px;line-height:1.3;
   }
 
   .conteudo{
-    padding:16px 14px calc(76px + env(safe-area-inset-bottom));
+    padding:16px 14px calc(var(--nav-alt) + 16px + env(safe-area-inset-bottom));
     gap:14px;max-width:none;
   }
   .topo-tit{font-size:21px}
