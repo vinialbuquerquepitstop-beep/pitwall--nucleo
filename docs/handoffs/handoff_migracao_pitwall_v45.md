@@ -186,3 +186,67 @@ python ferramentas/harness.py              # espera: 157 passou / 4 falhou
 No celular: abrir o app, rolar a Fila do dia ate o fim. O ultimo card tem que
 terminar ACIMA da barra, com respiro. Tocar em **Mais**: a gaveta abre com 6
 atalhos em uma linha e a Calculadora na seguinte, todos com o rotulo inteiro.
+
+---
+
+## 9. A aba de arranque passou a ser Hoje
+
+Pedido do dono, mesma sessao: *"colocar a pagina pra abrir na aba HOJE"*. Antes
+o app abria na Fila do dia.
+
+Tres arquivos, tres mudancas pequenas:
+
+| arquivo | mudanca |
+|---|---|
+| `public/app.js` | o estado inicial `n="fila"` virou `n="hoje"` |
+| `public/index.html` | `aria-selected` trocou de `#abaFila` para `#abaHoje`; `#topoTit` nasce `Hoje` |
+| `public/index.html` | `#pitboard` nasce com a classe `oculto` (ver abaixo) |
+
+**O `app.js` e minificado numa linha so, entao `git diff` NAO prova que o resto
+nao mudou** (ele exibe a linha inteira). A prova certa e byte a byte:
+
+```
+git show HEAD:public/app.js > /tmp/antes.js
+cmp -l /tmp/antes.js public/app.js     # 4 bytes, posicoes 1052-1055: fila -> hoje
+```
+
+Exatamente 4 bytes diferem, e o arquivo continua com 114736 bytes. Repetir essa
+receita em qualquer edicao futura do `app.js`.
+
+### 9.1 O efeito colateral que o pedido carregava junto
+
+O `index.html` traz o pitboard de **lead** (`na fila / em atraso / ativos / na
+base`) chumbado no HTML, e o JS so o esconde no primeiro render, depois de a base
+carregar. Com a Fila como arranque isso era invisivel, porque o placar estatico
+era o placar certo. Abrindo no Hoje, ele viraria um **placar errado zerado
+piscando a cada abertura do app**, enquanto a rede responde.
+
+Corrigido nascendo com `oculto`. O JS reescreve a `className` inteira no primeiro
+render (`E("pitboard").className="pitboard"+(...)`), entao quem abre na Fila
+continua vendo o placar normalmente: o que se perde e so o pisca-pisca. Os quatro
+ids (`pbFila`, `pbAtraso`, `pbAtivos`, `pbTotal`) continuam no DOM, senao o
+`validar.py` acusaria id perdido.
+
+### 9.2 O harness passou a declarar a propria precondicao
+
+`harness.py` testava a Fila logo depois de `init()`, herdando do app a suposicao
+de qual aba abre primeiro. Isso quebrou junto com a mudanca, e a quebra nao dizia
+nada sobre o que o teste deveria provar. Agora ele **clica em `abaFila`** antes do
+bloco da Fila, e ganhou uma assercao propria (`a aba de arranque e Hoje`) no lugar
+certo. 157 -> **158 passou, as mesmas 4 falhas herdadas**.
+
+Teste que depende de decisao de produto que ele nao esta testando e teste que vai
+quebrar por motivo errado. Vale para os proximos.
+
+### 9.3 Uma das 5 pendencias do `validar.py` ja tem diagnostico
+
+`o pitboard de lead apareceria em Captacao/Hoje/Conteudo/Rotina` e **asserção
+envelhecida, nao defeito**. A linha 172 procura a string literal
+`["captacao","hoje","conteudo","rotina"].indexOf(n)>=0?" oculto":""`, mas o JS
+hoje carrega uma lista de NOVE abas (`...,"dashboard","nfs","vendas","clientes",
+...`). O comportamento esta correto e mais abrangente que a assercao; quem
+adicionou as abas novas nao atualizou o guard-rail.
+
+Ou seja: dos 5 itens da pendencia 1, este e do tipo "a assercao envelheceu", nao
+"o codigo esta errado". Consertar = atualizar a assercao para casar com a lista
+real, nao mexer no `app.js`.

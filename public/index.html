@@ -45,11 +45,11 @@
 
     <div class="abas" id="abas" role="tablist">
       <p class="nav-rot">Operação</p>
-      <button class="aba" id="abaHoje" role="tab" aria-selected="false">
+      <button class="aba" id="abaHoje" role="tab" aria-selected="true">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" stroke-linecap="round"/></svg>
         <span class="aba-txt">Hoje</span>
       </button>
-      <button class="aba" id="abaFila" role="tab" aria-selected="true">
+      <button class="aba" id="abaFila" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg>
         <span class="aba-txt">Fila do dia</span>
         <span class="nav-badge" id="badgeFila"></span>
@@ -124,7 +124,7 @@
 
     <div class="topo">
       <div class="topo-esq">
-        <h1 class="topo-tit" id="topoTit">Fila do dia</h1>
+        <h1 class="topo-tit" id="topoTit">Hoje</h1>
         <span class="topo-sub" id="topoSub"></span>
       </div>
       <div class="topo-acoes">
@@ -139,7 +139,12 @@
       </div>
     </div>
 
-    <div class="pitboard" id="pitboard">
+    <!-- Comeca ESCONDIDO. Estes quatro numeros sao o placar de LEAD, e a aba de
+         arranque virou Hoje (31/07/2026), que tem placar proprio. O JS reescreve
+         esta className inteira no primeiro render, entao quem abre na Fila
+         continua vendo o placar normalmente; o que se evita e o pisca-pisca de
+         um placar errado zerado enquanto a base carrega. -->
+    <div class="pitboard oculto" id="pitboard">
       <div class="pb-celula"><div class="pb-rot">na fila</div><div class="pb-num" id="pbFila">0</div><div class="pb-pe">vencendo hoje</div></div>
       <div class="pb-celula"><div class="pb-rot">em atraso</div><div class="pb-num" id="pbAtraso">0</div><div class="pb-pe">passaram da data</div></div>
       <div class="pb-celula"><div class="pb-rot">ativos</div><div class="pb-num" id="pbAtivos">0</div><div class="pb-pe">leads pendentes</div></div>

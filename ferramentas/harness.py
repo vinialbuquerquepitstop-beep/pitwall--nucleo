@@ -253,6 +253,16 @@ async function rodar() {
   window.PitWall.init();
   await espera(260);
 
+  // A aba de arranque passou a ser Hoje em 31/07/2026 (pedido do dono). Este
+  // bloco testa a FILA, entao ele declara a propria precondicao com um clique
+  // em vez de herda-la do padrao do app: teste que depende de qual aba abre
+  // primeiro quebra toda vez que essa decisao de produto muda, e a quebra nao
+  // diz nada sobre o que ele deveria estar provando.
+  ok('a aba de arranque e Hoje', document.getElementById('abaHoje').getAttribute('aria-selected') === 'true',
+     'abaHoje aria-selected=' + document.getElementById('abaHoje').getAttribute('aria-selected'));
+  document.getElementById('abaFila').click();
+  await espera(260);
+
   var cards = document.querySelectorAll('#lista .card');
   ok('a fila renderizou cards', cards.length > 0, 'cards=' + cards.length);
   var card = document.querySelector('.card[data-lead="LEAD-0005"]');
