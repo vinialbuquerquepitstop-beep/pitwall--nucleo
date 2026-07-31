@@ -15,7 +15,7 @@ function recorte(de, ate) {
 
 const escReal = recorte('function c(a){return String(null==a?', 'function d(a){');
 const telReal = recorte('function f(a){var e=String(a||"").replace(/\\D/g,"")', 'function filtClientes(');
-const blocoVendas = recorte('var vendasData=[];', 'function calcLucroVenda()');
+const blocoVendas = recorte('var vendasData=[]', 'function calcLucroVenda()');
 const blocoCliente = recorte('var clientesData=[],cliSeg="todos"', '// ---- NF (nota fiscal) da venda');
 
 // --- dubles do mundo de fora ----------------------------------------------
@@ -261,7 +261,15 @@ const VENDAS = [
   ass('cliente completo nao e cobrado', lin.indexOf('venda-cli-falta') < 0);
   ass('cliente sem cadastro e cobrado na venda', linSem.indexOf('sem CPF nem endereço') >= 0, linSem);
   ass('botao Ver cliente carrega o codigo', lin.indexOf('data-acao="cli-ver" data-code="LEAD-0018"') >= 0);
-  ass('venda sem lead nao inventa linha', api.vendaCliLinha({ venda_code: 'X' }) === '');
+  // Ate 31/07/2026 a linha SUMIA quando a venda nao tinha dono, e este teste
+  // guardava isso. Derrubado de proposito, nao repontado: a linha passou a
+  // carregar o botao Editar, e venda sem dono e justamente a que mais precisa
+  // ser corrigida. O que a linha nao pode e INVENTAR cliente, e isso segue
+  // guardado abaixo. Ver ferramentas/prova_venda_editar.js.
+  const linOrfa = api.vendaCliLinha({ id: 'vx', venda_code: 'X' });
+  ass('venda sem lead nao inventa codigo de cliente', linOrfa.indexOf('venda-cli-code') < 0, linOrfa);
+  ass('venda sem lead nao oferece Ver cliente', linOrfa.indexOf('cli-ver') < 0);
+  ass('venda sem lead ainda pode ser corrigida', linOrfa.indexOf('venda-editar') >= 0);
   ass('card da venda inclui a linha do cliente', api.cardVenda(VENDAS[0]).indexOf('venda-cli') >= 0);
   api.limpar();
   api.cliAcao('cli-ver', null, { getAttribute: function (a) { return a === 'data-code' ? 'LEAD-0018' : null } });

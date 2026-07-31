@@ -14,7 +14,7 @@ function recorte(de, ate) {
 }
 
 const escReal = recorte('function c(a){return String(null==a?', 'function d(a){');
-const blocoVendas = recorte('var vendasData=[];', 'function calcLucroVenda()');
+const blocoVendas = recorte('var vendasData=[]', 'function calcLucroVenda()');
 const blocoNf = recorte('var nfsData=[],NF_TENANT=null', 'function G(x){M();R();');
 
 // --- dublês do mundo de fora ---------------------------------------------

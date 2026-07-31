@@ -1221,7 +1221,31 @@ a{color:inherit}
 }
 /* mesmo motivo do .nf-linha: .btn-acao nasce com flex:1 para preencher a linha
    em .card-acoes, e aqui ele divide espaco com o rotulo */
-.venda-cli .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px;margin-left:auto}
+.venda-cli .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px}
+/* o primeiro botao empurra o grupo para a direita; os seguintes ficam colados
+   nele. Com um botao so, o efeito e o mesmo de antes (margin-left:auto). */
+.venda-cli .btn-acao:first-of-type{margin-left:auto}
+
+/* --- correcao e arquivamento de venda (31/07/2026) --- */
+/* O painel e UM so: o mesmo formulario serve cadastro e correcao, para nao
+   existirem dois campos "valor" que divergem com o tempo. A regra abaixo so
+   ESCONDE, nunca redeclara display: assim .cad-acoes segue flex no modo edicao. */
+#painelVenda:not(.modo-edicao) .so-edicao{display:none}
+#painelVenda.modo-edicao .so-novo{display:none}
+#painelVenda input:disabled{background:var(--surface);color:var(--dim);cursor:not-allowed}
+/* Arquivada nao e falha de sistema: familia neutra (--frio), nunca --erro. */
+.venda-arq-tit{
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);
+  margin:18px 0 8px;font-weight:600;
+}
+.card.arquivada{background:var(--frio-bg);border-color:var(--frio-linha)}
+.card.arquivada .card-code,.card.arquivada .card-prod,.card.arquivada .card-sub{color:var(--frio-fg)}
+.card.arquivada .card-code{text-decoration:line-through}
+.venda-arq-btn{
+  background:0 0;border:none;padding:0;font-family:var(--mono);font-size:11px;
+  color:var(--frio-fg);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.venda-arq-btn:hover{color:var(--text)}
 .fv-cli-falta{
   font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
   letter-spacing:.06em;text-transform:uppercase;
