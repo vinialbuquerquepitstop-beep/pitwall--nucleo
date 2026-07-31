@@ -109,8 +109,16 @@ Grava `arquivado_em = now()` ou `null`, e `atualizado_em = now()`.
 
 ### 4.4 `public.arquivar_venda(p_id uuid, p_arquivar boolean default true)` — SECURITY INVOKER
 
-Mesma prova de acesso pelo RLS, chama `privado.fn_venda_arquivar`, devolve
-`{ok:true, venda_code, arquivada:boolean}`.
+Mesma prova de acesso pelo RLS, chama `privado.fn_venda_arquivar`, e devolve
+`{ok:true, venda_code, arquivada:boolean, cliente_ficou_sem_venda:boolean}`.
+
+Grava tambem um `lead_evento` no cliente da venda (ver 4.7, item 1): tipo
+`fechou`, detalhe `VENDA-0003 arquivada (nao conta mais no faturamento)` — ou
+`VENDA-0003 desarquivada` no caminho de volta.
+
+`cliente_ficou_sem_venda` e `true` quando, depois do arquivamento, aquele lead
+fica com **zero** venda ativa nao cancelada. Nao bloqueia: arquivar a venda
+lancada no cliente errado e caso legitimo. Serve para a tela avisar (5.2).
 
 ### 4.5 Privilegios
 
@@ -133,6 +141,40 @@ Mesma prova de acesso pelo RLS, chama `privado.fn_venda_arquivar`, devolve
 - **`painel_metricas` nao muda.** Ja ignora `arquivado_em is not null` e
   `status = 'cancelada'` na soma por origem.
 - Nenhum numero de cadencia entra em funcao (invariante 11); nada aqui toca cadencia.
+
+## 4.7 Arquivar tira o faturamento junto (pedido do dono, medido em 31/07/2026)
+
+Requisito do dono nesta sessao: *"ao arquivar, o faturamento arquiva junto"*.
+
+**Ja e assim, e nao exige codigo.** As quatro superficies de leitura de dinheiro
+filtram `arquivado_em`, conferido em `pg_get_viewdef` e no corpo da funcao:
+
+| superficie | filtro que ja existe |
+|---|---|
+| `v_venda` (aba Vendas) | `where v.arquivado_em is null` |
+| `v_cliente` (LTV na aba Clientes) | `v.arquivado_em is null and v.status <> 'cancelada'` |
+| `painel_metricas` (valor por origem no Dashboard) | os mesmos dois |
+| `v_venda_nf` (aba Notas fiscais) | `nf.removido_em is null and v.arquivado_em is null` |
+
+Simulacao sobre a linha real, arquivando VENDA-0003: LEAD-0018 sai de
+**2 vendas / R$ 16.800** para **1 venda / R$ 8.400**. LEAD-0019 nao se mexe.
+
+**O que NAO acompanha sozinho, e por isso vira trabalho deste spec:**
+
+1. **O historico do cliente.** `registrar_venda` grava `lead_evento` tipo `fechou`
+   com `VENDA-0003 registrada: iPhone 17 Pro Max por R$ 8.400`. Auditoria e
+   historico sao append-only (invariante 6), entao esse evento **nao se apaga**.
+   Sem tratamento, a timeline do cliente anuncia para sempre uma venda que nao
+   conta mais. Solucao: arquivar **acrescenta** evento dizendo que a venda foi
+   arquivada. A timeline conta a historia inteira em vez de mentir por omissao.
+2. **O cliente continua cliente.** Arquivar a UNICA venda de alguem deixa
+   `perfil = 'comprou'`, a cadencia de pos-venda rodando e a pessoa na aba
+   Clientes como "sem venda registrada". Solucao: `cliente_ficou_sem_venda` na
+   resposta da RPC e o aviso na confirmacao (5.2). Nao bloqueia.
+3. **`lead.qtd_compras` / `lead.valor_total` nao entram nessa conta.** Sao o
+   agregado herdado do CRM antigo, `registrar_venda` nao os escreve, estao NULL
+   nos dois compradores e a tela ja os exibe em chip separado, nunca somados ao
+   lastro. Nada a fazer, e **nao** e para "consertar" aqui.
 
 ## 5. Frontend
 
@@ -161,7 +203,12 @@ painel, atras de uma confirmacao.
   no card, e o `subirNf` do salvar depende de venda recem-criada.
 - botao salva por `editar_venda`; toast `Venda VENDA-0002 corrigida`.
 - rodape do painel: **Arquivar esta venda**, com confirmacao que diz o que vai
-  acontecer (some da lista e dos numeros, o registro e a auditoria ficam).
+  acontecer, nesta ordem: *"VENDA-0003 sai da lista, do faturamento e do total do
+  cliente. O registro e a auditoria ficam, e da pra desarquivar."* Se a RPC
+  devolver `cliente_ficou_sem_venda`, a tela acrescenta antes de confirmar:
+  *"Esta e a unica venda de Victor Maia Dargains. Ele continua como cliente e o
+  pos-venda dele segue rodando."* — checagem feita antes do clique, com a mesma
+  regra da RPC, para o aviso nao chegar depois do fato.
 
 Sair do painel volta ele ao modo cadastro (o mesmo painel serve os dois; nao ha
 segundo formulario para divergir do primeiro).
@@ -202,6 +249,15 @@ com `set local role authenticated` e claims do dono:
 3. Campo fora da whitelist no payload (`data_venda`, `lead_id`) **nao e aplicado**.
 4. `valor_venda = 0` e recusado com `{ok:false}`.
 5. `arquivar_venda` some da `v_venda`; desarquivar traz de volta.
+5b. **O faturamento acompanha** (o pedido explicito do dono). Arquivando
+   VENDA-0003 dentro da transacao: `v_cliente` do LEAD-0018 vai de
+   `vendas_qtd = 2 / vendas_total = 16800` para `1 / 8400`; `v_venda_nf` deixa de
+   listar NF daquela venda; desarquivar restaura os dois. Numeros conferidos
+   contra os valores reais, nao contra "mudou".
+5c. Arquivar grava **exatamente 1** `lead_evento` novo no cliente, e o evento
+   `fechou` original continua la (append-only, invariante 6).
+5d. `cliente_ficou_sem_venda` volta `false` ao arquivar a VENDA-0003 (o Victor
+   fica com a 0002) e `true` ao arquivar a VENDA-0001 (unica do LEAD-0019).
 6. Tenant errado nao edita, nao arquiva e ve 0 vendas.
 7. `authenticated` **nao** tem mais UPDATE direto em `venda` (o update cru falha).
 8. `privado.fn_venda_atualizar` nao e executavel por `authenticated`.
