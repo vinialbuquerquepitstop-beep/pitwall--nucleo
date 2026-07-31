@@ -7,9 +7,11 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v43.md` (31/07/2026, auditoria e destravamento
-  da regua de CRM)
-- 39 arquivos na pasta. O de maior versao substitui todos os anteriores.
+- topo: `handoff_migracao_pitwall_v44.md` (31/07/2026, correcao e arquivamento de
+  venda ja registrada; fecha as duas fatias do spec `2026-07-31-editar-vendas`)
+- anterior: `handoff_migracao_pitwall_v43.md` (31/07/2026, auditoria e
+  destravamento da regua de CRM)
+- 40 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 
