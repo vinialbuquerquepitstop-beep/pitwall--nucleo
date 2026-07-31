@@ -7,8 +7,9 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v42.md`
-- 38 arquivos na pasta. O de maior versao substitui todos os anteriores.
+- topo: `handoff_migracao_pitwall_v43.md` (31/07/2026, auditoria e destravamento
+  da regua de CRM)
+- 39 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 

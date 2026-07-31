@@ -319,6 +319,10 @@ a{color:inherit}
 .card.t-quente::before{background:var(--quente)}
 .card.t-morno::before{background:var(--morno)}
 .card.t-frio::before{background:var(--frio)}
+/* sem_contato NAO e temperatura, e ausencia de leitura: ninguem falou com essa
+   pessoa ainda. Usa a paleta de urgencia (--quente, ja medida) porque e o estado
+   que mais pede acao, mas com rotulo proprio pra nao se disfarcar de "vai bem". */
+.card.t-sem_contato::before{background:var(--quente)}
 .card-topo{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .card-nome{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.012em}
 .card-code{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
@@ -354,14 +358,16 @@ a{color:inherit}
   border:1px solid var(--line);border-radius:5px;padding:1px 7px;color:var(--dim);background:var(--bg);
 }
 /* o ponto colorido substitui o emoji herdado do Sheets */
-.chip.nivel-morno,.chip.nivel-frio,.chip.atraso,.chip.ind,
+.chip.nivel-morno,.chip.nivel-frio,.chip.nivel-sem_contato,.chip.atraso,.chip.ind,
 .chip[class*="st-"]{gap:5px}
-.chip.nivel-morno::before,.chip.nivel-frio::before,.chip.atraso::before,
+.chip.nivel-morno::before,.chip.nivel-frio::before,.chip.nivel-sem_contato::before,
+.chip.atraso::before,
 .chip[class*="st-"]::before{
   content:"";width:5.5px;height:5.5px;border-radius:999px;background:currentColor;flex:0 0 auto;
 }
 .chip.nivel-morno{color:var(--morno-fg);background:var(--morno-bg);border-color:var(--morno-linha)}
 .chip.nivel-frio{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
+.chip.nivel-sem_contato{color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha)}
 .chip.atraso{
   color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha);
   font-variant-numeric:tabular-nums;

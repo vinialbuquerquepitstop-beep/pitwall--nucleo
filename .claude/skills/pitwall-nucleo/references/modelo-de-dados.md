@@ -5,6 +5,60 @@ normalizadas no Postgres, todas com `tenant_id` e RLS. Este arquivo e o mapa rea
 conferido no projeto `unjzpyexgtbcmjfgcqrx`. Onde houver duvida, a fonte da verdade e o
 banco: rodar `list_tables` no MCP.
 
+## Colunas do CRM legado (A ate AC)
+
+O de-para da planilha `Pitstop Imports — CRM de Clientes` para o schema. Ate 28/07/2026
+este mapa nao existia neste arquivo, apesar de o indice do `SKILL.md` prometer que
+morava aqui: estava preso no `docs/handoffs/handoff_pitwall_v16__1_.md`, que ninguem
+abre porque o arranque manda ler o handoff de MAIOR versao.
+
+| CRM | Nome no CRM (verbatim) | Postgres | Tipo | Nota |
+|---|---|---|---|---|
+| A | `Nome` | `nome` | text NOT NULL | so a posicao muda (5o no PG) |
+| B | `WhatsApp` | `whatsapp_digitos` | text | renomeado; so digitos, CHECK `^[0-9]{10,15}$` |
+| C | `Produto` | `produto` | text | |
+| D | `Modelo` | `condicao` | text | **ARMADILHA**: cabecalho diz Modelo, campo e conteudo sao condicao |
+| E | `Data do contato` | `data_contato` | date | |
+| F | `Próximo contato` | `proximo_contato` | date | |
+| G | `Última resposta` | `ultima_resposta` | date | |
+| H | `Situação` | `situacao` | text | |
+| I | `Perfil` | `perfil` | text | |
+| J | `Nível` | (nao existe) | derivado | invariante 4: nivel nunca e coluna |
+| K | `Status` | `status` | text NOT NULL def `'pendente'` | |
+| L | `Tipo de msg` | `tipo_msg` | text | |
+| M | `Origem` | `origem` | text | |
+| N | `Indicado por` | `indicado_por` | text | |
+| O | `Qtd compras` | `qtd_compras` | integer | |
+| P | `Valor total (R$)` | `valor_total` | numeric | |
+| Q | `Valor oferta (R$)` | `valor_oferta` | numeric | |
+| R | `Agendado` | (nao existe) | morta | v16 ja marcava "a confirmar"; nunca virou coluna |
+| S | `Event IDs` | (nao existe) | morta | eram IDs da Agenda; a regua virou pg_cron |
+| T | `Observações` | `observacoes` | text | |
+| U | `Consentimento` | `consentimento` | boolean NOT NULL def `true` | **MUDA NATUREZA**: Sim/Nao virou booleano |
+| V | `Data consentimento` | `consentimento_em` | timestamptz | |
+| W | `Lead ID ` (espaco no fim) | `lead_code` | text NOT NULL | renomeado; o espaco no fim some no PG |
+| X | `Etapa cadencia` | `etapa_cadencia` | text | |
+| Y | `Historico` | (nao existe como coluna) | tabela | virou `lead_evento`, append-only |
+| Z | `Respondido` | `respondido_em` | timestamptz | **MUDA NATUREZA**: Sim/Nao virou carimbo de quando |
+| AA | `Data do ultimo toque` | `ultimo_toque_em` | timestamptz | era date, virou timestamptz |
+| AB | `UPGRADE ` (espaco no fim) | `upgrade_entrada` | boolean | renomeado; Sim/Nao virou booleano |
+| AC | `APARELHO DE ENTRADA` | `aparelho_entrada` | text | |
+
+29 colunas no CRM, 40 na tabela `lead`: 25 pares, 4 colunas do CRM sem destino
+(J, R, S, Y) e 15 colunas do Postgres sem origem no CRM (`id`, `tenant_id`,
+`dono_user_id`, `criado_em`, `atualizado_em`, `arquivado_em`, `data_nascimento` e o
+bloco de identidade `cpf`, `rg`, `cep`, `endereco`, `complemento`, `bairro`, `cidade`,
+`uf`).
+
+A ordem NAO se preserva: `Nome` e a coluna A no CRM e a 5a no Postgres; `Lead ID ` e a
+23a (W) no CRM e a 3a no Postgres. Script que dependa de posicao quebra atravessando os
+dois lados.
+
+Ressalva: a coluna e a ordem do lado CRM vem do handoff v16, nao da planilha viva. Se
+alguem inseriu ou moveu coluna na aba depois disso, este mapa erra. Para provar, ler a
+linha 1 da aba. Os nomes e tipos do lado Postgres foram lidos do
+`information_schema.columns` do projeto `unjzpyexgtbcmjfgcqrx` em 28/07/2026.
+
 ## Visao geral das tabelas (schema public)
 
 | Tabela | Papel | Linhas (ref) |
