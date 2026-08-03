@@ -5,6 +5,109 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 03/08/2026 (carga) — Cinco armadilhas de leitura, todas com preco em cima
+
+Rodada de 17 listas, 12 fornecedores, **841 precos** no blob (era 615). Cobertura 730 de
+732 linhas de produto. As cinco abaixo foram medidas nesta sessao; as duas primeiras
+foram pegas pela trava de 15%, as tres ultimas so apareceram porque eu fui conferir de
+onde vinha cada numero estranho.
+
+1. **`GRADE A` no cabecalho de secao e USADO, nao lacrado.** A M Apple abre com
+   `⬇️ IPHONES 🇺🇸 GRADE A 🇺🇸` e so depois vem `⬇️ LACRADOS`. Lido como Lacrado, um
+   15 Pro Max usado a 3.900 virava o lacrado mais barato e cortava **25% do preco de
+   venda de um aparelho lacrado**. Regra em `formato-dados.md`, item 3.
+2. **`pack com 1` nao e `Pack 4`.** O Cristiano lista `pack com 4 AirTag` esgotado (❌) e
+   logo abaixo `pack com 1 AirTag R$200`. O 200 colou no Pack 4 e derrubou o custo de
+   599,99 para 200 (-67%).
+3. **SINGULAR e condicao do produto, PLURAL e cabecalho de secao.** `🔒 Lacrado` (BR10)
+   pertence ao bloco corrente; `⬇️ LACRADOS` (M Apple) abre secao nova e reseta. Tratar
+   os dois igual quebra um dos dois: ou o BR10 perde o CPO, ou a secao lacrada da M Apple
+   inteira vira usada.
+4. **Linha de compatibilidade nao e produto.** `📱 iPad 10, 11` logo abaixo de
+   `🖊️ caneta Apple Pencil USB-C` diz com quais iPads a caneta funciona. Tratada como
+   produto, matava o bloco e os R$750 da caneta sumiam. Criterio que separa os dois:
+   **sem preco, sem cor e sem token de tamanho (GB/TB/mm) e nota**; com qualquer um dos
+   tres e produto e RESETA o bloco. Sem o reset, os R$4.500 do `⌚️ Ultra 3 – 49mm` do
+   BR10 foram parar no S11 46mm.
+5. **Preco sem cor nenhuma precisa entrar com `v` direto.** Bloco que termina com preco
+   pendente e zero cor estava sendo descartado calado. Custava o `MacBook M4 16/256GB` da
+   Five Cell a 6.800, o `Mac Mini M4` a 4.950 e o `iPad Air M4` do Rafael a 5.300.
+
+**O ganho de corrigir 3, 4 e 5 foi grande: 656 linhas -> 730.** As 74 recuperadas incluem
+a secao de lacrados inteira da MP Imports (59 precos), que estava evaporando.
+
+Outras leituras que este export exigiu e que agora estao no catalogo: preco tambem vem
+sem ponto de milhar quando ancorado em `R$`/`$` (Cristiano escreve `R$2900`); cor por
+EMOJI quando o fornecedor nao escreve o nome (M Apple: `⬛️`=Preto, `🟦`=Azul, `🟪`=Roxo,
+seguindo o precedente da carga de 27/07); `1 terá` e autocorrecao de `1 tera` = 1TB;
+`iPad 11` nao pode casar com o regex de iPhone (`\b11\b`), senao vira `iPhone 11 128GB`.
+
+**Decisoes do dono nesta data**, todas registradas em `formato-dados.md`:
+`iPhone Air` sem numero e o **17 Air**; `Series` sempre remete a **Watch** (Series 2 e 3
+sao os SE 2 e SE 3, confirmado pelo preco); Mac **entra sem polegada**, com a polegada
+omitida do nome; iMac fica de fora; **cores de mesmo sentido se unificam** (38 nomes ->
+29, pela forma dominante).
+
+**Historico de preco NAO EXISTE.** Medido em 03/08/2026: `calc_dados` e a unica tabela do
+dominio, uma linha por tenant, e toda carga SOBRESCREVE. Nao ha tabela de historico nem
+coluna de versao. Consequencia que ninguem tinha notado: o scanner da `/calc/` tem o modo
+`hist`, que le o campo `op` do produto, e **zero de 341 produtos tinha `op`** — o modo
+existe na tela e nunca teve dado. O blob de 27/07 so sobrevive nos dumps `.gpg` de
+`backups/`, que nao sao consultaveis pela calc.
+
+---
+
+## 03/08/2026 — CPO existia nas listas e a carga anterior jogou fora
+
+O dono pediu que aparelho CPO fosse exibido. Medido no banco: 341 produtos, `Lacrado`
+161 e `Seminovo` 180, **zero CPO**, enquanto as listas do Cristiano, da MP Imports e do
+M Apple traziam CPO em fartura. A carga de 27/07 dobrou CPO dentro de Lacrado porque a
+linha do fornecedor traz as duas palavras juntas (`lacrado importado cpo caixa branca`)
+e o casamento de `lacrado` vinha primeiro. Regra de ordem agora escrita em
+`formato-dados.md`, item 3 da normalizacao. **Zero CPO num diff futuro e sintoma de erro
+de ordem, nao de ausencia nas listas.**
+
+**O gancho ja existia no codigo e ninguem tinha alimentado.** `public/calc/index.html`,
+linhas 569 e 726, ja faziam `.replace(/\s+CPO/i,'')` para achar o modelo base no motor
+de sugestao. Alguem projetou CPO como sufixo do nome e nunca chegou dado. O dono
+escolheu em 03/08 o outro caminho: **terceira condicao (`t`), com chip proprio**, nao
+sufixo no nome.
+
+**Decisoes do dono, 03/08/2026:** CPO paga **comissao de lacrado**, e vira **terceiro
+chip de Tipo**.
+
+**O que quase passou calado.** O `/calc/consultor/` era binario em cinco pontos, sempre
+`tp==='Lacrado' ? isso : aquilo`. Uma condicao nova cai no `else` sem erro nenhum:
+comissao pela tabela de **seminovo** (dinheiro errado no bolso do consultor) e garantia
+de **3 meses** dita ao cliente num aparelho com **1 ano da Apple**. Nenhum dos dois
+aparece como falha na tela, os dois so funcionam. Correcao aplicada: os testes foram
+invertidos para `tp==='Seminovo' ? seminovo : lacrado`, ou seja, **lacrado virou o
+padrao**, e condicao nova nunca mais cai calada na tabela mais barata.
+
+**Prova nova:** `node ferramentas/prova_cpo.js`, 39 assercoes, exit 0. Le as funcoes do
+arquivo real em vez de copiar a logica.
+
+**Erro meu na prova, corrigido na mesma rodada:** escrevi a assercao "Seminovo tem que
+pagar diferente de Lacrado" e ela reprovou. Nao era bug do codigo, era premissa falsa:
+no nivel **Embaixador** iPhone lacrado e seminovo pagam **100 os dois** no `config`
+(nos outros niveis o seminovo paga menos: 145/180, 175/220, 200/250). Licao: assercao
+que compara dois valores de config prova o config, nao o codigo. A versao boa cobra o
+valor exato lido da tabela `seminovo`. Se o 100 igual no Embaixador for descuido da
+escada de comissao, segue aberto para o dono decidir.
+
+**Armadilha de ambiente que custou duas rodadas:** o dono apontou tres vezes o mesmo
+`Downloads/WhatsApp Chat - FORNECEDORES PITS.zip` acreditando ter exportado de novo.
+Era byte a byte identico (`md5 29e86fe57bcb4e2d8813513befbaf574`), com `_chat.txt`
+carimbado 22/07 e 22 mensagens todas de `[21/07/26`. O Windows nao sobrescreve download
+de nome repetido, salva como `... (1).zip`, e varredura em Downloads, Desktop, Documentos
+e OneDrive nao achou variante nenhuma: o export novo nunca chegou no PC. **Conferir
+SEMPRE a data da ultima mensagem do `_chat.txt` e o md5 do zip antes de parsear.** Custa
+dois comandos e evita carregar preco velho por cima de preco novo. Neste caso teria
+revertido a queda medida na Revel entre 21/07 e 27/07 (17 Pro Max 512GB de 8.349,99 de
+volta para 8.599,99).
+
+---
+
 ## 27/07/2026 (carga) — Duas armadilhas de parse que viraram preco falso
 
 Ambas foram pegas pela trava de variacao acima de 15%, antes de gravar. Sem ela, teriam

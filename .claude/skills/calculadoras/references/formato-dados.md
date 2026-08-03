@@ -116,7 +116,14 @@ normalizacao acontece no parse, nunca no arquivo final.
 ### Categorias e condicoes
 
 - `c`: `iPhone`, `iPad`, `MacBook`, `Apple Watch`, `Acessório` (com acento, exato).
-- `t`: `Lacrado`, `Seminovo`. Nada alem disso.
+- `t`: `Lacrado`, `Seminovo`, `CPO`. Nada alem disso.
+
+  `CPO` entrou em 03/08/2026 a pedido do dono. E o refurbished certificado pela Apple:
+  vem lacrado, em caixa branca, com **1 ano de garantia Apple**. Nao e lacrado comum nem
+  seminovo, e por isso e a terceira condicao em vez de um rotulo dentro do nome.
+  Regras que valem em toda a cadeia: paga **comissao de lacrado** (decisao do dono,
+  03/08/2026), exibe **1 ano** de garantia, badge azul `.bdg-b` no consultor, chip
+  proprio na calc do dono. Provado por `node ferramentas/prova_cpo.js`.
 
 ### Fornecedores e pracas (11)
 
@@ -134,13 +141,24 @@ normalizacao acontece no parse, nunca no arquivo final.
 | FMATA | Centro — RJ | 16 |
 | Real Comércio | Centro — RJ | 11 |
 
-Tres entraram em 27/07/2026, aprovados pelo dono, ainda sem carga no banco:
+Tres entraram em 27/07/2026 e ja carregaram em 03/08/2026:
 
 | Fornecedor (`f`) | Praca (`l`) | Como se identifica na lista |
 |---|---|---|
 | Raposa | Niterói — RJ | `ATACADO E REVENDA DA RAPOSA`, retirada Niteroi |
-| DG Jacarepaguá | Taquara — RJ | `DG Jacarepaguá`, retirada Taquara |
-| Rafael | Barra da Tijuca — RJ | `Fornecedor Rafael Barra da Tijuca` |
+| DG Jacarepaguá | Taquara — RJ | `Dg JPA`, `DG Jacarepaguá`, retirada Taquara |
+| Rafael | Barra da Tijuca — RJ | `Raphael barra da Tijuca` (com PH na lista dele) |
+
+Entrou em 03/08/2026, marcado pelo proprio dono como "Novo fornecedor":
+
+| Fornecedor (`f`) | Praca (`l`) | Como se identifica na lista |
+|---|---|---|
+| BR10 | Irajá — RJ | `Br 10, iraja`, `ATACADO BR10 - dd/mm/aa`, retirada Iraja |
+
+Duas listas chegam SEM nome no cabecalho, so com `🚨SWAP GRADE A / IPHONE STOCK (VITRINE)`
+e `🚨IPHONE NEW LACRADO NA CAIXA`. Sao da **FMATA**: as duas trazem o mesmo link de grupo
+no rodape (`chat.whatsapp.com/FJVlVp2TEI...`) e em 21/07/2026 vinham com o cabecalho
+`Fábio Fmata`. Identificacao por link, nao por adivinhacao.
 
 Cabecalhos que enganam, ja resolvidos: `MELHOR DE CAXIAS` e **Five Cell**;
 `ATENÇÃO! NÃO TROCAMOS APARELHO SEM OS SELOS` e `TABELA ATUALIZADA - dd/mm` sao as duas
@@ -205,9 +223,26 @@ Titanium `#2a2a2a` · Blue `#2c4f8c` · Blue Anatel `#2c4f8c` · Branco `#f5f5f0
 Anatel `#e3e4e6` · Sky Blue `#a8cbe6` · Space Black `#4a4a4c` · Space Gray `#4a4a4c` ·
 Starlight `#faf6ef` · Verde `#a7c4a0` · Vermelho `#c0392b` · White `#f5f5f0`
 
-Portugues e ingles convivem porque cada fornecedor escreve do seu jeito, e o nome da cor
-aparece na tela. **Nao unificar sozinho**: trocar `Preto` por `Black` muda o que o dono e
-o consultor leem. Cor nova entra com hex plausivel e e conferida com o dono.
+**UNIFICADAS em 03/08/2026, por ordem do dono** ("unifica cores que possuem nomes
+diferentes, mas o mesmo sentido"). Ate a v45 a regra era o contrario, e o custo apareceu:
+a DG e o Rafael escreveram `Preto` em 27/07 e `Black` em 03/08, e o mesmo Apple Watch S11
+46mm ficou listado duas vezes, a 2.400 como Black e a 3.750 como Preto (esse ultimo orfao
+de uma lista velha). O consultor cotava o mesmo relogio com 1.350 de diferenca conforme a
+cor que escolhesse.
+
+Direcao da unificacao: **a forma dominante ganha**, medida no proprio blob, para mexer o
+minimo no que o dono ja le. Aplicado: `Black`->`Preto`, `Blue`->`Azul`, `White`->`Branco`,
+`Green`->`Verde`, `Orange`->`Laranja`, `Rose`->`Rosa`, `Blue Anatel`->`Azul Anatel`,
+`Orange Anatel`->`Laranja Anatel`, e no sentido inverso `Prateado`->`Silver` (56 usos
+contra 3) e `Dourado`->`Gold` (33 contra 8). De 38 nomes para **29**.
+
+**NAO unificar** (sao cores proprias da Apple, nao traducao): Jet Black, Black Titanium,
+Black Ocean Band, Space Gray, Space Black, Midnight, Starlight, Natural, Desert, Grafite,
+Lavanda, Lilás, Roxo, Rosa Blush, Rose Gold, Sky Blue, Índigo, Amarelo, Vermelho.
+As variantes `Anatel` seguem SEPARADAS da cor base: e produto homologado, com preco
+proprio (FMATA, 03/08: `Orange` 6.400 e `Orange Anatel` 7.000 no mesmo 17 Pro 256GB).
+
+Cor nova entra com hex plausivel e e conferida com o dono.
 
 ---
 
@@ -226,8 +261,18 @@ escreve em qualquer ordem. As faixas nao se cruzam, entao a leitura e determinis
 Padrao `16/512` (com ou sem `GB`) e sempre RAM/SSD nessa ordem.
 
 Deducoes seguras quando o fornecedor omite: **Air** e 13" (a 15" sempre vem escrita),
-**Neo** e 13" e 8GB de RAM, **Mac Mini** nao tem polegada. **MacBook Pro sem polegada e
-PENDENCIA**, nunca chute: 14 e 16 existem e a diferenca de preco e grande.
+**Neo** e 13" e 8GB de RAM, **Mac Mini** nao tem polegada.
+
+**MacBook Pro sem polegada: ENTRA, com a polegada OMITIDA do nome.** Decisao do dono em
+03/08/2026, contra a regra anterior desta secao: "se nao tem polegada, coloque mesmo
+assim, nao deixe de colocar preco por falta de polegada". A saida honesta e gerar
+`MacBook Pro M5 Pro 16/1TB` (sem `14"`), nunca chutar 14 ou 16: **o preco entra, o spec
+nao e inventado.** Ate a v45 isso era pendencia e o preco ficava de fora.
+
+O fornecedor tambem escreve RAM e SSD por extenso (`M4 16GB Memória 256GB Armazenamento`,
+Five Cell). As faixas nao se cruzam, entao ler por rotulo e deterministico: numero antes
+de `Memória`/`RAM` e RAM, antes de `Armazenamento`/`SSD` e SSD. `MacBook MINI 4` e o
+**Mac Mini M4** (o fornecedor cola as duas palavras).
 
 `iPad A16 11"` e o MESMO produto que `iPad 11` (confirmado pelo dono em 27/07/2026).
 Consolidar no nome curto `iPad 11 <capacidade>`.
@@ -249,9 +294,23 @@ Regras de leitura, em ordem:
    Sem numero de modelo reconhecido, a linha e pendencia, nao chute.
 2. **Capacidade.** `256`, `256gb`, `256 gb` -> `256GB`. `1tb` -> `1TB`. Modelo sem
    capacidade so passa se o catalogo tiver uma unica capacidade para aquele modelo.
-3. **Condicao.** `lacrado`, `novo`, `swap`, `caixa aberta` pedem cuidado: so `lacrado` e
-   `novo` viram `Lacrado`; `swap` e `caixa aberta` sao pendencia ate o dono decidir.
-   `seminovo`, `usado`, `vitrine` -> `Seminovo` (confirmar `vitrine` uma vez).
+3. **Condicao.** Testar **CPO primeiro**, antes de qualquer outra regra de condicao.
+   A linha tipica do fornecedor traz as duas palavras juntas
+   (`13 256 lacrado importado cpo caixa branca 1 ano de garantia Apple`), entao quem
+   casar `lacrado` antes engole o CPO em silencio e a distincao se perde na carga. Foi
+   exatamente o que aconteceu na carga de 27/07/2026: medido em 03/08/2026, os 341
+   produtos do banco eram 161 `Lacrado` e 180 `Seminovo`, **zero CPO**, mesmo com CPO
+   farto nas listas do Cristiano, da MP Imports e do M Apple.
+
+   Ordem obrigatoria:
+   1. `cpo`, `(CPO)`, `certified pre-owned` em qualquer posicao da linha -> `CPO`.
+      Vale mesmo com `lacrado` na mesma linha: **CPO ganha de lacrado, sempre.**
+   2. `lacrado`, `novo` -> `Lacrado`. `swap` e `caixa aberta` seguem pendencia ate o
+      dono decidir.
+   3. `seminovo`, `usado`, `vitrine` -> `Seminovo` (confirmar `vitrine` uma vez).
+
+   Conferencia barata no diff: se a carga trouxer **zero CPO**, tem erro de ordem, nao
+   ausencia de CPO nas listas.
 4. **Cor.** Casar contra a tabela acima, aceitando maiuscula/minuscula e acento faltando.
    Cor desconhecida vira pendencia; nunca inventar hex sem avisar.
 5. **Aparelho com "mensagem": DESCARTAR.** Decisao do dono em 27/07/2026. Aparelho com
