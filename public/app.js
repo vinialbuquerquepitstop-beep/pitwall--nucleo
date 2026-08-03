@@ -354,23 +354,46 @@ function filtVendaBusca(lista,termo){
 var q=String(termo||"").trim().toLowerCase();
 if(!q)return lista;
 return lista.filter(function(v){return [v.venda_code,v.modelo_rotulo,v.cliente_nome,v.imei].join(" ").toLowerCase().indexOf(q)>=0})}
+// Portao unico de leitura por tabela/view. Antes, os quatro carregadores faziam
+// `(r&&r.data)||[]` e nunca liam `r.error`: rede caida ou JWT expirado viravam
+// lista vazia, e a tela pintava o estado VAZIO, convidando o dono a recadastrar o
+// que ja existe. Espelha o guarda que B() ja fazia sozinho.
+// Em falha NAO zera o global: o ultimo dado bom vale mais que uma lista vazia.
+async function ler(promessa,oQue){
+var r;
+try{r=await promessa}catch(e){return{ok:!1,dados:[],erro:String((e&&e.message)||e)}}
+if(r&&r.error){
+if(await pwSemSessao()){pwSessaoCaiu();return{ok:!1,dados:[],erro:"",sessao:!1}}
+return{ok:!1,dados:[],erro:r.error.message||("Falha ao ler "+oQue)}}
+return{ok:!0,dados:(r&&r.data)||[],erro:""}}
+function estadoErro(oQue,erro){
+return'<div class="estado erro"><strong>Falha ao ler '+c(oQue)+".</strong><br>"+(erro?c(erro)+" ":"")+"Toque em Atualizar para tentar de novo.</div>"}
+// Primeira leitura que falhou, ou null se todas passaram. sessao===!1 quer dizer
+// que pwSessaoCaiu() ja repintou o login, entao o render sai sem escrever nada.
+// Argumento vazio e IGNORADO de proposito: quem nao devolve resultado nao
+// reportou falha, e derrubar o render por isso seria pior que o bug original.
+function primeiraFalha(){
+for(var i=0;i<arguments.length;i++){var r=arguments[i];if(r&&!r.ok)return r}
+return null}
 async function carregarVendas(){
-var r=await t.from("v_venda").select("*").order("criado_em",{ascending:!1});
-vendasData=(r&&r.data)||[]}
+var r=await ler(t.from("v_venda").select("*").order("criado_em",{ascending:!1}),"as vendas");
+if(r.ok)vendasData=r.dados;return r}
 // As arquivadas vem da TABELA, nao da v_venda: a view filtra arquivado_em is
 // null, e mexer nela para caber um contador derrubaria o security_invoker em
 // silencio. A tabela ja e isolada por RLS, entao o tenant continua garantido.
 async function carregarVendasArq(){
-var r=await t.from("venda").select("id,venda_code,modelo_texto,comprador_nome,valor_venda,data_venda,arquivado_em")
-.not("arquivado_em","is",null).order("arquivado_em",{ascending:!1});
-vendasArq=(r&&r.data)||[]}
+var r=await ler(t.from("venda").select("id,venda_code,modelo_texto,comprador_nome,valor_venda,data_venda,arquivado_em")
+.not("arquivado_em","is",null).order("arquivado_em",{ascending:!1}),"as vendas arquivadas");
+if(r.ok)vendasArq=r.dados;return r}
 function cardVendaArq(v){
 return '<div class="card arquivada"><div class="card-top"><span class="card-code">'+c(v.venda_code||"")+'</span><span class="card-prod">'+c(v.modelo_texto||"")+'</span></div><div class="card-sub">'+
 c(v.comprador_nome||"sem cliente")+(v.data_venda?" · "+c(fmtDia(v.data_venda)):"")+" · "+brlV(v.valor_venda)+"</div>"+
 '<div class="venda-cli"><span class="venda-cli-code">fora do faturamento</span><button class="btn-acao" data-acao="venda-desarquivar" data-id="'+c(v.id)+'">Desarquivar</button></div></div>'}
 async function renderVendas(e){
 e.innerHTML='<div class="estado carregando">Lendo vendas…</div>';
-await carregarVendas();await carregarNfs();await carregarVendasArq();
+var rv=await carregarVendas(),rn=await carregarNfs(),ra=await carregarVendasArq();
+var falha=primeiraFalha(rv,rn,ra);
+if(falha){if(!1!==falha.sessao)e.innerHTML=estadoErro("as vendas",falha.erro);return}
 var lista=filtVendaBusca(vendasData,E("inputBusca")?E("inputBusca").value:"");
 var arq=vendasArq.length?' · <button class="venda-arq-btn" data-acao="venda-arq-alternar" aria-expanded="'+(vendasArqAberto?"true":"false")+'">'+vendasArq.length+" arquivada"+(1===vendasArq.length?"":"s")+"</button>":"";
 var topo='<div class="venda-topo"><button class="btn-cad" data-acao="nova-venda">+ Nova venda</button><span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
@@ -647,11 +670,13 @@ String(x.lead_code||"").toLowerCase().indexOf(q)>=0||
 String(x.vendas_aparelhos||"").toLowerCase().indexOf(q)>=0||
 (!!d&&(String(x.whatsapp_digitos||"").indexOf(d)>=0||String(x.cpf||"").indexOf(d)>=0))})}
 async function carregarClientes(){
-var r=await t.from("v_cliente").select("*").order("nome",{ascending:!0});
-clientesData=(r&&r.data)||[]}
+var r=await ler(t.from("v_cliente").select("*").order("nome",{ascending:!0}),"os clientes");
+if(r.ok)clientesData=r.dados;return r}
 async function renderClientes(e){
 e.innerHTML='<div class="estado carregando">Lendo clientes…</div>';
-await carregarClientes();await carregarVendas();
+var rc=await carregarClientes(),rv=await carregarVendas();
+var falha=primeiraFalha(rc,rv);
+if(falha){if(!1!==falha.sessao)e.innerHTML=estadoErro("os clientes",falha.erro);return}
 var semv=cliDoSeg(clientesData,"semvenda"),semd=cliDoSeg(clientesData,"semdados");
 var topo='<div class="nf-topo"><div class="nf-segs">'+
 '<button class="nf-seg'+("todos"===cliSeg?" on":"")+'" data-acao="cli-seg" data-seg="todos">Clientes <span>'+clientesData.length+"</span></button>"+
@@ -752,8 +777,8 @@ var r=await t.rpc("anexar_nf",{payload:{venda_id:vendaId,arquivo:caminho,numero:
 var d=r&&r.data;
 return d&&d.ok?{ok:!0}:{ok:!1,erro:(d&&d.erro)||(r&&r.error&&r.error.message)||"Falha ao registrar a NF"}}
 async function carregarNfs(){
-var r=await t.from("v_venda_nf").select("*").order("enviado_em",{ascending:!1});
-nfsData=(r&&r.data)||[]}
+var r=await ler(t.from("v_venda_nf").select("*").order("enviado_em",{ascending:!1}),"as notas fiscais");
+if(r.ok)nfsData=r.dados;return r}
 function nfsDaVenda(id){return nfsData.filter(function(x){return String(x.venda_id)===String(id)})}
 // Venda sem nota e trabalho pendente, nao detalhe: por isso toda venda declara o
 // estado da NF no proprio card, e nao so as que tem.
@@ -833,7 +858,9 @@ return'<div class="card"><div class="card-top"><span class="card-code">'+c(x.ven
 nfItem(x)+"</div>"}
 async function renderNfs(e){
 e.innerHTML='<div class="estado carregando">Lendo notas fiscais…</div>';
-await carregarVendas();await carregarNfs();
+var rv=await carregarVendas(),rn=await carregarNfs();
+var falha=primeiraFalha(rv,rn);
+if(falha){if(!1!==falha.sessao)e.innerHTML=estadoErro("as notas fiscais",falha.erro);return}
 var falta=nfSemNota(),termo=E("inputBusca")?E("inputBusca").value:"";
 var topo='<div class="venda-topo"><div class="nf-segs" role="tablist">'+
 '<button class="nf-seg'+("com"===nfSeg?" on":"")+'" data-acao="nf-seg" data-seg="com">Com nota <span>'+nfsData.length+"</span></button>"+
