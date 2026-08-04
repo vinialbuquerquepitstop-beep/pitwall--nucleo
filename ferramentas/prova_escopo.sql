@@ -14,7 +14,7 @@ declare
   ten2   uuid := 'aaaaaaaa-0000-0000-0000-00000000000b';
   vend   uuid := 'aaaaaaaa-0000-0000-0000-00000000000c';
   rel text := ''; nok int := 0; nfa int := 0;
-  n int; msg text; vb boolean; r jsonb;
+  n int; msg text; vb boolean; r jsonb; vid uuid;
 begin
   -- vizinhos de prova, ainda como dono do banco. Somem no rollback.
   insert into public.tenant(id, nome) values (ten2, 'Tenant vizinho (prova)');
@@ -137,6 +137,52 @@ begin
   exception when others then
     nok:=nok+1; rel:=rel||E'\n  ok  RLS: vendedor barrado ao criar frente';
   end;
+
+  --------------------------------------------------- harden (Task 1b)
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+
+  -- o evento e garantido pelo TRIGGER, nao pela disciplina de chamar a RPC
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  values (ten1, 'calculadoras', 'alvo do trigger', 'a_fazer') returning id into vid;
+
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = vid and de_status is null and para_status = 'a_fazer';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: INSERT gera o evento de nascimento';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU trigger no INSERT: '||n||' evento(s)'; end if;
+
+  update public.escopo_acao set status = 'feito' where id = vid;
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = vid and de_status = 'a_fazer' and para_status = 'feito';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: UPDATE DIRETO tambem gera evento (nao da pra furar o log)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU trigger no UPDATE direto: '||n||' evento(s)'; end if;
+
+  -- status repetido nao gera evento fantasma, senao a tendencia le ruido
+  select count(*) into n from public.escopo_acao_evento where acao_id = vid;
+  update public.escopo_acao set status = 'feito' where id = vid;
+  select count(*) - n into n from public.escopo_acao_evento where acao_id = vid;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: status repetido nao gera evento fantasma';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: status repetido gerou '||n||' evento(s)'; end if;
+
+  -- mexer em outra coluna que nao o status tambem nao gera evento
+  select count(*) into n from public.escopo_acao_evento where acao_id = vid;
+  update public.escopo_acao set titulo = 'outro titulo' where id = vid;
+  select count(*) - n into n from public.escopo_acao_evento where acao_id = vid;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: mudar o titulo nao e mudanca de status';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: editar titulo gerou '||n||' evento(s)'; end if;
+
+  -- vendedor nao fabrica mais evento (era o furo do placar)
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', vend, 'role', 'authenticated')::text, true);
+  begin
+    insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
+    values (ten1, vid, 'a_fazer', 'feito', vend);
+    nfa:=nfa+1; rel:=rel||E'\nFALHOU: vendedor fabricou evento e pode inflar a nota';
+  exception when others then
+    nok:=nok+1; rel:=rel||E'\n  ok  vendedor nao fabrica evento (o placar nao se manipula)';
+  end;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role', 'authenticated')::text, true);
 
   raise exception E'PROVA ESCOPO FATIA 1 -- % ok, % falhas%', nok, nfa, rel;
 end $$;
