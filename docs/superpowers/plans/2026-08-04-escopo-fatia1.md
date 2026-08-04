@@ -651,13 +651,47 @@ Inserir no `ferramentas/prova_escopo.sql`, logo antes do `raise exception` final
 
   drop table _esc_ord;
 
-  -- a linha de pendencia nunca aparece no meio das frentes
+  -- a linha de pendencia nunca aparece no meio das frentes. Comparado contra a
+  -- CONTAGEM da propria leitura, nao contra a posicao fixa 9: a Fatia 3 deixa
+  -- criar e desligar frente pela tela, e uma posicao chumbada passaria a
+  -- checar a linha errada sem avisar.
   select (f->>'grupo') into msg from (
-    select f, row_number() over () ord
+    select f, row_number() over () ord, count(*) over () tot
       from json_array_elements((public.escopo_completo())->'frentes') f
-  ) s where ord = 9;
+  ) s where ord = tot;
   if msg = 'pendencia' then nok:=nok+1; rel:=rel||E'\n  ok  pendencias vem sempre por ultimo';
-  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ordem: a 9a linha veio como grupo '||coalesce(msg,'NULL'); end if;
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ordem: a ultima linha veio como grupo '||coalesce(msg,'NULL'); end if;
+
+  -- ARQUIVAR NAO COMPRA MOVIMENTO. Este e o vetor que a revisao achou: sem o
+  -- filtro `not a2.arquivada` no ult_evento, criar e arquivar uma acao
+  -- descartavel derrubava dias_parada de 40 para 0 e dobrava a nota.
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  values (ten1, 'colaboradores', 'trabalho real parado', 'a_fazer') returning id into vid;
+  perform set_config('role', 'postgres', true);
+  update public.escopo_acao_evento set em = now() - interval '40 days' where acao_id = vid;
+  perform set_config('role', 'authenticated', true);
+
+  select (f->>'nota')::int into n
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'colaboradores';
+
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, arquivada)
+  values (ten1, 'colaboradores', 'descartavel', 'a_fazer', true);
+
+  select (f->>'nota')::int - n into n
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'colaboradores';
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  arquivar acao descartavel NAO muda a nota da frente';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao descartavel arquivada moveu a nota em '||n||' pontos'; end if;
+
+  -- e faixa sem_dado nao pode vazar dias_parada de acao arquivada
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, arquivada)
+  values (ten1, 'assistencia', 'so arquivada', 'a_fazer', true);
+  select f->>'dias_parada' into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'assistencia';
+  if msg is null then nok:=nok+1; rel:=rel||E'\n  ok  sem_dado vem com dias_parada null, sem fantasma de arquivada';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: sem_dado vazou dias_parada = '||msg; end if;
 ```
 
 Trocar a linha do `raise exception` para refletir o novo total. Ela ja usa `nok` e `nfa`, entao nao muda.
@@ -701,9 +735,16 @@ begin
            count(ea.id)                                              as total,
            count(ea.id) filter (where ea.status = 'feito')            as feitas,
            count(ea.id) filter (where ea.status = 'travado')          as travadas,
+           -- `and not a2.arquivada` NAO e detalhe: sem ele, criar e arquivar uma
+           -- acao descartavel zera o relogio da frente. Medido em 04/08/2026:
+           -- uma frente parada ha 40 dias pulava de nota 30 para 60 com esse
+           -- truque, comprando 30 pontos de Movimento sem trabalho nenhum. O
+           -- filtro tambem casa com total/feitas/travadas, que ja ignoram
+           -- arquivada, e faz dias_parada vir null quando a faixa e sem_dado.
            (select max(ev.em) from public.escopo_acao_evento ev
               join public.escopo_acao a2 on a2.id = ev.acao_id
-             where ev.tenant_id = v_tenant and a2.frente = ef.codigo) as ult_evento
+             where ev.tenant_id = v_tenant and a2.frente = ef.codigo
+               and not a2.arquivada) as ult_evento
       from public.escopo_frente ef
       left join public.escopo_acao ea
         on ea.tenant_id = v_tenant and ea.frente = ef.codigo and not ea.arquivada
@@ -766,7 +807,7 @@ grant execute on function public.escopo_completo() to authenticated;
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 29 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 31 ok, 0 falhas`.
 
 - [ ] **Step 5: commit**
 
@@ -1008,7 +1049,7 @@ grant execute on function public.arquivar_acao_escopo(uuid) to authenticated;
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 41 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 43 ok, 0 falhas`.
 
 - [ ] **Step 5: conferir que os grants ficaram como esperado**
 
@@ -1032,7 +1073,7 @@ Travar exige motivo na RPC, nao so no CHECK, para a recusa chegar na tela
 como frase legivel. Destravar LIMPA o motivo: motivo velho pendurado mente.
 Status repetido nao gera evento, senao a tendencia da Fatia 3 le ruido.
 
-Prova: 41 ok / 0 falhas.
+Prova: 43 ok / 0 falhas.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1550,7 +1591,7 @@ Os tres `diag_mobile` sao o portao que importa nesta obra: eles REPROVAM se a ba
 
 Rodar `ferramentas/prova_escopo.sql` via `mcp__supabase__execute_sql`.
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 41 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 43 ok, 0 falhas`.
 
 - [ ] **Step 6: commit, SEM push**
 
