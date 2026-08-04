@@ -317,5 +317,79 @@ begin
   if msg is null then nok:=nok+1; rel:=rel||E'\n  ok  sem_dado vem com dias_parada null, sem fantasma de arquivada';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: sem_dado vazou dias_parada = '||msg; end if;
 
+  ------------------------------------------------------------- RPCs de escrita
+  select public.criar_acao_escopo('pitscare', '  Aplicar os 19 scripts  ')::jsonb into r;
+  if (r->>'ok')::boolean then nok:=nok+1; rel:=rel||E'\n  ok  criar_acao_escopo devolve ok';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU criar_acao_escopo: '||coalesce(r->>'msg','sem msg'); end if;
+
+  select titulo into msg from public.escopo_acao where id = (r->>'id')::uuid;
+  if msg = 'Aplicar os 19 scripts' then nok:=nok+1; rel:=rel||E'\n  ok  o titulo entra sem espaco sobrando';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU trim do titulo: veio '||quote_literal(coalesce(msg,'NULL')); end if;
+
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = (r->>'id')::uuid and de_status is null and para_status = 'a_fazer';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  criar acao grava exatamente 1 evento de nascimento';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU evento de nascimento: '||n||' linhas'; end if;
+
+  -- titulo vazio nao cria acao
+  if not (public.criar_acao_escopo('pitscare', '   ')::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  titulo vazio recusado';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: titulo vazio criou acao'; end if;
+
+  -- travar SEM motivo e recusado pela RPC, com mensagem legivel
+  if not (public.mudar_status_acao_escopo((r->>'id')::uuid, 'travado')::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  travar sem motivo recusado pela RPC';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: travou sem motivo'; end if;
+
+  -- travar COM motivo passa e carimba travado_desde
+  perform public.mudar_status_acao_escopo((r->>'id')::uuid, 'travado', 'capability Update content');
+  select count(*) into n from public.escopo_acao
+   where id = (r->>'id')::uuid and status = 'travado'
+     and motivo_trava = 'capability Update content'
+     and travado_desde = (now() at time zone 'America/Sao_Paulo')::date;
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  travar grava motivo e travado_desde no fuso BR';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU travar com motivo'; end if;
+
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = (r->>'id')::uuid and de_status = 'a_fazer' and para_status = 'travado';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  mudanca de status grava evento com de e para';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU evento da mudanca: '||n||' linhas'; end if;
+
+  -- sair de travado limpa o motivo, senao ele fica mentindo na tela
+  perform public.mudar_status_acao_escopo((r->>'id')::uuid, 'fazendo');
+  select count(*) into n from public.escopo_acao
+   where id = (r->>'id')::uuid and motivo_trava is null and travado_desde is null;
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  destravar limpa motivo e travado_desde';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU destravar deixou motivo velho para tras'; end if;
+
+  -- status igual ao atual nao gera evento fantasma
+  select count(*) into n from public.escopo_acao_evento where acao_id = (r->>'id')::uuid;
+  perform public.mudar_status_acao_escopo((r->>'id')::uuid, 'fazendo');
+  select count(*) - n into n from public.escopo_acao_evento where acao_id = (r->>'id')::uuid;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  status repetido nao gera evento fantasma';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: status repetido gerou '||n||' evento(s)'; end if;
+
+  -- descartar tira da leitura sem apagar a linha
+  perform public.descartar_acao_escopo((r->>'id')::uuid);
+  select count(*) into n from public.escopo_acao where id = (r->>'id')::uuid;
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  descartar NAO apaga a linha';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: descartar apagou a linha'; end if;
+
+  select count(*) into n
+    from json_array_elements((public.escopo_completo())->'frentes') f,
+         json_array_elements(f->'acoes') a
+   where (a->>'id') = (r->>'id');
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  acao descartada some da leitura';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao descartada continua na leitura'; end if;
+
+  -- vendedor nao escreve
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', vend, 'role', 'authenticated')::text, true);
+  if not (public.criar_acao_escopo('pitscare', 'do vendedor')::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  vendedor barrado ao criar acao';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: vendedor criou acao'; end if;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+
   raise exception E'PROVA ESCOPO FATIA 1 -- % ok, % falhas%', nok, nfa, rel;
 end $$;
