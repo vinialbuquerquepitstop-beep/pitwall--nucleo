@@ -1387,9 +1387,9 @@ Rodar `ferramentas/prova_escopo.sql` via `mcp__supabase__execute_sql`.
 
 Esperado: `PROVA ESCOPO FATIA 1 -- 36 ok, 0 falhas`.
 
-- [ ] **Step 6: commit e deploy**
+- [ ] **Step 6: commit, SEM push**
 
-Push e deploy sao a mesma coisa: a Cloudflare publica sozinha no push, via Workers Builds.
+**Decisao do dono, 04/08/2026: commitar na `main` local e PARAR antes do push.** Push e deploy sao a mesma coisa (a Cloudflare publica sozinha via Workers Builds), e ele quer conferir antes de publicar. Nao rodar `git push` nesta execucao.
 
 ```bash
 git add ferramentas/validar.py
@@ -1402,13 +1402,17 @@ Item unico e nomeado. A baseline .antes NAO foi repontada: isso calaria as
 outras 4 reprovacoes herdadas de carona, que e como um guard-rail morre.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-git pull --rebase
-git push
 ```
 
-- [ ] **Step 7: conferir no ar, no celular**
+- [ ] **Step 7: conferir localmente (o app ainda NAO esta no ar)**
 
-Abrir o app no celular. Tocar em **Mais**: a gaveta abre e **Escopo** esta la, com o rotulo inteiro. Tocar: o placar aparece com as 8 frentes, todas em `sem dado` (nenhuma acao ainda). Digitar uma acao em Pitscare e tocar em Adicionar: ela aparece, a frente sai de `sem dado` e ganha nota.
+Como nao houve push, a conferencia e local:
+
+```bash
+node ferramentas/servir.js
+```
+
+Abrir o endereco que ele imprimir, e estreitar a janela do navegador ate 390px de largura para ver o layout de celular. Tocar em **Mais**: a gaveta abre e **Escopo** esta la, com o rotulo inteiro. Tocar: o placar aparece com as 8 frentes, todas em `sem dado` (nenhuma acao ainda). Digitar uma acao em Pitscare e tocar em Adicionar: ela aparece, a frente sai de `sem dado` e ganha nota.
 
 Rolar ate o fim: o ultimo bloco tem que terminar ACIMA da barra, com respiro.
 
