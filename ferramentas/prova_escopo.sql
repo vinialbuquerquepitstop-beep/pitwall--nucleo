@@ -181,8 +181,107 @@ begin
   exception when others then
     nok:=nok+1; rel:=rel||E'\n  ok  vendedor nao fabrica evento (o placar nao se manipula)';
   end;
+  ------------------------------------------------------ a nota, de volta como DONO
   perform set_config('request.jwt.claims',
     json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+
+  -- frente sem acao nenhuma nao entra no ranking
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'assistencia';
+  if msg = 'sem_dado' then nok:=nok+1; rel:=rel||E'\n  ok  nota: frente vazia e sem_dado, nao 0 nem 100';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU nota: frente vazia veio como '||coalesce(msg,'NULL'); end if;
+
+  -- 4 de 4 feitas, 0 travadas, evento de hoje = 100.
+  -- O evento nasce do trigger da Task 1b: nao inserir na mao, senao duplica.
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  select ten1, 'comercial', 'a'||i, 'feito' from generate_series(1,4) i;
+
+  select (f->>'nota') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'comercial';
+  if msg = '100' then nok:=nok+1; rel:=rel||E'\n  ok  nota: tudo feito, nada travado, mexido hoje = 100';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU nota: esperava 100, veio '||coalesce(msg,'NULL'); end if;
+
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'comercial';
+  if msg = 'a_frente' then nok:=nok+1; rel:=rel||E'\n  ok  faixa: 100 e a_frente';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU faixa: 100 veio como '||coalesce(msg,'NULL'); end if;
+
+  -- 0 feitas, 1 de 1 travada, parada ha 40 dias = 0
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, motivo_trava)
+  values (ten1, 'whatsapp', 'parada', 'travado', 'sem numero definido');
+
+  -- O trigger da Task 1b gravou o evento com em = now(). Para provar o
+  -- decaimento de Movimento e preciso ENVELHECER esse evento, e o log e
+  -- append-only: nem o dono tem UPDATE nele. Volta-se ao papel do dono do
+  -- BANCO so para esta linha, e nao para o resto da prova.
+  perform set_config('role', 'postgres', true);
+  update public.escopo_acao_evento set em = now() - interval '40 days'
+   where acao_id in (select id from public.escopo_acao where frente = 'whatsapp');
+  perform set_config('role', 'authenticated', true);
+
+  select (f->>'nota') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'whatsapp';
+  if msg = '0' then nok:=nok+1; rel:=rel||E'\n  ok  nota: nada feito, tudo travado, 40d parada = 0';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU nota: esperava 0, veio '||coalesce(msg,'NULL'); end if;
+
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'whatsapp';
+  if msg = 'em_baixa' then nok:=nok+1; rel:=rel||E'\n  ok  faixa: 0 e em_baixa';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU faixa: 0 veio como '||coalesce(msg,'NULL'); end if;
+
+  -- acao arquivada nao conta no total
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, arquivada)
+  values (ten1, 'comercial', 'arquivada', 'a_fazer', true);
+  select (f->>'total') into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'comercial';
+  if msg = '4' then nok:=nok+1; rel:=rel||E'\n  ok  total ignora acao arquivada';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU total com arquivada: veio '||coalesce(msg,'NULL'); end if;
+
+  -- o ranking desce da melhor pra pior. Assertado pela ORDEM DAS NOTAS, nao por
+  -- uma lista fixa de codigos: os blocos anteriores desta prova ja povoaram
+  -- outras frentes, e lista fixa quebraria toda vez que a prova crescesse.
+  --
+  -- Materializa a leitura UMA vez numa temp table: repetir
+  -- json_array_elements(escopo_completo()) em subquery correlacionada custa uma
+  -- chamada de RPC por linha e fica ilegivel.
+  create temp table _esc_ord on commit drop as
+    select (f->>'codigo')  as codigo,
+           (f->>'grupo')   as grupo,
+           (f->>'faixa')   as faixa,
+           (f->>'nota')::int as nota,
+           row_number() over () as ord
+      from json_array_elements((public.escopo_completo())->'frentes') f;
+
+  select bool_and(nota >= prox) into vb from (
+    select nota, lead(nota) over (order by ord) prox
+      from _esc_ord where grupo = 'frente' and faixa <> 'sem_dado') p
+   where prox is not null;
+  if coalesce(vb, true) then nok:=nok+1; rel:=rel||E'\n  ok  ranking: a nota desce da melhor pra pior';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ranking: nota fora de ordem'; end if;
+
+  -- sem_dado desce pro fim do grupo, nunca fica no meio de quem tem nota
+  select count(*) into n from _esc_ord s
+   where s.grupo = 'frente' and s.faixa = 'sem_dado'
+     and exists (select 1 from _esc_ord s2
+                  where s2.grupo = 'frente' and s2.faixa <> 'sem_dado' and s2.ord > s.ord);
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  sem_dado nunca fica no meio de quem tem nota';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: '||n||' frente(s) sem_dado no meio do ranking'; end if;
+
+  drop table _esc_ord;
+
+  -- a linha de pendencia nunca aparece no meio das frentes
+  select (f->>'grupo') into msg from (
+    select f, row_number() over () ord
+      from json_array_elements((public.escopo_completo())->'frentes') f
+  ) s where ord = 9;
+  if msg = 'pendencia' then nok:=nok+1; rel:=rel||E'\n  ok  pendencias vem sempre por ultimo';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ordem: a 9a linha veio como grupo '||coalesce(msg,'NULL'); end if;
 
   raise exception E'PROVA ESCOPO FATIA 1 -- % ok, % falhas%', nok, nfa, rel;
 end $$;
