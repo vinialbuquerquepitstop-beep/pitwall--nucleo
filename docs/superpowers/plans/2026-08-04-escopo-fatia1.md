@@ -19,6 +19,7 @@
 - **Derivado nunca vira coluna:** nota, faixa, dias parados e progresso saem na leitura.
 - **Status por codigo:** `a_fazer` | `fazendo` | `travado` | `feito`. Rotulo e display.
 - **Sem DELETE:** remocao e `arquivada = true`.
+- **`arquivada` quer dizer DESCARTADA**, decisao do dono em 04/08/2026. Serve para acao criada errada ou que nao vale mais, e a tela diz "Descartar", nunca "Arquivar". Acao concluida NAO se descarta: ela fica com status `feito` e continua contando o Avanco da frente. A coluna manteve o nome `arquivada` (ja existe no banco, com comentario explicando), mas a RPC e o rotulo dizem descartar, porque descartar e o que o ato faz.
 - **Sem emoji** em rotulo. Ponto colorido + palavra.
 - **Prosa e comentario sem acento, sem cedilha, sem travessao.** Valores reais do sistema preservam seus caracteres exatos (rotulos com acento entram como estao).
 - **`app.js` e minificado numa linha so.** Nunca editar a mao. Toda mudanca entra por `ferramentas/patch_*.js`, que ABORTA se a ancora nao tiver exatamente 1 ocorrencia.
@@ -37,7 +38,7 @@
 |---|---|
 | migration `escopo_fatia1_schema` | as 3 tabelas, RLS, grants, seed das 9 linhas de frente |
 | migration `escopo_fatia1_rpc_leitura` | `public.escopo_completo()` |
-| migration `escopo_fatia1_rpcs_escrita` | `criar_acao_escopo`, `mudar_status_acao_escopo`, `arquivar_acao_escopo` |
+| migration `escopo_fatia1_rpcs_escrita` | `criar_acao_escopo`, `mudar_status_acao_escopo`, `descartar_acao_escopo` |
 | `ferramentas/prova_escopo.sql` | prova de banco: RLS nos 3 papeis, CHECK, append-only, nota nos limites |
 | `public/index.html` | o botao `<button class="aba aba-rara" id="abaEscopo">` |
 | `public/app.css` | blocos `.esc-*` do placar e da lista |
@@ -837,7 +838,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Produces, todas `returns json` no formato `{ok, msg?, id?}`:
   - `public.criar_acao_escopo(p_frente text, p_titulo text)`
   - `public.mudar_status_acao_escopo(p_id uuid, p_status text, p_motivo text default null)`
-  - `public.arquivar_acao_escopo(p_id uuid)`
+  - `public.descartar_acao_escopo(p_id uuid)`
 
 - [ ] **Step 1: escrever as assercoes ANTES das RPCs**
 
@@ -896,18 +897,18 @@ Inserir no `ferramentas/prova_escopo.sql`, antes do `raise exception` final:
   if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  status repetido nao gera evento fantasma';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: status repetido gerou '||n||' evento(s)'; end if;
 
-  -- arquivar tira da leitura sem apagar a linha
-  perform public.arquivar_acao_escopo((r->>'id')::uuid);
+  -- descartar tira da leitura sem apagar a linha
+  perform public.descartar_acao_escopo((r->>'id')::uuid);
   select count(*) into n from public.escopo_acao where id = (r->>'id')::uuid;
-  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  arquivar NAO apaga a linha';
-  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: arquivar apagou a linha'; end if;
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  descartar NAO apaga a linha';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: descartar apagou a linha'; end if;
 
   select count(*) into n
     from json_array_elements((public.escopo_completo())->'frentes') f,
          json_array_elements(f->'acoes') a
    where (a->>'id') = (r->>'id');
-  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  acao arquivada some da leitura';
-  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao arquivada continua na leitura'; end if;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  acao descartada some da leitura';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao descartada continua na leitura'; end if;
 
   -- vendedor nao escreve
   perform set_config('request.jwt.claims',
@@ -1013,7 +1014,7 @@ begin
   return json_build_object('ok', true, 'msg', 'Pronto.');
 end $$;
 
-create or replace function public.arquivar_acao_escopo(p_id uuid)
+create or replace function public.descartar_acao_escopo(p_id uuid)
 returns json
 language plpgsql
 set search_path to 'public', 'privado'
@@ -1035,16 +1036,16 @@ begin
   if n = 0 then
     return json_build_object('ok', false, 'msg', 'Ação não encontrada.');
   end if;
-  return json_build_object('ok', true, 'msg', 'Arquivada.');
+  return json_build_object('ok', true, 'msg', 'Descartada.');
 end $$;
 
 -- CREATE OR REPLACE FUNCTION reseta ACL: refazer os grants explicitamente.
 revoke all on function public.criar_acao_escopo(text, text) from public, anon;
 revoke all on function public.mudar_status_acao_escopo(uuid, text, text) from public, anon;
-revoke all on function public.arquivar_acao_escopo(uuid) from public, anon;
+revoke all on function public.descartar_acao_escopo(uuid) from public, anon;
 grant execute on function public.criar_acao_escopo(text, text) to authenticated;
 grant execute on function public.mudar_status_acao_escopo(uuid, text, text) to authenticated;
-grant execute on function public.arquivar_acao_escopo(uuid) to authenticated;
+grant execute on function public.descartar_acao_escopo(uuid) to authenticated;
 ```
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
@@ -1198,7 +1199,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `public/app.js` (pelo patch, nunca a mao)
 
 **Interfaces:**
-- Consumes: `escopo_completo()`, `criar_acao_escopo()`, `mudar_status_acao_escopo()`, `arquivar_acao_escopo()` das Tasks 2 e 3.
+- Consumes: `escopo_completo()`, `criar_acao_escopo()`, `mudar_status_acao_escopo()`, `descartar_acao_escopo()` das Tasks 2 e 3.
 - Consumes do `app.js` existente: `E(id)` (getElementById), `c(a)` (escape de HTML), `t` (client Supabase), `q(rpc, args, botao, msg)` (chama a RPC, mostra toast e recarrega), `I(msg, erro)` (toast).
 - Produces no `app.js`: `escFaixaRot(f)`, `escIcone(k)`, `escPlacar(fs)`, `escFrente(fr, pode)`, `renderEscopo()`, e o ramo `else if("escopo"===n)renderEscopo();` no dispatcher.
 
@@ -1288,13 +1289,13 @@ t('e o motivo da trava aparece por escrito', fr.indexOf('capability Update conte
 t('a tela preserva a ordem que o banco mandou',
   fr.indexOf('Aplicar os 19 scripts') < fr.indexOf('Fundir a branch'));
 t('quem pode editar ve o botao de mudar status', fr.indexOf('data-acao="esc-status"') >= 0);
-t('quem pode editar ve o botao de arquivar', fr.indexOf('data-acao="esc-arq"') >= 0);
+t('quem pode editar ve o botao de descartar', fr.indexOf('data-acao="esc-desc"') >= 0);
 
 const frLeitor = api.escFrente({codigo:'pitscare',rotulo:'Pitscare',grupo:'frente',icone:'escudo',
   nota:60,faixa:'normal',feitas:1,total:3,travadas:1,dias_parada:2,
   acoes:[{id:'a1',titulo:'x',status:'a_fazer',motivo_trava:null}]}, false);
 t('quem NAO pode editar nao ve botao de escrita',
-  frLeitor.indexOf('data-acao="esc-status"') < 0 && frLeitor.indexOf('data-acao="esc-arq"') < 0);
+  frLeitor.indexOf('data-acao="esc-status"') < 0 && frLeitor.indexOf('data-acao="esc-desc"') < 0);
 t('mas continua LENDO a acao', frLeitor.indexOf('esc-acao') >= 0);
 
 console.log('\n--- icone: frente nova (Fatia 3) nao pode virar buraco ---');
@@ -1307,11 +1308,11 @@ eq('renderEscopo definida uma vez so', conta('async function renderEscopo('), 1)
 t('a leitura passa pela RPC escopo_completo', SRC.indexOf('"escopo_completo"') >= 0);
 t('criar acao passa pela RPC', SRC.indexOf('"criar_acao_escopo"') >= 0);
 t('mudar status passa pela RPC', SRC.indexOf('"mudar_status_acao_escopo"') >= 0);
-t('arquivar passa pela RPC', SRC.indexOf('"arquivar_acao_escopo"') >= 0);
+t('arquivar passa pela RPC', SRC.indexOf('"descartar_acao_escopo"') >= 0);
 t('nenhuma nota e calculada no JS (a conta e do banco)',
   SRC.indexOf('function escNota') < 0);
 eq('o delegado trata esc-status', conta('if("esc-status"===o)'), 1);
-eq('o delegado trata esc-arq', conta('if("esc-arq"===o)'), 1);
+eq('o delegado trata esc-desc', conta('if("esc-desc"===o)'), 1);
 eq('o delegado trata esc-criar', conta('if("esc-criar"===o)'), 1);
 t('a aba entra no aria-selected junto das outras', SRC.indexOf('E("abaEscopo")') >= 0);
 t('o titulo do topo conhece a aba escopo', SRC.indexOf('"escopo"===n?"Escopo"') >= 0);
@@ -1392,7 +1393,7 @@ const BLOCO = [
   '// O chip carrega a classe do status nos DOIS caminhos: quem pode editar ve',
   '// botao, quem nao pode ve texto, e os dois pintam igual. Chip sem a classe',
   '// deixaria o leitor sem a cor de travado.',
-  'var bt=pode?\'<button class="esc-chip s-\'+c(a.status)+\'" data-acao="esc-status" data-id="\'+c(a.id)+\'" data-st="\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+\'</button><button class="link-acao" data-acao="esc-arq" data-id="\'+c(a.id)+\'" aria-label="Arquivar">×</button>\':\'<span class="esc-chip s-\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+"</span>";',
+  'var bt=pode?\'<button class="esc-chip s-\'+c(a.status)+\'" data-acao="esc-status" data-id="\'+c(a.id)+\'" data-st="\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+\'</button><button class="link-acao" data-acao="esc-desc" data-id="\'+c(a.id)+\'" aria-label="Descartar">×</button>\':\'<span class="esc-chip s-\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+"</span>";',
   'return\'<div class="esc-acao"><span class="esc-acao-txt">\'+c(a.titulo)+(a.motivo_trava?\'<div class="esc-trava">trava: \'+c(a.motivo_trava)+"</div>":"")+"</span>"+bt+"</div>"}).join("")||\'<div class="esc-acao"><span class="esc-acao-txt">Nenhuma ação aqui ainda.</span></div>\';',
   'var form=pode?\'<div class="esc-form"><input type="text" id="escNovo_\'+c(fr.codigo)+\'" placeholder="Nova ação nesta frente" autocomplete="off"><button class="link-acao" data-acao="esc-criar" data-frente="\'+c(fr.codigo)+\'">Adicionar</button></div>\':"";',
   'return\'<div class="esc-frente\'+("pendencia"===fr.grupo?" esc-pend":"")+\'"><div class="esc-frente-cab">\'+escIcone(fr.icone)+\'<span class="esc-frente-tit">\'+c(fr.rotulo)+\'</span><span class="esc-frente-cont">\'+c(fr.feitas+"/"+fr.total)+"</span></div>"+ac+form+"</div>"}',
@@ -1447,7 +1448,7 @@ const COSTURAS = [
       'prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer",mot=null;',
       'if("travado"===prox&&!(mot=prompt("O que está travando?")))return;',
       'return void q("mudar_status_acao_escopo",{p_id:a.getAttribute("data-id"),p_status:prox,p_motivo:mot},a)}',
-      'if("esc-arq"===o)return void q("arquivar_acao_escopo",{p_id:a.getAttribute("data-id")},a);',
+      'if("esc-desc"===o)return void q("descartar_acao_escopo",{p_id:a.getAttribute("data-id")},a);',
       'if("rot-dia"===o)'
     ].join('')
   }
@@ -1634,4 +1635,4 @@ Criar `docs/handoffs/handoff_migracao_pitwall_v46.md` registrando as decisoes (n
 
 **Lacuna conhecida e aceita:** a spec pede que a tela DECLARE o corte de regua entre Fatia 1 e Fatia 3. Nesta fatia so existe uma regua, entao nao ha o que declarar; a obrigacao nasce junto com a quarta parcela, na Fatia 3, e esta anotada no comentario da `escopo_completo()`.
 
-**Consistencia de nomes:** `escopo_completo`, `criar_acao_escopo`, `mudar_status_acao_escopo`, `arquivar_acao_escopo`, `escFaixaRot`, `escIcone`, `escPlacar`, `escFrente`, `renderEscopo`, e as acoes de delegado `esc-criar`, `esc-status`, `esc-arq` aparecem com a mesma grafia na prova (Task 5 step 1), no patch (step 3) e nas migrations (Tasks 2 e 3). A coluna de vinculo e `escopo_acao.frente` (text), casando com `escopo_frente.codigo`.
+**Consistencia de nomes:** `escopo_completo`, `criar_acao_escopo`, `mudar_status_acao_escopo`, `descartar_acao_escopo`, `escFaixaRot`, `escIcone`, `escPlacar`, `escFrente`, `renderEscopo`, e as acoes de delegado `esc-criar`, `esc-status`, `esc-desc` aparecem com a mesma grafia na prova (Task 5 step 1), no patch (step 3) e nas migrations (Tasks 2 e 3). A coluna de vinculo e `escopo_acao.frente` (text), casando com `escopo_frente.codigo`.
