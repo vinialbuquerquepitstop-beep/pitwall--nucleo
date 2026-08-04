@@ -864,6 +864,16 @@ Inserir no `ferramentas/prova_escopo.sql`, antes do `raise exception` final:
   then nok:=nok+1; rel:=rel||E'\n  ok  titulo vazio recusado';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: titulo vazio criou acao'; end if;
 
+  -- titulo gigante e recusado, nao truncado em silencio
+  if not (public.criar_acao_escopo('pitscare', repeat('x', 5000))::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  titulo de 5000 chars recusado (estouraria o card)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: titulo de 5000 chars entrou'; end if;
+
+  -- e 160 exatos ainda passam, senao a recusa e mais rigida que o texto diz
+  if (public.criar_acao_escopo('pitscare', repeat('y', 160))::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  160 chars exatos ainda passam';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: 160 chars foi recusado, o teto esta errado'; end if;
+
   -- travar SEM motivo e recusado pela RPC, com mensagem legivel
   if not (public.mudar_status_acao_escopo((r->>'id')::uuid, 'travado')::jsonb->>'ok')::boolean
   then nok:=nok+1; rel:=rel||E'\n  ok  travar sem motivo recusado pela RPC';
@@ -952,6 +962,12 @@ begin
   end if;
   if v_titulo = '' then
     return json_build_object('ok', false, 'msg', 'Escreva o que precisa ser feito.');
+  end if;
+  -- Teto medido: sem ele um titulo de 5000 chars entra inteiro e estoura o card
+  -- na tela. Recusa explicita, nunca truncar em silencio: texto cortado sem
+  -- aviso e pior que texto recusado.
+  if length(v_titulo) > 160 then
+    return json_build_object('ok', false, 'msg', 'Ação muito longa. Resuma em até 160 caracteres.');
   end if;
   if not exists (select 1 from public.escopo_frente
                   where tenant_id = v_tenant and codigo = p_frente and ativo) then
@@ -1050,7 +1066,7 @@ grant execute on function public.descartar_acao_escopo(uuid) to authenticated;
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 43 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 45 ok, 0 falhas`.
 
 - [ ] **Step 5: conferir que os grants ficaram como esperado**
 
@@ -1074,7 +1090,7 @@ Travar exige motivo na RPC, nao so no CHECK, para a recusa chegar na tela
 como frase legivel. Destravar LIMPA o motivo: motivo velho pendurado mente.
 Status repetido nao gera evento, senao a tendencia da Fatia 3 le ruido.
 
-Prova: 43 ok / 0 falhas.
+Prova: 45 ok / 0 falhas.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1395,7 +1411,7 @@ const BLOCO = [
   '// deixaria o leitor sem a cor de travado.',
   'var bt=pode?\'<button class="esc-chip s-\'+c(a.status)+\'" data-acao="esc-status" data-id="\'+c(a.id)+\'" data-st="\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+\'</button><button class="link-acao" data-acao="esc-desc" data-id="\'+c(a.id)+\'" aria-label="Descartar">×</button>\':\'<span class="esc-chip s-\'+c(a.status)+\'">\'+c(ESC_STATUS[a.status]||a.status)+"</span>";',
   'return\'<div class="esc-acao"><span class="esc-acao-txt">\'+c(a.titulo)+(a.motivo_trava?\'<div class="esc-trava">trava: \'+c(a.motivo_trava)+"</div>":"")+"</span>"+bt+"</div>"}).join("")||\'<div class="esc-acao"><span class="esc-acao-txt">Nenhuma ação aqui ainda.</span></div>\';',
-  'var form=pode?\'<div class="esc-form"><input type="text" id="escNovo_\'+c(fr.codigo)+\'" placeholder="Nova ação nesta frente" autocomplete="off"><button class="link-acao" data-acao="esc-criar" data-frente="\'+c(fr.codigo)+\'">Adicionar</button></div>\':"";',
+  'var form=pode?\'<div class="esc-form"><input type="text" maxlength="160" id="escNovo_\'+c(fr.codigo)+\'" placeholder="Nova ação nesta frente" autocomplete="off"><button class="link-acao" data-acao="esc-criar" data-frente="\'+c(fr.codigo)+\'">Adicionar</button></div>\':"";',
   'return\'<div class="esc-frente\'+("pendencia"===fr.grupo?" esc-pend":"")+\'"><div class="esc-frente-cab">\'+escIcone(fr.icone)+\'<span class="esc-frente-tit">\'+c(fr.rotulo)+\'</span><span class="esc-frente-cont">\'+c(fr.feitas+"/"+fr.total)+"</span></div>"+ac+form+"</div>"}',
   'async function renderEscopo(){',
   'var e=E("lista");',
@@ -1592,7 +1608,7 @@ Os tres `diag_mobile` sao o portao que importa nesta obra: eles REPROVAM se a ba
 
 Rodar `ferramentas/prova_escopo.sql` via `mcp__supabase__execute_sql`.
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 43 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 45 ok, 0 falhas`.
 
 - [ ] **Step 6: commit, SEM push**
 
