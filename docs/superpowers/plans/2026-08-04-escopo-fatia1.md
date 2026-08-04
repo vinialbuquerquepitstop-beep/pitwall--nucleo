@@ -1130,50 +1130,46 @@ No fim de `public/app.css`:
    e bom (lead novo) e aqui seria ruim. So "em baixa" recebe alerta. */
 .esc-placar{display:flex;flex-direction:column;gap:2px;margin-bottom:20px}
 .esc-linha{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px}
-.esc-linha:hover{background:var(--fundo-2)}
+.esc-linha:hover{background:var(--panel-2)}
 .esc-linha-nome{flex:1 1 150px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.esc-nota{font-family:'Geist Mono',monospace;font-weight:500;font-size:15px;min-width:34px;text-align:right}
+.esc-nota{font-family:var(--mono);font-weight:500;font-size:15px;min-width:34px;text-align:right}
 .esc-faixa{font-size:12px;min-width:66px}
-.esc-parcelas{font-family:'Geist Mono',monospace;font-size:12px;color:var(--texto-3);flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.esc-linha.f-em_baixa .esc-faixa{color:var(--escopo-baixa-fg);font-weight:500}
-.esc-linha.f-em_baixa .esc-nota{color:var(--escopo-baixa-fg)}
+.esc-parcelas{font-family:var(--mono);font-size:12px;color:var(--dim);flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.esc-linha.f-em_baixa .esc-faixa{color:var(--erro-fg);font-weight:500}
+.esc-linha.f-em_baixa .esc-nota{color:var(--erro-fg)}
 .esc-linha.f-sem_dado{opacity:.62}
-.esc-linha.f-sem_dado .esc-nota,.esc-linha.f-sem_dado .esc-faixa{color:var(--texto-3)}
+.esc-linha.f-sem_dado .esc-nota,.esc-linha.f-sem_dado .esc-faixa{color:var(--dim)}
 
-.esc-frente{border-left:3px solid var(--borda);padding-left:12px;margin:18px 0}
+.esc-frente{border-left:3px solid var(--line-forte);padding-left:12px;margin:18px 0}
 .esc-frente-cab{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .esc-frente-cab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 auto}
 .esc-frente-tit{font-weight:600}
-.esc-frente-cont{font-family:'Geist Mono',monospace;font-size:12px;color:var(--texto-3)}
-.esc-acao{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda-fraca)}
+.esc-frente-cont{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.esc-acao{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
 .esc-acao:last-child{border-bottom:none}
 .esc-acao-txt{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
-.esc-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--fundo-2);color:var(--texto-2);white-space:nowrap;flex:0 0 auto}
-.esc-chip.s-travado{background:var(--escopo-baixa-bg);color:var(--escopo-baixa-fg)}
+.esc-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel-2);color:var(--dim);white-space:nowrap;flex:0 0 auto}
+.esc-chip.s-travado{background:var(--erro-bg);color:var(--erro-fg)}
 .esc-chip.s-feito{opacity:.6}
-.esc-trava{font-size:12px;color:var(--escopo-baixa-fg);margin-top:3px}
+.esc-trava{font-size:12px;color:var(--erro-fg);margin-top:3px}
 .esc-form{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .esc-form input{flex:1 1 180px;min-width:0}
-.esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--borda)}
+.esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
 ```
 
-Os dois tokens novos entram no `:root` do `app.css`, junto dos outros. Sao paleta global, ao contrario de `--nav-item-h`, que e medida de layout de celular e por isso mora dentro da media query:
+**Nenhum token novo.** A primeira versao deste plano mandava criar `--escopo-baixa-fg:#B01235` e `--escopo-baixa-bg:#FBEAEE`, e o `validar.py` REPROVOU, com razao: `--erro-fg:#B01235` e `--erro-bg:#FDEDF0` ja existem no `:root`. Cor identica com nome diferente nao e organizacao, e drift garantido, porque no dia em que alguem retunar uma das duas a outra fica para tras em silencio.
 
-```css
-  --escopo-baixa-fg:#B01235;
-  --escopo-baixa-bg:#FBEAEE;
-```
-
-`#B01235` e o `--erro` ja medido e aprovado em 16/07/2026 sobre fundo branco. Reusar o valor ja provado evita abrir um token novo sem medicao.
+Usar `var(--erro-fg)` e `var(--erro-bg)` direto. Isso NAO e o mesmo que reusar `--quente`: reusar o quente INVERTERIA significado (la quente e bom, lead novo). O `--erro` ja e a cor de alerta deste sistema, medida em 7.04 sobre branco em 16/07/2026.
 
 - [ ] **Step 3: medir o contraste antes de seguir**
 
+**`ferramentas/contraste.py` NAO aceita argumento.** Ele imprime um relatorio fixo e sai 0 aconteca o que acontecer, entao passar cores na linha de comando nao mede nada. Importar as funcoes dele e o caminho:
+
 ```bash
-python ferramentas/contraste.py "#B01235" "#FBEAEE"
-python ferramentas/contraste.py "#B01235" "#FFFFFF"
+python -c "import sys; sys.path.insert(0,'ferramentas'); from contraste import ratio; print(round(ratio('#B01235','#FDEDF0'),2), round(ratio('#B01235','#FFFFFF'),2))"
 ```
 
-Esperado: os dois acima de 4.5:1 (texto). Se `#FBEAEE` reprovar, escurecer o fundo do chip ate passar e anotar o valor final aqui. **Nao seguir com valor reprovado.**
+Esperado: os dois acima de 4.5:1 (texto). Se reprovar, PARAR e relatar em vez de escolher outra cor no olho.
 
 - [ ] **Step 4: conferir que o CSS nao quebrou a tela**
 
@@ -1339,7 +1335,7 @@ t('e ele e .aba-rara (senao a barra do celular volta a cobrir o conteudo)',
   /class="aba aba-rara" id="abaEscopo"/.test(HTML));
 t('o CSS tem o bloco do placar', CSS.indexOf('.esc-placar{') >= 0);
 t('o CSS tem a classe de alerta de em baixa', CSS.indexOf('.esc-linha.f-em_baixa') >= 0);
-t('o token de alerta esta declarado', CSS.indexOf('--escopo-baixa-fg') >= 0);
+t('o alerta reusa o --erro ja medido, sem token novo', CSS.indexOf('--escopo-baixa') < 0);
 t('o alerta NAO reusa a paleta de temperatura',
   /\.esc-linha\.f-em_baixa \.esc-faixa\{color:var\(--quente/.test(CSS) === false);
 
