@@ -336,6 +336,16 @@ begin
   then nok:=nok+1; rel:=rel||E'\n  ok  titulo vazio recusado';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: titulo vazio criou acao'; end if;
 
+  -- titulo gigante e recusado, nao truncado em silencio
+  if not (public.criar_acao_escopo('pitscare', repeat('x', 5000))::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  titulo de 5000 chars recusado (estouraria o card)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: titulo de 5000 chars entrou'; end if;
+
+  -- e 160 exatos ainda passam, senao a recusa e mais rigida que o texto diz
+  if (public.criar_acao_escopo('pitscare', repeat('y', 160))::jsonb->>'ok')::boolean
+  then nok:=nok+1; rel:=rel||E'\n  ok  160 chars exatos ainda passam';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: 160 chars foi recusado, o teto esta errado'; end if;
+
   -- travar SEM motivo e recusado pela RPC, com mensagem legivel
   if not (public.mudar_status_acao_escopo((r->>'id')::uuid, 'travado')::jsonb->>'ok')::boolean
   then nok:=nok+1; rel:=rel||E'\n  ok  travar sem motivo recusado pela RPC';
