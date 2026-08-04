@@ -363,6 +363,170 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
+### Task 1b: fechar o placar contra manipulacao (correcao pos-revisao)
+
+A revisao da Task 1 achou tres furos, dois deles reproduzidos contra o banco vivo. Decisao do dono, 04/08/2026: **o evento passa a ser garantido por trigger**, nao por disciplina de chamada.
+
+**O que estava errado:**
+
+1. `p_escopo_acao_evento_insert` so checava `tenant_id`, sem exigir `dono`. Reproduzido: um vendedor inseriu evento na mao. Como `dias_parada` vale 30 dos 100 pontos, qualquer usuario do tenant podia inflar a nota de uma frente parada. O placar nascia manipulavel.
+2. `UPDATE` direto em `escopo_acao` muda o status e gera **0 eventos**. Reproduzido. A tendencia da Fatia 3 le desse log, entao o buraco e silencioso: nada da erro, so o historico fica incompleto.
+3. A FK de `escopo_acao_evento.acao_id` nao tem `tenant_id`. Dormente hoje (um tenant so), mas a `escopo_completo()` casa evento por `acao_id` e agrupa por `frente` (codigo texto, identico entre tenants pelo seed).
+
+**Files:**
+- Create (migration): `escopo_fatia1_harden`
+- Modify: `ferramentas/prova_escopo.sql`
+
+- [ ] **Step 1: acrescentar as assercoes ANTES da correcao**
+
+No `ferramentas/prova_escopo.sql`, logo antes do `raise exception` final, ainda como dono:
+
+```sql
+  --------------------------------------------------- harden (Task 1b)
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+
+  -- o evento e garantido pelo TRIGGER, nao pela disciplina de chamar a RPC
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  values (ten1, 'calculadoras', 'alvo do trigger', 'a_fazer') returning id into vid;
+
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = vid and de_status is null and para_status = 'a_fazer';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: INSERT gera o evento de nascimento';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU trigger no INSERT: '||n||' evento(s)'; end if;
+
+  update public.escopo_acao set status = 'feito' where id = vid;
+  select count(*) into n from public.escopo_acao_evento
+   where acao_id = vid and de_status = 'a_fazer' and para_status = 'feito';
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: UPDATE DIRETO tambem gera evento (nao da pra furar o log)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU trigger no UPDATE direto: '||n||' evento(s)'; end if;
+
+  -- status repetido nao gera evento fantasma, senao a tendencia le ruido
+  select count(*) into n from public.escopo_acao_evento where acao_id = vid;
+  update public.escopo_acao set status = 'feito' where id = vid;
+  select count(*) - n into n from public.escopo_acao_evento where acao_id = vid;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: status repetido nao gera evento fantasma';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: status repetido gerou '||n||' evento(s)'; end if;
+
+  -- mexer em outra coluna que nao o status tambem nao gera evento
+  select count(*) into n from public.escopo_acao_evento where acao_id = vid;
+  update public.escopo_acao set titulo = 'outro titulo' where id = vid;
+  select count(*) - n into n from public.escopo_acao_evento where acao_id = vid;
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  trigger: mudar o titulo nao e mudanca de status';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: editar titulo gerou '||n||' evento(s)'; end if;
+
+  -- vendedor nao fabrica mais evento (era o furo do placar)
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', vend, 'role', 'authenticated')::text, true);
+  begin
+    insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
+    values (ten1, vid, 'a_fazer', 'feito', vend);
+    nfa:=nfa+1; rel:=rel||E'\nFALHOU: vendedor fabricou evento e pode inflar a nota';
+  exception when others then
+    nok:=nok+1; rel:=rel||E'\n  ok  vendedor nao fabrica evento (o placar nao se manipula)';
+  end;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+```
+
+Declarar `vid uuid;` no bloco `declare`.
+
+- [ ] **Step 2: rodar e ver FALHAR**
+
+Esperado: as assercoes do trigger FALHAM (0 eventos gerados) e a do vendedor FALHA (ele consegue inserir). O relatorio tem de mostrar `falhas` maior que 0. Se ja passar, a correcao ja foi aplicada e este step precisa ser revisto.
+
+- [ ] **Step 3: aplicar a migration de harden**
+
+`mcp__supabase__apply_migration`, name `escopo_fatia1_harden`:
+
+```sql
+-- 1. O evento deixa de depender de alguem lembrar de chamar a RPC.
+--    Trigger em escopo_acao: mudou status, nasce evento, venha de onde vier.
+create or replace function privado.fn_escopo_evento()
+returns trigger
+language plpgsql
+set search_path to 'public', 'privado'
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
+    values (new.tenant_id, new.id, null, new.status, auth.uid());
+  elsif new.status is distinct from old.status then
+    insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
+    values (new.tenant_id, new.id, old.status, new.status, auth.uid());
+  end if;
+  return new;
+end $$;
+
+comment on function privado.fn_escopo_evento() is
+  'Garantia estrutural da auditoria do Escopo. Vive em privado (invariante 8). Status repetido e edicao de titulo NAO geram evento: a tendencia da Fatia 3 le este log e evento fantasma seria ruido.';
+
+create trigger tg_escopo_acao_evento
+  after insert or update on public.escopo_acao
+  for each row execute function privado.fn_escopo_evento();
+
+-- 2. Vendedor nao fabrica mais evento. dias_parada vale 30 dos 100 pontos da
+--    nota: sem isso, qualquer usuario do tenant infla o placar de uma frente parada.
+alter policy p_escopo_acao_evento_insert on public.escopo_acao_evento
+  with check (tenant_id = privado.fn_tenant_atual() and privado.fn_papel_atual() = 'dono');
+
+-- 3. A FK do evento passa a ser tenant-scoped, como a de escopo_acao ja era.
+alter table public.escopo_acao add constraint escopo_acao_id_tenant_uq unique (tenant_id, id);
+alter table public.escopo_acao_evento drop constraint escopo_acao_evento_acao_id_fkey;
+alter table public.escopo_acao_evento add constraint escopo_acao_evento_acao_fk
+  foreign key (tenant_id, acao_id) references public.escopo_acao(tenant_id, id);
+```
+
+- [ ] **Step 4: rodar a prova e confirmar que PASSOU**
+
+Esperado: `PROVA ESCOPO FATIA 1 -- 20 ok, 0 falhas`.
+
+- [ ] **Step 5: reproduzir os dois furos originais e ver que fecharam**
+
+```sql
+do $$
+declare
+  ten1 uuid := '00000000-0000-0000-0000-000000000001';
+  dono uuid := 'fb2aad8e-b728-4e59-a198-71da2156449d';
+  aid uuid; n int;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role','authenticated')::text, true);
+  perform set_config('role','authenticated', true);
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  values (ten1,'pitscare','alvo','a_fazer') returning id into aid;
+  update public.escopo_acao set status='feito' where id=aid;
+  select count(*) into n from public.escopo_acao_evento where acao_id=aid;
+  raise exception 'UPDATE direto gerou % eventos (esperado 2: nascimento + mudanca)', n;
+end $$;
+```
+
+Esperado: `2 eventos`. Antes da correcao dava 0.
+
+- [ ] **Step 6: commit**
+
+```bash
+git add ferramentas/prova_escopo.sql
+git commit -m "fix(escopo): o evento vira garantia do banco, nao disciplina de chamada
+
+Reproduzido contra o banco vivo antes de corrigir: UPDATE direto em
+escopo_acao mudava status e gerava 0 eventos, e um vendedor conseguia
+inserir evento na mao. Como dias_parada vale 30 dos 100 pontos da nota,
+o segundo furo tornava o placar manipulavel por qualquer usuario do tenant.
+
+Trigger em escopo_acao passa a gravar o evento venha de onde vier. Status
+repetido e edicao de titulo nao geram evento: a tendencia da Fatia 3 le
+este log e evento fantasma seria ruido.
+
+A FK do evento tambem passa a ser tenant-scoped, como a de escopo_acao ja era.
+
+Prova: 20 ok / 0 falhas.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
 ### Task 2: RPC de leitura com a nota calculada
 
 **Files:**
@@ -404,11 +568,10 @@ Inserir no `ferramentas/prova_escopo.sql`, logo antes do `raise exception` final
   if msg = 'sem_dado' then nok:=nok+1; rel:=rel||E'\n  ok  nota: frente vazia e sem_dado, nao 0 nem 100';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU nota: frente vazia veio como '||coalesce(msg,'NULL'); end if;
 
-  -- 4 de 4 feitas, 0 travadas, evento de hoje = 100
+  -- 4 de 4 feitas, 0 travadas, evento de hoje = 100.
+  -- O evento nasce do trigger da Task 1b: nao inserir na mao, senao duplica.
   insert into public.escopo_acao(tenant_id, frente, titulo, status)
   select ten1, 'comercial', 'a'||i, 'feito' from generate_series(1,4) i;
-  insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
-  select ten1, a.id, null, 'feito', dono from public.escopo_acao a where a.frente = 'comercial';
 
   select (f->>'nota') into msg
     from json_array_elements((public.escopo_completo())->'frentes') f
@@ -425,9 +588,15 @@ Inserir no `ferramentas/prova_escopo.sql`, logo antes do `raise exception` final
   -- 0 feitas, 1 de 1 travada, parada ha 40 dias = 0
   insert into public.escopo_acao(tenant_id, frente, titulo, status, motivo_trava)
   values (ten1, 'whatsapp', 'parada', 'travado', 'sem numero definido');
-  insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, em, por)
-  select ten1, a.id, null, 'travado', now() - interval '40 days', dono
-    from public.escopo_acao a where a.frente = 'whatsapp';
+
+  -- O trigger da Task 1b gravou o evento com em = now(). Para provar o
+  -- decaimento de Movimento e preciso ENVELHECER esse evento, e o log e
+  -- append-only: nem o dono tem UPDATE nele. Volta-se ao papel do dono do
+  -- BANCO so para esta linha, e nao para o resto da prova.
+  perform set_config('role', 'postgres', true);
+  update public.escopo_acao_evento set em = now() - interval '40 days'
+   where acao_id in (select id from public.escopo_acao where frente = 'whatsapp');
+  perform set_config('role', 'authenticated', true);
 
   select (f->>'nota') into msg
     from json_array_elements((public.escopo_completo())->'frentes') f
@@ -597,7 +766,7 @@ grant execute on function public.escopo_completo() to authenticated;
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 24 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 29 ok, 0 falhas`.
 
 - [ ] **Step 5: commit**
 
@@ -747,13 +916,11 @@ begin
     return json_build_object('ok', false, 'msg', 'Essa frente não existe ou está desligada.');
   end if;
 
+  -- O evento de nascimento NAO se insere aqui: o trigger tg_escopo_acao_evento
+  -- (Task 1b) grava sozinho. Inserir tambem duplicaria o log.
   insert into public.escopo_acao(tenant_id, frente, titulo, status)
   values (v_tenant, p_frente, v_titulo, 'a_fazer')
   returning id into v_id;
-
-  -- evento de nascimento: sem ele, frente recem-povoada nasceria com Movimento zero
-  insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
-  values (v_tenant, v_id, null, 'a_fazer', v_usuario);
 
   return json_build_object('ok', true, 'id', v_id, 'msg', 'Ação criada.');
 end $$;
@@ -801,9 +968,7 @@ begin
          atualizado_em = now()
    where id = p_id and tenant_id = v_tenant;
 
-  insert into public.escopo_acao_evento(tenant_id, acao_id, de_status, para_status, por)
-  values (v_tenant, p_id, v_de, p_status, v_usuario);
-
+  -- O evento sai do trigger tg_escopo_acao_evento (Task 1b), nao daqui.
   return json_build_object('ok', true, 'msg', 'Pronto.');
 end $$;
 
@@ -843,7 +1008,7 @@ grant execute on function public.arquivar_acao_escopo(uuid) to authenticated;
 
 - [ ] **Step 4: rodar a prova e confirmar que PASSOU**
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 36 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 41 ok, 0 falhas`.
 
 - [ ] **Step 5: conferir que os grants ficaram como esperado**
 
@@ -867,7 +1032,7 @@ Travar exige motivo na RPC, nao so no CHECK, para a recusa chegar na tela
 como frase legivel. Destravar LIMPA o motivo: motivo velho pendurado mente.
 Status repetido nao gera evento, senao a tendencia da Fatia 3 le ruido.
 
-Prova: 36 ok / 0 falhas.
+Prova: 41 ok / 0 falhas.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -1385,7 +1550,7 @@ Os tres `diag_mobile` sao o portao que importa nesta obra: eles REPROVAM se a ba
 
 Rodar `ferramentas/prova_escopo.sql` via `mcp__supabase__execute_sql`.
 
-Esperado: `PROVA ESCOPO FATIA 1 -- 36 ok, 0 falhas`.
+Esperado: `PROVA ESCOPO FATIA 1 -- 41 ok, 0 falhas`.
 
 - [ ] **Step 6: commit, SEM push**
 
