@@ -275,13 +275,47 @@ begin
 
   drop table _esc_ord;
 
-  -- a linha de pendencia nunca aparece no meio das frentes
+  -- a linha de pendencia nunca aparece no meio das frentes. Comparado contra a
+  -- CONTAGEM da propria leitura, nao contra a posicao fixa 9: a Fatia 3 deixa
+  -- criar e desligar frente pela tela, e uma posicao chumbada passaria a
+  -- checar a linha errada sem avisar.
   select (f->>'grupo') into msg from (
-    select f, row_number() over () ord
+    select f, row_number() over () ord, count(*) over () tot
       from json_array_elements((public.escopo_completo())->'frentes') f
-  ) s where ord = 9;
+  ) s where ord = tot;
   if msg = 'pendencia' then nok:=nok+1; rel:=rel||E'\n  ok  pendencias vem sempre por ultimo';
-  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ordem: a 9a linha veio como grupo '||coalesce(msg,'NULL'); end if;
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU ordem: a ultima linha veio como grupo '||coalesce(msg,'NULL'); end if;
+
+  -- ARQUIVAR NAO COMPRA MOVIMENTO. Este e o vetor que a revisao achou: sem o
+  -- filtro `not a2.arquivada` no ult_evento, criar e arquivar uma acao
+  -- descartavel derrubava dias_parada de 40 para 0 e dobrava a nota.
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  values (ten1, 'colaboradores', 'trabalho real parado', 'a_fazer') returning id into vid;
+  perform set_config('role', 'postgres', true);
+  update public.escopo_acao_evento set em = now() - interval '40 days' where acao_id = vid;
+  perform set_config('role', 'authenticated', true);
+
+  select (f->>'nota')::int into n
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'colaboradores';
+
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, arquivada)
+  values (ten1, 'colaboradores', 'descartavel', 'a_fazer', true);
+
+  select (f->>'nota')::int - n into n
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'colaboradores';
+  if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  arquivar acao descartavel NAO muda a nota da frente';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao descartavel arquivada moveu a nota em '||n||' pontos'; end if;
+
+  -- e faixa sem_dado nao pode vazar dias_parada de acao arquivada
+  insert into public.escopo_acao(tenant_id, frente, titulo, status, arquivada)
+  values (ten1, 'assistencia', 'so arquivada', 'a_fazer', true);
+  select f->>'dias_parada' into msg
+    from json_array_elements((public.escopo_completo())->'frentes') f
+   where f->>'codigo' = 'assistencia';
+  if msg is null then nok:=nok+1; rel:=rel||E'\n  ok  sem_dado vem com dias_parada null, sem fantasma de arquivada';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU: sem_dado vazou dias_parada = '||msg; end if;
 
   raise exception E'PROVA ESCOPO FATIA 1 -- % ok, % falhas%', nok, nfa, rel;
 end $$;
