@@ -108,13 +108,18 @@ onde estou indo", e a tela mostra isso com o mesmo peso com que mostra a nota.
 Teto de **200 caracteres**, com **recusa explicita**. Nunca truncar em silencio
 (licao 4.3 do handoff v46: texto cortado sem aviso e pior que texto recusado).
 
-Escrita por `definir_meta_frente(p_frente_id uuid, p_meta text)`. `p_meta` nulo ou
+Escrita por `definir_meta_frente(p_frente text, p_meta text)`, onde `p_frente` e o
+`codigo`, espelhando `criar_acao_escopo(p_frente, p_titulo)`. `p_meta` nulo ou
 so espaco LIMPA a meta e volta a travar o teto da secao 4, em vez de gravar frase
 vazia que a tela leria como meta declarada.
 
 ### 3.2 `escopo_frente_evento` (Fatia 2a, append-only)
 
-`id` · `tenant_id` · `frente_id` · `meta_antes` · `meta_depois` · `em` · `por`.
+`id` · `tenant_id` · `frente` (o `codigo`) · `meta_antes` · `meta_depois` · `em` · `por`.
+
+Aponta para a frente por **codigo**, nao por uuid, porque `escopo_acao.frente` ja faz
+assim. Dois formatos para apontar a mesma coisa e divergencia esperando acontecer
+(invariante 12: a chave e o `codigo`).
 
 Gravado por **trigger**, nunca por insert manual dentro da RPC. E a decisao 6 do v46
 aplicada de novo: auditoria que depende de todo mundo lembrar de chamar a RPC certa
