@@ -1352,3 +1352,4 @@ a{color:inherit}
 .esc-form{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .esc-form input{flex:1 1 180px;min-width:0}
 .esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
+.esc-travar{font-size:11px;flex:0 0 auto;white-space:nowrap}

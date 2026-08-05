@@ -94,6 +94,37 @@ t('quem NAO pode editar nao ve botao de escrita',
   frLeitor.indexOf('data-acao="esc-status"') < 0 && frLeitor.indexOf('data-acao="esc-desc"') < 0);
 t('mas continua LENDO a acao', frLeitor.indexOf('esc-acao') >= 0);
 
+console.log('\n--- travar: o requisito numero um nao pode ser inalcancavel ---');
+t('quem pode editar ve o controle de travar', fr.indexOf('data-acao="esc-travar"') >= 0);
+t('a acao travada oferece DESTRAVAR, nao travar de novo',
+  api.escFrente({codigo:'x',rotulo:'X',grupo:'frente',icone:'alvo',nota:50,faixa:'normal',
+    feitas:0,total:1,travadas:1,dias_parada:1,
+    acoes:[{id:'a9',titulo:'t',status:'travado',motivo_trava:'algo'}]}, true)
+    .indexOf('>destravar<') >= 0);
+t('a acao NAO travada oferece TRAVAR',
+  api.escFrente({codigo:'x',rotulo:'X',grupo:'frente',icone:'alvo',nota:50,faixa:'normal',
+    feitas:0,total:1,travadas:0,dias_parada:1,
+    acoes:[{id:'a9',titulo:'t',status:'fazendo',motivo_trava:null}]}, true)
+    .indexOf('>travar<') >= 0);
+t('quem NAO pode editar nao ve o controle de travar',
+  frLeitor.indexOf('data-acao="esc-travar"') < 0);
+t('o controle de travar carrega o status atual, para saber o que fazer',
+  fr.indexOf('data-acao="esc-travar"') >= 0 &&
+  /data-acao="esc-travar" data-id="[^"]*" data-st="/.test(fr));
+
+console.log('\n--- o ciclo do chip nao passa por travado (travar e interrupcao, nao etapa) ---');
+const ciclo = SRC.slice(SRC.indexOf('if("esc-status"===o)'), SRC.indexOf('if("esc-status"===o)') + 300);
+t('o ciclo do chip NAO tem travado como destino', /[?:]"travado"/.test(ciclo) === false);
+t('o ciclo do chip nao carrega mais o prompt morto', ciclo.indexOf('prompt(') < 0);
+eq('o delegado trata esc-travar', conta('if("esc-travar"===o)'), 1);
+t('travar de verdade manda p_status travado',
+  SRC.indexOf('p_status:"travado"') >= 0);
+t('destravar volta para fazendo, nao para a_fazer (o trabalho ja tinha comecado)',
+  SRC.indexOf('p_status:"fazendo",p_motivo:null') >= 0);
+t('o prompt do motivo passou a viver no caminho alcancavel',
+  SRC.slice(SRC.indexOf('if("esc-travar"===o)'), SRC.indexOf('if("esc-travar"===o)') + 400).indexOf('prompt(') >= 0);
+t('a classe esc-travar tem estilo no CSS', CSS.indexOf('.esc-travar') >= 0);
+
 console.log('\n--- icone: frente nova (Fatia 3) nao pode virar buraco ---');
 t('icone conhecido devolve svg', api.escIcone('escudo').indexOf('<svg') >= 0);
 t('icone desconhecido cai num svg padrao, nao em vazio', api.escIcone('zzz').indexOf('<svg') >= 0);
