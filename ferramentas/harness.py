@@ -205,6 +205,18 @@ window.supabase = {
         if (nome === 'marcar_lembrete') { LEMB.forEach(function (x) { if (x.id === args.p_lembrete_id) x.feito = args.p_feito; }); return Promise.resolve({ data: { ok: true, msg: 'Lembrete atualizado' }, error: null }); }
         if (nome === 'remover_lembrete') { LEMB = LEMB.filter(function (x) { return x.id !== args.p_lembrete_id; }); return Promise.resolve({ data: { ok: true, msg: 'Lembrete removido' }, error: null }); }
         if (nome === 'puxar_rotina') { return Promise.resolve({ data: { ok: true, msg: 'Rotina do dia pronta', novas: 0 }, error: null }); }
+        if (nome === 'escopo_completo') {
+          return Promise.resolve({ data: { ok: true, pode_editar: true, frentes: [
+            { codigo:'pitscare', rotulo:'Pitscare', grupo:'frente', icone:'escudo', ordem:60,
+              total:2, feitas:1, travadas:1, dias_parada:3, nota:65, faixa:'normal',
+              acoes:[{ id:'ea1', titulo:'Aplicar os 19 scripts', status:'travado', motivo_trava:'capability Update content' },
+                     { id:'ea2', titulo:'Fundir a branch', status:'a_fazer', motivo_trava:null }] },
+            { codigo:'assistencia', rotulo:'Assistência técnica', grupo:'frente', icone:'chave', ordem:30,
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] },
+            { codigo:'pendencias', rotulo:'Pendências', grupo:'pendencia', icone:'alerta', ordem:99,
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] }
+          ] }, error: null });
+        }
         if (nome === 'rotina_completa') {
           return Promise.resolve({ data: { ok: true, pode_editar: true,
             categorias: ROT_CATS.map(function (ct) { return { codigo: ct.codigo, rotulo: ct.rotulo, ordem: ct.ordem,
@@ -707,6 +719,25 @@ async function rodar() {
   document.getElementById('abaMais').click();
   await espera(80);
   ok('Mais fecha de novo', getComputedStyle(document.getElementById('abaDash')).display === 'none');
+
+  // ================= Task 5c: aba Escopo (a aba nao abria no clique) =================
+  // Das 12 abas do app, 11 tinham Y("abaX","click",...) no init(). abaEscopo
+  // nao tinha: clicar nao fazia nada, sem erro, sem toast, sem tela. Esta e a
+  // assercao 1, a UNICA que teria pego o defeito de verdade (navegacao real).
+  var abaEsc = document.getElementById('abaEscopo');
+  abaEsc.click();
+  await espera(260);
+  ok('aba Escopo fica selecionada ao clicar (era o defeito: a aba nao abria)',
+     abaEsc.getAttribute('aria-selected') === 'true', 'aria-selected=' + abaEsc.getAttribute('aria-selected'));
+  ok('título virou Escopo', document.getElementById('topoTit').textContent === 'Escopo',
+     document.getElementById('topoTit').textContent);
+  ok('o escopo renderizou o placar e ao menos uma ação',
+     !!document.querySelector('#lista .esc-placar') && document.querySelectorAll('#lista .esc-acao').length > 0,
+     document.querySelectorAll('#lista .esc-acao').length + ' ações');
+  ok('a nota 65 aparece e a frente sem_dado mostra "nenhuma ação registrada"',
+     telaTxt().indexOf('65') >= 0 && telaTxt().indexOf('nenhuma ação registrada') >= 0, telaTxt().slice(0, 200));
+  ok('o motivo da trava aparece na tela', telaTxt().indexOf('capability Update content') >= 0, telaTxt().slice(0, 200));
+  ok('existe o controle de travar/destravar no DOM renderizado', !!document.querySelector('#lista [data-acao="esc-travar"]'));
 
   // ================= aba Clientes: leads que compraram (perfil=comprou) =================
   ok('a aba Clientes existe', !!document.getElementById('abaClientes'));

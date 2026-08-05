@@ -140,7 +140,7 @@ async function rodar(){
   window.__saida.nav = { fechado: fechado, aberto: aberto };
 
   var abasIds = ['abaHoje','abaFila','abaTodos','abaVendas','abaConteudo',
-                 'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs'];
+                 'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs','abaEscopo'];
   for (var k = 0; k < abasIds.length; k++){
     var el = D.getElementById(abasIds[k]);
     if (!el) { window.__saida.erros.push('sem ' + abasIds[k]); continue; }

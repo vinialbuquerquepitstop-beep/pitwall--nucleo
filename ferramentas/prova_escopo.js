@@ -154,5 +154,11 @@ t('o alerta reusa o --erro ja medido, sem token novo', CSS.indexOf('--escopo-bai
 t('o alerta NAO reusa a paleta de temperatura',
   /\.esc-linha\.f-em_baixa \.esc-faixa\{color:var\(--quente/.test(CSS) === false);
 
+console.log('\n--- a aba precisa ABRIR: 11 abas tinham binding, a 12a nao tinha ---');
+['abaHoje','abaFila','abaTodos','abaVendas','abaNfs','abaClientes','abaIndicacoes',
+ 'abaCaptacao','abaConteudo','abaRotina','abaDash','abaEscopo'].forEach(function(id){
+  t('a aba ' + id + ' tem binding de clique', SRC.indexOf('Y("' + id + '","click"') >= 0);
+});
+
 console.log(`\n=== ${ok + falhas} assercoes, ${falhas} falhas ===`);
 process.exit(falhas ? 1 : 0);
