@@ -440,6 +440,15 @@ begin
     nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: 201 recusado com o tamanho na mensagem';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: '||coalesce(r::text,'nulo'); end if;
 
+  -- limite exato PELA RPC, nao so pelo CHECK da tabela: e a RPC que a tela chama.
+  -- Sem esta, trocar o `> 200` da funcao por `>= 200` passaria despercebido.
+  select public.definir_meta_frente('pitscare', repeat('w', 200)) into r;
+  select char_length(meta) into n from public.escopo_frente
+   where tenant_id = ten1 and codigo = 'pitscare';
+  if (r->>'ok')::boolean and n = 200 then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: 200 chars exatos aceitos PELA RPC';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: 200 pela RPC deu '||coalesce(r::text,'nulo')||' len='||coalesce(n::text,'nulo'); end if;
+
   select public.definir_meta_frente('pitscare', '  Laboratorio proprio operando  ') into r;
   select meta into msg from public.escopo_frente where tenant_id = ten1 and codigo = 'pitscare';
   if (r->>'ok')::boolean and msg = 'Laboratorio proprio operando' then
