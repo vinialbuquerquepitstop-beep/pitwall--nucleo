@@ -15,6 +15,7 @@ declare
   vend   uuid := 'aaaaaaaa-0000-0000-0000-00000000000c';
   rel text := ''; nok int := 0; nfa int := 0;
   n int; msg text; vb boolean; r jsonb; vid uuid;
+  caso record;
 begin
   -- vizinhos de prova, ainda como dono do banco. Somem no rollback.
   insert into public.tenant(id, nome) values (ten2, 'Tenant vizinho (prova)');
@@ -203,10 +204,15 @@ begin
   if msg = '100' then nok:=nok+1; rel:=rel||E'\n  ok  nota: tudo feito, nada travado, mexido hoje = 100';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU nota: esperava 100, veio '||coalesce(msg,'NULL'); end if;
 
+  -- Task 3 (teto): a_frente exige meta declarada. Este teste nasceu antes do
+  -- teto e so validava o patamar >=70; sem declarar meta aqui ele acusaria
+  -- "normal" por desenho, nao por falha. Declara a meta so para manter o
+  -- teste medindo o que sempre mediu: o patamar 70 vira a_frente.
+  perform public.definir_meta_frente('comercial', 'Meta de prova para o patamar a_frente');
   select (f->>'faixa') into msg
     from json_array_elements((public.escopo_completo())->'frentes') f
    where f->>'codigo' = 'comercial';
-  if msg = 'a_frente' then nok:=nok+1; rel:=rel||E'\n  ok  faixa: 100 e a_frente';
+  if msg = 'a_frente' then nok:=nok+1; rel:=rel||E'\n  ok  faixa: 100 com meta declarada e a_frente';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU faixa: 100 veio como '||coalesce(msg,'NULL'); end if;
 
   -- 0 feitas, 1 de 1 travada, parada ha 40 dias = 0
@@ -481,6 +487,90 @@ begin
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', dono, 'role', 'authenticated')::text, true);
+
+  ------------------------------------------- fronteiras de faixa e teto sem meta
+  -- monta uma frente de prova com nota controlada por total/feitas
+  update public.escopo_frente set meta = null where tenant_id = ten1 and codigo = 'assistencia';
+  update public.escopo_acao set arquivada = true
+   where tenant_id = ten1 and frente = 'assistencia';
+
+  -- 10 acoes, 10 feitas, nenhuma travada, evento de hoje => nota 100
+  insert into public.escopo_acao(tenant_id, frente, titulo, status)
+  select ten1, 'assistencia', 'marco ' || g, 'feito' from generate_series(1, 10) g;
+
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo()->'frentes')) f
+   where f->>'codigo' = 'assistencia';
+  if msg = 'normal' then
+    nok:=nok+1; rel:=rel||E'\n  ok  teto: nota 100 SEM meta le "normal", nao "a_frente"';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU teto: nota 100 sem meta leu "'||coalesce(msg,'nulo')||'"'; end if;
+
+  select (f->>'meta_declarada') into msg
+    from json_array_elements((public.escopo_completo()->'frentes')) f
+   where f->>'codigo' = 'assistencia';
+  if msg = 'false' then
+    nok:=nok+1; rel:=rel||E'\n  ok  teto: meta_declarada=false chega na tela';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU teto: meta_declarada="'||coalesce(msg,'nulo')||'"'; end if;
+
+  -- declarada a meta, a MESMA frente sobe para a_frente, sem outra mudanca
+  perform public.definir_meta_frente('assistencia', 'Laboratorio proprio operando');
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo()->'frentes')) f
+   where f->>'codigo' = 'assistencia';
+  if msg = 'a_frente' then
+    nok:=nok+1; rel:=rel||E'\n  ok  teto: declarar a meta destrava "a_frente" na mesma leitura';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU teto: com meta leu "'||coalesce(msg,'nulo')||'"'; end if;
+
+  -- sem_dado VENCE o teto: frente sem acao e sem meta continua sem_dado
+  update public.escopo_acao set arquivada = true
+   where tenant_id = ten1 and frente = 'assistencia';
+  perform public.definir_meta_frente('assistencia', null);
+  select (f->>'faixa') into msg
+    from json_array_elements((public.escopo_completo()->'frentes')) f
+   where f->>'codigo' = 'assistencia';
+  if msg = 'sem_dado' then
+    nok:=nok+1; rel:=rel||E'\n  ok  teto: sem_dado vence o teto (zero acao)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU teto: frente vazia leu "'||coalesce(msg,'nulo')||'"'; end if;
+
+  ------------------------------------- as QUATRO fronteiras de faixa: 39/40/69/70
+  -- A Fatia 1 so testou 100 e 0, e a faixa `normal` nunca foi assertada em lugar
+  -- nenhum. Deixa de ser opcional aqui: o teto sem meta mexe exatamente na
+  -- fronteira dos 70.
+  --
+  -- Com evento de hoje o Movimento vale 30 cheio, entao com total = 100:
+  --   nota = 40*(feitas/100) + 30*(1 - travadas/100) + 30 = 60 + 0.4*feitas - 0.3*travadas
+  -- Os quatro pares abaixo caem em inteiro exato, sem depender do round().
+  perform public.definir_meta_frente('assistencia', 'Frente de prova, meta declarada');
+
+  for caso in
+    select * from (values (25,  0, 70, 'a_frente'),
+                          (30, 10, 69, 'normal'),
+                          (10, 80, 40, 'normal'),
+                          (0,  70, 39, 'em_baixa')) as t(feitas, travadas, nota_esp, faixa_esp)
+  loop
+    update public.escopo_acao set arquivada = true
+     where tenant_id = ten1 and frente = 'assistencia';
+
+    insert into public.escopo_acao(tenant_id, frente, titulo, status, motivo_trava)
+    select ten1, 'assistencia', 'a' || g,
+           case when g <= caso.feitas                            then 'feito'
+                when g <= caso.feitas + caso.travadas            then 'travado'
+                else 'a_fazer' end,
+           case when g >  caso.feitas
+                 and g <= caso.feitas + caso.travadas            then 'motivo de prova' end
+      from generate_series(1, 100) g;
+
+    select (f->>'nota')::int, f->>'faixa' into n, msg
+      from json_array_elements((public.escopo_completo()->'frentes')) f
+     where f->>'codigo' = 'assistencia';
+
+    if n = caso.nota_esp and msg = caso.faixa_esp then
+      nok:=nok+1; rel:=rel||E'\n  ok  fronteira '||caso.nota_esp||' le "'||caso.faixa_esp||'"';
+    else
+      nfa:=nfa+1; rel:=rel||E'\nFALHOU fronteira '||caso.nota_esp||': nota='||
+        coalesce(n::text,'nulo')||' faixa="'||coalesce(msg,'nulo')||'"';
+    end if;
+  end loop;
 
   raise exception E'PROVA ESCOPO FATIA 1 -- % ok, % falhas%', nok, nfa, rel;
 end $$;
