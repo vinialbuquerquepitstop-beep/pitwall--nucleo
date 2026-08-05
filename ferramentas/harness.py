@@ -205,6 +205,12 @@ window.supabase = {
         if (nome === 'marcar_lembrete') { LEMB.forEach(function (x) { if (x.id === args.p_lembrete_id) x.feito = args.p_feito; }); return Promise.resolve({ data: { ok: true, msg: 'Lembrete atualizado' }, error: null }); }
         if (nome === 'remover_lembrete') { LEMB = LEMB.filter(function (x) { return x.id !== args.p_lembrete_id; }); return Promise.resolve({ data: { ok: true, msg: 'Lembrete removido' }, error: null }); }
         if (nome === 'puxar_rotina') { return Promise.resolve({ data: { ok: true, msg: 'Rotina do dia pronta', novas: 0 }, error: null }); }
+        // As tres de escrita nao mudam o fixture: o que se prova aqui e que o
+        // TOQUE chega na RPC com os argumentos certos. O efeito no banco ja
+        // esta provado em ferramentas/prova_escopo.sql.
+        if (nome === 'criar_acao_escopo')       return Promise.resolve({ data: { ok: true, id: 'ea9', msg: 'Ação criada.' }, error: null });
+        if (nome === 'mudar_status_acao_escopo') return Promise.resolve({ data: { ok: true, msg: 'Pronto.' }, error: null });
+        if (nome === 'descartar_acao_escopo')    return Promise.resolve({ data: { ok: true, msg: 'Descartada.' }, error: null });
         if (nome === 'escopo_completo') {
           return Promise.resolve({ data: { ok: true, pode_editar: true, frentes: [
             { codigo:'pitscare', rotulo:'Pitscare', grupo:'frente', icone:'escudo', ordem:60,
@@ -740,6 +746,73 @@ async function rodar() {
      telaTxt().indexOf('65') >= 0 && telaTxt().indexOf('nenhuma ação registrada') >= 0, telaTxt().slice(0, 200));
   ok('o motivo da trava aparece na tela', telaTxt().indexOf('capability Update content') >= 0, telaTxt().slice(0, 200));
   ok('existe o controle de travar/destravar no DOM renderizado', !!document.querySelector('#lista [data-acao="esc-travar"]'));
+
+  // ---- o placar de LEAD nao pode aparecer em cima do placar de FRENTES
+  ok('o pitboard de lead fica escondido na aba Escopo',
+     document.getElementById('pitboard').className.indexOf('oculto') >= 0,
+     document.getElementById('pitboard').className);
+
+  // ---- CLICAR, nao so existir. Este bloco nasce porque a Fatia 1 subiu com
+  // TODO o caminho de escrita morto (a.getAttribute num Event) e as tres
+  // revisoes passaram, porque toda prova de escrita era string-matching sobre
+  // a fonte, que casa igual com o codigo quebrado.
+  window.__erros = [];
+  window.addEventListener('error', function (ev) { window.__erros.push(String(ev.message)); });
+
+  function rpcs(nome){ return window.__rpcChamadas.filter(function(r){ return r.nome === nome; }); }
+
+  var nMudar = rpcs('mudar_status_acao_escopo').length;
+  document.querySelector('#lista [data-acao="esc-status"]').click();
+  await espera(160);
+  ok('tocar no chip CHAMA mudar_status_acao_escopo (era TypeError silencioso)',
+     rpcs('mudar_status_acao_escopo').length === nMudar + 1,
+     'chamadas: ' + (rpcs('mudar_status_acao_escopo').length - nMudar));
+
+  var travarBtn = document.querySelector('#lista [data-acao="esc-travar"]');
+  var stAlvo = travarBtn.getAttribute('data-st');
+  window.prompt = function () { return 'motivo de teste'; };
+  var nT = rpcs('mudar_status_acao_escopo').length;
+  travarBtn.click();
+  await espera(160);
+  var ult = rpcs('mudar_status_acao_escopo').pop();
+  ok('tocar em travar/destravar CHAMA a RPC com o status certo',
+     rpcs('mudar_status_acao_escopo').length === nT + 1 &&
+     ult.args.p_status === ('travado' === stAlvo ? 'fazendo' : 'travado'),
+     'p_status=' + (ult && ult.args && ult.args.p_status));
+
+  // prompt cancelado nao pode escrever nada
+  window.prompt = function () { return null; };
+  var nCancel = rpcs('mudar_status_acao_escopo').length;
+  var travar2 = document.querySelector('#lista [data-acao="esc-travar"]');
+  if (travar2 && travar2.getAttribute('data-st') !== 'travado') {
+    travar2.click();
+    await espera(140);
+    ok('prompt cancelado NAO chama a RPC',
+       rpcs('mudar_status_acao_escopo').length === nCancel);
+  } else {
+    ok('prompt cancelado NAO chama a RPC', true, 'alvo ja travado, caminho coberto acima');
+  }
+  window.prompt = function () { return 'motivo de teste'; };
+
+  var nCriar = rpcs('criar_acao_escopo').length;
+  var campo = document.querySelector('#lista .esc-form input');
+  campo.value = 'acao criada pelo harness';
+  document.querySelector('#lista [data-acao="esc-criar"]').click();
+  await espera(160);
+  var uc = rpcs('criar_acao_escopo').pop();
+  ok('tocar em Adicionar CHAMA criar_acao_escopo com o titulo digitado',
+     rpcs('criar_acao_escopo').length === nCriar + 1 && uc.args.p_titulo === 'acao criada pelo harness',
+     'p_titulo=' + (uc && uc.args && uc.args.p_titulo));
+
+  var nDesc = rpcs('descartar_acao_escopo').length;
+  document.querySelector('#lista [data-acao="esc-desc"]').click();
+  await espera(160);
+  ok('tocar em descartar CHAMA descartar_acao_escopo com o id da acao',
+     rpcs('descartar_acao_escopo').length === nDesc + 1 &&
+     !!(rpcs('descartar_acao_escopo').pop().args || {}).p_id);
+
+  ok('nenhum TypeError foi lancado ao tocar nos controles do Escopo',
+     window.__erros.length === 0, window.__erros.join(' | '));
 
   // ================= aba Clientes: leads que compraram (perfil=comprou) =================
   ok('a aba Clientes existe', !!document.getElementById('abaClientes'));
