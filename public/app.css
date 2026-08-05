@@ -1305,6 +1305,10 @@ a{color:inherit}
 .cli-det{display:none;flex-direction:column;gap:5px;margin-top:7px}
 .cli-det.aberto{display:flex}
 
+.cli-det-row{display:flex;gap:10px;font-size:12px;line-height:1.5}
+.cli-det-k{flex:0 0 96px;color:var(--dim);font-family:var(--mono);font-size:11px}
+.cli-det-v{color:var(--text)}
+
 /* ============ Aba Escopo (Fatia 1) ============
    Trilho x Sinal: a frente carrega barra de 3px + ICONE (o icone carrega a
    distincao, nao e enfeite). A paleta de temperatura NAO e reusada: la quente
@@ -1348,6 +1352,3 @@ a{color:inherit}
 .esc-form{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .esc-form input{flex:1 1 180px;min-width:0}
 .esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
-.cli-det-row{display:flex;gap:10px;font-size:12px;line-height:1.5}
-.cli-det-k{flex:0 0 96px;color:var(--dim);font-family:var(--mono);font-size:11px}
-.cli-det-v{color:var(--text)}
