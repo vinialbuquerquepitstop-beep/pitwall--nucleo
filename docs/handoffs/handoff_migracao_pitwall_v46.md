@@ -148,6 +148,45 @@ teste de navegacao real no harness (6 assercoes que FALHARAM antes do patch),
 
 ---
 
+### 4.6 O sexto defeito, achado DEPOIS do deploy: todo o caminho de escrita estava morto
+
+A revisao final voltou depois do push, por decisao do dono de subir sem esperar
+por ela. Ela achou o pior defeito de todos.
+
+O delegado e `function A(a){var e=a.target...closest("[data-acao]")...}`: **`a` e o
+EVENTO, `e` e o ELEMENTO.** Os 11 handlers que ja existiam usam `e.getAttribute`.
+O bloco do Escopo entrou usando `a.getAttribute`, que nao existe em `Event`.
+
+Medido: os **7** unicos `a.getAttribute` do `app.js` inteiro estavam nesse bloco, e
+`e.getAttribute` la dentro: **0**. Cada toque em chip, travar, adicionar ou
+descartar morria em `a.getAttribute is not a function`, sem chamar RPC nenhuma, e o
+dono via toast vermelho.
+
+Eram **12 pontos, nao 7**: 5 chamadas passavam o Event como argumento "botao" de
+`q()`, e `O()` faz `o.disabled=!0` nele, entao a trava de toque duplo nunca se
+aplicava ao botao de verdade.
+
+**Por que passou por TRES revisoes:** toda prova do caminho de escrita era
+string-matching sobre a fonte (`SRC.indexOf('p_status:"travado"')`), que casa igual
+com o codigo quebrado. As 69 assercoes do `prova_escopo.js` eram verdadeiras e
+irrelevantes para escrita. Nenhuma prova CLICAVA no controle.
+
+A correcao da Task 5c consertou o ponto cego de **navegacao** (a aba nao abria) e
+declarou o problema resolvido. O ponto cego de **acao** continuou aberto, uma camada
+abaixo. Corrigir a categoria errada de um ponto cego e pior que nao corrigir: da a
+sensacao de que a lacuna fechou.
+
+O harness ganhou 7 assercoes que clicam de verdade e conferem a chamada de RPC
+resultante, incluindo `prompt` cancelado e ausencia de TypeError. Elas FALHARAM
+antes da correcao (`chamadas: 0`) e passam depois. 165 -> **172 passou / 3 falhou**.
+
+Junto, a mesma correcao fechou: o **placar de LEAD aparecia empilhado em cima do
+placar de frentes**, porque a aba nova nao entrou na lista que esconde o
+`#pitboard`. A guarda que pegaria isso (`validar.py` linha 172) esta vermelha e
+herdada desde a v45, e a obra passou por cima dela sem alarme.
+
+---
+
 ## 5. Cor: nenhum token novo
 
 A primeira versao criava `--escopo-baixa-fg:#B01235` e `--escopo-baixa-bg:#FBEAEE`,
@@ -249,9 +288,27 @@ git push
    sessao**, e a quinta (abas raras) foi fechada aqui.
 2. **As 3 falhas do harness** (venda do fixture, lucro derivado, `rodar()` da NF)
    sao de Vendas e NF, herdadas.
-3. **Buracos de cobertura do Escopo**, nomeados pela revisao: erro da RPC
+3. **Buracos de cobertura do Escopo**, nomeados pela revisao final: erro da RPC
    (`r.error`), `pode_editar=false` fim a fim, e lista de frentes vazia nao tem
-   assercao. O caminho feliz esta coberto fim a fim desde a Task 5c.
+   assercao. As quatro fronteiras de faixa (**39/40/69/70**) tambem nao: o SQL so
+   testa 100 e 0, e a faixa `normal` nunca e assertada. A logica le correta por
+   inspecao, entao e buraco de cobertura, nao defeito conhecido.
+4. **CORTE DECLARADO: o trilho da frente nao tem cor de frente.** A spec 4.1 e 6
+   prometem cor por hash deterministico do `codigo`. O que subiu e
+   `border-left:3px solid var(--line-forte)` fixo: medido, `rgb(211,216,226)` nas
+   quatro frentes renderizadas. Um trilho so, cinza, para todas.
+   `ferramentas/prova_trilho.py` tambem nao foi estendida, apesar de a spec secao 9
+   pedir. **Nao e ilegivel**: o icone existe e carrega a distincao, que era o papel
+   dele no sistema Trilho x Sinal. Fica para a Fatia 3, e este paragrafo e a
+   declaracao do corte, que a propria spec exige em vez do silencio.
+5. **Cada escrita no Escopo recarrega a base de leads inteira.** `q()` termina em
+   `B()`, que faz `select` em `v_lead` completo. As abas Rotina e Hoje usam
+   `qF(..., renderHoje)` justamente para nao pagar isso. No celular, cada toque em
+   chip pisca "Lendo a base…". Trocar por `qF` e barato e entra na Fatia 2.
+6. **`harness.py` aborta apos a secao Vendas** (`rodar() estourou: Cannot read
+   properties of null`), entao o numero "172 passou" nao deve ser lido como
+   cobertura total: o que vem depois daquele ponto nunca executa. Condicao herdada,
+   ja presente na v45.
 4. **VENDA-0003 duplicada continua viva no banco** (pendencia da v44 e v45,
    intacta): faturamento inflado em R$ 8.400. A ferramenta existe e esta provada;
    o ato e do dono.
@@ -281,15 +338,26 @@ Spec: `docs/superpowers/specs/2026-08-04-escopo-frentes-design.md`.
 
 ## 11. O que esta sessao ensina para as proximas
 
-1. **Suite verde nao prova que a porta abre.** Cinco suites no baseline conviveram
-   com uma aba que nao abria. Toda tela nova precisa de UMA prova que navegue ate
-   ela por clique, antes de qualquer prova de conteudo.
+1. **Suite verde nao prova que a porta abre, nem que o botao faz alguma coisa.**
+   Cinco suites no baseline conviveram com uma aba que nao abria, e depois com uma
+   aba onde nenhum botao funcionava. **Prova de escrita por string-matching sobre a
+   fonte casa igual com o codigo quebrado.** Toda tela nova precisa de provas que
+   CLIQUEM: uma que navegue ate ela, e uma por controle que assere a chamada
+   resultante.
+1b. **Corrigir a categoria errada de um ponto cego e pior que nao corrigir.** A
+   Task 5c fechou o ponto cego de navegacao e declarou a lacuna resolvida. O ponto
+   cego de acao seguiu aberto uma camada abaixo, agora com falsa sensacao de
+   cobertura.
 2. **Guard-rail que aponta problema real nao se cala com excecao.** O `validar.py`
    reprovou um token duplicado e a primeira resposta foi abrir excecao para ele.
 3. **Condicao sempre falsa e indistinguivel de feature completa** para quem le o
    diff. O `prompt` do motivo da trava passou por duas revisoes assim.
 4. **Onde uma conta filtra e outra nao filtra, existe vetor de manipulacao.**
-5. **Reproduzir antes de aceitar.** Todo achado de revisao foi reproduzido contra o
+5. **Revisao pendente e portao, nao formalidade.** A revisao final foi despachada,
+   o dono mandou subir sem esperar por ela, e ela voltou com um CRITICO que
+   derrubaria o deploy. A correcao subiu 15 minutos depois. Custou pouco desta vez;
+   a licao e que o gate existia e funcionou, so foi consultado tarde.
+6. **Reproduzir antes de aceitar.** Todo achado de revisao foi reproduzido contra o
    banco ou o arquivo real antes de virar correcao. Dois achados de revisor foram
    RECUSADOS por serem falsos: `criar_acao_escopo` aceitar `grupo='pendencia'` nao e
    furo (a secao Pendencias existe para receber acao), e a excecao no `validar.py`
