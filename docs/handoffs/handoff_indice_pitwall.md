@@ -7,12 +7,14 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v45.md` (31/07/2026, layout mobile: a barra de
+- topo: `handoff_migracao_pitwall_v46.md` (05/08/2026, Fatia 1 da aba Escopo: 8
+  frentes de operacao, placar com nota calculada no banco, criar/mudar
+  status/travar/descartar. 3 tabelas, 6 migrations, 22 commits. Cinco defeitos
+  achados e fechados na execucao, um deles uma aba que NAO ABRIA convivendo com
+  cinco suites verdes)
+- anterior: `handoff_migracao_pitwall_v45.md` (31/07/2026, layout mobile: a barra de
   abas cobria o conteudo; nasce `ferramentas/diag_mobile.py`)
-- anterior: `handoff_migracao_pitwall_v44.md` (31/07/2026, correcao e
-  arquivamento de venda ja registrada; fecha as duas fatias do spec
-  `2026-07-31-editar-vendas`)
-- 41 arquivos na pasta. O de maior versao substitui todos os anteriores.
+- 42 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 
