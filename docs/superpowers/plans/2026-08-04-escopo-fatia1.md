@@ -1723,6 +1723,163 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
+### Task 5c: a aba nao abria no clique (correcao pos-revisao)
+
+**O defeito, medido:** as 11 abas do app tem `Y("abaX","click",function(){G("...")})` no `init()`. A `abaEscopo` NAO tem. Usuario clica em Escopo e nada acontece: sem erro, sem toast, sem tela.
+
+**A causa raiz nao e o binding esquecido, e o ponto cego da suite.** Nenhuma prova jamais clicou na aba:
+- `prova_escopo.js` recorta funcoes e as executa isoladas, nunca navega;
+- `diag_mobile.py` tem a lista `abasIds` (linha 142) e `abaEscopo` nao esta nela;
+- `harness.py` nao tem stub de `escopo_completo` nem clica na aba.
+
+Por isso 57 assercoes, cinco suites no baseline e exit 0 em tudo conviveram com uma aba que nao abre. **A correcao obrigatoria e a prova, nao o binding.** Consertar so o binding deixaria a mesma armadilha armada para a proxima aba.
+
+**Files:**
+- Create: `ferramentas/patch_escopo_binding.js`
+- Modify: `ferramentas/diag_mobile.py` (a lista `abasIds`, linha 142)
+- Modify: `ferramentas/harness.py` (stub de `escopo_completo` + bloco de teste da aba)
+
+- [ ] **Step 1: o teste fim a fim ANTES do conserto**
+
+No `ferramentas/harness.py`, acrescentar o stub junto dos outros (perto de `rotina_completa`, por volta da linha 208):
+
+```js
+        if (nome === 'escopo_completo') {
+          return Promise.resolve({ data: { ok: true, pode_editar: true, frentes: [
+            { codigo:'pitscare', rotulo:'Pitscare', grupo:'frente', icone:'escudo', ordem:60,
+              total:2, feitas:1, travadas:1, dias_parada:3, nota:65, faixa:'normal',
+              acoes:[{ id:'ea1', titulo:'Aplicar os 19 scripts', status:'travado', motivo_trava:'capability Update content' },
+                     { id:'ea2', titulo:'Fundir a branch', status:'a_fazer', motivo_trava:null }] },
+            { codigo:'assistencia', rotulo:'Assistência técnica', grupo:'frente', icone:'chave', ordem:30,
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] },
+            { codigo:'pendencias', rotulo:'Pendências', grupo:'pendencia', icone:'alerta', ordem:99,
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] }
+          ] }, error: null });
+        }
+```
+
+E um bloco de teste no mesmo molde do bloco da Rotina (que comeca em `document.getElementById('abaRotina').click();`, por volta da linha 647), assertando sobre o **DOM RENDERIZADO** (`#lista`), nunca sobre `document.body.textContent`, que enxerga o proprio `app.js` colado no `<body>`:
+
+1. clicar em `abaEscopo` e conferir que `aria-selected` dele vira `"true"`;
+2. conferir que `topoTit` passa a dizer `Escopo`;
+3. conferir que `#lista` contem `.esc-placar` e pelo menos uma `.esc-acao`;
+4. conferir que a nota `65` aparece e que a frente `sem_dado` mostra `nenhuma ação registrada`;
+5. conferir que o motivo da trava (`capability Update content`) aparece na tela;
+6. conferir que existe um controle `data-acao="esc-travar"` no DOM renderizado.
+
+**A assercao 1 e a que teria pego este defeito.** As outras cinco existem para a proxima regressao.
+
+- [ ] **Step 2: rodar o harness e VER FALHAR**
+
+```bash
+python ferramentas/harness.py; echo "EXIT=$?"
+```
+
+Esperado: as assercoes novas FALHAM (a aba nao navega). O total de falhas sobe acima de 4.
+
+- [ ] **Step 3: `abaEscopo` entra na lista do diag_mobile**
+
+Em `ferramentas/diag_mobile.py`, linha 142, acrescentar `'abaEscopo'` ao final da lista `abasIds`. Sem isso a ferramenta nunca mede a tela do Escopo, e o `exit 0` dela nao diz nada sobre essa aba.
+
+- [ ] **Step 4: o patch do binding**
+
+Criar `ferramentas/patch_escopo_binding.js`, no molde dos outros (aborta sem gravar se a ancora nao tiver exatamente 1 ocorrencia):
+
+```js
+// A aba Escopo nao abria no clique: era a unica das 12 sem Y(...,"click",...).
+// Rodar da raiz do repo: node ferramentas/patch_escopo_binding.js
+'use strict';
+const fs = require('fs');
+const path = require('path');
+
+const ALVO = path.join(__dirname, '..', 'public', 'app.js');
+let src = fs.readFileSync(ALVO, 'utf8');
+const antes = src.length;
+
+const COSTURAS = [
+  {
+    nome: '1. abaEscopo ganha o binding de clique, junto de abaRotina',
+    de: 'Y("abaRotina","click",function(){G("rotina")}),',
+    para: 'Y("abaRotina","click",function(){G("rotina")}),Y("abaEscopo","click",function(){G("escopo")}),'
+  }
+];
+
+let erros = 0;
+for (const cst of COSTURAS) {
+  const n = src.split(cst.de).length - 1;
+  if (n !== 1) {
+    console.error(`REPROVOU: ${cst.nome}\n  esperava 1 ocorrencia, achou ${n}`);
+    erros++;
+    continue;
+  }
+  src = src.replace(cst.de, cst.para);
+  console.log(`ok  ${cst.nome}`);
+}
+
+if (erros) {
+  console.error(`\nREPROVOU: ${erros} costura(s) sem ocorrencia unica. Nada foi gravado.`);
+  process.exit(1);
+}
+
+fs.writeFileSync(ALVO, src, 'utf8');
+console.log(`\napp.js: ${antes} -> ${src.length} bytes (+${src.length - antes})`);
+console.log(`APROVOU: ${COSTURAS.length} costuras aplicadas.`);
+```
+
+- [ ] **Step 5: acrescentar a guarda no prova_escopo.js**
+
+Para o defeito nao voltar sem alguem perceber:
+
+```js
+console.log('\n--- a aba precisa ABRIR: 11 abas tinham binding, a 12a nao tinha ---');
+['abaHoje','abaFila','abaTodos','abaVendas','abaNfs','abaClientes','abaIndicacoes',
+ 'abaCaptacao','abaConteudo','abaRotina','abaDash','abaEscopo'].forEach(function(id){
+  t('a aba ' + id + ' tem binding de clique', SRC.indexOf('Y("' + id + '","click"') >= 0);
+});
+```
+
+Ela cobre as 12, nao so a nova: a mesma armadilha vale para a proxima aba que alguem criar.
+
+- [ ] **Step 6: rodar tudo**
+
+```bash
+node ferramentas/patch_escopo_binding.js; echo "PATCH=$?"
+node --check public/app.js;               echo "SINTAXE=$?"
+node ferramentas/prova_escopo.js;         echo "PROVA=$?"
+python ferramentas/harness.py;            echo "HARNESS=$?"
+python ferramentas/diag_mobile.py 360;    echo "M360=$?"
+python ferramentas/diag_mobile.py 390;    echo "M390=$?"
+python ferramentas/validar.py;            echo "VALIDAR=$?"
+```
+
+Esperado: `PATCH=0`, `SINTAXE=0`, `PROVA=0`, `M360=0`, `M390=0`. O harness sobe de 158 para 164 passou, **mantendo as mesmas 4 falhas herdadas**. `VALIDAR=1` com as 5 herdadas.
+
+Agora o `diag_mobile` mede a aba Escopo de verdade. Se ele reprovar em 360px, e informacao nova e verdadeira, nao regressao: relatar os numeros.
+
+- [ ] **Step 7: commit**
+
+```bash
+git add ferramentas/patch_escopo_binding.js ferramentas/prova_escopo.js ferramentas/harness.py ferramentas/diag_mobile.py public/app.js
+git commit -m "fix(escopo): a aba nao abria no clique, e nenhuma prova clicava nela
+
+Das 12 abas do app, 11 tinham Y(\"abaX\",\"click\",...) e a abaEscopo nao
+tinha. Clicar nao fazia nada: sem erro, sem toast, sem tela.
+
+A causa raiz nao e o binding esquecido, e o ponto cego da suite. O
+prova_escopo.js executa funcoes isoladas e nunca navega; a lista abasIds do
+diag_mobile.py nao tinha abaEscopo; o harness.py nao tinha stub de
+escopo_completo nem clicava na aba. Por isso 57 assercoes e cinco suites no
+baseline conviveram com uma aba que nao abre.
+
+Consertar so o binding deixaria a armadilha armada para a proxima aba, entao
+entra tambem: teste de navegacao real no harness, abaEscopo no diag_mobile, e
+uma guarda que cobre as 12 abas de uma vez.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
 ### Task 6: fechar os guard-rails e provar a fatia inteira
 
 **Files:**
