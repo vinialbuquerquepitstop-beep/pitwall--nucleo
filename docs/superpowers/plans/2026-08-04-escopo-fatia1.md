@@ -1501,20 +1501,30 @@ Esperado: `EXIT=0` e `APROVOU: 6 costuras aplicadas.` Se alguma costura reprovar
 
 `git diff` NAO serve aqui: o `app.js` e uma linha so e o diff exibe a linha inteira.
 
+**Comparacao de prefixo e sufixo TAMBEM nao serve**, e a primeira versao deste plano mandava usar isso. So funciona para UMA insercao contigua: com 6 costuras espalhadas, a primeira ja desalinha a comparacao posicional para sempre e o numero de "removidos" vira lixo (medido: acusou 93301 bytes removidos onde nada tinha sido removido).
+
+O metodo que prova de verdade e **reaplicar o patch sobre o baseline e exigir igualdade total**. Se o patch for deterministico e as ancoras forem unicas, o resultado tem de bater byte a byte com o arquivo entregue:
+
 ```bash
+cp public/app.js "$SCRATCH/entregue.js"
+git checkout HEAD -- public/app.js
+node ferramentas/patch_escopo.js
+cp public/app.js "$SCRATCH/reaplicado.js"
+cp "$SCRATCH/entregue.js" public/app.js      # restaura o entregue
 node -e "
-const a=require('fs').readFileSync('/tmp/escopo_antes.js','utf8');
-const b=require('fs').readFileSync('public/app.js','utf8');
-let i=0; while(i<a.length&&a[i]===b[i]) i++;
-let j=0; while(j<a.length-i&&a[a.length-1-j]===b[b.length-1-j]) j++;
-console.log('prefixo identico ate', i);
-console.log('sufixo identico a partir de', j, 'do fim');
-console.log('inseridos', b.length-a.length, 'bytes');
-console.log('removidos do original', a.length-i-j, 'bytes');
-"
+const fs=require('fs'), n=s=>s.replace(/\r\n/g,'\n');
+const a=n(fs.readFileSync(process.argv[1]+'/entregue.js','utf8'));
+const b=n(fs.readFileSync(process.argv[1]+'/reaplicado.js','utf8'));
+console.log('entregue == reaplicado do zero:', a===b);
+const base=n(require('child_process').execSync('git show HEAD:public/app.js',{maxBuffer:1e8}).toString());
+console.log('baseline sobrevive inteiro:', a.includes(base.slice(-3000)));
+console.log('bytes:', base.length, '->', a.length);
+" "$SCRATCH"
 ```
 
-Esperado: `removidos do original` igual a 0 (o patch so INSERE; as costuras 2 a 6 reescrevem trechos, entao esse numero e o tamanho somado dos trechos reescritos, nao zero). O que importa e que `prefixo identico ate` caia dentro da regiao esperada e que nenhum bloco fora das 6 costuras tenha sumido. Se `removidos` passar de 400 bytes, parar e investigar.
+Esperado: `true` nas duas linhas. **Normalizar CRLF e obrigatorio**: `git checkout` converte fim de linha nesta maquina, e sem o `replace` a comparacao acusa diferenca de ~850 bytes que e so line ending (o `app.js` tem os blocos de dados legiveis multi-linha colados abaixo do nucleo).
+
+Se `entregue == reaplicado` der `false`, alguem editou o `app.js` a mao em algum momento: parar e investigar.
 
 - [ ] **Step 6: rodar a prova de frontend**
 
