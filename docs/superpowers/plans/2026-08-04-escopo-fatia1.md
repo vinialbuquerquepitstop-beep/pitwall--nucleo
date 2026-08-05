@@ -1555,6 +1555,174 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
+### Task 5b: travar uma acao passa a ser alcancavel (correcao pos-revisao)
+
+**O defeito:** o ciclo do chip e `prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer"`. Os quatro ramos sao `fazendo`, `feito`, `a_fazer`, `a_fazer`: **`travado` nunca e destino.** Logo o `if("travado"===prox&&!(mot=prompt(...)))` e codigo morto, e o unico `prompt(` do arquivo vive dentro dele.
+
+Consequencia: a Fatia 1 promete "status + o que trava" (foi o requisito numero um do dono) e **nao entrega caminho nenhum de UI para marcar acao travada**. Uma acao so apareceria travada se alguem escrevesse direto no banco. O backend suporta e prova travar perfeitamente; a tela nunca chama.
+
+**A decisao:** travar NAO entra no ciclo. Um ciclo de toque que passa por `travado` obrigaria a inventar motivo toda vez que a acao anda de `fazendo` para `feito`. Travar e interrupcao, nao etapa, entao ganha controle proprio ao lado do chip.
+
+**Files:**
+- Create: `ferramentas/patch_escopo_travar.js`
+- Modify: `ferramentas/prova_escopo.js`
+- Modify: `public/app.css` (a classe `.esc-travar`)
+
+- [ ] **Step 1: acrescentar as assercoes ANTES do patch**
+
+No `ferramentas/prova_escopo.js`, na secao `--- frente ... ---`, depois das assercoes de botao ja existentes:
+
+```js
+console.log('\n--- travar: o requisito numero um nao pode ser inalcancavel ---');
+t('quem pode editar ve o controle de travar', fr.indexOf('data-acao="esc-travar"') >= 0);
+t('a acao travada oferece DESTRAVAR, nao travar de novo',
+  api.escFrente({codigo:'x',rotulo:'X',grupo:'frente',icone:'alvo',nota:50,faixa:'normal',
+    feitas:0,total:1,travadas:1,dias_parada:1,
+    acoes:[{id:'a9',titulo:'t',status:'travado',motivo_trava:'algo'}]}, true)
+    .indexOf('>destravar<') >= 0);
+t('a acao NAO travada oferece TRAVAR',
+  api.escFrente({codigo:'x',rotulo:'X',grupo:'frente',icone:'alvo',nota:50,faixa:'normal',
+    feitas:0,total:1,travadas:0,dias_parada:1,
+    acoes:[{id:'a9',titulo:'t',status:'fazendo',motivo_trava:null}]}, true)
+    .indexOf('>travar<') >= 0);
+t('quem NAO pode editar nao ve o controle de travar',
+  frLeitor.indexOf('data-acao="esc-travar"') < 0);
+t('o controle de travar carrega o status atual, para saber o que fazer',
+  fr.indexOf('data-acao="esc-travar"') >= 0 &&
+  /data-acao="esc-travar" data-id="[^"]*" data-st="/.test(fr));
+
+console.log('\n--- o ciclo do chip nao passa por travado (travar e interrupcao, nao etapa) ---');
+const ciclo = SRC.slice(SRC.indexOf('if("esc-status"===o)'), SRC.indexOf('if("esc-status"===o)') + 300);
+t('o ciclo do chip NAO tem travado como destino', /[?:]"travado"/.test(ciclo) === false);
+t('o ciclo do chip nao carrega mais o prompt morto', ciclo.indexOf('prompt(') < 0);
+eq('o delegado trata esc-travar', conta('if("esc-travar"===o)'), 1);
+t('travar de verdade manda p_status travado',
+  SRC.indexOf('p_status:"travado"') >= 0);
+t('destravar volta para fazendo, nao para a_fazer (o trabalho ja tinha comecado)',
+  SRC.indexOf('p_status:"fazendo",p_motivo:null') >= 0);
+t('o prompt do motivo passou a viver no caminho alcancavel',
+  SRC.slice(SRC.indexOf('if("esc-travar"===o)'), SRC.indexOf('if("esc-travar"===o)') + 400).indexOf('prompt(') >= 0);
+t('a classe esc-travar tem estilo no CSS', CSS.indexOf('.esc-travar') >= 0);
+```
+
+- [ ] **Step 2: rodar e ver FALHAR**
+
+```bash
+node ferramentas/prova_escopo.js; echo "EXIT=$?"
+```
+
+Esperado: `EXIT=1`, com falhas incluindo `quem pode editar ve o controle de travar` e `o delegado trata esc-travar`. As duas do ciclo (`NAO tem travado como destino`) tambem falham, porque hoje o `prompt` morto ainda esta la.
+
+- [ ] **Step 3: a classe no CSS**
+
+No fim do bloco `.esc-*` em `public/app.css`:
+
+```css
+.esc-travar{font-size:11px;flex:0 0 auto;white-space:nowrap}
+```
+
+- [ ] **Step 4: escrever e rodar o patch**
+
+Criar `ferramentas/patch_escopo_travar.js`, no mesmo molde do `patch_escopo.js` (aborta se qualquer ancora nao tiver exatamente 1 ocorrencia, nao grava nada nesse caso):
+
+```js
+// Travar uma acao passa a ser alcancavel. O ciclo do chip nunca tinha travado
+// como destino, entao o prompt do motivo era codigo morto e o requisito
+// numero um da Fatia 1 nao existia na tela.
+// Rodar da raiz do repo: node ferramentas/patch_escopo_travar.js
+'use strict';
+const fs = require('fs');
+const path = require('path');
+
+const ALVO = path.join(__dirname, '..', 'public', 'app.js');
+let src = fs.readFileSync(ALVO, 'utf8');
+const antes = src.length;
+
+const COSTURAS = [
+  {
+    nome: '1. o botao de travar entra ao lado do chip de status',
+    de: '\'</button><button class="link-acao" data-acao="esc-desc" data-id="\'+c(a.id)+\'" aria-label="Descartar">×</button>\'',
+    para: '\'</button><button class="link-acao esc-travar" data-acao="esc-travar" data-id="\'+c(a.id)+\'" data-st="\'+c(a.status)+\'">\'+("travado"===a.status?"destravar":"travar")+\'</button><button class="link-acao" data-acao="esc-desc" data-id="\'+c(a.id)+\'" aria-label="Descartar">×</button>\''
+  },
+  {
+    nome: '2. o ciclo do chip perde o prompt morto',
+    de: ',mot=null;if("travado"===prox&&!(mot=prompt("O que está travando?")))return;return void q("mudar_status_acao_escopo",{p_id:a.getAttribute("data-id"),p_status:prox,p_motivo:mot},a)}',
+    para: ';return void q("mudar_status_acao_escopo",{p_id:a.getAttribute("data-id"),p_status:prox,p_motivo:null},a)}'
+  },
+  {
+    nome: '3. o delegado ganha esc-travar, que e o caminho ALCANCAVEL do motivo',
+    de: 'if("esc-desc"===o)return void q("descartar_acao_escopo"',
+    para: [
+      'if("esc-travar"===o){',
+      'var sa=a.getAttribute("data-st"),mt=null;',
+      // destravar volta para fazendo: o trabalho ja tinha comecado, mandar para
+      // a_fazer apagaria essa informacao.
+      'if("travado"===sa)return void q("mudar_status_acao_escopo",{p_id:a.getAttribute("data-id"),p_status:"fazendo",p_motivo:null},a);',
+      'if(!(mt=prompt("O que está travando?")))return;',
+      'return void q("mudar_status_acao_escopo",{p_id:a.getAttribute("data-id"),p_status:"travado",p_motivo:mt},a)}',
+      'if("esc-desc"===o)return void q("descartar_acao_escopo"'
+    ].join('')
+  }
+];
+
+let erros = 0;
+for (const cst of COSTURAS) {
+  const n = src.split(cst.de).length - 1;
+  if (n !== 1) {
+    console.error(`REPROVOU: ${cst.nome}\n  esperava 1 ocorrencia, achou ${n}`);
+    erros++;
+    continue;
+  }
+  src = src.replace(cst.de, cst.para);
+  console.log(`ok  ${cst.nome}`);
+}
+
+if (erros) {
+  console.error(`\nREPROVOU: ${erros} costura(s) sem ocorrencia unica. Nada foi gravado.`);
+  process.exit(1);
+}
+
+fs.writeFileSync(ALVO, src, 'utf8');
+console.log(`\napp.js: ${antes} -> ${src.length} bytes (+${src.length - antes})`);
+console.log(`APROVOU: ${COSTURAS.length} costuras aplicadas.`);
+```
+
+- [ ] **Step 5: rodar as provas**
+
+```bash
+node ferramentas/patch_escopo_travar.js; echo "PATCH=$?"
+node --check public/app.js;              echo "SINTAXE=$?"
+node ferramentas/prova_escopo.js;        echo "PROVA=$?"
+python ferramentas/validar.py;           echo "VALIDAR=$?"
+python ferramentas/diag_mobile.py 360;   echo "M360=$?"
+python ferramentas/harness.py;           echo "HARNESS=$?"
+```
+
+Esperado: `PATCH=0`, `SINTAXE=0`, `PROVA=0`, `M360=0`, harness em 158/4. `VALIDAR=1` com as mesmas 5 herdadas.
+
+**O 360 importa mais aqui que o 390**: a linha da acao ganhou um terceiro controle, e 360px e onde ela aperta.
+
+- [ ] **Step 6: commit**
+
+```bash
+git add ferramentas/patch_escopo_travar.js ferramentas/prova_escopo.js public/app.css public/app.js
+git commit -m "fix(escopo): travar uma acao deixa de ser inalcancavel
+
+O ciclo do chip nunca tinha travado como destino, entao o
+if(\"travado\"===prox) era codigo morto e o unico prompt do arquivo vivia
+dentro dele. A Fatia 1 prometia \"status + o que trava\" e nao entregava
+caminho nenhum de UI: acao so apareceria travada por escrita direta no banco.
+
+Travar nao entra no ciclo. Um ciclo que passa por travado obrigaria a
+inventar motivo toda vez que a acao anda de fazendo para feito. Travar e
+interrupcao, nao etapa, entao ganhou controle proprio. Destravar volta para
+fazendo, nao para a_fazer: o trabalho ja tinha comecado.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+```
+
+---
+
 ### Task 6: fechar os guard-rails e provar a fatia inteira
 
 **Files:**
