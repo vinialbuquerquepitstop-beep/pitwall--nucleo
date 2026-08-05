@@ -392,6 +392,47 @@ begin
   if n = 0 then nok:=nok+1; rel:=rel||E'\n  ok  acao descartada some da leitura';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: acao descartada continua na leitura'; end if;
 
+  ---------------------------------------------------- Fatia 2a: meta da frente
+  -- teto de 200: 201 tem que ser RECUSADO pelo CHECK
+  begin
+    update public.escopo_frente
+       set meta = repeat('x', 201)
+     where tenant_id = ten1 and codigo = 'pitscare';
+    nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: 201 chars entrou (teto ausente)';
+  exception when check_violation then
+    nok:=nok+1; rel:=rel||E'\n  ok  meta: 201 chars recusado pelo CHECK';
+  end;
+
+  -- 200 exatos tem que PASSAR. Sem esta, o teto poderia estar em qualquer
+  -- lugar entre 1 e 200 e a prova acima continuaria verde.
+  begin
+    update public.escopo_frente
+       set meta = repeat('y', 200)
+     where tenant_id = ten1 and codigo = 'pitscare';
+    nok:=nok+1; rel:=rel||E'\n  ok  meta: 200 chars exatos aceitos';
+  exception when others then
+    nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: 200 chars recusados';
+  end;
+
+  -- o log e garantia do BANCO: UPDATE direto tem que gerar 1 evento
+  select count(*) into n from public.escopo_frente_evento
+   where tenant_id = ten1 and frente = 'pitscare' and meta_depois = repeat('y', 200);
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  meta: UPDATE direto gerou exatamente 1 evento';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: achei '||n||' eventos, esperava 1'; end if;
+
+  select count(*) into n from public.escopo_frente_evento
+   where tenant_id = ten1 and frente = 'pitscare'
+     and meta_antes is null and meta_depois = repeat('y', 200);
+  if n = 1 then nok:=nok+1; rel:=rel||E'\n  ok  meta: o evento guarda antes e depois';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: evento sem meta_antes/meta_depois corretos'; end if;
+
+  -- append-only de verdade (invariante 6)
+  if not has_table_privilege('authenticated', 'public.escopo_frente_evento', 'UPDATE')
+     and not has_table_privilege('authenticated', 'public.escopo_frente_evento', 'DELETE')
+     and not has_table_privilege('authenticated', 'public.escopo_frente_evento', 'TRUNCATE') then
+    nok:=nok+1; rel:=rel||E'\n  ok  meta: authenticated sem UPDATE/DELETE/TRUNCATE no log';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: authenticated tem privilegio demais no log'; end if;
+
   -- vendedor nao escreve
   perform set_config('request.jwt.claims',
     json_build_object('sub', vend, 'role', 'authenticated')::text, true);
