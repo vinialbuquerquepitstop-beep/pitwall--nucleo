@@ -287,7 +287,10 @@ Subagent `base`, `apply_migration` com `name: escopo_meta_rpc`:
 create or replace function public.definir_meta_frente(p_frente text, p_meta text)
 returns json
 language plpgsql
-security definer
+-- SECURITY INVOKER (o default). NAO usar SECURITY DEFINER aqui: as 4 RPCs irmas
+-- do Escopo sao INVOKER, escopo_frente ja tem policy de UPDATE exigindo dono, e
+-- rodando como dono do banco a funcao passaria por cima da RLS, deixando de
+-- exercer a policy de INSERT do log criada na Task 1 justamente para exigir dono.
 set search_path to 'public', 'privado'
 as $function$
 declare

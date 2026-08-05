@@ -433,12 +433,43 @@ begin
     nok:=nok+1; rel:=rel||E'\n  ok  meta: authenticated sem UPDATE/DELETE/TRUNCATE no log';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU meta: authenticated tem privilegio demais no log'; end if;
 
+  ---------------------------------------------------- Fatia 2a: RPC definir_meta_frente
+  -- a RPC recusa acima do teto e DIZ o tamanho, nunca trunca em silencio
+  select public.definir_meta_frente('pitscare', repeat('z', 201)) into r;
+  if (r->>'ok')::boolean is false and r->>'msg' like '%201%200%' then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: 201 recusado com o tamanho na mensagem';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: '||coalesce(r::text,'nulo'); end if;
+
+  select public.definir_meta_frente('pitscare', '  Laboratorio proprio operando  ') into r;
+  select meta into msg from public.escopo_frente where tenant_id = ten1 and codigo = 'pitscare';
+  if (r->>'ok')::boolean and msg = 'Laboratorio proprio operando' then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: grava e apara espaco das pontas';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: gravou "'||coalesce(msg,'nulo')||'"'; end if;
+
+  -- string vazia LIMPA, nao grava frase vazia que a tela leria como declarada
+  select public.definir_meta_frente('pitscare', '   ') into r;
+  select meta into msg from public.escopo_frente where tenant_id = ten1 and codigo = 'pitscare';
+  if (r->>'ok')::boolean and msg is null then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: so espaco LIMPA a meta (volta a nao declarada)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: limpar deixou "'||coalesce(msg,'nulo')||'"'; end if;
+
+  select public.definir_meta_frente('nao_existe', 'x') into r;
+  if (r->>'ok')::boolean is false then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: frente inexistente e recusada';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: frente inexistente foi aceita'; end if;
+
   -- vendedor nao escreve
   perform set_config('request.jwt.claims',
     json_build_object('sub', vend, 'role', 'authenticated')::text, true);
   if not (public.criar_acao_escopo('pitscare', 'do vendedor')::jsonb->>'ok')::boolean
   then nok:=nok+1; rel:=rel||E'\n  ok  vendedor barrado ao criar acao';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU: vendedor criou acao'; end if;
+
+  select public.definir_meta_frente('pitscare', 'meta do vendedor') into r;
+  if (r->>'ok')::boolean is false then
+    nok:=nok+1; rel:=rel||E'\n  ok  rpc meta: vendedor NAO define meta';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU rpc meta: vendedor definiu meta'; end if;
+
   perform set_config('request.jwt.claims',
     json_build_object('sub', dono, 'role', 'authenticated')::text, true);
 
