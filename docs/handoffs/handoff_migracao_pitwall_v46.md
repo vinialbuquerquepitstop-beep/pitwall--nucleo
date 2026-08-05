@@ -4,7 +4,7 @@ Substitui a v45. Data: 05/08/2026.
 
 ---
 
-## 1. Headline: a aba Escopo existe, e a suite quase deixou passar uma tela que nao abria
+## 1. Headline: a aba Escopo existe, e a suite deixou passar uma tela onde nenhum botao funcionava
 
 Pedido do dono: *"preciso de uma sessao de escopo, onde tenha todas as frentes e
 acoes dessas frentes para monitoramento de progresso e processo. e que seja
@@ -14,9 +14,16 @@ Entregue: a **Fatia 1** de uma aba nova, com 8 frentes de operacao, um placar qu
 ordena da melhor para a pior frente, e a capacidade de criar acao, mudar status no
 toque, travar com motivo e descartar. 22 commits, 6 migrations, 3 tabelas novas.
 
-**O numero que importa mais que os outros: 5 defeitos reais foram achados e
-fechados durante a execucao, e cada um foi reproduzido contra o banco ou o arquivo
-real ANTES da correcao.** Tres deles teriam ido para producao sem barulho nenhum.
+**O numero que importa mais que os outros: 6 defeitos reais foram achados e
+fechados, cada um reproduzido contra o banco ou o arquivo real antes da correcao.**
+Cinco foram pegos durante a execucao. **O sexto foi para producao**: a aba subiu com
+TODO o caminho de escrita morto em runtime, e ficou assim ate a revisao final voltar
+(secao 4.6). O dono mandou subir sabendo que a revisao estava pendente; a correcao
+subiu logo em seguida, no commit `4b8b93d`.
+
+Se este handoff for lido por cima, leia so isto: **prova de escrita por
+string-matching sobre a fonte casa igual com o codigo quebrado.** Foi assim que 69
+assercoes verdes conviveram com quatro botoes que so lancavam TypeError.
 
 ---
 
@@ -81,7 +88,7 @@ A nota nunca aparece sozinha. Nota escondida vira fe, e ninguem discute com fe.
 
 ---
 
-## 4. Os 5 defeitos, e o que cada um ensina
+## 4. Os 6 defeitos, e o que cada um ensina
 
 ### 4.1 O placar nascia manipulavel (Task 1b)
 
