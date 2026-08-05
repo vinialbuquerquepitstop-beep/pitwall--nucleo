@@ -710,7 +710,9 @@ async function rodar() {
 
   // ---- decisão 7: barra de 5 + Mais (viewport headless = 800px, mobile)
   ok('botão Mais existe', !!document.getElementById('abaMais'));
-  ok('6 abas raras', document.querySelectorAll('.aba-rara').length === 6);
+  // 6 -> 8 em 05/08/2026, mesma assercao envelhecida que o validar.py tinha:
+  // Notas fiscais (v40+) e Escopo (Fatia 1) entraram e ninguem atualizou o numero.
+  ok('8 abas raras', document.querySelectorAll('.aba-rara').length === 8);
   ok('rara começa escondida no mobile', getComputedStyle(document.getElementById('abaDash')).display === 'none');
   document.getElementById('abaMais').click();
   await espera(80);

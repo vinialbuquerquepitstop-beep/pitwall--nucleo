@@ -208,8 +208,13 @@ ck(novo_js.count('functions.invoke("sincronizar-conteudo"') == 1,
 for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
     ck(novo_html.count(f'id="{aba}"') == 1, f'aba {aba} ausente ou duplicada')
 n_raras = novo_html.count('class="aba aba-rara"')
-ck(n_raras == 6,
-   f'esperava 6 abas raras (Clientes, Indicações, Captação, Dashboard, Rotina, Calculadora), achei {n_raras}')
+# 6 -> 8 em 05/08/2026. Duas abas entraram e ninguem atualizou o numero: Notas
+# fiscais (v40+) e Escopo (Fatia 1). A assercao ENVELHECEU, o codigo nao errou.
+# Item unico e nomeado: a baseline .antes NAO foi repontada, senao as outras 4
+# reprovacoes herdadas se calariam de carona, que e como um guard-rail morre.
+RARAS = 'Clientes, Indicações, Captação, Dashboard, Rotina, Calculadora, Notas fiscais, Escopo'
+ck(n_raras == 8,
+   f'esperava 8 abas raras ({RARAS}), achei {n_raras}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
 
 # ISODOW na tela: 1=segunda..7=domingo. Off-by-one aqui poe a rotina no dia
