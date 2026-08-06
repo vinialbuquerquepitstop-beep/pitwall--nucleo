@@ -223,12 +223,19 @@ ck(novo_js.count('functions.invoke("sincronizar-conteudo"') == 1,
 # HTML: abas novas presentes, e as 4 raras marcadas para a barra mobile
 for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
     ck(novo_html.count(f'id="{aba}"') == 1, f'aba {aba} ausente ou duplicada')
-# Sao SETE desde a v45, nao seis: `abaNfs` entrou e e legitima (decisao 6 do v45,
-# 7 raras em 6 colunas, a Calculadora orfa na segunda linha da gaveta). A assercao
-# ficou em 6. Passa a conferir QUAIS sao, nao so quantas: contagem sozinha nao
-# distingue "entrou a Notas fiscais" de "sumiu a Rotina e entraram duas outras".
+# Eram 6, sao OITO em 05/08/2026: `abaNfs` (v40+) e `abaEscopo` (Fatia 1)
+# entraram e ninguem atualizou o numero. A assercao ENVELHECEU, o codigo nao
+# errou. Item unico e nomeado: a baseline .antes NAO foi repontada, senao as
+# outras reprovacoes herdadas se calariam de carona, que e como um guard-rail
+# morre.
+#
+# Confere QUAIS sao, nao so quantas: contagem sozinha nao distingue "entrou a
+# Notas fiscais" de "sumiu a Rotina e entraram duas outras". Aba nova aqui e
+# decisao de navegacao (a barra so tem 6 lugares, decisao 6 do v45), entao ela
+# passa por este arquivo de proposito.
 _raras = set(re.findall(r'class="aba aba-rara" id="(\w+)"', novo_html))
-_esperadas = {'abaNfs', 'abaClientes', 'abaIndicacoes', 'abaCaptacao', 'abaRotina', 'abaDash', 'abaCalc'}
+_esperadas = {'abaNfs', 'abaEscopo', 'abaClientes', 'abaIndicacoes', 'abaCaptacao',
+              'abaRotina', 'abaDash', 'abaCalc'}
 ck(_raras == _esperadas,
    f'as abas raras mudaram. sumiram: {sorted(_esperadas - _raras)} | entraram sem registro: {sorted(_raras - _esperadas)}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')

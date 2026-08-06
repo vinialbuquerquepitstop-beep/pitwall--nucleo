@@ -51,6 +51,7 @@
   --erro-fg:#B01235;
   --erro-bg:#FDEDF0;
   --erro-linha:#F2C2CE;
+
   --tr-fila-follow-up:#5B6BA8;
   --tr-captacao:#3E8C8C;
   --tr-conteudo:#7A5FA8;
@@ -1329,9 +1330,55 @@ a{color:inherit}
 .btn-clidet:hover{color:var(--accent);text-decoration-color:currentColor}
 .cli-det{display:none;flex-direction:column;gap:5px;margin-top:7px}
 .cli-det.aberto{display:flex}
+
 .cli-det-row{display:flex;gap:10px;font-size:12px;line-height:1.5}
 .cli-det-k{flex:0 0 96px;color:var(--dim);font-family:var(--mono);font-size:11px}
 .cli-det-v{color:var(--text)}
+
+/* ============ Aba Escopo (Fatia 1) ============
+   Trilho x Sinal: a frente carrega barra de 3px + ICONE (o icone carrega a
+   distincao, nao e enfeite). A paleta de temperatura NAO e reusada: la quente
+   e bom (lead novo) e aqui seria ruim. So "em baixa" recebe alerta.
+   Tokens traduzidos para o vocabulario real do arquivo: --fundo-2 vira
+   --surface (linha hover) / --panel-2 (chip, mesmo valor F6F7FA); --texto-2 e
+   --texto-3 viram --dim (unico tier de texto apagado que existe aqui); --borda
+   vira --line-forte (divisor forte, precedente em .card::before e
+   .lemb-agendado); --borda-fraca vira --line (divisor fraco, precedente em
+   .met-lin); a fonte mono usa var(--mono), nunca a string literal.
+
+   "em baixa" usa o --erro ja medido (7.04 sobre branco, 16/07/2026) em vez de
+   token proprio: cor identica com nome diferente vira drift no dia em que
+   alguem retunar uma das duas. Nao e o mesmo que reusar --quente, que
+   INVERTERIA significado (la quente e bom). Se um dia o desenho quiser
+   diferenciar, isso entra medido, como mudanca consciente. */
+.esc-placar{display:flex;flex-direction:column;gap:2px;margin-bottom:20px}
+.esc-linha{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px}
+.esc-linha:hover{background:var(--surface)}
+.esc-linha-nome{flex:1 1 150px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.esc-nota{font-family:var(--mono);font-weight:500;font-size:15px;min-width:34px;text-align:right}
+.esc-faixa{font-size:12px;min-width:66px}
+.esc-parcelas{font-family:var(--mono);font-size:12px;color:var(--dim);flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.esc-linha.f-em_baixa .esc-faixa{color:var(--erro-fg);font-weight:500}
+.esc-linha.f-em_baixa .esc-nota{color:var(--erro-fg)}
+.esc-linha.f-sem_dado{opacity:.62}
+.esc-linha.f-sem_dado .esc-nota,.esc-linha.f-sem_dado .esc-faixa{color:var(--dim)}
+
+.esc-frente{border-left:3px solid var(--line-forte);padding-left:12px;margin:18px 0}
+.esc-frente-cab{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.esc-frente-cab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 auto}
+.esc-frente-tit{font-weight:600}
+.esc-frente-cont{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.esc-acao{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.esc-acao:last-child{border-bottom:none}
+.esc-acao-txt{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+.esc-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel-2);color:var(--dim);white-space:nowrap;flex:0 0 auto}
+.esc-chip.s-travado{background:var(--erro-bg);color:var(--erro-fg)}
+.esc-chip.s-feito{opacity:.6}
+.esc-trava{font-size:12px;color:var(--erro-fg);margin-top:3px}
+.esc-form{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.esc-form input{flex:1 1 180px;min-width:0}
+.esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
+.esc-travar{font-size:11px;flex:0 0 auto;white-space:nowrap}
 
 /* ==========================================================================
    ABA FILA  —  forma do Stitch, cor do Pit Wall            (03/08/2026)
