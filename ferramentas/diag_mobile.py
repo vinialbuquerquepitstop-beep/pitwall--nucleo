@@ -206,7 +206,15 @@ print(f'=== VIEWPORT {LARG}x{ALT} (confirmado: innerWidth={real}) ===\n')
 nav = res['nav']
 nav_reprova = []
 cortados = []
-for est in ('fechado', 'aberto'):
+# A barra INFERIOR so existe abaixo de 900px: acima disso o app usa barra
+# LATERAL, e ai "altura da barra contra respiro do conteudo" nao quer dizer nada
+# (a lateral mede a coluna inteira e reprova sempre). Sem este corte a ferramenta
+# nao servia no desktop, e foi por isso que ninguem media sobreposicao la: em
+# 03/08/2026 a Fila subiu com 9 sobreposicoes de 100% ("Chamar no WhatsApp" por
+# baixo de "Toque enviado") com a suite inteira verde. A medida de sobreposicao
+# vale em QUALQUER largura; so a da barra e que e de celular.
+BARRA_INFERIOR = LARG < 900
+for est in ('fechado', 'aberto') if BARRA_INFERIOR else ():
     n = nav[est]
     # so a barra FECHADA precisa caber no respiro: a gaveta e transitoria, ela
     # cobre o conteudo de proposito enquanto esta aberta.

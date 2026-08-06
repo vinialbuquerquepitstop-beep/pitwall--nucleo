@@ -18,3 +18,10 @@ ferramentas/mock_captacao.html
 
 # Bytecode Python das ferramentas
 ferramentas/__pycache__/
+
+# Fotos geradas por ferramentas/foto_fila.py. Ficam fora do repo por dois
+# motivos: sao saida gerada (o gerador esta versionado, ele e a fonte), e o
+# stub do harness usa uma linha REAL do banco, entao a imagem carrega nome e
+# whatsapp de cliente. Regenerar com:
+#   python ferramentas/foto_fila.py fila 1280
+ferramentas/fotos/

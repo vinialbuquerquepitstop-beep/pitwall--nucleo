@@ -267,7 +267,12 @@ a{color:inherit}
 .met-lin-rot{font-size:13.5px;font-weight:500}
 .met-lin-val{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
 .met-barra{display:block;height:4px;border-radius:2px;background:var(--surface);margin:6px 0 5px;overflow:hidden}
-.met-barra i{display:block;height:100%;background:var(--accent);opacity:.55;border-radius:2px}
+/* barra de PROPORCAO, nao de marca. Era var(--accent) a .55 (3.23 contra o
+   trilho), ou seja o quinto uso do azul: a mesma barra de progresso que a
+   secao 13 do v29 ja barrou uma vez pelo nome, de volta com outro nome.
+   Quantidade nao e estado, entao vai em neutro. --dim cheio mede 5.43
+   contra var(--surface), alvo 3. */
+.met-barra i{display:block;height:100%;background:var(--dim);border-radius:2px}
 .met-lin-pe{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;gap:9px;flex-wrap:wrap}
 .met-lin-hist{color:var(--dim);opacity:.8}
 
@@ -323,6 +328,10 @@ a{color:inherit}
    pessoa ainda. Usa a paleta de urgencia (--quente, ja medida) porque e o estado
    que mais pede acao, mas com rotulo proprio pra nao se disfarcar de "vai bem". */
 .card.t-sem_contato::before{background:var(--quente)}
+/* cliente nao tem temperatura: ja comprou, saiu da regua de lead. A faixa entao
+   carrega IDENTIDADE (trilho pos-venda), nao urgencia. Sem esta regra o card de
+   cliente herdava a faixa cinza do .card e lia como lead sem leitura. */
+.card.cliente::before{background:var(--tr-pos-venda)}
 .card-topo{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .card-nome{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.012em}
 .card-code{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
@@ -407,6 +416,12 @@ a{color:inherit}
 .btn-acao:hover{background:var(--surface)}
 .btn-acao.toque,.btn-acao.sugerir{background:var(--accent-tint);border-color:var(--accent-linha);color:var(--accent)}
 .btn-acao.toque:hover,.btn-acao.sugerir:hover{background:rgba(0,37,204,.09)}
+/* .btn-acao.respondeu saiu daqui em 03/08/2026: o botao Respondeu mudou para
+   dentro do leque Desfecho e agora e .btn-desf.respondeu, mais abaixo. */
+/* "Ver cliente" salta para OUTRO registro: nao age sobre esta venda, entao nao
+   disputa peso com os botoes que agem aqui. */
+.btn-acao.venda-cli-btn{color:var(--dim)}
+.btn-acao.venda-cli-btn:hover{color:var(--text);border-color:var(--line-forte)}
 .btn-acao:disabled,.btn-cad:disabled,.btn-desf:disabled{opacity:.45;cursor:default}
 
 .desfechos{display:none;gap:7px;margin-top:7px;flex-wrap:wrap}
@@ -418,6 +433,13 @@ a{color:inherit}
 .btn-desf:hover{background:var(--surface)}
 .btn-desf.ok{color:var(--ok-fg);border-color:var(--ok-linha);background:var(--ok-bg)}
 .btn-desf.frio{color:var(--frio-fg);border-color:var(--frio-linha);background:var(--frio-bg)}
+/* Respondeu entrou no leque em 03/08/2026 (pedido do dono). Fica NEUTRO de
+   proposito: no leque o verde ja quer dizer venda (.ok = Fechou), e um segundo
+   verde ao lado dilui esse significado. Tentei separar por preenchimento
+   (contorno x solido) e medi 1.11 entre os dois fundos, ou seja quase nada.
+   A enfase dele vem da POSICAO: primeiro do leque e ocupando a linha inteira,
+   porque e o desfecho mais frequente e o unico que freia a regua. */
+.btn-desf.respondeu{flex:1 1 100%}
 
 .retomar{display:none;gap:7px;margin-top:7px}
 .retomar.aberto{display:flex}
@@ -1189,6 +1211,10 @@ a{color:inherit}
 .nf-lista{margin-bottom:6px}
 /* segmentos da aba: com nota x falta nota, com a contagem dentro do botao,
    porque "12 notas" sem "3 vendas sem nota" ao lado mente por omissao */
+/* .nf-topo e a linha que ABRIGA os segmentos. O nome vem da aba Notas fiscais,
+   que estreou o padrao, mas hoje quem emite e a aba Clientes. Sem esta regra a
+   linha de filtro encostava no primeiro card. */
+.nf-topo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .nf-segs{display:flex;gap:6px;flex-wrap:wrap}
 .nf-seg{
   display:inline-flex;align-items:center;gap:6px;cursor:pointer;
@@ -1306,3 +1332,81 @@ a{color:inherit}
 .cli-det-row{display:flex;gap:10px;font-size:12px;line-height:1.5}
 .cli-det-k{flex:0 0 96px;color:var(--dim);font-family:var(--mono);font-size:11px}
 .cli-det-v{color:var(--text)}
+
+/* ==========================================================================
+   ABA FILA  —  forma do Stitch, cor do Pit Wall            (03/08/2026)
+   --------------------------------------------------------------------------
+   Origem: os 4 mockups do projeto Stitch "Pit Wall CRM", lidos em 03/08/2026.
+   O que veio de la e SO FORMA: bandeja tingida com card branco flutuando, raio
+   maior, sombra, hover, chip em pilula. A PALETA de la foi recusada: era azul
+   monocromatica, com `Urgente` e `Em Andamento` a 2.08 entre si e a marca a
+   1.12 do erro, ou seja o mesmo defeito que a v25 ja tinha consertado aqui.
+   Nenhuma cor nova entra neste bloco. Nenhum uso novo de var(--accent).
+
+   ESCOPO: tudo pendurado em #lista[data-aba="fila"]. Fila, Todos e Clientes
+   renderizam o MESMO .card no MESMO #lista; sem esse gancho toda regra daqui
+   vazaria para as outras duas. O data-aba nasceu junto, em
+   ferramentas/patch_lista_data_aba.py (50 bytes no app.js, provados).
+
+   Para reverter: apagar deste comentario ate o fim do arquivo.
+   ========================================================================== */
+
+/* A bandeja e o que faz o card branco existir. Hoje card e pagina sao os dois
+   var(--bg) branco, entao so a borda de 1px separa os dois: e por isso que a
+   lista le como planilha e nao como pilha de cartoes. */
+#lista[data-aba="fila"]{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:10px;gap:10px;
+}
+#lista[data-aba="fila"] .card{
+  border-radius:12px;padding:14px 16px 14px 19px;
+  box-shadow:0 1px 2px rgba(15,21,35,.06);
+}
+/* hover so onde ha ponteiro de verdade: no toque ele gruda e o card fica preso
+   no estado ativo depois do tap. */
+@media (hover:hover){
+  #lista[data-aba="fila"] .card{transition:box-shadow .15s ease,border-color .15s ease}
+  #lista[data-aba="fila"] .card:hover{
+    border-color:var(--line-forte);box-shadow:0 4px 14px rgba(15,21,35,.09);
+  }
+}
+/* a faixa de 3px e o trilho: acompanha o raio novo, senao sobra um canto reto */
+#lista[data-aba="fila"] .card::before{border-radius:12px 0 0 12px}
+
+/* nome e code ganham a hierarquia da linha de lead do mockup: o nome sobe, o
+   code desce para mono apagado. Os dois ja eram assim; muda so a escala. */
+#lista[data-aba="fila"] .card-nome{font-size:16px}
+#lista[data-aba="fila"] .card-code{letter-spacing:.04em}
+#lista[data-aba="fila"] .chips{margin-top:10px}
+
+/* chip em pilula. A COR de cada chip nao muda: nivel-morno, nivel-frio,
+   nivel-sem_contato, atraso e st-* seguem com os mesmos valores medidos, e o
+   ponto colorido do ::before continua carregando a distincao (matiz sozinho
+   nao separa, vide prova_trilho.py). Muda o raio e o respiro. */
+#lista[data-aba="fila"] .chip{border-radius:999px;padding:1.5px 9px}
+#lista[data-aba="fila"] .chip::before{width:6px;height:6px}
+
+/* a barra de acoes ganha ar: no mockup os botoes sao a coisa mais clicavel da
+   linha, e aqui eles nasciam colados no chip */
+#lista[data-aba="fila"] .card-acoes{margin-top:12px;gap:8px}
+
+/* pitboard: os mesmos cartoes flutuando, e o numero manda mais. A celula em
+   alerta continua com a paleta --quente, ja medida, e nao vira azul. */
+.pitboard .pb-celula{border-radius:12px;box-shadow:0 1px 2px rgba(15,21,35,.06)}
+.pitboard .pb-num{font-size:30px}
+
+/* No celular a bandeja custa caro: 10px de padding de cada lado mais 2px de
+   borda sao 22px de largura de card a 360px, onde a v45 acabou de brigar por
+   cada pixel. Ela some e o efeito passa a vir so da sombra, que e de graca em
+   largura. Os mockups do Stitch nao tratam celular em nenhuma das 4 telas
+   (barra lateral fixa de 256px, sem um unico breakpoint), entao esta decisao
+   nao veio de la: e o preco de trazer a forma deles para uma tela que roda no
+   bolso do dono. */
+@media (max-width:560px){
+  #lista[data-aba="fila"]{background:none;border:0;border-radius:0;padding:0;gap:8px}
+  #lista[data-aba="fila"] .card{padding:12px 14px 12px 17px}
+  /* o respiro extra entre botoes e luxo de desktop: a 390px sobram ~114px por
+     botao e 1px a mais ja faz "Toque enviado" quebrar em duas linhas, o que
+     desalinha a fileira inteira. Volta ao valor do HEAD. */
+  #lista[data-aba="fila"] .card-acoes{margin-top:10px;gap:7px}
+}

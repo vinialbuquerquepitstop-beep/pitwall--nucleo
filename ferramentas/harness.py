@@ -105,12 +105,21 @@ window.supabase = {
         onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
         signOut: function () { return Promise.resolve({ error: null }); }
       },
+      // Todo metodo de filtro devolve `api`, e `api` e thenable: assim o await
+      // funciona seja qual for o ULTIMO elo da cadeia. A versao antiga so resolvia
+      // em .order(), e nao tinha .not() nem .limit(): como o app faz
+      // .select().not().order() para as vendas arquivadas, `api.not` era undefined,
+      // carregarVendasArq() estourava, primeiraFalha() pegava, e o render saia
+      // deixando "Lendo vendas…" na tela. Isso derrubava 3 assercoes e MATAVA a
+      // rodada num null.click(), entao tudo depois da aba Vendas (incluindo a Fila)
+      // nunca era testado. Stub incompleto nao falha barulhento: ele cega o teste.
       from: function (tabela) {
         var payload = { data: TABELAS[tabela] || [], error: null };
         var api = {};
-        api.select = function () { return api; };
-        api.eq = function () { return api; };
-        api.order = function () { return Promise.resolve(payload); };
+        ['select', 'eq', 'neq', 'not', 'is', 'in', 'gt', 'gte', 'lt', 'lte',
+         'like', 'ilike', 'or', 'limit', 'range', 'order'].forEach(function (m) {
+          api[m] = function () { return api; };
+        });
         api.then = function (f, r) { return Promise.resolve(payload).then(f, r); };
         return api;
       },
@@ -265,8 +274,42 @@ async function rodar() {
 
   var cards = document.querySelectorAll('#lista .card');
   ok('a fila renderizou cards', cards.length > 0, 'cards=' + cards.length);
+
+  // ---- o gancho [data-aba] e o estilo da Fila (03/08/2026) -----------------
+  // Sem estas 4, o bloco "ABA FILA" do app.css podia estar MORTO e a suite
+  // inteira passaria a toa: seletor que nunca casa nao quebra nada.
+  var lst = document.getElementById('lista');
+  ok('#lista declara a aba corrente', lst.getAttribute('data-aba') === 'fila',
+     'data-aba=' + lst.getAttribute('data-aba'));
+  ok('a bandeja da Fila esta tingida (card branco flutua)',
+     getComputedStyle(lst).backgroundColor === 'rgb(246, 247, 250)',
+     getComputedStyle(lst).backgroundColor);
+  ok('o card da Fila pegou o raio novo',
+     getComputedStyle(cards[0]).borderTopLeftRadius === '12px',
+     getComputedStyle(cards[0]).borderTopLeftRadius);
+  ok('o card da Fila tem sombra (a bandeja sozinha nao separa: mede 1.07)',
+     getComputedStyle(cards[0]).boxShadow.indexOf('rgba(15, 21, 35, 0.06)') >= 0,
+     getComputedStyle(cards[0]).boxShadow);
   var card = document.querySelector('.card[data-lead="LEAD-0005"]');
   if (!card) { ok('LEAD-0005 na fila', false); return fim(); }
+
+  // ---- Respondeu mora no leque Desfecho (03/08/2026, pedido do dono) --------
+  // Ele SO mudou de lugar. Sumir seria tirar o unico freio da regua:
+  // registrar_resposta grava respondido_em, que fn_regua_varredura le, enquanto
+  // registrar_conversando grava etapa_cadencia, que a regua nao le (conferido no
+  // banco em 03/08/2026). Esta assercao existe para que "limpar a fileira" no
+  // futuro nao vire, sem querer, apagar o freio.
+  var resp = card.querySelector('[data-acao="respondeu"]');
+  ok('o botao Respondeu continua existindo', !!resp);
+  ok('Respondeu esta DENTRO do leque Desfecho', !!(resp && resp.closest('.desfechos')),
+     resp ? resp.parentElement.className : 'ausente');
+  ok('Respondeu saiu da fileira de escrita',
+     !card.querySelector('.card-acoes [data-acao="respondeu"]'));
+  ok('a fileira de escrita ficou com 2 botoes',
+     card.querySelectorAll('.card-acoes.escrita .btn-acao').length === 2,
+     String(card.querySelectorAll('.card-acoes.escrita .btn-acao').length));
+  ok('e o leque ainda oferece Conversando ao lado',
+     !!card.querySelector('.desfechos [data-acao="conversando"]'));
 
   // ---- 1. sem clique, nao aparece e nao consulta o banco (pedido do dono) ----
   var painel = card.querySelector('[data-hist]');
@@ -698,7 +741,9 @@ async function rodar() {
 
   // ---- decisão 7: barra de 5 + Mais (viewport headless = 800px, mobile)
   ok('botão Mais existe', !!document.getElementById('abaMais'));
-  ok('6 abas raras', document.querySelectorAll('.aba-rara').length === 6);
+  // 7 desde a v45: abaNfs entrou e e legitima (decisao 6, 7 raras em 6 colunas)
+  ok('7 abas raras', document.querySelectorAll('.aba-rara').length === 7,
+     String(document.querySelectorAll('.aba-rara').length));
   ok('rara começa escondida no mobile', getComputedStyle(document.getElementById('abaDash')).display === 'none');
   document.getElementById('abaMais').click();
   await espera(80);
@@ -749,6 +794,18 @@ async function rodar() {
      document.getElementById('fvLucro').textContent);
   // salvar chama a RPC com o payload certo e fecha o painel
   document.getElementById('fvModelo').value = 'iPhone 13 Pro';
+  // Cliente obrigatorio desde a v42: sem dono, a venda nao vira NF nem recompra.
+  // Este teste foi escrito antes da regra e salvava sem comprador, entao
+  // salvarVenda() saia no guard e a RPC nunca era chamada. A assercao acusava
+  // "salvar nao chamou registrar_venda" quando o certo era exatamente esse.
+  // Antes de preencher, prova o guard: e a regra de produto, nao detalhe do form.
+  document.getElementById('btnSalvarVenda').click();
+  await espera(120);
+  ok('venda sem cliente e recusada antes da RPC',
+     window.__rpcChamadas.filter(function (x) { return x.nome === 'registrar_venda'; }).length === 0 &&
+     document.getElementById('fvErro').textContent.indexOf('cliente') >= 0,
+     document.getElementById('fvErro').textContent);
+  document.getElementById('fvNome').value = 'Diego Souza';
   document.getElementById('btnSalvarVenda').click();
   await espera(180);
   var chVenda = window.__rpcChamadas.filter(function (x) { return x.nome === 'registrar_venda'; })[0];
@@ -765,6 +822,21 @@ async function rodar() {
   await espera(160);
   ok('trocar de aba fecha o painel aberto (sem sobreposicao)',
      document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
+
+  // ---- o estilo da Fila NAO pode vazar para a Todos ------------------------
+  // Fila e Todos renderizam o MESMO .card no MESMO #lista. Escopar por
+  // [data-aba] so vale se o contrario tambem for verdade: sem esta assercao,
+  // trocar #lista[data-aba="fila"] .card por .card passaria despercebido.
+  var lstT = document.getElementById('lista');
+  ok('#lista trocou de aba', lstT.getAttribute('data-aba') === 'todos',
+     'data-aba=' + lstT.getAttribute('data-aba'));
+  ok('a bandeja tingida NAO vazou para a Todos',
+     getComputedStyle(lstT).backgroundColor !== 'rgb(246, 247, 250)',
+     getComputedStyle(lstT).backgroundColor);
+  var cT = document.querySelector('#lista .card');
+  if (cT) ok('o card da Todos NAO pegou o raio da Fila',
+     getComputedStyle(cT).borderTopLeftRadius === '8px',
+     getComputedStyle(cT).borderTopLeftRadius);
 
   // ---- voltar para a Fila não pode deixar resíduo
   document.getElementById('abaFila').click();

@@ -138,7 +138,12 @@ for cls in ['hist-ev', 'ator-operador', 'ator-regua', 'ator-ok', 'ator-fim', 'hi
        f'classe {cls} emitida pelo JS e sem regra no CSS')
 ck('rpc("historico_lead"' in novo_js, 'o front nao chama historico_lead')
 ck('rpc("registrar_nota"' in novo_js, 'o front nao chama registrar_nota')
-ck(novo_js.count('data-acao="historico"')==1, 'o botao que abre o historico sumiu ou duplicou')
+# Eram DOIS call sites desde a v42, nao um: o card de lead e o card de cliente.
+# A assercao ficou em ==1 e reprovava um estado correto. O numero continua travado
+# (2, nao ">=1") porque o que ela guarda e "sumiu ou duplicou": afrouxar para >=1
+# deixaria de pegar a duplicata, que e metade do defeito que ela existe para pegar.
+ck(novo_js.count('data-acao="historico"')==2,
+   'o botao que abre o historico sumiu ou duplicou (esperado 2: card de lead + card de cliente)')
 ck('data-hist' in novo_js and 'data-hist' in novo_css or '[data-hist]' in novo_js,
    'o painel [data-hist] sumiu do JS')
 # fechado por padrao: o painel nasce vazio e so o clique busca no banco (pedido do dono)
@@ -169,8 +174,19 @@ for rpc in ['registrar_captacao', 'registrar_opt_out', 'placar_captacao', 'capta
 # o pitboard de LEAD nao pode aparecer na captacao NEM nas abas da Fase 6:
 # sao numeros de outro laco (a forma mudou na Fase 6, de igualdade para lista)
 ck('.pitboard.oculto{display:none}' in novo_css, 'sem regra para esconder o pitboard de lead')
-ck('["captacao","hoje","conteudo","rotina"].indexOf(n)>=0?" oculto":""' in novo_js,
-   'o pitboard de lead apareceria em Captacao/Hoje/Conteudo/Rotina')
+# Esta assercao procurava a STRING LITERAL de 4 abas e envelheceu: o JS hoje
+# esconde o pitboard em 9. O comportamento estava certo e MAIS abrangente que a
+# assercao, e quem adicionou aba nova nao voltou aqui. Casar com literal obriga a
+# editar o guard-rail a cada aba, que e como ele morre. Passa a assertar a INTENCAO:
+# o pitboard de lead some onde os numeros sao de outro laco, e fica onde e de lead.
+_m = re.search(r'\[([^\]\[]*)\]\.indexOf\(n\)>=0\?" oculto":""', novo_js)
+ck(_m is not None, 'a regra que esconde o pitboard de lead sumiu do JS')
+_ocultas = set(re.findall(r'"([a-z_]+)"', _m.group(1))) if _m else set()
+_faltam = {'captacao', 'hoje', 'conteudo', 'rotina'} - _ocultas
+ck(not _faltam, f'o pitboard de lead apareceria em aba que nao e de lead: {sorted(_faltam)}')
+# e o inverso, que a versao antiga nao guardava: nas abas de LEAD ele tem que ficar
+_indevidas = {'fila', 'todos'} & _ocultas
+ck(not _indevidas, f'o pitboard de lead sumiu da aba de lead: {sorted(_indevidas)}')
 # a meta e config, nunca chumbada (invariante 11)
 ck(not re.search(r'\balvo\s*[:=]\s*\d+', novo_js), 'o alvo da meta foi chumbado no JS: ele vive em captacao_meta')
 # a referencia v3: o azul aparece em 4 lugares e mais nenhum. A v1 do mock tinha
@@ -207,9 +223,14 @@ ck(novo_js.count('functions.invoke("sincronizar-conteudo"') == 1,
 # HTML: abas novas presentes, e as 4 raras marcadas para a barra mobile
 for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
     ck(novo_html.count(f'id="{aba}"') == 1, f'aba {aba} ausente ou duplicada')
-n_raras = novo_html.count('class="aba aba-rara"')
-ck(n_raras == 6,
-   f'esperava 6 abas raras (Clientes, Indicações, Captação, Dashboard, Rotina, Calculadora), achei {n_raras}')
+# Sao SETE desde a v45, nao seis: `abaNfs` entrou e e legitima (decisao 6 do v45,
+# 7 raras em 6 colunas, a Calculadora orfa na segunda linha da gaveta). A assercao
+# ficou em 6. Passa a conferir QUAIS sao, nao so quantas: contagem sozinha nao
+# distingue "entrou a Notas fiscais" de "sumiu a Rotina e entraram duas outras".
+_raras = set(re.findall(r'class="aba aba-rara" id="(\w+)"', novo_html))
+_esperadas = {'abaNfs', 'abaClientes', 'abaIndicacoes', 'abaCaptacao', 'abaRotina', 'abaDash', 'abaCalc'}
+ck(_raras == _esperadas,
+   f'as abas raras mudaram. sumiram: {sorted(_esperadas - _raras)} | entraram sem registro: {sorted(_raras - _esperadas)}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
 
 # ISODOW na tela: 1=segunda..7=domingo. Off-by-one aqui poe a rotina no dia
@@ -229,15 +250,42 @@ def seletores_com_accent(css):
         if re.search(r'var\(--accent\)', corpo):
             sels.add(' '.join(m.group(1).split()))
     return sels
-novos_sel = seletores_com_accent(novo_css) - seletores_com_accent(velho_css)
-APROVADOS_F6 = [
-    'btn-sync',            # acao primaria da aba Conteudo (mesmo papel do .btn-cap)
-    'cont-link:hover',     # hover de link, precedente do .btn-editar:hover
-    'mais-aberto .aba-mais',  # estado ativo de navegacao (Mais aberto)
-    'focus-visible',       # anel de foco, aprovado desde a referencia
+# A versao antiga listava NOMES de seletor, e por isso apodreceu: todo componente
+# novo com hover quebrava a regra. Em 03/08/2026 ela acusava 9 seletores, dos quais
+# 8 eram legitimos e 1 era defeito de verdade (.met-barra i, barra de progresso
+# azul: exatamente o caso `cap-barra` que a regra existe para pegar, de volta com
+# outro nome). Guard-rail que grita 8 vezes errado para 1 certa e guard-rail que se
+# aprende a ignorar. Separa-se entao o MECANICO da DECISAO DE PRODUTO.
+#
+# Papel mecanico: passa sozinho, porque aqui o azul e affordance, nao pintura.
+PAPEIS_MECANICOS = [
+    (r':hover\b',                       'hover de elemento interativo'),
+    (r':focus\b|focus-visible',         'anel de foco'),
+    (r'\[aria-pressed="true"\]',        'estado pressionado de filtro'),
+    (r'\.on\b|\.ligado\b|mais-aberto',  'estado ativo de navegacao'),
 ]
-fora = sorted(s for s in novos_sel if not any(a in s for a in APROVADOS_F6))
-ck(not fora, f'uso NOVO de var(--accent) fora da lista aprovada: {fora}')
+# Papel de produto: continua NOMEADO, um a um. Um botao virar acao primaria e
+# decisao consciente, nunca consequencia de um padrao de nome.
+ACAO_PRIMARIA = [
+    'btn-sync',                 # sincronizar, aba Conteudo
+    'cont-met-ok',              # confirmar a metrica aferida
+    'cont-met-btn.publiquei',   # marcar publicado, card do dia
+]
+def papel_do_azul(sel):
+    for rx, nome in PAPEIS_MECANICOS:
+        if re.search(rx, sel):
+            return nome
+    if any(a in sel for a in ACAO_PRIMARIA):
+        return 'acao primaria'
+    return None
+# auto-teste: a regra so vale se ainda REPROVAR o caso que ela existe para pegar.
+assert papel_do_azul('.met-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'
+assert papel_do_azul('.cap-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'
+assert papel_do_azul('.nf-seg.on') == 'estado ativo de navegacao'
+novos_sel = seletores_com_accent(novo_css) - seletores_com_accent(velho_css)
+fora = sorted(s for s in novos_sel if papel_do_azul(s) is None)
+ck(not fora, 'uso NOVO de var(--accent) sem papel aprovado '
+             f'(nem hover, nem foco, nem estado ativo, nem acao primaria nomeada): {fora}')
 
 # 11.2 zero token novo: o :root e o da baseline, MAIS a excecao nomeada abaixo.
 # Excecao aberta em 20/07/2026, decisao consciente do dono: o sistema de trilho
