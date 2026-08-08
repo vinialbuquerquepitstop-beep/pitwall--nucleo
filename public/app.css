@@ -1286,6 +1286,74 @@ a{color:inherit}
    nele. Com um botao so, o efeito e o mesmo de antes (margin-left:auto). */
 .venda-cli .btn-acao:first-of-type{margin-left:auto}
 
+/* ---------- Relatorio de entrega: a linha do card e a previa do painel ----
+   (08/08/2026) A linha existe SEMPRE, com endereco ou sem: entrega sem destino
+   e a pendencia mais cara desta aba, e tela que so mostra campo preenchido
+   esconde justamente o que precisa de acao. "Sem endereco" usa a semantica de
+   MORNO (trabalho pendente), igual a falta de NF, nunca a de erro: nao e falha
+   do sistema, e cadastro que falta. Nenhum token novo: --erro-fg ja existe. */
+.venda-ent{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:8px;padding-top:7px;border-top:1px solid var(--line);
+}
+.venda-ent-rot{
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.venda-ent-val{font-size:12.5px;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.venda-ent-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.venda-ent .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px}
+.venda-ent .btn-acao:first-of-type{margin-left:auto}
+.btn-acao.ent-pede{background:var(--morno-bg);border-color:var(--morno-linha);color:var(--morno-fg)}
+.btn-acao.ent-pede:hover{border-color:var(--morno);color:var(--morno-fg)}
+
+/* A lista de motoboys cadastrados dentro do painel de entrega. Cada linha e um
+   botao que ja despacha, e o nome vem antes do numero porque e pelo nome que o
+   dono escolhe. O telefone fica visivel de proposito: escolher o motoboy errado
+   custa uma corrida. */
+.moto-lista{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.moto-linha{display:flex;align-items:center;gap:6px}
+.moto-chip{
+  flex:1 1 auto;display:flex;align-items:baseline;gap:8px;min-width:0;
+  padding:9px 12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer;
+}
+.moto-chip:hover{border-color:var(--accent-linha);background:var(--accent-tint)}
+.moto-chip strong{font-weight:500;overflow-wrap:anywhere}
+.moto-chip span{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+.moto-rm{
+  flex:0 0 auto;padding:9px 10px;background:none;
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;
+}
+.moto-rm:hover{border-color:var(--erro-linha);color:var(--erro-fg)}
+.moto-vazio{
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 0 4px;
+}
+
+/* A previa mostra o texto EXATO que sai daqui. Sem ela o dono so descobre o
+   que mandou depois de mandar, e ai o motoboy ja leu. */
+.ent-previa{
+  margin:0;padding:12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--text);
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+/* O que falta aparece ANTES do envio, nomeado, e nao vira surpresa do outro
+   lado. Nao bloqueia o copiar: so o enviar exige endereco e numero. */
+.ent-falta-lista{
+  margin:8px 0 0;padding:8px 10px;
+  background:var(--morno-bg);border:1px solid var(--morno-linha);
+  border-radius:var(--radius-p);
+  font-size:12px;line-height:1.5;color:var(--morno-fg);
+}
+.ent-falta-lista:empty{display:none}
+
 /* --- correcao e arquivamento de venda (31/07/2026) --- */
 /* O painel e UM so: o mesmo formulario serve cadastro e correcao, para nao
    existirem dois campos "valor" que divergem com o tempo. A regra abaixo so

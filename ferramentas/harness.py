@@ -37,11 +37,28 @@ window.__log = [];
 var LEADS = %s, ROTULOS = %s, HIST = %s;
 // Fixture de venda: uma venda concluida, com lucro ja derivado pela v_venda
 // (3200 - 2600 - 30 - 30 = 540). O card tem que exibir o code e o lucro.
+// A v1 tem a entrega completa; a v2 nasce SEM endereco de proposito, porque a
+// linha de entrega do card tem que aparecer NOS DOIS casos: fixture so com o
+// campo preenchido nunca provaria o estado que precisa de acao.
 var VENDAS_STUB = [{ id:'v1', venda_code:'VENDA-0001', modelo_rotulo:'iPhone 13', capacidade:'128GB',
   cor:'Meia-noite', condicao:'seminovo', imei:'355000000000001', cliente_nome:'Diego Souza',
-  data_venda:'2026-07-18', valor_venda:3200, lucro:540, status:'concluida', tem_trade_in:false }];
+  data_venda:'2026-07-18', valor_venda:3200, lucro:540, status:'concluida', tem_trade_in:false,
+  lead_id:'l9', cliente_whatsapp:'5521990000000',
+  fornecedor_local_retirada:'Campo Grande', endereco_entrega:'Rua das Laranjeiras 100, apto 501',
+  valor_a_cobrar:90, forma_pagamento:'pix', motoboy:'Hiago', motoboy_whatsapp:'5521987654321' },
+  { id:'v2', venda_code:'VENDA-0002', modelo_rotulo:'iPhone 15', capacidade:'256GB',
+  cliente_nome:'Ana Lima', data_venda:'2026-07-19', valor_venda:5000, lucro:800,
+  status:'concluida', tem_trade_in:false, lead_id:'l8', cliente_whatsapp:'5521990000001',
+  endereco_entrega:null, valor_a_cobrar:null, forma_pagamento:null,
+  motoboy:null, motoboy_whatsapp:null }];
 var CATALOGO_STUB = [{ id:'m1', rotulo:'iPhone 13' }, { id:'m2', rotulo:'iPhone 15' }];
+// Motoboys cadastrados. O segundo nasce SEM telefone de proposito: a lista tem
+// que dizer "sem WhatsApp" e o botao dele tem que recusar o despacho, em vez de
+// montar um wa.me sem numero.
+var MOTOBOYS = [{ id:'mb1', nome:'Hiago', whatsapp:'5521987654321' },
+                { id:'mb2', nome:'Rafa sem numero', whatsapp:null }];
 var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB, catalogo_iphone: CATALOGO_STUB,
+  motoboy: MOTOBOYS,
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -149,6 +166,33 @@ window.supabase = {
           if (!pv.modelo_id && !pv.modelo_texto)
             return Promise.resolve({ data: { ok: false, erro: 'modelo obrigatorio' }, error: null });
           return Promise.resolve({ data: { ok: true, id: 'nova', venda_code: 'VENDA-0002' }, error: null });
+        }
+        // ---- Entrega e motoboy: o stub espelha as regras REAIS das RPCs,
+        // conferidas contra o banco em 08/08/2026 (prova_entrega.sql, 28 ok).
+        if (nome === 'editar_venda') {
+          var pv2 = (args && args.payload) || {};
+          if (!pv2.id) return Promise.resolve({ data: { ok: false, erro: 'Informe qual venda corrigir.' }, error: null });
+          var mw = String(pv2.motoboy_whatsapp || '').replace(/\D/g, '');
+          if (mw && !(mw.length >= 10 && mw.length <= 15))
+            return Promise.resolve({ data: { ok: false, erro: 'WhatsApp do motoboy invalido: ' + mw }, error: null });
+          return Promise.resolve({ data: { ok: true, id: pv2.id, venda_code: 'VENDA-0001' }, error: null });
+        }
+        if (nome === 'salvar_motoboy') {
+          var pm = (args && args.payload) || {};
+          if (!String(pm.nome || '').trim())
+            return Promise.resolve({ data: { ok: false, erro: 'O motoboy precisa de um nome.' }, error: null });
+          var pmd = String(pm.whatsapp || '').replace(/\D/g, '');
+          if (!pmd)
+            return Promise.resolve({ data: { ok: false, erro: 'Informe o WhatsApp: e por ele que o relatorio e enviado.' }, error: null });
+          if (pmd.length === 10 || pmd.length === 11) pmd = '55' + pmd;
+          MOTOBOYS.push({ id: 'mb' + (MOTOBOYS.length + 1), nome: pm.nome, whatsapp: pmd });
+          return Promise.resolve({ data: { ok: true, id: 'mb' + MOTOBOYS.length, msg: pm.nome + ' entrou na lista.' }, error: null });
+        }
+        if (nome === 'desligar_motoboy') {
+          // soft delete: some da leitura viva, a linha fica (igual ao banco)
+          MOTOBOYS = MOTOBOYS.filter(function (x) { return x.id !== args.p_id; });
+          TABELAS.motoboy = MOTOBOYS;
+          return Promise.resolve({ data: { ok: true, msg: 'saiu da lista.' }, error: null });
         }
         // ---- Fase 5. O stub espelha as regras REAIS, conferidas contra o banco em
         // transacao revertida: dedup com a data, e reabordagem bloqueada apos opt-out.
@@ -922,6 +966,214 @@ async function rodar() {
      !!(chVenda && chVenda.args && chVenda.args.payload && chVenda.args.payload.valor_venda && chVenda.args.payload.modelo_texto));
   ok('o painel fechou apos salvar', document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
 
+  // ============ relatorio de entrega + cadastro de motoboy (08/08/2026) ========
+  // A licao mais cara da v46: prova de escrita por string-matching sobre a fonte
+  // casa IGUAL com o codigo quebrado (69 assercoes verdes conviveram com quatro
+  // botoes que so lancavam TypeError). Tudo daqui pra baixo CLICA no controle e
+  // confere a chamada de RPC que saiu dele.
+  window.__erroJs = [];
+  window.addEventListener('error', function (ev) { window.__erroJs.push(String(ev.message || '')); });
+  window.__aberturas = [];
+  window.open = function (u) {
+    var o = { location: { href: u }, fechada: false, close: function () { this.fechada = true; } };
+    window.__aberturas.push(o); return o;
+  };
+  window.__copiado = null;
+  var clipOk = false;
+  try {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      writeText: function (txt) { window.__copiado = txt; return Promise.resolve(); } } });
+    clipOk = !!(navigator.clipboard && navigator.clipboard.writeText);
+  } catch (e) { clipOk = false; }
+  window.confirm = function () { return true; };
+
+  document.getElementById('abaVendas').click();
+  await espera(220);
+  ok('as duas vendas do fixture renderizaram',
+     document.querySelectorAll('#lista .card').length === 2,
+     'n=' + document.querySelectorAll('#lista .card').length);
+  // a linha existe nos DOIS cards: campo vazio que nao aparece esconde
+  // exatamente a venda que precisa de acao
+  ok('a linha de entrega existe em todo card',
+     document.querySelectorAll('#lista .venda-ent').length === 2,
+     'n=' + document.querySelectorAll('#lista .venda-ent').length);
+  ok('a venda sem endereco declara a falta na linha',
+     telaTxt().indexOf('sem endereço de entrega') >= 0, telaTxt().slice(0, 90));
+  var btEnt1 = document.querySelector('[data-acao="venda-entrega"][data-id="v1"]');
+  var btEnt2 = document.querySelector('[data-acao="venda-entrega"][data-id="v2"]');
+  ok('as duas vendas tem o botao Relatorio', !!btEnt1 && !!btEnt2);
+  ok('o botao da venda SEM endereco pede acao (ent-pede, semantica de morno)',
+     !!btEnt2 && btEnt2.className.indexOf('ent-pede') >= 0, btEnt2 && btEnt2.className);
+  ok('o botao da venda COM endereco nao pede nada',
+     !!btEnt1 && btEnt1.className.indexOf('ent-pede') < 0, btEnt1 && btEnt1.className);
+  ok('o botao que pede acao usa a cor de morno, nao a de erro',
+     getComputedStyle(btEnt2).color === 'rgb(148, 101, 0)', getComputedStyle(btEnt2).color);
+
+  btEnt1.click();
+  await espera(260);
+  var pnEnt = document.getElementById('painelEntrega');
+  ok('o painel de entrega ABRIU no clique (a porta abre)',
+     pnEnt.className.indexOf('oculto') < 0, pnEnt.className);
+  ok('nome do cliente veio do cadastro e e somente leitura',
+     document.getElementById('peNome').value === 'Diego Souza' && document.getElementById('peNome').readOnly,
+     document.getElementById('peNome').value);
+  ok('WhatsApp do cliente veio formatado e e somente leitura',
+     document.getElementById('peWhats').value.indexOf('99000-0000') >= 0 && document.getElementById('peWhats').readOnly,
+     document.getElementById('peWhats').value);
+  ok('o local de retirada veio da venda',
+     document.getElementById('peRetirada').value === 'Campo Grande', document.getElementById('peRetirada').value);
+  ok('o endereco de entrega veio da venda',
+     document.getElementById('peEntrega').value.indexOf('Laranjeiras 100') >= 0, document.getElementById('peEntrega').value);
+  ok('o valor a cobrar veio da venda', String(document.getElementById('peValor').value) === '90',
+     document.getElementById('peValor').value);
+  ok('a forma de pagamento veio da venda', document.getElementById('pePgto').value === 'pix',
+     document.getElementById('pePgto').value);
+  ok('o motoboy da venda veio preenchido', document.getElementById('peMotoboy').value === 'Hiago',
+     document.getElementById('peMotoboy').value);
+
+  var prevE = document.getElementById('pePrevia').textContent;
+  ok('a previa nomeia a venda', prevE.indexOf('VENDA-0001') >= 0, prevE.slice(0, 40));
+  ok('a previa leva os seis campos pedidos (nome, numero, retirada, entrega, valor, pagamento)',
+     ['Cliente: Diego Souza', 'Contato:', 'Retirar em: Campo Grande',
+      'Entregar em: Rua das Laranjeiras', 'Cobrar: R$ 90,00', 'Pix'].every(function (p) {
+        return prevE.indexOf(p) >= 0; }), prevE.replace(/\\n/g, ' | '));
+  // dinheiro NUNCA some do texto: sem valor, a linha diz que nao ha o que cobrar
+  document.getElementById('peValor').value = '';
+  document.getElementById('peValor').dispatchEvent(new Event('input'));
+  ok('sem valor, a previa DIZ nada a cobrar em vez de omitir a linha',
+     document.getElementById('pePrevia').textContent.indexOf('nada a cobrar') >= 0,
+     document.getElementById('pePrevia').textContent.replace(/\\n/g, ' | '));
+  document.getElementById('peValor').value = '90';
+  document.getElementById('peValor').dispatchEvent(new Event('input'));
+
+  ok('a lista de motoboys carregou do banco',
+     document.querySelectorAll('#peMotoLista .moto-chip').length === 2,
+     'n=' + document.querySelectorAll('#peMotoLista .moto-chip').length);
+  ok('o motoboy sem numero aparece dizendo o que falta',
+     document.getElementById('peMotoLista').textContent.indexOf('sem WhatsApp') >= 0,
+     document.getElementById('peMotoLista').textContent);
+
+  // ---- os dois guards do enviar, provados ANTES do caminho feliz -------------
+  var nEd = function () { return window.__rpcChamadas.filter(function (x) { return x.nome === 'editar_venda'; }).length; };
+  var edAntes = nEd();
+  document.getElementById('peEntrega').value = '';
+  document.getElementById('btnEnviarEntrega').click();
+  await espera(180);
+  ok('sem endereco, enviar nao chama RPC nenhuma e explica por que',
+     nEd() === edAntes && document.getElementById('peErro').textContent.indexOf('endereço') >= 0,
+     document.getElementById('peErro').textContent);
+  document.getElementById('peEntrega').value = 'Rua das Laranjeiras 100, apto 501';
+  document.getElementById('peMotoWhats').value = '';
+  document.getElementById('btnEnviarEntrega').click();
+  await espera(180);
+  ok('sem WhatsApp do motoboy, enviar tambem para antes da RPC',
+     nEd() === edAntes && document.getElementById('peErro').textContent.indexOf('motoboy') >= 0,
+     document.getElementById('peErro').textContent);
+
+  // ---- caminho feliz: salva primeiro, abre a conversa depois -----------------
+  document.getElementById('peMotoWhats').value = '(21) 98765-4321';
+  document.getElementById('peRecado').value = 'interfone quebrado';
+  document.getElementById('peRecado').dispatchEvent(new Event('input'));
+  document.getElementById('btnEnviarEntrega').click();
+  await espera(320);
+  var chEd = window.__rpcChamadas.filter(function (x) { return x.nome === 'editar_venda'; });
+  ok('enviar chamou editar_venda uma vez', chEd.length === edAntes + 1, 'n=' + chEd.length);
+  var plEd = (chEd[chEd.length - 1] || {}).args ? chEd[chEd.length - 1].args.payload : {};
+  ok('o payload leva os campos da entrega',
+     !!(plEd.endereco_entrega && plEd.fornecedor_local_retirada && plEd.valor_a_cobrar
+        && plEd.forma_pagamento && plEd.motoboy && plEd.motoboy_whatsapp), JSON.stringify(plEd));
+  // identidade mora no lead: a entrega nao pode criar uma segunda versao do cliente
+  ok('o payload NAO mexe no nome nem no telefone do cliente',
+     !('comprador_nome' in plEd) && !('comprador_whatsapp' in plEd), JSON.stringify(plEd));
+  var urlWa = (window.__aberturas[window.__aberturas.length - 1] || { location: {} }).location.href || '';
+  ok('abriu a conversa do motoboy no WhatsApp',
+     urlWa.indexOf('https://wa.me/5521987654321?text=') === 0, urlWa.slice(0, 60));
+  var txtWa = decodeURIComponent(urlWa.split('?text=')[1] || '');
+  ok('o texto enviado carrega destino, dinheiro e recado',
+     txtWa.indexOf('Entregar em') >= 0 && txtWa.indexOf('Cobrar: R$ 90,00') >= 0
+     && txtWa.indexOf('interfone quebrado') >= 0, txtWa.replace(/\\n/g, ' | '));
+  ok('o painel fechou depois de despachar',
+     document.getElementById('painelEntrega').className.indexOf('oculto') >= 0);
+
+  // ---- o botao do motoboy cadastrado: um toque despacha ----------------------
+  await espera(200);
+  document.querySelector('[data-acao="venda-entrega"][data-id="v1"]').click();
+  await espera(280);
+  var edAntes2 = nEd();
+  var chips = document.querySelectorAll('#peMotoLista .moto-chip');
+  ok('a lista de motoboys reaparece no painel reaberto', chips.length === 2, 'n=' + chips.length);
+  chips[0].click();
+  await espera(320);
+  ok('o botao do motoboy despachou sozinho (chamou editar_venda)', nEd() === edAntes2 + 1,
+     'antes=' + edAntes2 + ' depois=' + nEd());
+  var chEd2 = window.__rpcChamadas.filter(function (x) { return x.nome === 'editar_venda'; });
+  var plEd2 = chEd2[chEd2.length - 1].args.payload;
+  ok('o motoboy escolhido no botao foi para a venda',
+     plEd2.motoboy === 'Hiago' && String(plEd2.motoboy_whatsapp).replace(/\D/g, '') === '5521987654321',
+     JSON.stringify(plEd2));
+  var urlWa2 = (window.__aberturas[window.__aberturas.length - 1] || { location: {} }).location.href || '';
+  ok('abriu a conversa DELE, nao a do campo digitado',
+     urlWa2.indexOf('wa.me/5521987654321') > 0, urlWa2.slice(0, 60));
+
+  // motoboy sem numero nao pode montar um wa.me vazio
+  await espera(200);
+  document.querySelector('[data-acao="venda-entrega"][data-id="v1"]').click();
+  await espera(280);
+  var edAntes3 = nEd(), abertAntes = window.__aberturas.length;
+  document.querySelectorAll('#peMotoLista .moto-chip')[1].click();
+  await espera(240);
+  ok('motoboy sem WhatsApp nao despacha nem abre janela',
+     nEd() === edAntes3 && window.__aberturas.length === abertAntes,
+     'rpc=' + (nEd() - edAntes3) + ' janelas=' + (window.__aberturas.length - abertAntes));
+
+  // ---- cadastrar motoboy pela propria tela -----------------------------------
+  document.getElementById('peMotoboy').value = 'Novo Boy';
+  document.getElementById('peMotoWhats').value = '21911112222';
+  document.querySelector('[data-acao="ent-moto-salvar"]').click();
+  await espera(300);
+  var chMb = window.__rpcChamadas.filter(function (x) { return x.nome === 'salvar_motoboy'; });
+  ok('salvar na lista chamou salvar_motoboy', chMb.length === 1, 'n=' + chMb.length);
+  ok('o cadastro levou nome e WhatsApp',
+     !!(chMb[0] && chMb[0].args.payload.nome === 'Novo Boy' && chMb[0].args.payload.whatsapp),
+     JSON.stringify(chMb[0] && chMb[0].args.payload));
+  ok('a lista repintou com o motoboy novo',
+     document.querySelectorAll('#peMotoLista .moto-chip').length === 3,
+     'n=' + document.querySelectorAll('#peMotoLista .moto-chip').length);
+  // tirar da lista
+  document.querySelectorAll('#peMotoLista .moto-rm')[2].click();
+  await espera(300);
+  ok('tirar da lista chamou desligar_motoboy',
+     window.__rpcChamadas.filter(function (x) { return x.nome === 'desligar_motoboy'; }).length === 1);
+  ok('e a lista voltou a dois',
+     document.querySelectorAll('#peMotoLista .moto-chip').length === 2,
+     'n=' + document.querySelectorAll('#peMotoLista .moto-chip').length);
+
+  // ---- copiar: copia primeiro (dentro do gesto), salva depois ----------------
+  var edAntes4 = nEd();
+  document.getElementById('btnCopiarEntrega').click();
+  await espera(300);
+  if (clipOk) ok('copiar levou o texto do relatorio para a area de transferencia',
+     !!window.__copiado && window.__copiado.indexOf('ENTREGA · VENDA-0001') === 0,
+     String(window.__copiado).slice(0, 40));
+  ok('copiar tambem grava a correcao na venda', nEd() === edAntes4 + 1,
+     'antes=' + edAntes4 + ' depois=' + nEd());
+
+  ok('nenhum TypeError em todo o caminho de escrita da entrega',
+     window.__erroJs.length === 0, window.__erroJs.join(' | '));
+
+  // trocar de aba fecha o painel de entrega tambem
+  document.querySelector('[data-acao="venda-entrega"][data-id="v2"]').click();
+  await espera(260);
+  ok('o painel reabre pela venda sem endereco',
+     document.getElementById('painelEntrega').className.indexOf('oculto') < 0);
+  document.getElementById('abaFila').click();
+  await espera(220);
+  ok('trocar de aba fecha o painel de entrega (sem sobreposicao)',
+     document.getElementById('painelEntrega').className.indexOf('oculto') >= 0,
+     document.getElementById('painelEntrega').className);
+  document.getElementById('abaVendas').click();
+  await espera(220);
+
   // ---- fluidez: painel aberto NAO pode sobreviver a troca de aba (sem sobreposicao)
   document.querySelector('[data-acao="nova-venda"]').click();
   await espera(140);
@@ -991,9 +1243,19 @@ async function rodar() {
 
 }
 function fim() {
-  var d = document.createElement('pre'); d.id = 'RESULTADO';
-  d.textContent = window.__log.join('\\n'); document.body.appendChild(d);
+  var d = document.getElementById('RESULTADO');
+  if (!d) { d = document.createElement('pre'); d.id = 'RESULTADO'; document.body.appendChild(d); }
+  d.textContent = window.__log.join('\\n');
 }
+// Watchdog. Sem ele, um await que nunca resolve nao vira falha: vira DOM sem
+// <pre id=RESULTADO>, e o lado Python so sabe dizer "nao chegou ao fim", sem a
+// linha onde parou. Suite que trava calada custa mais que suite vermelha.
+setTimeout(function () {
+  if (document.getElementById('RESULTADO')) return;
+  window.__log.push('FALHOU  a suite TRAVOU: rodar() nao terminou nem estourou. '
+    + 'A ultima linha acima e o ultimo ponto que executou.');
+  fim();
+}, 30000);
 window.addEventListener('error', function (e) { window.__log.push('FALHOU  erro de runtime: ' + e.message); });
 // Se rodar() estourar no meio, o <pre id=RESULTADO> nunca nascia e o lado
 // Python morria com IndexError, sem dizer ONDE parou. Agora o erro vira a
@@ -1018,7 +1280,12 @@ tmp.write_text(pagina, encoding='utf-8')
 
 perfil = tempfile.mkdtemp()
 out = subprocess.run([CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
-                      f'--user-data-dir={perfil}', '--virtual-time-budget=25000',
+                      # 25000 acabou em 08/08/2026: as ~25 esperas do bloco de
+                      # entrega estouraram o orcamento e o DOM saia ANTES do
+                      # <pre id=RESULTADO>, o que o lado Python le como "nao
+                      # chegou ao fim" (nao como falha de assercao). Orcamento e
+                      # tempo VIRTUAL: subir nao deixa a suite mais lenta.
+                      f'--user-data-dir={perfil}', '--virtual-time-budget=60000',
                       '--dump-dom', tmp.as_uri()],
                      capture_output=True, text=True, encoding='utf-8', timeout=120)
 dom = out.stdout or ''

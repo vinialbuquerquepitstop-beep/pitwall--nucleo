@@ -7,14 +7,19 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v46.md` (05/08/2026, Fatia 1 da aba Escopo: 8
+- topo: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na aba
+  Vendas + cadastro de motoboy com botao que despacha num toque. 6 migrations, 1
+  tabela, 1 coluna, 43 assercoes novas que CLICAM. Os seis campos pedidos ja
+  existiam na `venda`: a obra virou uma coluna e uma tela. Defeito da sessao: a
+  suite travou calada por um `\n` mal escapado dentro da string Python do teste;
+  nasce o watchdog do harness)
+- anterior: `handoff_migracao_pitwall_v46.md` (05/08/2026, Fatia 1 da aba Escopo: 8
   frentes de operacao, placar com nota calculada no banco, criar/mudar
   status/travar/descartar. 3 tabelas, 6 migrations, 22 commits. Cinco defeitos
   achados e fechados na execucao, um deles uma aba que NAO ABRIA convivendo com
-  cinco suites verdes)
-- anterior: `handoff_migracao_pitwall_v45.md` (31/07/2026, layout mobile: a barra de
-  abas cobria o conteudo; nasce `ferramentas/diag_mobile.py`)
-- 42 arquivos na pasta. O de maior versao substitui todos os anteriores.
+  cinco suites verdes. **Os numeros de prova dele envelheceram**: dizia harness
+  172/3 e validar EXIT 1, e o HEAD de 08/08 media 196/8 e EXIT 0)
+- 43 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 
