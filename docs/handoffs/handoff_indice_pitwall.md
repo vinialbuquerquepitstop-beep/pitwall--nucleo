@@ -7,19 +7,22 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na aba
-  Vendas + cadastro de motoboy com botao que despacha num toque. 6 migrations, 1
-  tabela, 1 coluna, 43 assercoes novas que CLICAM. Os seis campos pedidos ja
+- topo: `handoff_migracao_pitwall_v48.md` (08/08/2026, a forma do Stitch na Fila
+  estava commitada ha dois dias e nunca tinha aparecido na tela: 16 regras de CSS
+  penduradas num seletor que nao casava com nada, porque
+  `patch_lista_data_aba.py` foi commitado e nunca rodado. As "8 falhas herdadas"
+  que o v46 e o v47 dispensaram eram isso. 50 bytes + mover um botao levaram o
+  harness de 239/8 para **247/0**, o primeiro zero em tres sessoes. Deploy
+  conferido byte a byte no worker. Veredito item a item sobre o zip do Stitch:
+  forma sim, paleta e numero inventado nao)
+- anterior: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na
+  aba Vendas + cadastro de motoboy com botao que despacha num toque. 6 migrations,
+  1 tabela, 1 coluna, 43 assercoes novas que CLICAM. Os seis campos pedidos ja
   existiam na `venda`: a obra virou uma coluna e uma tela. Defeito da sessao: a
   suite travou calada por um `\n` mal escapado dentro da string Python do teste;
-  nasce o watchdog do harness)
-- anterior: `handoff_migracao_pitwall_v46.md` (05/08/2026, Fatia 1 da aba Escopo: 8
-  frentes de operacao, placar com nota calculada no banco, criar/mudar
-  status/travar/descartar. 3 tabelas, 6 migrations, 22 commits. Cinco defeitos
-  achados e fechados na execucao, um deles uma aba que NAO ABRIA convivendo com
-  cinco suites verdes. **Os numeros de prova dele envelheceram**: dizia harness
-  172/3 e validar EXIT 1, e o HEAD de 08/08 media 196/8 e EXIT 0)
-- 43 arquivos na pasta. O de maior versao substitui todos os anteriores.
+  nasce o watchdog do harness. **Cuidado ao ler:** ele trata as 8 vermelhas do
+  harness como divida herdada, e o v48 provou que eram obra nao terminada)
+- 44 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 
