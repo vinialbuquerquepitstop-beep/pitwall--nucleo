@@ -331,6 +331,36 @@ async function rodar() {
   // diz nada sobre o que ele deveria estar provando.
   ok('a aba de arranque e Hoje', document.getElementById('abaHoje').getAttribute('aria-selected') === 'true',
      'abaHoje aria-selected=' + document.getElementById('abaHoje').getAttribute('aria-selected'));
+
+  // ---- a forma do Stitch na aba Hoje (08/08/2026) ---------------------------
+  // Mesma armadilha do bloco da Fila: sem estas, o bloco "HOJE" do app.css podia
+  // estar MORTO e a suite passaria a toa. Foi exatamente o que aconteceu com a
+  // Fila entre 06 e 08/08: 16 regras penduradas num seletor que nunca casava.
+  var lstH = document.getElementById('lista');
+  ok('#lista declara a aba Hoje', lstH.getAttribute('data-aba') === 'hoje',
+     'data-aba=' + lstH.getAttribute('data-aba'));
+  ok('a bandeja do Hoje esta tingida (secao branca flutua)',
+     getComputedStyle(lstH).backgroundColor === 'rgb(246, 247, 250)',
+     getComputedStyle(lstH).backgroundColor);
+  var secs = document.querySelectorAll('#lista .dia-sec');
+  ok('o Hoje renderizou secoes', secs.length > 0, 'secoes=' + secs.length);
+  ok('a secao do Hoje pegou o raio novo',
+     getComputedStyle(secs[0]).borderTopLeftRadius === '12px',
+     getComputedStyle(secs[0]).borderTopLeftRadius);
+  ok('a secao do Hoje tem sombra',
+     getComputedStyle(secs[0]).boxShadow.indexOf('rgba(15, 21, 35, 0.06)') >= 0,
+     getComputedStyle(secs[0]).boxShadow);
+  // o placar continua com os QUATRO numeros reais. Os mockups do Stitch pintam
+  // este mesmo lugar com Uptime 99.98% e 70% da Capacidade Total, que nao
+  // existem no banco. Esta assercao existe para que nunca entrem.
+  ok('o placar do Hoje tem 4 celulas',
+     document.querySelectorAll('#lista .pitboard .pb-celula').length === 4,
+     'celulas=' + document.querySelectorAll('#lista .pitboard .pb-celula').length);
+  var rots = Array.prototype.map.call(
+    document.querySelectorAll('#lista .pitboard .pb-rot'),
+    function (x) { return x.textContent.trim(); }).join(',');
+  ok('e sao rotina, conteudo, lembretes e sync', rots.indexOf('sync') >= 0 && rots.indexOf('rotina') >= 0, rots);
+
   document.getElementById('abaFila').click();
   await espera(260);
 

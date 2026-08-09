@@ -1525,3 +1525,50 @@ a{color:inherit}
      desalinha a fileira inteira. Volta ao valor do HEAD. */
   #lista[data-aba="fila"] .card-acoes{margin-top:10px;gap:7px}
 }
+
+/* ==========================================================================
+   HOJE — a forma do Stitch, o mesmo transplante que a Fila recebeu (08/08/2026)
+
+   So FORMA. Nenhum token novo, nenhuma cor nova, nenhum uso novo de
+   var(--accent). Os quatro numeros do placar do Hoje (rotina, conteudo,
+   lembretes, sync) ja eram dado real e continuam sendo: o que muda e o
+   recipiente. Os mockups preenchem esse mesmo lugar com Uptime 99.98% e
+   70% da Capacidade Total, que nao existem neste banco e nao entraram.
+
+   ESCOPO: tudo pendurado em #lista[data-aba="hoje"]. Hoje, Fila, Todos e
+   Clientes dividem o MESMO #lista; sem esse gancho a bandeja tingiria as
+   outras. O gancho e o mesmo que a Fila usa, e so passou a funcionar quando
+   patch_lista_data_aba.py foi finalmente rodado.
+
+   Os cinco blocos do Hoje (fila embutida, tarefas, conteudo, lembretes, nota)
+   usam .dia-sec como container, entao uma regra alcanca os cinco.
+
+   Para reverter: apagar deste comentario ate o fim do arquivo.
+   ========================================================================== */
+
+/* A bandeja: mesma razao da Fila. .dia-sec ja e var(--bg) branco com borda de
+   1px, e a pagina tambem e branca, entao hoje so a borda separa secao de fundo.
+   Tingir o fundo e o que faz as cinco secoes lerem como pilha de cartoes. */
+#lista[data-aba="hoje"]{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:10px;gap:10px;
+}
+#lista[data-aba="hoje"] .dia-sec{
+  border-radius:12px;box-shadow:0 1px 2px rgba(15,21,35,.06);
+}
+
+/* O titulo de secao era 10.5px em var(--dim): um sussurro do lado de um numero
+   de 30px. Sobe para var(--text) e ganha meio ponto. Continua uppercase com o
+   mesmo tracking, porque ele e irmao do .pb-rot e do .dia-cat-rot: virar titulo
+   de caixa alta e baixa quebraria a familia inteira de rotulo do app. */
+#lista[data-aba="hoje"] .dia-sec-tit{font-size:11px;color:var(--text)}
+
+/* O trilho de categoria NAO muda: .dia-cat-rot segue com a barra de 3px, o
+   icone e a cor var(--tr) medida. Trilho sem icone e regressao, e o harness
+   assere isso. */
+
+@media (max-width:560px){
+  /* mesmo calculo da Fila: 22px de largura de card a 360px e caro demais. A
+     bandeja some e a separacao passa a vir so da sombra. */
+  #lista[data-aba="hoje"]{background:none;border:0;border-radius:0;padding:0;gap:10px}
+}
