@@ -397,9 +397,18 @@ async function rodar() {
      resp ? resp.parentElement.className : 'ausente');
   ok('Respondeu saiu da fileira de escrita',
      !card.querySelector('.card-acoes [data-acao="respondeu"]'));
-  ok('a fileira de escrita ficou com 2 botoes',
-     card.querySelectorAll('.card-acoes.escrita .btn-acao').length === 2,
-     String(card.querySelectorAll('.card-acoes.escrita .btn-acao').length));
+  // O seletor mudou em 11/08/2026 e a INTENCAO nao: o grupo de escrita deixou
+  // de ser um .card-acoes proprio (uma faixa abaixo) e virou .acoes-escrita,
+  // dentro da mesma faixa da leitura, empurrado para a direita. O guard-rail
+  // nao foi calado nem a baseline repontada: ele aponta para o objeto que
+  // substituiu o antigo, e segue provando que la moram DOIS botoes, nao tres.
+  ok('o grupo de escrita ficou com 2 botoes',
+     card.querySelectorAll('.acoes-escrita .btn-acao').length === 2,
+     String(card.querySelectorAll('.acoes-escrita .btn-acao').length));
+  // e ele esta na MESMA faixa da leitura, nao numa segunda: se um dia voltar a
+  // ser irmao do .card-acoes em vez de filho, esta assercao cai.
+  ok('o grupo de escrita mora dentro da faixa de leitura',
+     !!card.querySelector('.card-acoes > .acoes-escrita'));
   ok('e o leque ainda oferece Conversando ao lado',
      !!card.querySelector('.desfechos [data-acao="conversando"]'));
 

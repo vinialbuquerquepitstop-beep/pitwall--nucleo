@@ -231,6 +231,15 @@ a{color:inherit}
 .pb-celula:has(.pb-num.alerta){border-color:var(--quente-linha);background:var(--quente-bg)}
 .pb-celula:has(.pb-num.alerta) .pb-rot,
 .pb-celula:has(.pb-num.alerta) .pb-pe{color:var(--quente-fg)}
+/* --- icone do cartao-numero (09/08/2026) ---
+   Vem da referencia do dono. E DECORACAO, nao dado: fica em --line-forte, que
+   nao compete com o numero, e some do leitor de tela por aria-hidden. O que a
+   referencia punha embaixo do numero (barra de progresso, "Urgencia: Critica",
+   "Limpeza: 100% ok") NAO entrou: nenhum desses numeros existe no banco. O pe
+   real de cada celula continua sendo o de sempre. */
+.pb-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pb-ico{width:15px;height:15px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.5;color:var(--line-forte)}
+.pb-celula:has(.pb-num.alerta) .pb-ico{color:var(--quente)}
 
 /* --- Dashboard: de onde veio x o que rendeu (25/07/2026) ---
    Saiu a moldura vazia ("metrica a definir") que ocupava este bloco desde a
@@ -305,12 +314,24 @@ a{color:inherit}
    BUSCA
    ========================================================================== */
 .busca{display:none}
-.busca.visivel{display:block}
+/* A busca virou item do .topo em 09/08/2026. `flex` (nao `block`) porque agora
+   ela carrega a lupa ao lado do campo; o display continua sendo o que a
+   assercao do harness le pra saber se ela esta visivel em Clientes e Vendas. */
+.busca.visivel{display:flex}
+/* 400px e o que faz o placeholder inteiro caber sem reticencias ("Buscar por
+   nome, telefone ou produto"). Medido no topo mais cheio, o da Fila (titulo +
+   data + Atualizar + Novo lead): sobram ~570px a 1280. */
+.busca{position:relative;align-items:center;flex:1 1 260px;max-width:400px;min-width:0}
+.busca-ico{
+  position:absolute;left:11px;width:15px;height:15px;pointer-events:none;
+  stroke:var(--dim);fill:none;stroke-width:1.7;
+}
 .busca input{
   width:100%;background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
-  border-radius:var(--radius-p);padding:10px 13px;font-size:16px;outline:0;
+  border-radius:999px;padding:8px 13px 8px 33px;font-size:16px;outline:0;
 }
 .busca input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.busca input:focus~.busca-ico,.busca:focus-within .busca-ico{stroke:var(--accent)}
 
 /* ==========================================================================
    CARD
@@ -389,12 +410,84 @@ a{color:inherit}
 .chip.st-lista_fria{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
 .chip.st-cancelado{color:var(--erro-fg);background:var(--erro-bg);border-color:var(--erro-linha)}
 
+/* ==========================================================================
+   A LINHA DE ATENDIMENTO DA FILA (09/08/2026)
+   Referencia: imagem trazida pelo dono. Entra a FORMA (avatar, colunas
+   rotuladas, chip de estado a direita); a paleta continua sendo a da
+   referencia-visual-v3.
+   ========================================================================== */
+
+/* --- o chip de ESTADO: o Sinal da linha ---
+   A referencia pintava Urgente, Em Andamento e Pendente com TRES TONS DO MESMO
+   AZUL (2.08 entre si). Isso colapsa o invariante 3 e o sistema Trilho x Sinal:
+   quem so ve luminancia nao separa nada. Aqui cada estado tem MATIZ propria, de
+   token ja medido, e a palavra sempre acompanha o ponto. Prefixo `sn-` e nao
+   `est-` de proposito: `est-` casaria com o seletor `.chip[class*="st-"]` logo
+   acima, por substring, e herdaria regra que nao e dele. */
+.chip.est{border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap}
+.chip.est::before{
+  content:"";width:5.5px;height:5.5px;border-radius:999px;background:currentColor;flex:0 0 auto;
+}
+.sn-andamento{color:var(--ok-fg);background:var(--ok-bg);border-color:var(--ok-linha)}
+.sn-urgente{
+  color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha);
+  font-variant-numeric:tabular-nums;
+}
+.sn-pendente{color:var(--morno-fg);background:var(--morno-bg);border-color:var(--morno-linha)}
+.sn-fila{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
+
+/* --- cabecalho da lista + legenda --- */
+.sec-lista{display:none}
+body:has(#lista[data-aba="fila"]) .sec-lista{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-bottom:-6px;
+}
+.sec-tit{font-family:var(--display);font-weight:600;font-size:14.5px;letter-spacing:-.015em}
+.sec-leg{display:flex;gap:6px;flex-wrap:wrap}
+
+/* --- a linha ---
+   `auto` na ultima coluna deixa o chip mandar na propria largura: "Em andamento"
+   e "Urgente · 30d" tem tamanhos diferentes e o chip nunca deve quebrar. */
+.card-linha{
+  display:grid;gap:12px;align-items:center;
+  grid-template-columns:28px minmax(0,1.25fr) minmax(0,1.15fr) minmax(0,.85fr) auto;
+}
+.card-av{
+  width:28px;height:28px;border-radius:999px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);border:1px solid var(--line);color:var(--dim);
+  font-family:var(--display);font-weight:600;font-size:12px;line-height:1;
+}
+.card-id{min-width:0}
+.card-col{min-width:0}
+/* micro-rotulo: e ele que faz a coluna dizer O QUE e o dado. Sem rotulo,
+   "Instagram" solto na linha nao se distingue de "17 Pro 256GB". */
+.col-rot{
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);line-height:1.5;
+}
+.col-val{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col-val .cond{color:var(--dim)}
+/* Campo vazio nao some: o rotulo continua na tela e o valor diz que falta.
+   Tela que so renderiza o que tem dado desaparece na base zerada. */
+.col-val.vazio{color:var(--dim);font-style:italic}
+.card-dir{display:flex;align-items:center;gap:10px;justify-self:end}
+/* o nome ja e o titulo da linha; o code desce pra segunda linha, em mono */
+.card-linha .card-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-linha .card-code{display:block;line-height:1.5}
+/* o telefone entra colado no LEAD-code em vez de virar bloco solto: solto ele
+   nascia embaixo do avatar, 42px a esquerda do nome, e a linha lia torta */
+.card-tel-in{color:var(--dim)}
+
 .silencio{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:7px;font-variant-numeric:tabular-nums}
 .silencio.alerta{color:var(--quente-fg)}
 
 /* --- acoes do card --- */
 .card-acoes{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-.card-acoes.escrita{margin-top:7px}
+/* o grupo de ESCRITA (Toque enviado, Desfecho) mora dentro da mesma faixa da
+   leitura desde 11/08/2026. E um grupo de verdade e nao dois botoes soltos no
+   fim da fila: agrupado, ele wrappa junto e nunca se separa no meio. */
+.acoes-escrita{display:flex;gap:7px}
 /* na Fila o WhatsApp e a acao principal: linha inteira acima de Sugerir/Historico */
 .card-acoes .card-wa-linha{order:-1;flex:1 1 100%}
 .btn-wa{
@@ -1471,10 +1564,10 @@ a{color:inherit}
    lista le como planilha e nao como pilha de cartoes. */
 #lista[data-aba="fila"]{
   background:var(--surface);border:1px solid var(--line);
-  border-radius:14px;padding:10px;gap:10px;
+  border-radius:14px;padding:8px;gap:7px;
 }
 #lista[data-aba="fila"] .card{
-  border-radius:12px;padding:14px 16px 14px 19px;
+  border-radius:12px;padding:11px 14px 11px 17px;
   box-shadow:0 1px 2px rgba(15,21,35,.06);
 }
 /* hover so onde ha ponteiro de verdade: no toque ele gruda e o card fica preso
@@ -1501,9 +1594,75 @@ a{color:inherit}
 #lista[data-aba="fila"] .chip{border-radius:999px;padding:1.5px 9px}
 #lista[data-aba="fila"] .chip::before{width:6px;height:6px}
 
-/* a barra de acoes ganha ar: no mockup os botoes sao a coisa mais clicavel da
-   linha, e aqui eles nasciam colados no chip */
-#lista[data-aba="fila"] .card-acoes{margin-top:12px;gap:8px}
+/* O filete em cima separa a LEITURA (quem e, o que quer, de onde veio, em que
+   estado) da ESCRITA (o que eu faco agora). A referencia do dono resolvia essa
+   separacao escondendo a escrita atras de um raio e um kebab; a decisao desta
+   sessao foi manter a escrita aberta e separar por filete, que custa 1px em vez
+   de um clique por lead. */
+#lista[data-aba="fila"] .card-acoes{
+  margin-top:8px;gap:6px;padding-top:8px;border-top:1px solid var(--line);
+}
+
+/* --- DENSIDADE (pedido do dono, 09/08/2026: "mais estreita, pra conter mais
+   leads") ---
+   A gordura nao estava na linha, estava na fileira de botoes. `.btn-acao` nasce
+   com `flex:1` para preencher: a ~940px de card isso dava um "Historico" de
+   460px, e como `.card-wa-linha` toma `flex:1 1 100%`, o WhatsApp ainda comia
+   uma terceira faixa sozinho. Eram tres faixas de botao, ~130px, em todo card.
+
+   Aqui os cinco botoes voltam a ter a largura do proprio texto e cabem numa
+   faixa so. Nao e so densidade: um "Desfecho" de 460px lia como acao principal
+   do card sendo secundaria.
+
+   ESCOPO: `#lista[data-aba="fila"]` e so. O `flex:1` global continua valendo em
+   Todos, Clientes, Vendas, Hoje e NF, que nao foram pedidos e nao foram
+   medidos. E o breakpoint de 560px devolve o comportamento antigo: a 390px os
+   botoes de largura propria nao cabem numa faixa e quebrariam sozinhos, o que
+   a v45 ja tinha brigado para evitar. */
+#lista[data-aba="fila"] .card-acoes .btn-acao,
+#lista[data-aba="fila"] .card-acoes .btn-wa,
+#lista[data-aba="fila"] .card-acoes .sem-tel{
+  flex:0 0 auto;padding:7px 13px;
+}
+/* o WhatsApp deixa de tomar a faixa inteira, mas continua PRIMEIRO (order:-1):
+   ele segue sendo a acao principal, so nao precisa de 940px para dizer isso */
+#lista[data-aba="fila"] .card-acoes .card-wa-linha{flex:0 0 auto}
+/* --- uma faixa so, leitura na esquerda e escrita na direita ---
+   Pedido do dono em 11/08/2026: "realoque os chips de toque, resposta, sugerir
+   de forma mais coerente, horizontal talvez".
+
+   Ate aqui a escrita era um SEGUNDO .card-acoes, logo abaixo. A separacao
+   leitura x escrita continua sendo do projeto e nao acidente, so mudou de
+   eixo: era vertical (duas faixas), virou horizontal (duas pontas da mesma
+   faixa). O operador para de varrer duas linhas para achar o botao que grava,
+   e some uma faixa por card.
+
+   `margin-left:auto` em vez de um espacador com flex:1 porque o auto morre
+   sozinho quando a faixa quebra: o grupo desce inteiro e encosta na esquerda,
+   em vez de ficar pendurado na direita de uma linha vazia. */
+#lista[data-aba="fila"] .acoes-escrita{margin-left:auto;gap:6px}
+
+/* chips e "Nd sem resposta" na mesma faixa: eram duas linhas para dois dados
+   curtos. inline-flex/inline-block deixa os dois fluirem juntos e quebrarem
+   sozinhos quando nao couberem. */
+#lista[data-aba="fila"] .chips{
+  display:inline-flex;vertical-align:middle;margin-top:7px;margin-right:9px;
+}
+#lista[data-aba="fila"] .silencio{display:inline-block;vertical-align:middle;margin-top:7px}
+#lista[data-aba="fila"] .obs{margin-top:5px}
+
+/* --- a linha na Fila --- */
+#lista[data-aba="fila"] .card-linha{gap:12px}
+#lista[data-aba="fila"] .col-rot{font-size:9.5px}
+#lista[data-aba="fila"] .col-val{font-size:13.5px}
+/* o Editar so aparece quando o ponteiro entra no card: na referencia a direita
+   da linha e do chip de estado, e um link permanente ali rouba a leitura dele.
+   Em telas sem hover (celular) ele fica sempre visivel, senao vira inalcancavel. */
+@media (hover:hover){
+  #lista[data-aba="fila"] .card-dir .btn-editar{opacity:0;transition:opacity .12s ease}
+  #lista[data-aba="fila"] .card:hover .card-dir .btn-editar,
+  #lista[data-aba="fila"] .card-dir .btn-editar:focus-visible{opacity:1}
+}
 
 /* pitboard: os mesmos cartoes flutuando, e o numero manda mais. A celula em
    alerta continua com a paleta --quente, ja medida, e nao vira azul. */
@@ -1523,7 +1682,42 @@ a{color:inherit}
   /* o respiro extra entre botoes e luxo de desktop: a 390px sobram ~114px por
      botao e 1px a mais ja faz "Toque enviado" quebrar em duas linhas, o que
      desalinha a fileira inteira. Volta ao valor do HEAD. */
-  #lista[data-aba="fila"] .card-acoes{margin-top:10px;gap:7px}
+  #lista[data-aba="fila"] .card-acoes{margin-top:8px;gap:7px;padding-top:8px}
+  /* botao de largura propria e ganho de DESKTOP. A 390px sobram ~114px por
+     botao: com largura de conteudo "Chamar no WhatsApp" e "Sugerir mensagem"
+     nao caberiam lado a lado e a fileira quebraria desalinhada, que e
+     exatamente a briga que a v45 ja tinha comprado. Volta o flex:1. */
+  #lista[data-aba="fila"] .card-acoes .btn-acao,
+  #lista[data-aba="fila"] .card-acoes .btn-wa,
+  #lista[data-aba="fila"] .card-acoes .sem-tel{flex:1;padding:9px}
+  #lista[data-aba="fila"] .card-acoes .card-wa-linha{flex:1 1 100%}
+  /* a 390px nao ha "direita" para empurrar nada: os botoes ja ocupam a largura
+     toda. O grupo de escrita volta a ter faixa propria, que e o comportamento
+     que a v45 comprou e o v49 preservou no celular. */
+  #lista[data-aba="fila"] .acoes-escrita{flex:1 1 100%;margin-left:0;gap:7px}
+  /* e os dois dados curtos voltam a ter faixa propria: a 390px eles nao dividem */
+  #lista[data-aba="fila"] .chips{display:flex;margin-right:0}
+  #lista[data-aba="fila"] .silencio{display:block}
+
+  /* A linha de 5 colunas nao cabe a 360px: PRODUTO e ORIGEM ficariam com ~50px
+     cada e viravam reticencias. Ela quebra em duas faixas -- identidade + chip
+     em cima, as duas colunas rotuladas embaixo -- e o dado continua inteiro.
+     A referencia do dono nao tem breakpoint nenhum: esta parte e o preco de
+     trazer a forma dela pra uma tela que roda no bolso. */
+  .card-linha{
+    grid-template-columns:28px minmax(0,1fr) auto;
+    grid-template-areas:"av id dir" ". c1 c1" ". c2 c2";
+    gap:4px 12px;align-items:start;
+  }
+  .card-av{grid-area:av}
+  .card-id{grid-area:id}
+  /* a 360px o Editar nao tem hover pra revelar: fica sempre no fluxo, sob o chip */
+  .card-dir{grid-area:dir;align-self:start;flex-direction:column;align-items:flex-end;gap:4px}
+  /* nth-CHILD, nao nth-of-type: os cinco filhos da linha sao todos <div>, entao
+     of-type(1) pegaria o avatar. Produto e o 3o filho, origem o 4o. */
+  .card-linha>.card-col:nth-child(3){grid-area:c1;margin-top:6px}
+  .card-linha>.card-col:nth-child(4){grid-area:c2;margin-top:4px}
+  .col-val{white-space:normal}
 }
 
 /* ==========================================================================

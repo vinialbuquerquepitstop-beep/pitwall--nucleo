@@ -7,7 +7,20 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v48.md` (08/08/2026, a forma do Stitch na Fila
+- topo: `handoff_migracao_pitwall_v49.md` (09/08/2026, a Fila virou linha de
+  atendimento a partir de uma imagem de referencia do dono: avatar, nome +
+  LEAD-code + telefone, colunas rotuladas PRODUTO e **ORIGEM** (que existia em
+  19 dos 21 leads e nunca tinha aparecido na tela), e chip de estado a direita.
+  O dono escolheu manter a operacao ABERTA embaixo da linha em vez do raio +
+  kebab da imagem: 1px de filete em vez de um clique por lead. O chip de estado
+  entrou depois de o dono corrigir a recusa inicial: o problema era a paleta
+  (3 tons do mesmo azul, 2.08 entre si), nao o conceito. 4 estados, 4 matizes de
+  token ja medido, tirados de coluna que a `v_lead` ja calculava. Numero
+  inventado da imagem (LATENCY, LIVE_SYNC, Limpeza 100%) recusado de novo.
+  254/0 no harness, 5 provas em EXIT 0. **Nao foi para o ar ainda.**
+  Registra duas armadilhas do `foto.py`: ele reusa o HTML montado pelo harness,
+  e mente em largura de celular)
+- anterior: `handoff_migracao_pitwall_v48.md` (08/08/2026, a forma do Stitch na Fila
   estava commitada ha dois dias e nunca tinha aparecido na tela: 16 regras de CSS
   penduradas num seletor que nao casava com nada, porque
   `patch_lista_data_aba.py` foi commitado e nunca rodado. As "8 falhas herdadas"
@@ -15,7 +28,7 @@ nenhuma das duas batia com o repo.
   harness de 239/8 para **247/0**, o primeiro zero em tres sessoes. Deploy
   conferido byte a byte no worker. Veredito item a item sobre o zip do Stitch:
   forma sim, paleta e numero inventado nao)
-- anterior: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na
+- antes desse: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na
   aba Vendas + cadastro de motoboy com botao que despacha num toque. 6 migrations,
   1 tabela, 1 coluna, 43 assercoes novas que CLICAM. Os seis campos pedidos ja
   existiam na `venda`: a obra virou uma coluna e uma tela. Defeito da sessao: a

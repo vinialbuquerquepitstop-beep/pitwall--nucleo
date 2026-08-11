@@ -25,3 +25,11 @@ ferramentas/__pycache__/
 # whatsapp de cliente. Regenerar com:
 #   python ferramentas/foto_fila.py fila 1280
 ferramentas/fotos/
+
+# MESMO motivo, para as fotos do ferramentas/foto.py, que grava em docs/design/
+# e por isso escapava da regra acima. Medido em 11/08/2026: a foto_fila_1280.png
+# mostra, legivel, nome e telefone completo de cliente real (o fixture do harness
+# usa linha de verdade do banco). Repo privado nao desfaz historico de git.
+# Regenerar quando precisar olhar:
+#   python ferramentas/harness.py && python ferramentas/foto.py fila 1280
+docs/design/foto_*.png
