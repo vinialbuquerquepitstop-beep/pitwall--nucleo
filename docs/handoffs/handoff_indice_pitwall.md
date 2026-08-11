@@ -7,7 +7,18 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v49.md` (09/08/2026, a Fila virou linha de
+- topo: `handoff_migracao_pitwall_v50.md` (11/08/2026, **a Fila SUBIU**: commit
+  `87b65f9`, deploy conferido no worker por md5 e por diff de conteudo. A obra da
+  v49 estava na arvore sem commit ha dois dias. Ganhou mais uma rodada de forma a
+  pedido do dono: as duas fileiras de botao viraram UMA faixa, leitura na
+  esquerda e escrita na direita. A separacao nao morreu, trocou de eixo, e o
+  grupo `.acoes-escrita` mantem os dois botoes juntos na quebra. Medido nas duas
+  versoes pelo mesmo script: **207px -> 170px** por card, 2 faixas -> 1, somando
+  316 -> 170 com a v49. Harness **255/0** porque nasceu assercao nova, nao porque
+  alguma afrouxou. Duas decisoes fora do pedido: as fotos de `docs/design/`
+  carregam nome e telefone de cliente real e foram para o `.gitignore`, e o
+  commit quase levou 5.313 linhas de ruido de CRLF pro repo)
+- anterior: `handoff_migracao_pitwall_v49.md` (09/08/2026, a Fila virou linha de
   atendimento a partir de uma imagem de referencia do dono: avatar, nome +
   LEAD-code + telefone, colunas rotuladas PRODUTO e **ORIGEM** (que existia em
   19 dos 21 leads e nunca tinha aparecido na tela), e chip de estado a direita.
@@ -20,7 +31,7 @@ nenhuma das duas batia com o repo.
   254/0 no harness, 5 provas em EXIT 0. **Nao foi para o ar ainda.**
   Registra duas armadilhas do `foto.py`: ele reusa o HTML montado pelo harness,
   e mente em largura de celular)
-- anterior: `handoff_migracao_pitwall_v48.md` (08/08/2026, a forma do Stitch na Fila
+- antes desse: `handoff_migracao_pitwall_v48.md` (08/08/2026, a forma do Stitch na Fila
   estava commitada ha dois dias e nunca tinha aparecido na tela: 16 regras de CSS
   penduradas num seletor que nao casava com nada, porque
   `patch_lista_data_aba.py` foi commitado e nunca rodado. As "8 falhas herdadas"
@@ -28,14 +39,14 @@ nenhuma das duas batia com o repo.
   harness de 239/8 para **247/0**, o primeiro zero em tres sessoes. Deploy
   conferido byte a byte no worker. Veredito item a item sobre o zip do Stitch:
   forma sim, paleta e numero inventado nao)
-- antes desse: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na
+- e antes: `handoff_migracao_pitwall_v47.md` (08/08/2026, relatorio de entrega na
   aba Vendas + cadastro de motoboy com botao que despacha num toque. 6 migrations,
   1 tabela, 1 coluna, 43 assercoes novas que CLICAM. Os seis campos pedidos ja
   existiam na `venda`: a obra virou uma coluna e uma tela. Defeito da sessao: a
   suite travou calada por um `\n` mal escapado dentro da string Python do teste;
   nasce o watchdog do harness. **Cuidado ao ler:** ele trata as 8 vermelhas do
   harness como divida herdada, e o v48 provou que eram obra nao terminada)
-- 44 arquivos na pasta. O de maior versao substitui todos os anteriores.
+- 46 arquivos na pasta. O de maior versao substitui todos os anteriores.
 
 ## Linha seguranca (pit-guard)
 
