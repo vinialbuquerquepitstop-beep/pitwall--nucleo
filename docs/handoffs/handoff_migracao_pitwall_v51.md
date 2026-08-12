@@ -26,8 +26,8 @@ Na aba Hoje, marcar uma tarefa relia `painel_do_dia` e remontava o dia inteiro;
 agora vira o checkbox daquela linha e recalcula o placar, com **1 chamada** (a
 propria RPC) e **zero** releituras.
 
-**Ainda NAO foi para o ar.** Preview local no ar para o dono conferir; o push
-(que e o deploy) esta parado esperando o veredito dele.
+**Esta no ar.** Commit `9a6f7f8`, `a3e17bb..9a6f7f8`, aprovado pelo dono depois do
+preview local. Deploy conferido no Worker (secao 10), nao no navegador.
 
 ---
 
@@ -201,13 +201,10 @@ bytes, nao por `grep`, que mentiu no meio do caminho). Os dois patches gravam co
 
 ## 9. Pendencias
 
-1. **Empurrar.** O preview local esta no ar (`node ferramentas/servir.js`,
-   `localhost:8788`, md5 do `app.js` servido conferido contra o local). Falta o
-   dono clicar, aprovar, e so entao commit + push + conferencia no Worker.
-2. **`.gitattributes` com `* text=auto eol=lf`** (herdada do v50, secao 4.2).
+1. **`.gitattributes` com `* text=auto eol=lf`** (herdada do v50, secao 4.2).
    Continua decisao do dono porque muda o checkout de todo mundo. Esta sessao
    contornou gravando os patches com `newline='\n'`.
-3. Herdado do v47/v49/v50, tudo ainda aberto:
+2. Herdado do v47/v49/v50, tudo ainda aberto:
    - o relatorio de entrega nao registra que foi enviado (sem `despachado_em`);
    - o texto do relatorio nao e configuravel (formato no JS);
    - `privado.fn_venda_atualizar` tem EXECUTE para `authenticated` e e SECURITY
@@ -215,5 +212,28 @@ bytes, nao por `grep`, que mentiu no meio do caminho). Os dois patches gravam co
    - **VENDA-0003 duplicada** (faturamento inflado em R$ 8.400);
    - **Conteudo e Hoje continuam sem a forma nova** (a Fila passou na frente tres
      vezes agora). A recomendacao do v48 segue de pe.
-4. Escrita de volta no Notion segue bloqueada pela capability "Update content",
+3. Escrita de volta no Notion segue bloqueada pela capability "Update content",
    que so o dono pode ligar.
+
+---
+
+## 10. Deploy conferido
+
+Push pela URL real do GitHub (o `origin` desta maquina aponta para o proxy do
+sandbox, que esta desligado; `git push origin main` falha). O clone foi conferido
+EM DIA com o GitHub real antes do commit, nos dois sentidos, entao o push nao
+levou trabalho de outra sessao.
+
+| prova | resultado |
+|---|---|
+| `git ls-remote` refs/heads/main | `9a6f7f8`, igual ao HEAD local |
+| md5 `public/app.js` vs servido | `55ff290578b2f968...` nos dois |
+| md5 `public/app.css` vs servido | `42c1acdcc8fabd61...` nos dois |
+| md5 `public/index.html` vs servido **na raiz** | `237c85dc79e57c48...` nos dois |
+| `aposAcao` / `trocarCard` / `hojePlacarAtualiza` / `data-cel` no servido | presentes |
+
+Armadilha para a proxima sessao: **`GET /index.html` no Worker devolve 307**, nao
+o arquivo. Comparar md5 desse caminho da o hash de string vazia
+(`d41d8cd98f00b204e9800998ecf8427e`) e parece divergencia de deploy. O caminho a
+conferir e a **raiz** (`/`). Isso e o `not_found_handling: single-page-application`
+funcionando, nao defeito.

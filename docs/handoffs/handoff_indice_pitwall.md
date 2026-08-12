@@ -19,7 +19,9 @@ nenhuma das duas batia com o repo.
   provadas nos dois sentidos: reprovam 12x no codigo antigo. Duas cegueiras do
   instrumento consertadas: o `.eq()` do stub nao filtrava, e nenhuma RPC de
   escrita de lead era stubada, entao o caminho de recarga nunca tinha sido
-  testado. **Ainda nao foi para o ar**: preview esperando o dono)
+  testado. **No ar**: commit `9a6f7f8`, deploy conferido no worker por md5 dos
+  tres arquivos. Armadilha nova anotada: `GET /index.html` no worker devolve 307,
+  e comparar md5 desse caminho da hash de string vazia e parece divergencia)
 - anterior: `handoff_migracao_pitwall_v50.md` (11/08/2026, **a Fila SUBIU**: commit
   `87b65f9`, deploy conferido no worker por md5 e por diff de conteudo. A obra da
   v49 estava na arvore sem commit ha dois dias. Ganhou mais uma rodada de forma a
