@@ -94,16 +94,45 @@ function medir(rotulo){
   }
 
   // ---- 2. estouro horizontal (elemento a elemento) ----
-  var estouro = [];
+  // Um elemento dentro de um container com overflow-x auto/scroll ROLA por
+  // desenho, nao vaza da tela: tabela larga em card estreito e a saida
+  // recomendada, e o proprio container continua sendo medido. Sem esta
+  // distincao a prova acusaria como defeito exatamente a correcao dele.
+  // O guard-rail NAO afrouxa: se o container que rola estourar, ele e acusado,
+  // e o scrollWidth do documento (checagem 3) segue valendo para a pagina.
+  function rolaDentro(el){
+    var p = el.parentElement;
+    while (p && p !== D.body) {
+      var ox = W().getComputedStyle(p).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+      p = p.parentElement;
+    }
+    return false;
+  }
+  var estouro = [], rolando = [];
   var L = W().innerWidth;
   todos.forEach(function(el){
     if (!vis(el)) return;
     var r = el.getBoundingClientRect();
-    if (r.right > L + 1.5 || r.left < -1.5)
-      estouro.push({ el: nome(el), t: txt(el), left: Math.round(r.left), right: Math.round(r.right) });
+    if (!(r.right > L + 1.5 || r.left < -1.5)) return;
+    var reg = { el: nome(el), t: txt(el), left: Math.round(r.left), right: Math.round(r.right) };
+    // separado, nao descartado: quando o documento estoura, saber O QUE rola e
+    // a primeira pista, e uma lista escondida nao ajuda ninguem a achar o 1px.
+    if (rolaDentro(el)) rolando.push(reg); else estouro.push(reg);
   });
 
+  // scrollWidth e INTEIRO por especificacao: a 360px ele devolvia 361 sem que
+  // nenhum elemento passasse do limite. Por isso mede-se tambem a borda direita
+  // real, com fracao, e e ela que decide: 360.02 e subpixel, 372 e defeito.
+  var maxDir = 0, maxEl = '';
+  todos.forEach(function(el){
+    if (!vis(el) || rolaDentro(el)) return;
+    var r = el.getBoundingClientRect();
+    if (r.right > maxDir) { maxDir = r.right; maxEl = nome(el); }
+  });
   window.__saida.abas.push({ aba: rotulo, sobre: sobre, estouro: estouro.slice(0, 14),
+                             rolando: rolando.slice(0, 8),
+                             maxDir: Math.round(maxDir * 100) / 100, maxEl: maxEl,
                              larguraDoc: Math.round(D.documentElement.scrollWidth) });
 }
 
@@ -259,8 +288,21 @@ if cortados:
     print(f"ROTULO CORTADO pela reticencia em: {', '.join(cortados)}\n")
 
 # ---- painel de vendas: o eixo tem que virar no corte de 900px ----
-# Acima: graficos a esquerda, valores a direita, na MESMA linha.
-# Abaixo: uma coluna, valores em cima (voce abre o celular pra saber quanto
+#
+# LAYOUT NOVO, 12/08/2026. Ate o v52 era: graficos a esquerda e valores na
+# TERCEIRA COLUNA, a direita. O dono aprovou o formato de dashboard, e os valores
+# viraram FAIXA de 5 cards na largura toda (linha 1), com os dois graficos lado a
+# lado embaixo (linha 2).
+#
+# Esta assercao foi REESCRITA, nao silenciada, e a diferenca importa: ela
+# continua reprovando se a faixa deixar de ocupar a largura, se os graficos
+# subirem para a linha da faixa, ou se os dois graficos ficarem lado a lado no
+# celular (que foi o bug de especificidade de media query do v52, secao 6).
+# Repontar baseline para calar guard-rail e o que este projeto nao faz: ou se
+# abre excecao nomeada, ou se derruba conscientemente. Isto aqui e o segundo caso.
+#
+# Acima de 900px: faixa de valores em cima ocupando tudo, graficos lado a lado.
+# Abaixo: uma coluna so, valores em cima (voce abre o celular pra saber quanto
 # vendeu, nao pra estudar a forma da barra).
 pv = res.get('painelVendas')
 pv_reprova = []
@@ -276,14 +318,20 @@ else:
         pv_reprova.append(f"a barra do grafico mede {barra}px a {LARG}px de viewport; "
                           f"o teto e 24 e a sobra da faixa e ar")
     if LARG >= 900:
-        mesma_linha = abs(g['top'] - v['top']) <= 2 and abs(f['top'] - v['top']) <= 2
-        if not (g['left'] < f['left'] < v['left'] and mesma_linha):
-            pv_reprova.append(f"a {LARG}px o painel devia ser TRES colunas na mesma linha, graficos a "
-                              f"esquerda (meses left={g['left']} top={g['top']}, vazamento left={f['left']} "
-                              f"top={f['top']}, valores left={v['left']} top={v['top']})")
-        elif not (g['w'] < v['w'] and f['w'] < v['w']):
-            pv_reprova.append(f"as colunas de grafico ({g['w']}px, {f['w']}px) deviam ser ESTREITAS "
-                              f"perto da de valores ({v['w']}px)")
+        # 1) a faixa de valores fica ACIMA dos dois graficos
+        if not (v['top'] < g['top'] and v['top'] < f['top']):
+            pv_reprova.append(f"a {LARG}px a faixa de valores devia ficar ACIMA dos graficos "
+                              f"(valores top={v['top']}, meses top={g['top']}, vazamento top={f['top']})")
+        # 2) os dois graficos ficam LADO A LADO, na mesma linha
+        elif not (g['left'] < f['left'] and abs(g['top'] - f['top']) <= 2):
+            pv_reprova.append(f"a {LARG}px os dois graficos deviam ficar LADO A LADO "
+                              f"(meses left={g['left']} top={g['top']}, "
+                              f"vazamento left={f['left']} top={f['top']})")
+        # 3) a faixa ocupa a largura toda: se ela nao for mais larga que a soma
+        #    dos graficos, ela deixou de ser faixa e virou coluna de novo.
+        elif not (v['w'] > g['w'] and v['w'] > f['w']):
+            pv_reprova.append(f"a {LARG}px a faixa de valores ({v['w']}px) devia ocupar a largura "
+                              f"toda, mais que cada grafico ({g['w']}px, {f['w']}px)")
     else:
         empilhado = v['top'] < g['top'] < f['top']
         if not (empilhado and abs(g['left'] - v['left']) <= 2):
@@ -292,7 +340,7 @@ else:
     print(f"PAINEL DE VENDAS  barra={barra}px  meses[left={g['left']} top={g['top']} w={g['w']}]  "
           f"vazamento[left={f['left']} top={f['top']} w={f['w']}]  "
           f"valores[left={v['left']} top={v['top']} w={v['w']}]  "
-          f"{'TRES COLUNAS' if LARG >= 900 else 'EMPILHADO, valores em cima'}"
+          f"{'FAIXA EM CIMA + 2 GRAFICOS' if LARG >= 900 else 'EMPILHADO, valores em cima'}"
           f"{'  >>> REPROVOU' if pv_reprova else '  ok'}\n")
 
 total_s = total_e = total_doc = 0
@@ -301,12 +349,16 @@ for ab in res['abas']:
     doc = ab['larguraDoc'] > LARG
     total_s += len(s); total_e += len(e); total_doc += 1 if doc else 0
     if not s and not e and not doc: continue
-    print(f"--- {ab['aba']}  (scrollWidth do documento: {ab['larguraDoc']}px)")
+    print(f"--- {ab['aba']}  (scrollWidth do documento: {ab['larguraDoc']}px, borda direita real: {ab.get('maxDir')}px em {ab.get('maxEl')})")
     for x in s:
         print(f"   SOBREPOE {x['px']}px ({int(x['frac']*100)}%): {x['a']} \"{x['ta']}\"")
         print(f"                    x  {x['b']} \"{x['tb']}\"")
     for x in e[:8]:
         print(f"   ESTOURA  {x['el']} [{x['left']}..{x['right']}] \"{x['t']}\"")
+    # Informativo, nao reprova: rola dentro de container por desenho. So aparece
+    # quando ja ha algo errado nesta aba, que e quando serve de pista.
+    for x in ab.get('rolando', [])[:8]:
+        print(f"   rola     {x['el']} [{x['left']}..{x['right']}] \"{x['t']}\"")
     print()
 
 for m in nav_reprova + pv_reprova:

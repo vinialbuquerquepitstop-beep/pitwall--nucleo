@@ -220,14 +220,24 @@ function metTopo(d){
 var op=[[30,"30 dias"],[90,"90 dias"],[365,"12 meses"]].map(function(x){
 return'<button class="met-faixa" data-acao="met-janela" data-dias="'+x[0]+'" aria-pressed="'+(METRICA_DIAS===x[0]?"true":"false")+'">'+x[1]+"</button>"}).join("");
 return'<div class="met-topo"><span class="met-janela">'+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+'</span><div class="met-faixas">'+op+"</div></div>"}
+// O dashboard de vendas entra ACIMA das metricas de lead/conteudo que ja viviam
+// aqui. Nao substitui: as duas respondem perguntas diferentes (o de cima e
+// dinheiro fechado, o de baixo e captacao e conteudo) e tem janelas proprias,
+// declaradas cada uma no seu cabecalho.
+// A falha do painel_metricas NAO derruba mais a tela inteira: o dashboard de
+// vendas sai do dado local e continua util mesmo se a RPC cair.
 async function renderDash(sil){
 var e=E("lista");
 if(!sil)e.innerHTML='<div class="estado carregando">Somando…</div>';
+var rv=await carregarVendas(),ra=await carregarVendasArq();
+var fv=primeiraFalha(rv,ra);
+if(fv&&!1===fv.sessao)return;
+var topo=fv?estadoErro("as vendas",fv.erro):dvPainel();
 var r=await t.rpc("painel_metricas",{p_ini:C(l(),-(METRICA_DIAS-1)),p_fim:l()});
-if(r.error)return void(e.innerHTML='<div class="estado erro">Falha ao ler as métricas: '+c(r.error.message)+". Toque em Atualizar para tentar de novo.</div>");
+if(r.error)return void(e.innerHTML=topo+'<div class="estado erro">Falha ao ler as métricas: '+c(r.error.message)+". Toque em Atualizar para tentar de novo.</div>");
 var d=r.data;
-if(!d||!1===d.ok)return void(e.innerHTML='<div class="estado erro">'+c(d&&d.msg||"Falha ao ler as métricas.")+"</div>");
-e.innerHTML=metTopo(d)+metOrigem(d)+metConteudo(d)}
+if(!d||!1===d.ok)return void(e.innerHTML=topo+'<div class="estado erro">'+c(d&&d.msg||"Falha ao ler as métricas.")+"</div>");
+e.innerHTML=topo+metTopo(d)+metOrigem(d)+metConteudo(d)}
 function rotCargaBarra(n){
 var mx=Math.max.apply(null,n.slice(1,8))||1,i=1,out="";
 for(;i<=7;i++){
@@ -620,7 +630,11 @@ if(!iso)return"—";
 return new Date(iso+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"})}
 // O fim NAO e sempre hoje: data_venda aceita futuro, e esconder a venda que o
 // proprio operador acabou de cadastrar seria a tela contradizendo o formulario.
-function vgLimites(linhas){
+// `jan` opcional: o Dashboard tem janela PROPRIA (dvJanela) e nao pode pegar
+// carona na do painel de Vendas, senao trocar o recorte numa aba mexeria na
+// outra em silencio. Sem argumento, segue valendo a global de sempre.
+function vgLimites(linhas,jan){
+jan=jan||vgJanela;
 var hoje=l(),menor="",maior=hoje,i,d;
 for(i=0;i<linhas.length;i++){
 if("cancelada"===linhas[i].status)continue;
@@ -629,8 +643,8 @@ if(!d)continue;
 if(!menor||d<menor)menor=d;
 if(d>maior)maior=d}
 var ini;
-if("mes"===vgJanela)ini=hoje.slice(0,7)+"-01";
-else if("trimestre"===vgJanela)ini=vgMesMais(hoje.slice(0,7),-2)+"-01";
+if("mes"===jan)ini=hoje.slice(0,7)+"-01";
+else if("trimestre"===jan)ini=vgMesMais(hoje.slice(0,7),-2)+"-01";
 else ini=menor||hoje.slice(0,7)+"-01";
 return{ini:ini,fim:maior}}
 function vgAgregar(linhas,lim){
@@ -699,23 +713,52 @@ return vgMesLongo(m.ym)+": "+brlV(m.fat)+", "+m.n+(1===m.n?" venda":" vendas")+
 // `extra` entra DENTRO do bloco, depois do pe: a decomposicao do vazamento tem
 // que ficar na mesma caixa destacada, senao o destaque para na borda e a linha
 // que explica o numero cai fora dele.
-function vgVal(cod,rot,num,pe,cls,extra){
+// Os icones sao INLINE e monocromaticos (currentColor): o CSP do Worker nao
+// deixa buscar nada de fora, e emoji saiu de rotulo em 16/07/2026 e nao volta.
+// Cada chip carrega SO a cor de fundo do token --d-*, nunca desenho colorido.
+var DV_ICO={
+dinheiro:'<path d="M12 2v20M17 5.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.9 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3"/>',
+lucro:'<path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/>',
+margem:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/>',
+vaza:'<path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/>',
+ticket:'<path d="M20 12a2 2 0 0 1 2-2V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a2 2 0 0 1-2-2z"/><path d="M9 7v10"/>',
+alvo:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+caixa:'<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/>'};
+function dvIcone(nome,tom){
+if(!DV_ICO[nome])return"";
+return'<span class="kp-ico t-'+c(tom)+'" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" '+
+'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+
+DV_ICO[nome]+"</svg></span>"}
+// Card no formato da referencia aprovada em 12/08/2026: rotulo, numero grande,
+// chip de icone no canto, rodape de contexto. O `data-cel` e o `.pb-rot` e o
+// `.vg-num` continuam EXATAMENTE onde estavam: a suite le por eles, e trocar a
+// aparencia nao pode mover a chave de leitura.
+function vgVal(cod,rot,num,pe,cls,extra,ico,tom){
 return'<div class="vg-val'+(cls?" "+cls:"")+'" data-cel="'+c(cod)+'">'+
-'<div class="pb-rot">'+c(rot)+"</div>"+
+'<div class="vg-val-topo"><div class="pb-rot">'+c(rot)+"</div>"+
+(ico?dvIcone(ico,tom):"")+"</div>"+
 '<div class="vg-num">'+c(num)+"</div>"+
 (pe?'<div class="pb-pe">'+c(pe)+"</div>":"")+(extra||"")+"</div>"}
 // Margem sai do PE do lucro e vira numero proprio. Ate a 1a passada ela era o
 // menor texto do bloco, e e ela que diz se a operacao vale a pena: a operacao
 // roda perto de 6,7%, e faturamento grande com margem fina foi exatamente o que
 // a tela escondia.
+// Lucro e margem SAIRAM do par lado a lado e viraram card proprio cada um. Ate a
+// v52 os dois dividiam uma caixa porque a coluna tinha 228px; na faixa horizontal
+// isso deixou de ser restricao, e um numero que divide caixa com outro le como
+// rodape do vizinho, que foi exatamente o defeito que a v52 corrigiu na margem.
 function vgValores(a){
 var vaza=a.frete+a.taxas,tr="—";
-var pares='<div class="vg-val vg-par" data-cel="vg-luc-margem">'+
-'<div class="vg-par-cel" data-cel="vg-luc"><div class="pb-rot">lucro</div>'+
-'<div class="vg-num-m'+(a.n&&a.luc<0?" neg":"")+'">'+c(a.n?brlV(a.luc):tr)+"</div></div>"+
-'<div class="vg-par-cel" data-cel="vg-margem"><div class="pb-rot">margem</div>'+
-'<div class="vg-num-m'+(a.n&&a.luc<0?" neg":"")+'">'+c(a.n?vgPct1(a.luc,a.fat):tr)+"</div></div>"+
-"</div>";
+var neg=a.n&&a.luc<0?" neg":"";
+var pares=
+'<div class="vg-val" data-cel="vg-luc"><div class="vg-val-topo">'+
+'<div class="pb-rot">lucro</div>'+dvIcone("lucro","verde")+"</div>"+
+'<div class="vg-num'+neg+'">'+c(a.n?brlV(a.luc):tr)+"</div>"+
+'<div class="pb-pe">'+c(a.n?brlV(a.luc/a.n)+" por venda":"nada fechado ainda")+"</div></div>"+
+'<div class="vg-val" data-cel="vg-margem"><div class="vg-val-topo">'+
+'<div class="pb-rot">margem</div>'+dvIcone("margem","laranja")+"</div>"+
+'<div class="vg-num'+neg+'">'+c(a.n?vgPct1(a.luc,a.fat):tr)+"</div>"+
+'<div class="pb-pe">'+c(a.n?brlV(a.fat>0?100*a.luc/a.fat:0)+" a cada R$ 100 vendidos":"sem base")+"</div></div>";
 // Destaque ESTRUTURAL (borda forte, numero maior, decomposicao visivel), nunca
 // fundo tingido. No resto do app --morno quer dizer trabalho pendente e o
 // alerta quer dizer "isso esta errado agora"; vazamento existe em toda venda,
@@ -728,12 +771,13 @@ var quebra=a.n?'<div class="vg-quebra">'+
 "<span>frete <b>"+c(brlV(a.frete))+"</b></span>"+
 "<span>taxas <b>"+c(brlV(a.taxas))+"</b></span></div>":"";
 return'<div class="vg-valores">'+
-vgVal("vg-fat","faturamento",a.n?brlV(a.fat):tr,a.n+(1===a.n?" venda":" vendas"))+
+vgVal("vg-fat","faturamento",a.n?brlV(a.fat):tr,a.n+(1===a.n?" venda":" vendas"),
+      "","","dinheiro","azul")+
 pares+
 vgVal("vg-vazamento","vazamento",a.n?brlV(vaza):tr,
-      a.luc>0?vgPct1(vaza,a.luc)+" do lucro":"frete + taxas","forte",quebra)+
+      a.luc>0?vgPct1(vaza,a.luc)+" do lucro":"frete + taxas","forte",quebra,"vaza","vermelho")+
 vgVal("vg-ticket","ticket médio",a.n?brlV(a.fat/a.n):tr,
-      a.n?"lucro médio "+brlV(a.luc/a.n):"por venda","raso")+
+      a.n?"lucro médio "+brlV(a.luc/a.n):"por venda","","","ticket","roxo")+
 "</div>"}
 // Coluna EMPILHADA, nao barra simples. A altura do preenchimento continua sendo
 // o faturamento do mes escalado pelo maior mes da janela, mas o preenchimento se
@@ -892,6 +936,409 @@ return'<section class="vg" aria-label="Painel de vendas">'+vgCab(a,lim)+
 '<div class="vg-graf g-vaza">'+(a.n?vgVazamento(a):"")+"</div>"+
 '<div class="vg-tip" id="vgTip" role="status" hidden></div>'+
 "</div></section>"}
+// ---- Dashboard de Performance de Vendas (aba Dashboard) ---------------------
+// Formato aprovado pelo dono em 12/08/2026, a partir de uma referencia externa.
+// DECISAO CONSCIENTE DELE, CONTRA A RECOMENDACAO: a paleta da referencia entra
+// ao pe da letra (chips azul/verde/roxo/laranja, roscas coloridas), o que quebra
+// a regra da referencia-visual-v3 de que o azul da marca aparece em quatro
+// lugares e mais nenhum. Por isso os hexes novos vivem sob o prefixo --d- no
+// :root: fica explicito, na leitura do CSS, o que e paleta importada e o que e
+// token que passou pela medicao do projeto.
+//
+// Janela PROPRIA (dvJanela), independente da do painel da aba Vendas.
+// Zero RPC nova: agrega vendasData (v_venda), vendasArq e a base de leads que o
+// B() ja deixou em memoria. O criterio de faturamento e o MESMO de vgAgregar,
+// de proposito: dois criterios de faturamento no mesmo sistema divergem.
+var dvJanela="trimestre";
+var DV_JANELAS=[["mes","Mês"],["trimestre","Trimestre"],["tudo","Tudo"]];
+function dvFimMes(ym){
+var an=parseInt(ym.slice(0,4),10),m=parseInt(ym.slice(5,7),10);
+var d=new Date(an,m,0).getDate();
+return ym+"-"+(d<10?"0"+d:d)}
+// A janela ANTERIOR de mesmo tamanho. Sem ela nao existe a seta de variacao, que
+// e metade do que a referencia entrega. Em "tudo" nao ha anterior, e o card DIZ
+// isso em vez de inventar um zero: variacao contra base inexistente e mentira.
+function dvAnterior(){
+var hoje=l(),ym=hoje.slice(0,7);
+if("mes"===dvJanela)return{ini:vgMesMais(ym,-1)+"-01",fim:dvFimMes(vgMesMais(ym,-1)),rot:vgMesRot(vgMesMais(ym,-1))+"/"+vgMesMais(ym,-1).slice(0,4)};
+if("trimestre"===dvJanela)return{ini:vgMesMais(ym,-5)+"-01",fim:dvFimMes(vgMesMais(ym,-3)),rot:"trimestre anterior"};
+return null}
+// Lead conta pela ENTRADA na janela; venda conta pelo fechamento. Sao eventos
+// distintos e a nota do card diz isso: um lead de junho que fecha em agosto
+// entra na venda de agosto e no lead de junho, entao a taxa e "quanto o periodo
+// fechou sobre quanto o periodo captou", nao o destino de uma coorte.
+function dvLeadsNaJanela(lim){
+var out=[],j,d;
+for(j=0;j<(i||[]).length;j++){
+if(i[j].arquivado_em)continue;
+d=u(i[j].criado_em);
+if(!d||d<lim.ini||d>lim.fim)continue;
+out.push(i[j])}
+return out}
+function dvVendasNaJanela(lim){
+var out=[],j,v,d;
+for(j=0;j<(vendasData||[]).length;j++){
+v=vendasData[j];
+if("cancelada"===v.status)continue;
+d=vgDataDe(v);
+if(!d||d<lim.ini||d>lim.fim)continue;
+out.push(v)}
+return out}
+// Origem da venda vem do LEAD, nao da venda: a v_venda nao carrega origem, e
+// forcar uma coluna nova na view derrubaria o security_invoker em silencio
+// (armadilha ja registrada). O vinculo e por lead_id, que e a chave estavel.
+function dvOrigemDaVenda(v){
+var j;
+for(j=0;j<(i||[]).length;j++)if(String(i[j].id)===String(v.lead_id))return i[j].origem||"";
+return""}
+// `n`/`fat`/`luc` sao do que FECHOU na janela (dinheiro do periodo). `conv` e
+// outra coisa: quantos leads que ENTRARAM na janela ja viraram venda. Os dois
+// convivem na mesma linha da tabela porque respondem perguntas diferentes, e a
+// nota do card diz qual e qual.
+function dvCanais(lim){
+var mapa={},ordem=[],j,k,v,org,m;
+var toca=function(cod){
+if(!mapa[cod]){mapa[cod]={cod:cod,rot:cod?s("origem",cod):"sem origem",leads:0,n:0,fat:0,luc:0,conv:0};ordem.push(mapa[cod])}
+return mapa[cod]};
+var lds=dvLeadsNaJanela(lim),dentro={};
+for(j=0;j<lds.length;j++){toca(lds[j].origem||"").leads++;dentro[String(lds[j].id)]=lds[j].origem||""}
+var vds=dvVendasNaJanela(lim),jaContou={};
+for(k=0;k<vds.length;k++){
+v=vds[k];org=dvOrigemDaVenda(v);m=toca(org);
+m.n++;m.fat+=Number(v.valor_venda)||0;m.luc+=Number(v.lucro)||0;
+var lk=String(v.lead_id);
+if(null!=dentro[lk]&&!jaContou[lk]){jaContou[lk]=1;toca(dentro[lk]).conv++}}
+ordem.sort(function(x,y){return y.fat-x.fat||y.leads-x.leads});
+return ordem}
+// ---- a rosca ----------------------------------------------------------------
+// SVG, nao conic-gradient: o vao de 2px entre marcas sai de graca no
+// stroke-dasharray, e o ARCO MINIMO fica explicito no codigo. Ele existe porque
+// fatia que existe nao pode sumir, e tem o custo de o angulo daquela fatia
+// deixar de ser proporcional: por isso o % na legenda e obrigatorio, e a
+// prova_grafico reprova se ele sumir.
+var DV_R=42,DV_CIRC=2*Math.PI*42,DV_VAO=2.4,DV_ARCO=3;
+function dvRosca(fatias,tam,grossura,cnum,crot,rotulo){
+var total=0,i2,brutos=[],exc,grandes=[],soma=0,giro=0,out="";
+for(i2=0;i2<fatias.length;i2++)total+=fatias[i2][1];
+if(!(total>0))total=1;
+for(i2=0;i2<fatias.length;i2++)
+brutos.push(fatias[i2][1]>0?Math.max(DV_CIRC*fatias[i2][1]/total,DV_ARCO):0);
+exc=0;
+for(i2=0;i2<brutos.length;i2++)exc+=brutos[i2];
+exc-=DV_CIRC;
+for(i2=0;i2<brutos.length;i2++)if(brutos[i2]>2*DV_ARCO){grandes.push(i2);soma+=brutos[i2]}
+if(exc>0&&grandes.length)for(i2=0;i2<grandes.length;i2++)
+brutos[grandes[i2]]-=exc*brutos[grandes[i2]]/soma;
+for(i2=0;i2<fatias.length;i2++){
+if(!(brutos[i2]>0))continue;
+var tr=Math.max(brutos[i2]-DV_VAO,.6);
+out+='<circle class="ro-seg f-'+c(fatias[i2][0])+'" cx="50" cy="50" r="'+DV_R+'" fill="none" '+
+'stroke-width="'+(100*grossura/tam).toFixed(2)+'" stroke-dasharray="'+tr.toFixed(2)+" "+
+(DV_CIRC-tr).toFixed(2)+'" stroke-dashoffset="'+(-giro).toFixed(2)+'"/>';
+giro+=brutos[i2]}
+return'<div class="ro-caixa" style="width:'+tam+"px;height:"+tam+'px">'+
+'<svg class="ro-svg" viewBox="0 0 100 100" role="img" aria-label="'+c(rotulo||"")+'">'+
+'<circle class="ro-trilho" cx="50" cy="50" r="'+DV_R+'" fill="none" stroke-width="'+
+(100*grossura/tam).toFixed(2)+'"/>'+out+"</svg>"+
+(cnum?'<span class="ro-centro"><b>'+c(cnum)+"</b><em>"+c(crot||"")+"</em></span>":"")+"</div>"}
+function dvLeg(itens,total,unidade){
+var out="",i2,x;
+for(i2=0;i2<itens.length;i2++){
+x=itens[i2];
+out+='<li data-leg="'+c(x.cod||x.rot)+'"><i class="f-'+c(x.tom)+'"></i><span>'+c(x.rot)+"</span>"+
+"<b>"+c("R$"===unidade?brlV(x.val):String(x.val))+"</b><em>"+c(vgPct1(x.val,total))+"</em></li>"}
+return'<ul class="ro-leg">'+out+"</ul>"}
+// ---- cards ------------------------------------------------------------------
+function dvCard(tit,corpo,extra,cls){
+return'<article class="cd'+(cls?" "+cls:"")+'">'+
+(tit?'<div class="cd-top"><h3>'+c(tit)+"</h3>"+(extra||"")+"</div>":"")+corpo+"</article>"}
+function dvKpi(cod,rot,valor,ico,tom,pe){
+// O icone fica na linha do ROTULO, e o numero ocupa a largura inteira do card
+// embaixo. Na primeira versao os tres dividiam a mesma linha, e medido na foto a
+// 1440px (onde o dashboard vive numa coluna de ~1030px, nao na tela toda) o
+// numero perdia 42px para o chip e saia truncado: "R$ 11.200..." e
+// "R$ 2.800,...". Dinheiro cortado pela reticencia parece outro numero.
+return'<article class="kp" data-kpi="'+c(cod)+'"><div class="kp-topo">'+
+'<p class="kp-rot">'+c(rot)+"</p>"+dvIcone(ico,tom)+"</div>"+
+'<p class="kp-num">'+c(valor)+'</p><p class="kp-pe">'+pe+"</p></article>"}
+// Variacao contra o periodo anterior. `pp` compara pontos percentuais (margem e
+// conversao sao taxas: variar "18%" numa taxa nao quer dizer nada util).
+// `inverte` marca a metrica em que subir e RUIM: vazamento crescendo e verde
+// seria a tela comemorando o prejuizo.
+function dvVar(atual,ant,pp,inverte){
+if(null==ant)return'<span class="kp-var kp-sem">sem período anterior</span>';
+var d,txt;
+if(pp){d=atual-ant;txt=(d>=0?"+":"−")+vgPct1(Math.abs(d),100).replace("%","")+" p.p."}
+else{
+if(!ant)return'<span class="kp-var kp-sem">sem base de comparação</span>';
+d=100*(atual-ant)/Math.abs(ant);
+txt=(d>=0?"+":"−")+vgPct1(Math.abs(d),100)}
+var bom=inverte?d<0:d>=0;
+return'<span class="kp-var '+(bom?"v-bom":"v-ruim")+'">'+(d>=0?"↑":"↓")+" "+c(txt)+"</span>"}
+function dvFaixa(a,ant,rotAnt,lim){
+var vaza=a.frete+a.taxas,tr="—",cv=dvConversao(lim),lds=cv.leads,conv=cv.n;
+// Sem periodo anterior, cada card cai para um contexto REAL e DIFERENTE. A
+// primeira versao repetia "sem periodo anterior" cinco vezes, o que faz a faixa
+// inteira parecer quebrada, e a ausencia de comparacao ja e dita no cabecalho.
+var vds=dvVendasNaJanela(lim),mai=0,men=0,j2,vv;
+for(j2=0;j2<vds.length;j2++){
+vv=Number(vds[j2].valor_venda)||0;
+if(!j2||vv>mai)mai=vv;
+if(!j2||vv<men)men=vv}
+var vs=ant?'<span class="kp-vs">vs '+c(rotAnt)+"</span>":"";
+var pe=function(cmp,ctx){return ant?cmp+vs:'<span class="kp-var kp-sem">'+c(ctx)+"</span>"};
+var antVaza=ant?ant.frete+ant.taxas:0;
+return'<div class="kp-faixa">'+
+dvKpi("fat","Faturamento",a.n?brlV(a.fat):tr,"dinheiro","azul",
+  pe(dvVar(a.fat,ant?ant.fat:null),a.n+(1===a.n?" venda":" vendas")+" na janela"))+
+dvKpi("luc","Lucro",a.n?brlV(a.luc):tr,"lucro","verde",
+  pe(dvVar(a.luc,ant?ant.luc:null),a.n?brlV(a.luc/a.n)+" por venda":"nada fechado"))+
+dvKpi("margem","Margem",a.n?vgPct1(a.luc,a.fat):tr,"margem","laranja",
+  pe(dvVar(a.fat>0?100*a.luc/a.fat:0,ant&&ant.fat>0?100*ant.luc/ant.fat:null,!0),
+     a.n?brlV(vaza)+" de despesa":"sem base"))+
+dvKpi("ticket","Ticket médio",a.n?brlV(a.fat/a.n):tr,"ticket","roxo",
+  pe(dvVar(a.n?a.fat/a.n:0,ant&&ant.n?ant.fat/ant.n:null),
+     a.n>1?"maior "+brlV(mai)+" · menor "+brlV(men):a.n?"venda única":"sem venda"))+
+dvKpi("conv","Conversão",lds?vgPct1(conv,lds):tr,"alvo","vermelho",
+  '<span class="kp-var kp-sem">'+conv+" de "+lds+" lead"+(1===lds?"":"s")+" da janela</span>")+
+"</div>"}
+// Conversao e COORTE: quantos dos leads que ENTRARAM na janela ja fecharam.
+// A primeira versao dividia venda da janela por lead da janela, e na foto de
+// 12/08/2026 deu "133,3%" (4 vendas sobre 3 leads), porque venda de lead antigo
+// entrava no numerador sem estar no denominador. Taxa acima de 100% nao e
+// numero apertado, e a tela dizendo que a conta esta errada.
+function dvConversao(lim){
+var lds=dvLeadsNaJanela(lim),dentro={},j,n=0,vds=dvVendasNaJanela(lim);
+for(j=0;j<lds.length;j++)dentro[String(lds[j].id)]=1;
+var jaContou={};
+for(j=0;j<vds.length;j++){
+var k=String(vds[j].lead_id);
+if(dentro[k]&&!jaContou[k]){jaContou[k]=1;n++}}
+return{n:n,leads:lds.length}}
+var DV_TONS=["azul","verde","laranja","roxo","vermelho"];
+function dvCardCanal(canais){
+// "sem origem" NUNCA pega cor de canal: verde ali leria como um canal indo bem,
+// quando na verdade e dado FALTANDO. Cinza e a cor de ausencia.
+var itens=[],tot=0,j,k=0;
+for(j=0;j<canais.length;j++){
+if(!(canais[j].fat>0))continue;
+itens.push({cod:canais[j].cod||"sem_origem",rot:canais[j].rot,val:canais[j].fat,
+  tom:canais[j].cod?DV_TONS[k++%DV_TONS.length]:"cinza"});
+tot+=canais[j].fat}
+if(!itens.length)return dvCard("Faturamento por canal",
+  '<div class="estado"><strong>Nenhuma venda na janela.</strong></div>',"","c-canal");
+var fat=[],j2;
+for(j2=0;j2<itens.length;j2++)fat.push([itens[j2].tom,itens[j2].val]);
+return dvCard("Faturamento por canal",
+  '<div class="ro-linha">'+dvRosca(fat,150,22,vgMilhar(tot),"Total",
+    "Faturamento por canal de origem")+"</div>"+dvLeg(itens,tot,"R$"),"","c-canal")}
+function dvCardTempo(a){
+if(!a.meses.length)return dvCard("Faturamento ao longo do tempo",
+  '<div class="estado"><strong>Nenhum mês com venda.</strong></div>',"","c-tempo");
+var mx=0,j,m,out="",eixo="",p;
+for(j=0;j<a.meses.length;j++)if(a.meses[j].fat>mx)mx=a.meses[j].fat;
+for(j=0;j<a.meses.length;j++){
+m=a.meses[j];
+// Mes em prejuizo: a barra cresce para cima em qualquer caso, entao sem marca
+// propria um rombo de R$ 200 desenharia igual a um ganho de R$ 200. A hachura +
+// o vermelho carregam a diferenca, pela mesma razao do v52: lucro x prejuizo
+// medem 1.32 de luminancia, e matiz sozinho nao separa.
+out+='<div class="tp-col" data-mes="'+c(m.ym)+'"><div class="tp-par">'+
+'<span class="tp-b b-fat" style="height:'+Math.max(2,Math.round(100*m.fat/mx))+'%">'+
+'<i>'+c(vgMilhar(m.fat))+"</i></span>"+
+'<span class="tp-b b-luc'+(m.luc<0?" b-neg":"")+'" style="height:'+
+Math.max(2,Math.round(100*Math.abs(m.luc)/mx))+'%">'+
+'<i>'+c(vgMilhar(m.luc))+"</i></span></div>"+
+'<span class="tp-rot">'+c(vgMesRot(m.ym))+"</span></div>"}
+for(p=0;p<4;p++)eixo+="<span>"+c(vgMilhar(mx*(3-p)/3))+"</span>";
+// A linha diaria da referencia NAO entrou: 3 vendas em 73 dias sao 3 bolinhas
+// numa reta, e o v52 ja reprovou serie temporal sobre 3 pontos como decoracao.
+// A regra de volta esta escrita no proprio card para a proxima sessao nao achar
+// que foi esquecimento.
+return dvCard("Faturamento ao longo do tempo",
+  '<div class="tp-leg"><span><i class="f-azul"></i>faturamento</span>'+
+  '<span><i class="f-verde"></i>lucro</span></div>'+
+  '<div class="tp-graf" role="img" aria-label="Faturamento e lucro por mês na janela">'+
+  '<div class="tp-eixo">'+eixo+'</div><div class="tp-cols">'+out+"</div></div>"+
+  '<p class="cd-pe">'+a.meses.length+(1===a.meses.length?" mês":" meses")+
+  ' na janela. A linha diária volta a partir de <b>8 pontos</b>.</p>',"","c-tempo")}
+function dvCardFinanceiro(a){
+var bruta=a.fat-a.custo;
+var lin=function(rot,val,cls,cor){
+return'<li class="'+(cls||"")+'"><span>'+c(rot)+'</span><b class="'+(cor||"")+'">'+c(val)+"</b></li>"};
+return dvCard("Resumo financeiro",
+  '<ul class="fn">'+
+  lin("Faturamento",brlV(a.fat),"l-forte")+
+  lin("(−) Custo dos aparelhos","− "+brlV(a.custo))+
+  lin("(=) Margem bruta",brlV(bruta),"l-sub")+
+  lin("(−) Frete","− "+brlV(a.frete))+
+  lin("(−) Taxas","− "+brlV(a.taxas))+
+  lin("(=) Lucro líquido",brlV(a.luc),"l-total")+
+  "</ul><p class=\"cd-pe\">Não existem <b>devoluções</b> nem <b>impostos</b> no cadastro de "+
+  "venda: as duas linhas da referência ficaram de fora em vez de nascerem zeradas.</p>",
+  "","c-fin")}
+function dvCardProdutos(vds){
+if(!vds.length)return dvCard("Aparelhos mais vendidos",
+  '<div class="estado"><strong>Nenhuma venda na janela.</strong></div>',"","c-prod");
+var lst=vds.slice(0).sort(function(x,y){return(Number(y.valor_venda)||0)-(Number(x.valor_venda)||0)});
+var out="",j,v,val,luc;
+for(j=0;j<lst.length&&j<6;j++){
+v=lst[j];val=Number(v.valor_venda)||0;luc=Number(v.lucro)||0;
+out+='<li><span class="pr-i">'+(j+1)+'</span><span class="pr-nome">'+
+c(v.modelo_texto||v.modelo_rotulo||"sem modelo")+"<em>"+
+c((v.condicao?s("condicao",v.condicao):"sem condição")+" · margem "+vgPct1(luc,val))+
+"</em></span><span class=\"pr-un\">1 un.</span><b>"+c(brlV(val))+"</b></li>"}
+return dvCard("Aparelhos mais vendidos",'<ul class="pr">'+out+"</ul>","","c-prod")}
+// A conversao aqui e a MESMA coorte do KPI (lead que entrou na janela e ja
+// fechou), nao venda/lead solto. Na foto de 12/08/2026 o rodape dizia 133,3%
+// (4 vendas sobre 3 leads) enquanto o card de cima dizia 0,0%: duas contas com o
+// mesmo nome na mesma tela, e a tabela contradizendo o placar.
+function dvCardDesempenho(canais){
+var out="",j,x,tl=0,tv=0,tf=0,tc=0;
+for(j=0;j<canais.length;j++){
+x=canais[j];tl+=x.leads;tv+=x.n;tf+=x.fat;tc+=x.conv;
+out+="<tr><td>"+c(x.rot)+'</td><td class="n">'+x.leads+'</td><td class="n">'+x.n+
+'</td><td class="n">'+c(x.fat?brlV(x.fat):"—")+'</td><td class="n">'+
+c(x.n?brlV(x.fat/x.n):"—")+'</td><td class="n"><span class="conv">'+
+c(x.leads?vgPct1(x.conv,x.leads):"—")+'<span class="cv-tubo"><span class="cv-b" style="width:'+
+(x.leads?Math.min(100,Math.round(100*x.conv/x.leads)):0)+'%"></span></span></span></td></tr>'}
+return dvCard("Desempenho por canal",
+  '<div class="tb-rolo"><table class="tb"><thead><tr><th>Canal</th><th class="n">Leads</th>'+
+  '<th class="n">Vendas</th><th class="n">Faturamento</th><th class="n">Ticket</th>'+
+  '<th class="n">Conversão</th></tr></thead><tbody>'+out+"</tbody><tfoot><tr><td>Total</td>"+
+  '<td class="n">'+tl+'</td><td class="n">'+tv+'</td><td class="n">'+c(brlV(tf))+
+  '</td><td class="n">'+c(tv?brlV(tf/tv):"—")+'</td><td class="n">'+
+  c(tl?vgPct1(tc,tl):"—")+"</td></tr></tfoot></table></div>"+
+  '<p class="cd-pe">Lead conta pela <b>entrada</b> na janela, venda pelo <b>fechamento</b>: '+
+  'um lead antigo que fecha hoje entra na venda de hoje, não no lead de hoje.</p>',
+  "","c-desemp")}
+function dvCardStatus(lim){
+var cont={concluida:0,pre_venda:0,cancelada:0,arquivada:0},j,v,d;
+for(j=0;j<(vendasData||[]).length;j++){
+v=vendasData[j];d=vgDataDe(v);
+if(!d||d<lim.ini||d>lim.fim)continue;
+if(null!=cont[v.status])cont[v.status]++}
+// A arquivada vem da OUTRA lista: a v_venda filtra arquivado_em is null, entao
+// sem isto a rosca diria que nao existe venda arquivada, que e falso.
+for(j=0;j<(vendasArq||[]).length;j++){
+d=vendasArq[j].data_venda||u(vendasArq[j].arquivado_em)||"";
+if(!d||d<lim.ini||d>lim.fim)continue;
+cont.arquivada++}
+var defs=[["Concluída","concluida","verde"],["Pré-venda","pre_venda","azul"],
+["Arquivada","arquivada","cinza"],["Cancelada","cancelada","vermelho"]];
+var itens=[],fat=[],tot=0,k;
+for(k=0;k<defs.length;k++){
+itens.push({cod:defs[k][1],rot:defs[k][0],val:cont[defs[k][1]],tom:defs[k][2]});
+fat.push([defs[k][2],cont[defs[k][1]]]);
+tot+=cont[defs[k][1]]}
+if(!tot)return dvCard("Status das vendas",
+  '<div class="estado"><strong>Nenhuma venda na janela.</strong></div>',"","c-status");
+// Status com zero CONTINUA na legenda: "Cancelada 0" e informacao, cancelada
+// sumida e omissao. Na rosca ele nao vira fatia, porque zero nao tem angulo.
+return dvCard("Status das vendas",
+  '<div class="ro-linha">'+dvRosca(fat,140,20,String(tot),"Total","Status das vendas na janela")+
+  "</div>"+dvLeg(itens,tot,""),"","c-status")}
+function dvCardCondicao(vds){
+var mapa={},ordem=[],j,v,cod,m,mx=0;
+for(j=0;j<vds.length;j++){
+v=vds[j];cod=v.condicao||"";
+m=mapa[cod];
+if(!m){m={cod:cod,rot:cod?s("condicao",cod):"sem condição",n:0,fat:0,luc:0};mapa[cod]=m;ordem.push(m)}
+m.n++;m.fat+=Number(v.valor_venda)||0;m.luc+=Number(v.lucro)||0}
+if(!ordem.length)return dvCard("Margem por condição",
+  '<div class="estado"><strong>Nenhuma venda na janela.</strong></div>',"","c-cond");
+for(j=0;j<ordem.length;j++)if(ordem[j].fat>0&&100*ordem[j].luc/ordem[j].fat>mx)mx=100*ordem[j].luc/ordem[j].fat;
+if(!(mx>0))mx=1;
+ordem.sort(function(x,y){return(y.fat>0?y.luc/y.fat:0)-(x.fat>0?x.luc/x.fat:0)});
+var out="";
+for(j=0;j<ordem.length;j++){
+m=ordem[j];
+var mg=m.fat>0?100*m.luc/m.fat:0;
+out+='<li data-cond="'+c(m.cod||"sem")+'"><span class="cn-rot">'+c(m.rot)+"</span>"+
+'<span class="cn-tubo"><span class="cn-b'+(mg<0?" neg":"")+'" style="width:'+
+Math.max(2,Math.min(100,Math.round(100*Math.abs(mg)/mx)))+'%"></span></span>'+
+"<b>"+c(vgPct1(m.luc,m.fat))+"</b><em>"+m.n+" un.</em></li>"}
+// Ocupa o slot de "origens de trafego" da referencia. O sistema nao tem
+// analytics nenhum, e sessao inventada nao e dado.
+return dvCard("Margem por condição",'<ul class="cn">'+out+"</ul>"+
+  '<p class="cd-pe">A última coluna é o nº de vendas: <b>uma venda não é tendência</b>.</p>',
+  "","c-cond")}
+// Insights sao REGRA, nao IA: condicoes deterministicas sobre o dado que ja esta
+// na memoria. Sao auditaveis (da para conferir o numero na propria tela), de
+// graca e estaveis entre dois cliques. E limitados de proposito: so enxergam o
+// que esta escrito aqui.
+function dvInsights(a,canais,vds){
+var out=[],j,x,pior=null,melhor=null,semOrig=0,cond={},k,mx=null,mn=null;
+for(j=0;j<canais.length;j++){
+x=canais[j];
+if(!x.cod)continue;
+if(x.leads>=5&&0===x.n&&(!pior||x.leads>pior.leads))pior=x;
+if(x.leads>=3&&x.n>0){
+var tx=x.n/x.leads;
+if(!melhor||tx>melhor.tx)melhor={rot:x.rot,tx:tx,leads:x.leads,n:x.n}}}
+for(j=0;j<canais.length;j++)if(!canais[j].cod)semOrig=canais[j].fat;
+if(pior)out.push(["ruim",pior.rot+" não converte",
+  pior.leads+" leads, nenhuma venda. É entrada sem saída."]);
+if(melhor&&a.n&&melhor.tx>a.n/Math.max(1,dvLeadsTot))out.push(["bom",melhor.rot+" é o melhor canal",
+  melhor.leads+" leads, "+melhor.n+(1===melhor.n?" venda":" vendas")+": "+
+  vgPct1(melhor.n,melhor.leads)+" de conversão."]);
+for(j=0;j<vds.length;j++){
+k=vds[j].condicao||"";
+if(!cond[k])cond[k]={rot:k?s("condicao",k):"sem condição",n:0,fat:0,luc:0};
+cond[k].n++;cond[k].fat+=Number(vds[j].valor_venda)||0;cond[k].luc+=Number(vds[j].lucro)||0}
+for(k in cond)if(Object.prototype.hasOwnProperty.call(cond,k)&&cond[k].fat>0){
+var mg=100*cond[k].luc/cond[k].fat;
+if(!mx||mg>mx.mg)mx={rot:cond[k].rot,mg:mg,n:cond[k].n};
+if(!mn||mg<mn.mg)mn={rot:cond[k].rot,mg:mg,n:cond[k].n}}
+if(mx&&mn&&mx.rot!==mn.rot&&mx.mg-mn.mg>=5)
+out.push(["atencao",mx.rot+" rende mais margem",
+  mx.rot+" "+vgPct1(mx.mg,100)+" contra "+vgPct1(mn.mg,100)+" de "+mn.rot+
+  ". Apoiado em "+mx.n+(1===mx.n?" venda":" vendas")+
+  (mx.n<3?": confirmar antes de virar regra.":".")]);
+if(a.fat>0&&semOrig/a.fat>=.2)
+out.push(["atencao",vgPct1(semOrig,a.fat)+" do faturamento sem canal",
+  brlV(semOrig)+" vieram de lead sem origem preenchida. O painel de canal fica cego assim."]);
+if(!out.length)out.push(["bom","Nada fora da curva",
+  "Nenhuma das regras de alerta disparou nesta janela."]);
+var li="",j2;
+for(j2=0;j2<out.length;j2++)
+li+='<li class="in-'+out[j2][0]+'" data-ins="'+out[j2][0]+'"><span class="in-p"></span><div><b>'+
+c(out[j2][1])+"</b><em>"+c(out[j2][2])+"</em></div></li>";
+return dvCard("Insights",'<ul class="ins">'+li+"</ul>"+
+  '<button class="cd-cta" data-acao="dv-ver-vendas">Ver todas as vendas →</button>',
+  "","c-ins")}
+var dvLeadsTot=1;
+function dvCab(a,lim,ant){
+var op="",j;
+for(j=0;j<DV_JANELAS.length;j++)
+op+='<button class="dh-seg-b" data-acao="dv-janela" data-id="'+DV_JANELAS[j][0]+
+'" aria-pressed="'+(dvJanela===DV_JANELAS[j][0]?"true":"false")+'">'+c(DV_JANELAS[j][1])+"</button>";
+// O recorte e o seletor tem que CONCORDAR: um cabecalho que discorda do proprio
+// dado e a maneira mais barata de a tela mentir.
+return'<header class="dh"><div class="dh-tit"><span class="dh-ico" aria-hidden="true">'+
+'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
+'stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>'+
+'<div><h1>Performance de Vendas</h1><p>Visão geral do seu negócio</p></div></div>'+
+'<div class="dh-per"><span class="dh-cx">'+c(vgDataBr(lim.ini))+" – "+c(vgDataBr(lim.fim))+"</span>"+
+'<span class="dh-cx'+(ant?"":" dh-vazio")+'">'+
+(ant?"Comparar com: "+c(ant.rot):"Comparar: sem período anterior")+"</span></div>"+
+'<div class="dh-seg">'+op+"</div></header>"}
+function dvPainel(){
+var linhas=vendasData||[],lim=vgLimites(linhas,dvJanela),a=vgAgregar(linhas,lim);
+var ant=dvAnterior(),aAnt=ant?vgAgregar(linhas,ant):null;
+var vds=dvVendasNaJanela(lim),canais=dvCanais(lim);
+dvLeadsTot=Math.max(1,dvLeadsNaJanela(lim).length);
+// TRES linhas de QUATRO unidades, e nao duas de quatro cards: os dois cards com
+// mais conteudo horizontal (a serie no tempo, que precisa de eixo, e a tabela de
+// canal, que tem 6 colunas) ocupam DUAS unidades cada. Medido na foto: com todos
+// do mesmo tamanho numa coluna de ~1030px, a tabela cortava Ticket e Conversao.
+// O agrupamento tambem ficou por assunto: dinheiro, canais, produto e leitura.
+return'<section class="dash" aria-label="Dashboard de performance de vendas">'+
+dvCab(a,lim,ant)+dvFaixa(a,aAnt,ant?ant.rot:"",lim)+
+'<div class="dash-l">'+dvCardCanal(canais)+dvCardTempo(a)+dvCardFinanceiro(a)+"</div>"+
+'<div class="dash-l">'+dvCardDesempenho(canais)+dvCardStatus(lim)+dvCardCondicao(vds)+"</div>"+
+'<div class="dash-l">'+dvCardProdutos(vds)+dvInsights(a,canais,vds)+"</div></section>"}
+
 // Portao unico de leitura por tabela/view. Antes, os quatro carregadores faziam
 // `(r&&r.data)||[]` e nunca liam `r.error`: rede caida ou JWT expirado viravam
 // lista vazia, e a tela pintava o estado VAZIO, convidando o dono a recadastrar o
@@ -1095,6 +1542,20 @@ if("venda-entrega"===o){abrirPainelEntrega(id);return!0}if("venda-desarquivar"==
 // este alternar refazia as 3 leituras e apagava a lista a cada toque.
 if("venda-arq-alternar"===o){vendasArqAberto=!vendasArqAberto;pintarVendas();return!0}
 if("vg-janela"===o){vgJanela=id||"trimestre";vgTipEsconder();pintarVendas();return!0}
+// O dashboard entra por AQUI, e nao no despachante A(), porque o A() vive na
+// linha 1 minificada e esta obra nao a toca. vendaAcao ja e chamado antes das
+// acoes de venda e devolve true quando trata, entao e o gancho barato.
+// Trocar a janela do dashboard NAO relê a rede: o dado ja esta em memoria, e
+// refazer as leituras a cada toque e o defeito que o v51 tirou do resto do app.
+if("dv-janela"===o){
+dvJanela=id||"trimestre";
+var dvSec=E("lista")?E("lista").querySelector(".dash"):null;
+if(dvSec&&dvSec.parentNode){
+var novo=document.createElement("div");
+novo.innerHTML=dvPainel();
+dvSec.parentNode.replaceChild(novo.firstChild,dvSec)}
+return!0}
+if("dv-ver-vendas"===o){if(E("abaVendas"))E("abaVendas").click();return!0}
 // Toque na coluna do mes: o celular nao tem hover, e sem este caminho a
 // composicao daquele mes ficaria represada atras de um gesto que nao existe.
 // Tocar de novo na mesma coluna fecha.

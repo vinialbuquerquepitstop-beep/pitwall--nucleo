@@ -7,7 +7,30 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v52.md` (12/08/2026, **a aba Vendas ganhou o
+- topo: `handoff_migracao_pitwall_v53.md` (12/08/2026, **a aba Dashboard ganhou um
+  painel de Performance de Vendas** no formato de uma referencia externa que o dono
+  trouxe depois de REPROVAR o primeiro mock: 12 cards (KPI com icone e variacao,
+  rosca de canal, serie por mes, P&L, ranking, tabela de canal com conversao, rosca
+  de status, margem por condicao, insights) e a coluna de valores da aba Vendas
+  virou faixa de 5 cards. **Zero banco.** **A referencia estava com os numeros do
+  dono e DOIS ROTULOS TROCADOS**: chamava de "Ticket Medio" o que era o LUCRO e de
+  "Taxa de Conversao" o que era a MARGEM — conferir rotulo antes de copiar layout.
+  Dos 13 paineis, 4 nao entraram e o motivo esta escrito DENTRO do card (trafego
+  nao existe: o sistema nao tem analytics; devolucoes e impostos nao tem coluna;
+  itens vendidos repetiria Vendas; linha diaria sobre 3 pontos e decoracao).
+  **DUAS DECISOES DO DONO CONTRA A RECOMENDACAO**: a paleta da referencia entra ao
+  pe da letra (quebra a regra dos 4 usos do azul da v3; mitigado com o prefixo
+  `--d-` em todo hex novo) e mora nas duas telas. **A metrica errada desta vez foi
+  a conversao**: venda/lead solto deu **133,3%**, e o KPI dizia 0,0% enquanto o
+  rodape da tabela dizia 133,3% na MESMA tela — virou coorte. Cinco defeitos que so
+  a FOTO pegou com a suite verde, e a armadilha nova: **`foto.py` so LE o HTML que
+  o `harness.py` montou**, entao editar sem remontar produz foto IDENTICA e parece
+  que a correcao falhou (agora ele ABORTA). Dois guard-rails do `diag_mobile`
+  reescritos, nao calados — e foi o segundo que pegou um defeito real: documento a
+  **361,06px** num viewport de 360, por `min-width:0` faltando. Harness **352/0 sem
+  editar uma assercao**: os `data-cel` sobreviveram a troca de formato.
+  Pendencia: **o drill-down do pedido original nao entrou**)
+- anterior: `handoff_migracao_pitwall_v52.md` (12/08/2026, **a aba Vendas ganhou o
   dinheiro somado no topo**: graficos estreitos a esquerda, valores a direita,
   janela declarada. **Zero banco** — agrega as linhas que a tela ja carrega da
   `v_venda`, pela regra da secao 4 do v51, e trocar a janela custa zero chamada
@@ -31,7 +54,8 @@ nenhuma das duas batia com o repo.
   verde. Harness **352/0**, prova nos dois sentidos reprovando 61x, e duas
   rodadas perdidas por assercao que ESTOUROU em vez de reprovar. `prova_grafico.py`
   nasceu. Pendencia herdada agora VISIVEL: a VENDA-0003 duplicada faz o painel
-  mostrar R$ 24.750 onde o certo e R$ 16.350)
+  mostrar R$ 24.750 onde o certo e R$ 16.350. **RESOLVIDA:** conferido na v_venda
+  em 12/08/2026, a duplicata foi arquivada e a base bate em R$ 16.350 / 3 vendas)
 - anterior: `handoff_migracao_pitwall_v51.md` (11/08/2026, **clique de acao parou de
   recarregar a tela**. `q()` chamava `B()` (carga completa) no sucesso de
   qualquer acao: medido em fila de 25, **20 chamadas de rede por clique**, a

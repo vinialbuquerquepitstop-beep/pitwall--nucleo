@@ -1520,18 +1520,37 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    grid-column declarado, o auto-placement do Grid e SPARSE e nunca volta a uma
    coluna anterior na mesma linha, entao os graficos caiam para a linha de baixo
    (medido a 1280px: graficos top=463, valores top=117). */
-.vg-corpo{display:grid;grid-template-columns:220px 240px minmax(260px,1fr);gap:18px;align-items:start;position:relative}
-.vg-graf{grid-row:1;min-width:0}
+/* LAYOUT NOVO (12/08/2026): os valores viraram FAIXA de 5 cards na largura toda
+   (linha 1) e os dois graficos ficam lado a lado embaixo (linha 2). Ate a v52 os
+   valores eram a terceira COLUNA, a direita. A troca e consciente e derruba a
+   assercao de geometria do diag_mobile que descrevia o layout antigo: ela foi
+   reescrita para o novo, nao silenciada.
+   O DOM continua com os valores PRIMEIRO, que e a ordem do celular e a ordem de
+   leitura para leitor de tela. A posicao vem de grid-row/grid-column nomeados,
+   nunca de `order`, que move o pixel e deixa a leitura para tras. */
+/* A coluna do "por mes" e ESTREITA de proposito: a barra vale 24px em qualquer
+   viewport (regra do v52), entao com 2 ou 3 meses ela precisa de ~140px e o
+   resto vira ar morto. Foi esse vazio o primeiro incomodo do dono em 12/08/2026.
+   Quem cresce e a barra de composicao, que usa a largura de verdade. */
+.vg-corpo{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(260px,1.45fr);gap:18px;align-items:start;position:relative}
+.vg-valores{grid-column:1 / -1;grid-row:1;display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.vg-graf{grid-row:2;min-width:0}
 .vg-graf.g-meses{grid-column:1}
 .vg-graf.g-vaza{grid-column:2}
-.vg-valores{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px}
 /* Os seletores aqui repetem a classe de propósito. Media query NAO acrescenta
    especificidade: `.vg-graf` (0,1,0) perde para `.vg-graf.g-vaza` (0,2,0) da
    regra de cima, e o resultado medido a 390px era os dois graficos lado a lado
    num viewport de celular. */
+@media (max-width:1100px){
+.vg-valores{grid-template-columns:repeat(3,1fr)}
+}
 @media (max-width:900px){
 .vg-corpo{grid-template-columns:1fr;gap:14px}
-.vg-graf.g-meses,.vg-graf.g-vaza,.vg-valores{grid-column:1;grid-row:auto}
+.vg-graf.g-meses,.vg-graf.g-vaza{grid-column:1;grid-row:auto}
+.vg-valores{grid-column:1;grid-row:auto;grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){
+.vg-valores{grid-template-columns:1fr}
 }
 /* Titulo de secao do grafico. O <span> carrega como se le o desenho: sem ele,
    uma coluna empilhada e um enigma bonito. */
@@ -1650,19 +1669,21 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 /* ---- coluna de valores ----
    Reusa a ESCALA de texto do pitboard (.pb-rot, .pb-pe) sem reusar a grade dele,
    que e repeat(4,1fr) e nao cabe numa coluna de 212px. */
-.vg-val{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;background:var(--bg)}
+.vg-val{border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px;background:var(--bg);
+  display:flex;flex-direction:column;min-width:0}
+/* O topo do card: texto a esquerda, chip de icone a direita. Formato da
+   referencia aprovada em 12/08/2026. O chip carrega SO cor de fundo, e o
+   desenho e monocromatico em currentColor. */
+.vg-val-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.vg-val-txt{min-width:0}
 /* SEM tabular-nums: numero grande e solto usa as figuras proporcionais da fonte.
    Digito com largura de zero deixa "R$ 1.096,00" frouxo em corpo de display.
    tabular-nums fica onde numero alinha na vertical: legenda, balao, eixo. */
-.vg-num{font-family:var(--display);font-weight:600;font-size:25px;line-height:1.1;letter-spacing:-.015em;color:var(--text)}
+.vg-num{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.15;letter-spacing:-.02em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vg-num.neg{color:var(--erro-fg)}
 .vg-num-m{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.15;letter-spacing:-.01em;color:var(--text)}
 .vg-num-m.neg{color:var(--erro-fg)}
-/* lucro e margem sao UMA historia, entao dividem a mesma caixa. Margem saiu do
-   pe do lucro, onde era o menor texto do bloco, e e ela que diz se a operacao
-   vale a pena. */
-.vg-par{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
-.vg-par-cel{min-width:0}
-.vg-par-cel:last-child{text-align:right}
+.vg-val .pb-pe{margin-top:auto;padding-top:9px}
 /* Destaque do vazamento: ESTRUTURAL (borda forte, numero maior, decomposicao
    visivel), nunca fundo tingido. No resto do app --morno significa trabalho
    pendente e .pb-num.alerta significa "isso esta errado agora"; vazamento existe
@@ -2000,4 +2021,254 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   /* mesmo calculo da Fila: 22px de largura de card a 360px e caro demais. A
      bandeja some e a separacao passa a vir so da sombra. */
   #lista[data-aba="hoje"]{background:none;border:0;border-radius:0;padding:0;gap:10px}
+}
+
+/* =============================================================================
+   DASHBOARD DE PERFORMANCE DE VENDAS  +  faixa de KPI da aba Vendas
+   Formato aprovado pelo dono em 12/08/2026, a partir de uma referência externa.
+
+   DECISÃO CONSCIENTE DO DONO, CONTRA A RECOMENDAÇÃO, REGISTRADA: a paleta da
+   referência entra ao pé da letra (chips azul/verde/roxo/laranja, roscas
+   coloridas). Isso QUEBRA a regra da referencia-visual-v3 de que o azul da
+   marca aparece em quatro lugares e mais nenhum, e a regra do projeto de que
+   barra colorida por categoria já foi reprovada duas vezes.
+
+   Por isso os hexes novos vivem TODOS sob o prefixo --d-, e em nenhum outro
+   lugar: lendo o CSS dá para separar num relance o que é paleta importada do
+   que é token que passou pela medição de contraste do projeto. Não misturar.
+   ========================================================================== */
+:root{
+  --d-azul:#3B82F6;    --d-azul-bg:#EFF6FF;
+  --d-verde:#22C55E;   --d-verde-bg:#ECFDF5;
+  --d-laranja:#F97316; --d-laranja-bg:#FFF7ED;
+  --d-roxo:#8B5CF6;    --d-roxo-bg:#F5F3FF;
+  --d-verm:#EF4444;    --d-verm-bg:#FEF2F2;
+  --d-cinza:#CBD5E1;   --d-cinza-bg:#F1F5F9;
+  --d-up:#16A34A;      --d-down:#DC2626;
+  --d-linha:#E5E7EB;   --d-fundo:#F8FAFC;
+  --d-txt:#0F172A;     --d-dim:#64748B;
+  --d-r:12px;
+}
+
+/* ---- chip de ícone: usado na faixa de Vendas E no dashboard ---- */
+.kp-ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto}
+.kp-ico svg{width:17px;height:17px}
+.kp-ico.t-azul{background:var(--d-azul-bg);color:var(--d-azul)}
+.kp-ico.t-verde{background:var(--d-verde-bg);color:var(--d-verde)}
+.kp-ico.t-laranja{background:var(--d-laranja-bg);color:var(--d-laranja)}
+.kp-ico.t-roxo{background:var(--d-roxo-bg);color:var(--d-roxo)}
+.kp-ico.t-vermelho{background:var(--d-verm-bg);color:var(--d-verm)}
+.kp-ico.t-cinza{background:var(--d-cinza-bg);color:var(--d-dim)}
+
+/* ---- o dashboard ---- */
+.dash{background:var(--d-fundo);border:1px solid var(--d-linha);border-radius:var(--d-r);
+  padding:18px;margin-bottom:18px;color:var(--d-txt)}
+.f-azul{background:var(--d-azul)}     .ro-seg.f-azul{stroke:var(--d-azul)}
+.f-verde{background:var(--d-verde)}   .ro-seg.f-verde{stroke:var(--d-verde)}
+.f-laranja{background:var(--d-laranja)}.ro-seg.f-laranja{stroke:var(--d-laranja)}
+.f-roxo{background:var(--d-roxo)}     .ro-seg.f-roxo{stroke:var(--d-roxo)}
+.f-vermelho{background:var(--d-verm)} .ro-seg.f-vermelho{stroke:var(--d-verm)}
+.f-cinza{background:var(--d-cinza)}   .ro-seg.f-cinza{stroke:var(--d-cinza)}
+
+.dh{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.dh-tit{display:flex;align-items:center;gap:11px;margin-right:auto}
+.dh-ico{width:36px;height:36px;border-radius:9px;background:var(--d-azul-bg);
+  color:var(--d-azul);display:grid;place-items:center;flex:0 0 auto}
+.dh-ico svg{width:19px;height:19px}
+.dh h1{font-family:var(--display);font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em}
+.dh p{margin:1px 0 0;font-size:12px;color:var(--d-dim)}
+.dh-per{display:flex;gap:8px;flex-wrap:wrap}
+.dh-cx{font-family:var(--body);font-size:12.5px;color:var(--d-txt);background:var(--bg);
+  border:1px solid var(--d-linha);border-radius:9px;padding:8px 13px}
+.dh-cx.dh-vazio{color:var(--d-dim)}
+.dh-seg{display:flex;background:var(--bg);border:1px solid var(--d-linha);
+  border-radius:9px;padding:3px;gap:2px}
+.dh-seg-b{font-family:var(--body);font-size:12.5px;color:var(--d-dim);background:none;
+  border:0;border-radius:7px;padding:6px 12px;cursor:pointer}
+.dh-seg-b[aria-pressed="true"]{background:var(--d-azul-bg);color:var(--d-azul);font-weight:500}
+
+/* ---- faixa de KPI (dashboard) ---- */
+/* auto-fit + minmax, e NAO um repeat(5,1fr) com media query: media query mede o
+   VIEWPORT, e o dashboard vive numa coluna de ~1030px ao lado da barra lateral
+   de 232px. A 1440px de tela a regra de 5 colunas cabia na conta e nao cabia na
+   caixa. Sizing intrinseco resolve sem adivinhar o breakpoint. */
+.kp-faixa{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:12px;margin-bottom:12px}
+.kp{background:var(--bg);border:1px solid var(--d-linha);border-radius:var(--d-r);
+  padding:15px 16px;min-width:0}
+/* O icone divide a linha com o ROTULO, nunca com o numero: o dashboard mora numa
+   coluna de ~1030px (não na tela inteira), e com os tres na mesma linha o numero
+   perdia 42px para o chip e saia "R$ 11.200...". Agora o numero tem o card todo. */
+.kp-topo{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kp-rot{margin:0;font-size:12.5px;color:var(--d-dim);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kp-num{margin:8px 0 0;font-family:var(--display);font-size:22px;font-weight:600;
+  letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kp-pe{margin:11px 0 0;font-size:11.5px;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap}
+.kp-var{font-weight:600}
+.kp-var.v-bom{color:var(--d-up)}
+.kp-var.v-ruim{color:var(--d-down)}
+.kp-var.kp-sem{color:var(--d-dim);font-weight:400}
+.kp-vs{color:var(--d-dim)}
+
+/* ---- grade dos cards. A tabela de canal é o card com mais colunas do painel:
+       com 3.2fr ela cortava Ticket e Conversão, e coluna cortada não existe. --- */
+/* QUATRO unidades por linha, e os dois cards com mais conteudo horizontal (serie
+   no tempo, que precisa de eixo, e tabela de canal, que tem 6 colunas) ocupam
+   DUAS unidades cada. Assim cada linha fecha em 4 e nada sobra pendurado.
+   O `repeat(4,1fr)` so vale onde ha espaco: abaixo disso a grade cai para 2 e
+   depois para 1, e o `span 2` vira `span 1` sozinho numa grade de 1 coluna. */
+.dash-l{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.dash-l:last-child{margin-bottom:0}
+.c-desemp,.c-tempo{grid-column:span 2}
+/* A terceira linha tem so dois cards: sem o span eles ficavam com um quarto da
+   largura cada e metade da linha vazia. Ranking e insights sao texto, e texto
+   em coluna de 240px vira escada de tres palavras. */
+.c-prod,.c-ins{grid-column:span 2}
+@media (max-width:1000px){
+  .dash-l{grid-template-columns:repeat(2,1fr)}
+  .c-prod,.c-ins{grid-column:auto}
+}
+@media (max-width:620px){
+  .dash-l{grid-template-columns:1fr}
+  .c-desemp,.c-tempo{grid-column:auto}
+}
+.cd{background:var(--bg);border:1px solid var(--d-linha);border-radius:var(--d-r);
+  padding:15px 16px;min-width:0;display:flex;flex-direction:column}
+.cd-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.cd h3{font-family:var(--display);font-size:14px;font-weight:600;margin:0;letter-spacing:-.01em}
+.cd-pe{margin:11px 0 0;font-size:11px;color:var(--d-dim);line-height:1.5}
+.cd-pe b{color:var(--d-txt);font-weight:500}
+
+/* ---- rosca. Vão de 2px na cor da superfície, nunca borda. O arco mínimo faz a
+       fatia fina não sumir, e tem o custo de o ângulo dela deixar de ser
+       proporcional: por isso o % na legenda é obrigatório. ---- */
+.ro-linha{display:grid;place-items:center;padding:4px 0 12px}
+.ro-caixa{position:relative}
+.ro-svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ro-trilho{stroke:var(--d-fundo)}
+.ro-seg{stroke-linecap:butt}
+.ro-centro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:1px;pointer-events:none}
+.ro-centro b{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.01em}
+.ro-centro em{font-size:11px;font-style:normal;color:var(--d-dim)}
+.ro-leg{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.ro-leg li{display:grid;grid-template-columns:9px 1fr auto auto;align-items:center;gap:8px;
+  font-size:12.5px}
+.ro-leg i{width:9px;height:9px;border-radius:50%;align-self:start;margin-top:4px}
+/* O rotulo QUEBRA em vez de truncar. Com nowrap+ellipsis, "sem origem" virava
+   "s..." num card estreito, e legenda ilegivel derruba a rosca inteira: o % so
+   quer dizer alguma coisa se der para ler de que fatia ele e. */
+.ro-leg span{min-width:0;overflow-wrap:anywhere;line-height:1.35}
+.ro-leg b{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ro-leg em{font-style:normal;color:var(--d-dim);font-variant-numeric:tabular-nums;
+  min-width:42px;text-align:right}
+
+/* ---- tempo ---- */
+.tp-leg{display:flex;gap:14px;font-size:12px;color:var(--d-dim);margin-bottom:10px}
+.tp-leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.tp-graf{display:grid;grid-template-columns:auto 1fr;gap:10px;flex:1;min-height:190px}
+.tp-eixo{display:flex;flex-direction:column;justify-content:space-between;font-size:10.5px;
+  color:var(--d-dim);font-variant-numeric:tabular-nums;text-align:right;padding-bottom:20px}
+.tp-cols{display:flex;align-items:flex-end;justify-content:space-around;gap:20px;
+  border-left:1px solid var(--d-linha);border-bottom:1px solid var(--d-linha);padding:0 16px}
+.tp-col{display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
+.tp-par{display:flex;align-items:flex-end;gap:6px;height:100%;padding-top:14px}
+.tp-b{position:relative;width:30px;border-radius:5px 5px 0 0;display:block}
+.tp-b i{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-style:normal;
+  font-size:10px;color:var(--d-dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tp-b.b-fat{background:var(--d-azul)}
+.tp-b.b-luc{background:var(--d-verde)}
+/* Prejuizo: a barra cresce para cima igual ao ganho, entao a marca tem que
+   carregar o sinal. Vermelho E hachura, nao so vermelho: lucro x prejuizo medem
+   1.32 de luminancia, o caso classico de daltonismo vermelho-verde, e matiz
+   sozinho nao separa os dois. */
+.tp-b.b-luc.b-neg{background:repeating-linear-gradient(45deg,
+  var(--d-verm) 0 4px, var(--d-verm-bg) 4px 8px)}
+.tp-rot{font-size:11.5px;color:var(--d-dim);padding-top:6px}
+
+/* ---- resumo financeiro ---- */
+.fn{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;flex:1}
+.fn li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  font-size:12.5px;padding:7px 0}
+.fn li b{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fn li span{color:var(--d-dim)}
+.fn li.l-forte span,.fn li.l-sub span,.fn li.l-total span{color:var(--d-txt);font-weight:500}
+.fn li.l-sub{border-top:1px solid var(--d-linha);margin-top:4px;padding-top:9px}
+.fn li.l-sub b{color:var(--d-azul)}
+.fn li.l-total{border-top:1px solid var(--d-linha);margin-top:4px;padding-top:9px}
+.fn li.l-total b{color:var(--d-verde);font-size:14px;font-weight:600}
+
+/* ---- ranking de aparelhos ---- */
+.pr{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+/* A coluna "1 un." saiu da linha do nome e foi para o pe, junto da condicao: com
+   quatro colunas num card de ~250px o nome ficava com ~70px e "iPhone 15 / sem
+   condição · margem 16,0%" quebrava em QUATRO linhas. Nome e valor mandam; o
+   resto e apoio e vive na linha de baixo. */
+.pr li{display:grid;grid-template-columns:20px 1fr auto;align-items:baseline;gap:10px;
+  padding:9px 0;font-size:12.5px}
+.pr li+li{border-top:1px solid var(--d-linha)}
+.pr-i{color:var(--d-dim);font-size:11.5px;text-align:center}
+.pr-nome{min-width:0;overflow-wrap:anywhere;line-height:1.35}
+.pr-nome em{display:block;font-style:normal;font-size:11px;color:var(--d-dim);margin-top:1px}
+.pr-un{display:none}
+.pr li b{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---- tabela de canal ---- */
+.tb-rolo{overflow-x:auto;flex:1}
+.tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.tb th{font-size:11px;font-weight:500;color:var(--d-dim);text-align:left;padding:0 7px 8px;
+  border-bottom:1px solid var(--d-linha);white-space:nowrap}
+.tb td{padding:8px 7px;border-bottom:1px solid var(--d-linha);white-space:nowrap}
+.tb .n{text-align:right;font-variant-numeric:tabular-nums}
+.tb tfoot td{border-bottom:0;font-weight:600;color:var(--d-azul)}
+.tb .conv{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.cv-tubo{width:28px;height:5px;border-radius:3px;background:var(--d-linha);overflow:hidden;
+  flex:0 0 auto}
+.cv-b{display:block;height:100%;background:var(--d-verde);border-radius:3px}
+
+/* ---- margem por condição ---- */
+.cn{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+/* Mesma razao da legenda da rosca: rotulo quebra, nao trunca. "Seminovo" virava
+   "Semino..." e "sem condição" virava "sem con...", que sao coisas diferentes
+   lidas igual. */
+.cn li{display:grid;grid-template-columns:minmax(64px,1.1fr) 1fr auto auto;align-items:center;
+  gap:9px;font-size:12.5px}
+.cn-rot{min-width:0;overflow-wrap:anywhere;line-height:1.35}
+.cn-tubo{height:7px;border-radius:4px;background:var(--d-linha);overflow:hidden}
+.cn-b{display:block;height:100%;background:var(--d-azul);border-radius:4px}
+.cn-b.neg{background:var(--d-verm)}
+.cn li b{font-weight:500;font-variant-numeric:tabular-nums}
+.cn li em{font-style:normal;font-size:11px;color:var(--d-dim);min-width:34px;text-align:right}
+
+/* ---- insights. São REGRA, não IA: condições determinísticas sobre o dado que
+       já está na memória. Auditáveis, de graça e estáveis entre dois cliques. -- */
+.ins{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:13px;flex:1}
+.ins li{display:flex;gap:10px;align-items:flex-start}
+.in-p{width:22px;height:22px;border-radius:7px;flex:0 0 auto;margin-top:1px}
+.in-bom .in-p{background:var(--d-verde-bg);border:1.5px solid var(--d-verde)}
+.in-ruim .in-p{background:var(--d-verm-bg);border:1.5px solid var(--d-verm)}
+.in-atencao .in-p{background:var(--d-laranja-bg);border:1.5px solid var(--d-laranja)}
+.ins b{display:block;font-size:12.5px;font-weight:600}
+.ins em{display:block;font-style:normal;font-size:11.5px;color:var(--d-dim);line-height:1.5;
+  margin-top:2px}
+.cd-cta{margin-top:13px;width:100%;font-family:var(--body);font-size:12.5px;font-weight:500;
+  color:var(--d-azul);background:var(--bg);border:1px solid var(--d-linha);
+  border-radius:9px;padding:10px;cursor:pointer}
+
+@media (max-width:1150px){
+  .kp-faixa{grid-template-columns:repeat(3,1fr)}
+  .dash-l2,.dash-l3{grid-template-columns:1fr 1fr}
+}
+@media (max-width:720px){
+  .kp-faixa{grid-template-columns:1fr 1fr}
+  .dash-l2,.dash-l3{grid-template-columns:1fr}
+  .dash{padding:12px}
+  .dh-per,.dh-seg{width:100%}
+}
+/* Uma coluna abaixo de 520px. Em duas, o card tem ~116px de texto util e
+   "R$ 2.800,00" so cabia cortado pela reticencia: dinheiro truncado e pior que
+   card alto, porque o numero parece outro. */
+@media (max-width:520px){
+  .kp-faixa{grid-template-columns:1fr}
 }

@@ -42,6 +42,22 @@ if not montado.exists():
     print(f'ABORTA: {montado} nao existe. Rode `python ferramentas/harness.py` uma vez.')
     sys.exit(2)
 
+# ARMADILHA MEDIDA EM 12/08/2026: este arquivo e montado pelo harness.py, e o
+# foto.py so o LE. Depois de editar app.js/app.css sem rodar o harness de novo, a
+# foto sai IDENTICA a anterior e parece que a correcao nao funcionou — foi
+# exatamente o que aconteceu, e quase virou "consertei e nao mudou nada".
+# Fotografar estado velho e pior que nao fotografar: da uma leitura errada da
+# tela com a confianca de quem olhou.
+_raiz = pathlib.Path(__file__).resolve().parent.parent
+_fontes = [_raiz / 'public' / 'app.js', _raiz / 'public' / 'app.css',
+           _raiz / 'public' / 'index.html']
+_velhas = [f.name for f in _fontes if f.exists() and f.stat().st_mtime > montado.stat().st_mtime]
+if _velhas:
+    print(f'ABORTA: {", ".join(_velhas)} mudou depois da ultima montagem.\n'
+          f'        A foto sairia do estado ANTIGO. Rode antes:\n'
+          f'          python ferramentas/harness.py')
+    sys.exit(2)
+
 pagina = montado.read_text(encoding='utf-8')
 
 # Arrancar o ultimo <script>: e o bloco de teste, que clica por toda aba e
@@ -53,12 +69,17 @@ if corte < 0:
     sys.exit(2)
 pagina = pagina[:corte]
 
-ID = {'hoje': 'abaHoje', 'fila': 'abaFila', 'todos': 'abaTodos',
-      'vendas': 'abaVendas', 'conteudo': 'abaConteudo', 'rotina': 'abaRotina',
-      'clientes': 'abaClientes', 'escopo': 'abaEscopo'}.get(aba)
+# O mapa e uma CONSTANTE, e nao um .get() inline: antes o erro tentava listar as
+# abas validas a partir de `ID`, que nessa altura ja era None por definicao, e a
+# mensagem saia sem lista nenhuma. Quem erra o nome da aba precisa ver os nomes.
+ABAS = {'hoje': 'abaHoje', 'fila': 'abaFila', 'todos': 'abaTodos',
+        'vendas': 'abaVendas', 'conteudo': 'abaConteudo', 'rotina': 'abaRotina',
+        'clientes': 'abaClientes', 'escopo': 'abaEscopo',
+        'dashboard': 'abaDash', 'nfs': 'abaNfs', 'captacao': 'abaCaptacao',
+        'indicacoes': 'abaIndicacoes'}
+ID = ABAS.get(aba)
 if not ID:
-    print(f'ABORTA: aba "{aba}" desconhecida. Use: {", ".join(sorted(ID or {}))}'
-          if ID else f'ABORTA: aba "{aba}" desconhecida.')
+    print(f'ABORTA: aba "{aba}" desconhecida. Use: {", ".join(sorted(ABAS))}')
     sys.exit(2)
 
 # window.PitWall.init() e o que liga o app. Sem ele a foto sai da tela de LOGIN,

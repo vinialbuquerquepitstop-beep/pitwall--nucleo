@@ -33,3 +33,8 @@ ferramentas/fotos/
 # Regenerar quando precisar olhar:
 #   python ferramentas/harness.py && python ferramentas/foto.py fila 1280
 docs/design/foto_*.png
+# Idem para os PNG dos mocks: o gerador .py e a fonte da verdade e o PNG e saida.
+docs/design/mock_*.png
+
+# Gerado por ferramentas/mock_dashboard.py (o gerador e a fonte da verdade).
+ferramentas/mock_dashboard.html
