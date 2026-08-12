@@ -1872,6 +1872,136 @@ async function rodar() {
      document.querySelector('#lista .pb-celula[data-cel="rotina"]') === celRot);
   }
 
+  // ---- Insights com memoria de tempo (12/08/2026) ---------------------------
+  // O card de Insights subiu no v53 SEM prova nenhuma: a suite inteira nao
+  // mencionava .ins, e as 352 assercoes passaram sem encostar nele. Regra de
+  // negocio sem guard-rail e regra que ninguem percebe quando quebra.
+  //
+  // Tudo aqui sai do PROPRIO fixture, nunca de numero cravado: a janela do
+  // dashboard depende de l(), e assercao com "agosto" dentro fica vermelha
+  // sozinha em setembro sem nada ter quebrado. A conta por fora e a SEGUNDA
+  // conta: se ela e a do app divergirem, uma das duas esta errada.
+  document.getElementById('abaDash').click();
+  await espera(220);
+
+  function mesMais(ym, n) {
+    var an = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10) - 1 + n;
+    an += Math.floor(m / 12); m = (m % 12 + 12) % 12;
+    var mm = String(m + 1);
+    return an + '-' + (mm.length < 2 ? '0' + mm : mm);
+  }
+  function diasNoMes(ym) {
+    return new Date(parseInt(ym.slice(0, 4), 10), parseInt(ym.slice(5, 7), 10), 0).getDate();
+  }
+  function agregEntre(ini, fim) {
+    var r = { n: 0, fat: 0, luc: 0 };
+    VENDAS_STUB.forEach(function (v) {
+      if (v.status === 'cancelada') return;
+      var d = String(v.data_venda || '').slice(0, 10);
+      if (!d || d < ini || d > fim) return;
+      r.n++; r.fat += Number(v.valor_venda) || 0; r.luc += Number(v.lucro) || 0;
+    });
+    return r;
+  }
+  function insLista() {
+    return [].map.call(document.querySelectorAll('#lista .c-ins .ins li'), function (li) {
+      return { tom: li.getAttribute('data-ins'), tit: li.querySelector('b').textContent,
+               txt: li.querySelector('em').textContent };
+    });
+  }
+  function insCom(pref) {
+    var t = insLista(), j;
+    for (j = 0; j < t.length; j++) if (t[j].tit.indexOf(pref) === 0) return t[j];
+    return null;
+  }
+  function insCard() { return document.querySelector('#lista .c-ins'); }
+
+  var hojeH = window.PitWall.hojeLocalISO(), ymH = hojeH.slice(0, 7);
+  ok('o Dashboard renderizou UM card de Insights',
+     document.querySelectorAll('#lista .c-ins').length === 1,
+     'n=' + document.querySelectorAll('#lista .c-ins').length);
+  ok('Insights nunca sai vazio', insLista().length > 0, 'n=' + insLista().length);
+
+  // Trimestre e a janela padrao; o anterior dela vai de mes-5 ao fim de mes-3.
+  var mAnt3 = mesMais(ymH, -3);
+  var triAnt = agregEntre(mesMais(ymH, -5) + '-01', mAnt3 + '-' + diasNoMes(mAnt3));
+  ok('sem venda no periodo anterior o card DIZ que nao ha base, em vez de calar',
+     triAnt.n > 0 || insCard().textContent.indexOf('base para comparar') >= 0,
+     'vendas no trimestre anterior=' + triAnt.n);
+
+  var btnMes = document.querySelector('#lista [data-acao="dv-janela"][data-id="mes"]');
+  ok('a janela Mes existe no cabecalho do dashboard', !!btnMes);
+  btnMes.click();
+  await espera(220);
+
+  var ymAnt = mesMais(ymH, -1);
+  var atu = agregEntre(ymH + '-01', ymH + '-' + diasNoMes(ymH));
+  var pre = agregEntre(ymAnt + '-01', ymAnt + '-' + diasNoMes(ymAnt));
+  var dec = parseInt(hojeH.slice(8, 10), 10), tot = diasNoMes(ymH), parcial = dec < tot;
+
+  if (pre.n && pre.fat > 0 && atu.fat > 0) {
+    var dm = (100 * atu.luc / atu.fat) - (100 * pre.luc / pre.fat);
+    var mIns = insCom('Margem ');
+    ok('a regra de margem concorda com a conta feita por fora',
+       (Math.abs(dm) >= 3) === !!mIns,
+       'diferenca=' + dm.toFixed(1) + ' p.p., card ' + (mIns ? 'mostrou' : 'nao mostrou'));
+    if (mIns) ok('a margem aponta para o lado certo',
+       mIns.tom === (dm < 0 ? 'ruim' : 'bom'), 'tom=' + mIns.tom + ' d=' + dm.toFixed(1));
+  }
+
+  // O nucleo da fatia: janela em curso NAO se compara pelo total bruto. Sem
+  // isto, todo dia 2 do mes o card grita "faturamento despencou 90%", que e o
+  // calendario falando, nao o negocio.
+  if (pre.fat > 0 && pre.n && parcial) {
+    var bruto = 100 * (atu.fat - pre.fat) / pre.fat;
+    var base = pre.fat / diasNoMes(ymAnt), ritmo = 100 * ((atu.fat / dec) - base) / base;
+    var fIns = insCom('Faturamento ');
+    ok('janela pela metade NAO e comparada pelo total bruto',
+       !fIns || fIns.txt.indexOf('ritmo por dia') >= 0,
+       fIns ? fIns.txt.slice(0, 90) : 'sem insight de faturamento');
+    ok('o alarme falso do calendario nao dispara: bruto passa do corte, ritmo nao',
+       !(Math.abs(bruto) >= 25 && Math.abs(ritmo) < 25) || !fIns,
+       'bruto=' + bruto.toFixed(1) + '% ritmo=' + ritmo.toFixed(1) + '%');
+    ok('e quando o RITMO passa do corte, o insight aparece',
+       Math.abs(ritmo) < 25 || !!fIns, 'ritmo=' + ritmo.toFixed(1) + '%');
+    // A faixa de KPI do topo compara total contra total e marca a queda bruta.
+    // Se o card apenas silenciasse, a tela teria duas contas do mesmo numero
+    // sem explicacao. Quando ele silencia o alarme, tem que dizer por que.
+    if (Math.abs(bruto) >= 25 && Math.abs(ritmo) < 25) {
+      var cIns = insCom('A queda de ') || insCom('A alta de ');
+      ok('quando o card discorda da faixa do topo, ele EXPLICA a divergencia',
+         !!cIns && cIns.txt.indexOf('ritmo por dia') >= 0,
+         cIns ? cIns.tit + ' | ' + cIns.txt.slice(0, 70) : 'nao explicou');
+    }
+  }
+
+  var ldA = 0, ldB = 0;
+  LEADS.forEach(function (x) {
+    if (x.arquivado_em) return;
+    var d = window.PitWall.dataLocalDe(x.criado_em);
+    if (!d) return;
+    if (d.slice(0, 7) === ymH && d <= hojeH) ldA++;
+    if (d.slice(0, 7) === ymAnt) ldB++;
+  });
+  if (ldB > 0 && pre.n) {
+    var lA = parcial ? ldA / dec : ldA, lB = parcial ? ldB / diasNoMes(ymAnt) : ldB;
+    var vl = 100 * (lA - lB) / lB, lIns = insCom('Entrada de leads ');
+    ok('a regra de entrada de leads concorda com a contagem por fora',
+       (Math.abs(vl) >= 30) === !!lIns,
+       'variacao=' + vl.toFixed(1) + '%, card ' + (lIns ? 'mostrou' : 'nao mostrou'));
+  }
+
+  var lst = insLista(), viuBom = false, ordOk = true, j4;
+  for (j4 = 0; j4 < lst.length; j4++) {
+    if (lst[j4].tom === 'bom') viuBom = true;
+    else if (viuBom) ordOk = false;
+  }
+  ok('o que exige acao vem antes do elogio', ordOk,
+     lst.map(function (x) { return x.tom; }).join(','));
+  ok('a lista de insights tem teto de 6', lst.length <= 6, 'n=' + lst.length);
+  ok('todo insight tem titulo e corpo, nunca bolinha solta',
+     lst.length > 0 && lst.every(function (x) { return x.tit.length > 0 && x.txt.length > 0; }));
+
   fim();
 
 }

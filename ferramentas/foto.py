@@ -17,11 +17,17 @@ Uso:
     python ferramentas/foto.py                 # aba Hoje, 1280px
     python ferramentas/foto.py fila 390        # aba Fila, largura de celular
     python ferramentas/foto.py conteudo 1280
+    python ferramentas/foto.py dashboard 1440 2200 "[data-acao=dv-janela][data-id=mes]"
+
+O 4o argumento e um SELETOR clicado depois da aba. Existe porque estado que so
+aparece depois de um clique dentro da aba era INFOTOGRAFAVEL: o dashboard abre
+em Trimestre, e as regras de comparacao do card de Insights so tem base na
+janela Mes. Foto que nao alcanca o estado em questao nao prova nada sobre ele.
 
 Exige que `python ferramentas/harness.py` tenha rodado ao menos uma vez nesta
 maquina, para o arquivo montado existir.
 """
-import os, sys, pathlib, tempfile, subprocess
+import os, sys, re, json, pathlib, tempfile, subprocess
 
 CHROME = None
 for p in [r'C:\Program Files\Google\Chrome\Application\chrome.exe',
@@ -36,6 +42,10 @@ if not CHROME:
 aba = (sys.argv[1] if len(sys.argv) > 1 else 'hoje').lower()
 larg = int(sys.argv[2]) if len(sys.argv) > 2 else 1280
 alt = int(sys.argv[3]) if len(sys.argv) > 3 else 1400
+seletor = sys.argv[4] if len(sys.argv) > 4 else ''
+# O seletor entra no nome do arquivo: sem isso a foto do estado clicado
+# SOBRESCREVE a do estado base, e ficam duas leituras diferentes com um nome so.
+sufixo = ('_' + re.sub(r'[^a-z0-9]+', '-', seletor.lower()).strip('-')[:40]) if seletor else ''
 
 montado = pathlib.Path(tempfile.gettempdir()) / 'pitwall_harness.html'
 if not montado.exists():
@@ -91,14 +101,28 @@ window.addEventListener('load', function () {{
   setTimeout(function () {{
     var b = document.getElementById('{ID}');
     if (b && '{ID}' !== 'abaHoje') b.click();
+    var sel = {json.dumps(seletor)};
+    if (!sel) return;
+    setTimeout(function () {{
+      var alvo = document.querySelector(sel);
+      if (alvo) {{ alvo.click(); return; }}
+      // Seletor que nao casa tem que APARECER na foto. Se falhasse calado, a
+      // imagem sairia do estado base com cara de estado clicado, que e a mesma
+      // familia de mentira da montagem velha que este script ja aborta.
+      var av = document.createElement('div');
+      av.textContent = 'FOTO INVALIDA: seletor nao encontrado -> ' + sel;
+      av.setAttribute('style', 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+        + 'background:#B01235;color:#fff;font:600 15px sans-serif;padding:10px 14px');
+      document.body.appendChild(av);
+    }}, 400);
   }}, 400);
 }});
 </script></body></html>"""
 
-tmp = pathlib.Path(tempfile.gettempdir()) / f'pitwall_foto_{aba}.html'
+tmp = pathlib.Path(tempfile.gettempdir()) / f'pitwall_foto_{aba}{sufixo}.html'
 tmp.write_text(pagina, encoding='utf-8')
 
-saida = pathlib.Path(__file__).resolve().parent.parent / 'docs' / 'design' / f'foto_{aba}_{larg}.png'
+saida = pathlib.Path(__file__).resolve().parent.parent / 'docs' / 'design' / f'foto_{aba}_{larg}{sufixo}.png'
 saida.parent.mkdir(parents=True, exist_ok=True)
 
 perfil = tempfile.mkdtemp()

@@ -7,7 +7,29 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v53.md` (12/08/2026, **a aba Dashboard ganhou um
+- topo: `handoff_migracao_pitwall_v54.md` (12/08/2026, **o card de Insights ganhou
+  memoria de tempo**. Pergunta do dono: "como fazer esse card seguir dando
+  insights". A resposta nao era empilhar regra: as quatro do v53 olham so a janela
+  atual e **se autodestroem** quando o dono age. Entraram **5 regras que comparam
+  com a janela anterior**, a unica fonte que nao seca. **Zero banco** — reusa o
+  `aAnt` que o `dvPainel` ja calculava para as setas dos KPIs e nunca passava para
+  os insights. **O card tinha subido SEM PROVA NENHUMA**: o `harness.py` nao
+  mencionava `.ins`, e as "352/0" do v53 nunca encostaram nele. Agora sao 14
+  assercoes so ali, **366/0**, e nenhuma crava numero de agosto (cada expectativa
+  e recalculada por fora do app, a partir do proprio fixture: a segunda conta).
+  **A regra que da o tom: janela em curso NAO se compara pelo total** — no dia 12,
+  agosto sempre "cai" contra julho inteiro. Volume vira ritmo por dia; taxa nao
+  precisa. Medido: **bruto -63,4% contra ritmo -5,5%**. **A foto pegou de novo o
+  que a suite verde nao pegava**: a faixa de KPI do topo marcava `−63,4%` enquanto
+  o card ficava calado, duas contas do mesmo numero na mesma tela (a familia de
+  defeito da conversao do v53). Nao mexi na faixa (formato aprovado pelo dono); o
+  card passou a **declarar a divergencia**. `foto.py` ganhou 4o argumento
+  (seletor clicado apos a aba), porque o estado que importa so existe depois de
+  clicar `Mês` e era infotografavel. Pendencias: as duas regras de canal nao tem
+  prova por limitacao do fixture (decisao consciente), e os sete cortes numericos
+  seguem cravados no JS contra o espirito do invariante 11. **CRLF pela TERCEIRA
+  sessao seguida**)
+- anterior: `handoff_migracao_pitwall_v53.md` (12/08/2026, **a aba Dashboard ganhou um
   painel de Performance de Vendas** no formato de uma referencia externa que o dono
   trouxe depois de REPROVAR o primeiro mock: 12 cards (KPI com icone e variacao,
   rosca de canal, serie por mes, P&L, ranking, tabela de canal com conversao, rosca

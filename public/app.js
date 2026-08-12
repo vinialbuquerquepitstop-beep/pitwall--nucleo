@@ -1263,11 +1263,75 @@ Math.max(2,Math.min(100,Math.round(100*Math.abs(mg)/mx)))+'%"></span></span>'+
 return dvCard("Margem por condição",'<ul class="cn">'+out+"</ul>"+
   '<p class="cd-pe">A última coluna é o nº de vendas: <b>uma venda não é tendência</b>.</p>',
   "","c-cond")}
+// Dias entre duas datas ISO, inclusivo nas duas pontas.
+function dvDias(ini,fim){
+var d1=new Date(ini+"T12:00:00"),d2=new Date(fim+"T12:00:00");
+return Math.max(1,Math.round((d2-d1)/864e5)+1)}
+// Uma janela EM CURSO nao se compara com uma janela fechada pelo TOTAL: no dia 12,
+// agosto sempre "cai" contra julho inteiro, e o alerta seria puro calendario, nao
+// negocio. Com a janela pela metade, comparacao de VOLUME vira ritmo por dia e o
+// texto do insight diz que virou. Taxa (margem) nao precisa disso: uma razao nao
+// encolhe so porque o mes esta na metade.
+function dvRitmo(lim){
+var hoje=l(),fimNom=dvFimMes(hoje.slice(0,7));
+var tot=dvDias(lim.ini,fimNom),dec=dvDias(lim.ini,hoje<fimNom?hoje:fimNom);
+if(dec>tot)dec=tot;
+return{dec:dec,tot:tot,parcial:dec<tot}}
+// As regras de janela unica se ESGOTAM quando o dono age: preencheu a origem, o
+// alerta some. Estas comparam com a janela anterior, que e a unica fonte que nao
+// seca, porque a cada periodo que fecha existe material novo, com 3 vendas ou
+// com 300. Continuam deterministicas e auditaveis: o numero citado esta na tela.
+function dvCompara(a,aAnt,ant,lim,canais){
+var out=[],r=dvRitmo(lim),dAnt=dvDias(ant.ini,ant.fim),j,x,y;
+if(a.fat>0&&aAnt.fat>0){
+var mgA=100*a.luc/a.fat,mgB=100*aAnt.luc/aAnt.fat,dm=mgA-mgB;
+if(Math.abs(dm)>=3)out.push([dm<0?"ruim":"bom",
+  "Margem "+(dm<0?"caiu":"subiu")+" "+vgPct1(Math.abs(dm),100).replace("%"," p.p."),
+  vgPct1(aAnt.luc,aAnt.fat)+" em "+ant.rot+" contra "+vgPct1(a.luc,a.fat)+" agora."])}
+if(aAnt.fat>0){
+var fA=r.parcial?a.fat/r.dec:a.fat,fB=r.parcial?aAnt.fat/dAnt:aAnt.fat,vf=100*(fA-fB)/fB;
+if(Math.abs(vf)>=25)out.push([vf<0?"ruim":"bom",
+  "Faturamento "+(vf<0?"caiu":"subiu")+" "+vgPct1(Math.abs(vf),100),
+  r.parcial?"Em ritmo por dia: "+brlV(fA)+" contra "+brlV(fB)+" em "+ant.rot+
+    ". A janela está em "+r.dec+" de "+r.tot+" dias.":
+    brlV(aAnt.fat)+" em "+ant.rot+" contra "+brlV(a.fat)+" agora."]);
+// A faixa de KPI do topo compara TOTAL contra TOTAL, e numa janela em curso ela
+// marca "-63,4% vs jul/2026" enquanto esta regra, corrigida por ritmo, fica
+// calada. Sao duas contas do mesmo numero na mesma tela, que e exatamente a
+// contradicao que o v53 pegou na conversao. Enquanto a faixa nao mudar (formato
+// aprovado pelo dono, decisao dele), o card DIZ por que discorda, em vez de
+// deixar o dono achar que a operacao desabou no dia 12.
+var bruto=100*(a.fat-aAnt.fat)/aAnt.fat;
+if(r.parcial&&Math.abs(bruto)>=25&&Math.abs(vf)<25)
+out.push(["atencao",(bruto<0?"A queda":"A alta")+" de "+vgPct1(Math.abs(bruto),100)+" no topo é calendário",
+  "A faixa compara "+r.dec+" dias contra "+dAnt+". No mesmo ritmo por dia a diferença é de "+
+  vgPct1(Math.abs(vf),100)+", não de "+vgPct1(Math.abs(bruto),100)+"."])}
+var ldA=dvLeadsNaJanela(lim).length,ldB=dvLeadsNaJanela(ant).length;
+if(ldB>0){
+var lA=r.parcial?ldA/r.dec:ldA,lB=r.parcial?ldB/dAnt:ldB,vl=100*(lA-lB)/lB;
+if(Math.abs(vl)>=30)out.push([vl<0?"ruim":"bom",
+  "Entrada de leads "+(vl<0?"caiu":"subiu")+" "+vgPct1(Math.abs(vl),100),
+  ldB+(1===ldB?" lead":" leads")+" em "+ant.rot+" contra "+ldA+" agora"+
+  (r.parcial?", já corrigido pelo ritmo diário.":".")])}
+var cA=dvCanais(ant),mp={},esf=null,est=null;
+for(j=0;j<cA.length;j++)if(cA[j].cod)mp[cA[j].cod]=cA[j];
+for(j=0;j<canais.length;j++){
+x=canais[j];
+if(!x.cod)continue;
+y=mp[x.cod];
+if(y&&y.n>0&&0===x.n&&x.leads>0&&(!esf||y.fat>esf.fat))esf={rot:x.rot,fat:y.fat,n:y.n,leads:x.leads};
+if(x.n>0&&(!y||0===y.n)&&(!est||x.fat>est.fat))est={rot:x.rot,fat:x.fat,n:x.n}}
+if(esf)out.push(["atencao",esf.rot+" parou de vender",
+  esf.n+(1===esf.n?" venda":" vendas")+" em "+ant.rot+", nenhuma agora, e "+
+  esf.leads+(1===esf.leads?" lead entrou":" leads entraram")+" na janela."]);
+if(est)out.push(["bom",est.rot+" estreou vendendo",
+  est.n+(1===est.n?" venda":" vendas")+" e "+brlV(est.fat)+", sem nenhuma em "+ant.rot+"."]);
+return out}
 // Insights sao REGRA, nao IA: condicoes deterministicas sobre o dado que ja esta
 // na memoria. Sao auditaveis (da para conferir o numero na propria tela), de
 // graca e estaveis entre dois cliques. E limitados de proposito: so enxergam o
 // que esta escrito aqui.
-function dvInsights(a,canais,vds){
+function dvInsights(a,canais,vds,aAnt,ant,lim){
 var out=[],j,x,pior=null,melhor=null,semOrig=0,cond={},k,mx=null,mn=null;
 for(j=0;j<canais.length;j++){
 x=canais[j];
@@ -1298,13 +1362,35 @@ out.push(["atencao",mx.rot+" rende mais margem",
 if(a.fat>0&&semOrig/a.fat>=.2)
 out.push(["atencao",vgPct1(semOrig,a.fat)+" do faturamento sem canal",
   brlV(semOrig)+" vieram de lead sem origem preenchida. O painel de canal fica cego assim."]);
+// A memoria de tempo so entra com base REAL: periodo anterior que existe e que
+// teve venda. Comparar contra zero produziria "+100%" em toda janela, que e a
+// mesma familia de mentira da conversao acima de 100% do v53.
+if(ant&&aAnt&&aAnt.n){
+var cmp=dvCompara(a,aAnt,ant,lim,canais),jc;
+for(jc=0;jc<cmp.length;jc++)out.push(cmp[jc])}
 if(!out.length)out.push(["bom","Nada fora da curva",
   "Nenhuma das regras de alerta disparou nesta janela."]);
-var li="",j2;
-for(j2=0;j2<out.length;j2++)
-li+='<li class="in-'+out[j2][0]+'" data-ins="'+out[j2][0]+'"><span class="in-p"></span><div><b>'+
-c(out[j2][1])+"</b><em>"+c(out[j2][2])+"</em></div></li>";
+// Ordem por GRAVIDADE, nao por ordem de escrita das regras: com a comparacao
+// ligada a lista dobrou de tamanho, e o que exige acao nao pode ficar embaixo de
+// um elogio. Balde explicito em vez de sort(), porque estabilidade de sort nao e
+// garantida em todo motor e aqui a ordem de empate importa.
+var ord=[],TONS=["ruim","atencao","bom"],jt,j2;
+for(jt=0;jt<TONS.length;jt++)for(j2=0;j2<out.length;j2++)if(out[j2][0]===TONS[jt])ord.push(out[j2]);
+var CORTE=6,sobra=ord.length>CORTE?ord.length-CORTE:0;
+if(sobra)ord=ord.slice(0,CORTE);
+var li="";
+for(j2=0;j2<ord.length;j2++)
+li+='<li class="in-'+ord[j2][0]+'" data-ins="'+ord[j2][0]+'"><span class="in-p"></span><div><b>'+
+c(ord[j2][1])+"</b><em>"+c(ord[j2][2])+"</em></div></li>";
+// O rodape existe para a AUSENCIA nao ser silenciosa. Sem ele, "Tudo" e um
+// periodo anterior vazio produzem uma lista curta sem dizer por que encolheu, e
+// tela que omite recorte mente.
+var pe="";
+if(!ant)pe="A janela <b>Tudo</b> não tem período anterior: as regras de comparação ficam de fora.";
+else if(!aAnt||!aAnt.n)pe="Sem venda em "+c(ant.rot)+": não há base para comparar com o período anterior.";
+else if(sobra)pe="Mais "+sobra+(1===sobra?" alerta ficou":" alertas ficaram")+" fora da lista, por espaço.";
 return dvCard("Insights",'<ul class="ins">'+li+"</ul>"+
+  (pe?'<p class="cd-pe">'+pe+"</p>":"")+
   '<button class="cd-cta" data-acao="dv-ver-vendas">Ver todas as vendas →</button>',
   "","c-ins")}
 var dvLeadsTot=1;
@@ -1337,7 +1423,7 @@ return'<section class="dash" aria-label="Dashboard de performance de vendas">'+
 dvCab(a,lim,ant)+dvFaixa(a,aAnt,ant?ant.rot:"",lim)+
 '<div class="dash-l">'+dvCardCanal(canais)+dvCardTempo(a)+dvCardFinanceiro(a)+"</div>"+
 '<div class="dash-l">'+dvCardDesempenho(canais)+dvCardStatus(lim)+dvCardCondicao(vds)+"</div>"+
-'<div class="dash-l">'+dvCardProdutos(vds)+dvInsights(a,canais,vds)+"</div></section>"}
+'<div class="dash-l">'+dvCardProdutos(vds)+dvInsights(a,canais,vds,aAnt,ant,lim)+"</div></section>"}
 
 // Portao unico de leitura por tabela/view. Antes, os quatro carregadores faziam
 // `(r&&r.data)||[]` e nunca liam `r.error`: rede caida ou JWT expirado viravam
