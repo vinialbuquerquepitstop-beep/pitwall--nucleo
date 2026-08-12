@@ -31,7 +31,7 @@ exec(compile(fonte[:corte], 'harness.py[preambulo]', 'exec'), ns)
 CHROME, css, corpo, js, STUB = ns['CHROME'], ns['css'], ns['corpo'], ns['js'], ns['STUB']
 
 TESTE = r"""
-window.__saida = { abas: [], nav: null, erros: [], larguraReal: 0 };
+window.__saida = { abas: [], nav: null, erros: [], larguraReal: 0, painelVendas: null };
 var D = null;   // document do iframe
 
 function espera(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -107,6 +107,25 @@ function medir(rotulo){
                              larguraDoc: Math.round(D.documentElement.scrollWidth) });
 }
 
+// O painel de vendas e a unica coisa do app que muda de EIXO conforme a largura:
+// acima de 900px sao duas colunas (graficos a esquerda, valores a direita) e
+// abaixo vira uma, com os valores em cima. Isso se mede pela geometria real, que
+// e o que o olho ve; ler gridColumnStart no harness nao serve porque o headless
+// dele roda a 800px e devolveria sempre o layout empilhado.
+function medirPainelVendas(){
+  var g = D.querySelector('#lista .vg-graf.g-meses'),
+      f = D.querySelector('#lista .vg-graf.g-vaza'),
+      v = D.querySelector('#lista .vg-valores'),
+      t = D.querySelector('#lista .vg-mes .vg-tubo');
+  if (!g || !f || !v) return null;
+  function cx(el){ var r = el.getBoundingClientRect();
+    return { left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width) }; }
+  return { meses: cx(g), vaza: cx(f), valores: cx(v),
+           // a largura da barra e o numero que o dono reprovou: com a coluna em
+           // 1fr e 2 meses ela chegou a ~289px. Vale 24px em QUALQUER viewport.
+           barra: t ? Math.round(t.getBoundingClientRect().width) : null };
+}
+
 async function rodar(){
   var ifr = document.getElementById('palco');
   D = ifr.contentDocument;
@@ -147,6 +166,7 @@ async function rodar(){
     el.click();
     await espera(430);
     medir(abasIds[k]);
+    if (abasIds[k] === 'abaVendas') window.__saida.painelVendas = medirPainelVendas();
   }
   fim();
 }
@@ -238,6 +258,43 @@ for est in ('fechado', 'aberto') if BARRA_INFERIOR else ():
 if cortados:
     print(f"ROTULO CORTADO pela reticencia em: {', '.join(cortados)}\n")
 
+# ---- painel de vendas: o eixo tem que virar no corte de 900px ----
+# Acima: graficos a esquerda, valores a direita, na MESMA linha.
+# Abaixo: uma coluna, valores em cima (voce abre o celular pra saber quanto
+# vendeu, nao pra estudar a forma da barra).
+pv = res.get('painelVendas')
+pv_reprova = []
+if pv is None:
+    pv_reprova.append('nao achei as colunas do painel de vendas na aba Vendas')
+else:
+    g, f, v, barra = pv['meses'], pv['vaza'], pv['valores'], pv['barra']
+    # A barra de dado tem 24px em qualquer largura. Foi justamente isto que
+    # quebrou: coluna em 1fr fazia a barra crescer com o container.
+    if barra is None:
+        pv_reprova.append('nao achei a barra do grafico por mes')
+    elif barra != 24:
+        pv_reprova.append(f"a barra do grafico mede {barra}px a {LARG}px de viewport; "
+                          f"o teto e 24 e a sobra da faixa e ar")
+    if LARG >= 900:
+        mesma_linha = abs(g['top'] - v['top']) <= 2 and abs(f['top'] - v['top']) <= 2
+        if not (g['left'] < f['left'] < v['left'] and mesma_linha):
+            pv_reprova.append(f"a {LARG}px o painel devia ser TRES colunas na mesma linha, graficos a "
+                              f"esquerda (meses left={g['left']} top={g['top']}, vazamento left={f['left']} "
+                              f"top={f['top']}, valores left={v['left']} top={v['top']})")
+        elif not (g['w'] < v['w'] and f['w'] < v['w']):
+            pv_reprova.append(f"as colunas de grafico ({g['w']}px, {f['w']}px) deviam ser ESTREITAS "
+                              f"perto da de valores ({v['w']}px)")
+    else:
+        empilhado = v['top'] < g['top'] < f['top']
+        if not (empilhado and abs(g['left'] - v['left']) <= 2):
+            pv_reprova.append(f"a {LARG}px o painel devia ser UMA coluna com os valores em cima "
+                              f"(valores top={v['top']}, meses top={g['top']}, vazamento top={f['top']})")
+    print(f"PAINEL DE VENDAS  barra={barra}px  meses[left={g['left']} top={g['top']} w={g['w']}]  "
+          f"vazamento[left={f['left']} top={f['top']} w={f['w']}]  "
+          f"valores[left={v['left']} top={v['top']} w={v['w']}]  "
+          f"{'TRES COLUNAS' if LARG >= 900 else 'EMPILHADO, valores em cima'}"
+          f"{'  >>> REPROVOU' if pv_reprova else '  ok'}\n")
+
 total_s = total_e = total_doc = 0
 for ab in res['abas']:
     s, e = ab['sobre'], ab['estouro']
@@ -252,11 +309,12 @@ for ab in res['abas']:
         print(f"   ESTOURA  {x['el']} [{x['left']}..{x['right']}] \"{x['t']}\"")
     print()
 
-for m in nav_reprova:
+for m in nav_reprova + pv_reprova:
     print('REPROVOU: ' + m)
 if res['erros']:
     print('ERROS:', res['erros'])
 print(f'TOTAL: {total_s} sobreposicoes, {total_e} estouros de elemento, '
       f'{total_doc} abas com documento mais largo que a tela, '
-      f'{len(nav_reprova)} reprovacoes da barra')
-sys.exit(1 if (total_s or total_e or total_doc or res['erros'] or nav_reprova) else 0)
+      f'{len(nav_reprova)} reprovacoes da barra, '
+      f'{len(pv_reprova)} do painel de vendas')
+sys.exit(1 if (total_s or total_e or total_doc or res['erros'] or nav_reprova or pv_reprova) else 0)

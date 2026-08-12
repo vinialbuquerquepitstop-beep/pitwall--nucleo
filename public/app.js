@@ -590,6 +590,308 @@ function filtVendaBusca(lista,termo){
 var q=String(termo||"").trim().toLowerCase();
 if(!q)return lista;
 return lista.filter(function(v){return [v.venda_code,v.modelo_rotulo,v.cliente_nome,v.imei].join(" ").toLowerCase().indexOf(q)>=0})}
+
+// ---- Painel de Vendas (v52): o dinheiro da operacao somado no topo da aba ----
+// Agrega o que a tela JA carregou (vendasData, vinda da v_venda), nunca um
+// numero que so o servidor sabe: e a regra do v51 secao 4 (o que a tela ja sabe,
+// a tela resolve). Zero RPC, zero migration, zero chamada de rede nova.
+// O criterio de faturamento espelha painel_metricas de proposito, para nao
+// nascer um SEGUNDO criterio de faturamento no sistema:
+//   - arquivada nao conta (a v_venda ja filtra arquivado_em is null);
+//   - status cancelada nao conta;
+//   - status pre_venda CONTA e e declarado no cabecalho. Pre-venda entrando
+//     calada e o jeito mais barato de este painel mentir.
+// O lucro e SOMADO da coluna lucro da view, nunca recalculado aqui: duas
+// definicoes de lucro divergem com o tempo, e a suite assere que as duas contas
+// batem justamente para pegar isso.
+var vgJanela="trimestre";
+var VG_JANELAS=[["mes","Mês"],["trimestre","Trimestre"],["tudo","Tudo"]];
+// data_venda e digitada a mao e pode faltar; criado_em sempre existe. Mesmo
+// coalesce que painel_metricas usa para o lead. dataLocalDe resolve o fuso
+// (invariante 10): nunca data crua do servidor virando dia de negocio.
+function vgDataDe(v){return v.data_venda||u(v.criado_em)||""}
+function vgMesMais(ym,n){
+var ano=parseInt(ym.slice(0,4),10),m=parseInt(ym.slice(5,7),10)-1+n;
+ano+=Math.floor(m/12);m=(m%12+12)%12;
+var mm=String(m+1);
+return ano+"-"+(mm.length<2?"0"+mm:mm)}
+function vgDataBr(iso){
+if(!iso)return"—";
+return new Date(iso+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"})}
+// O fim NAO e sempre hoje: data_venda aceita futuro, e esconder a venda que o
+// proprio operador acabou de cadastrar seria a tela contradizendo o formulario.
+function vgLimites(linhas){
+var hoje=l(),menor="",maior=hoje,i,d;
+for(i=0;i<linhas.length;i++){
+if("cancelada"===linhas[i].status)continue;
+d=vgDataDe(linhas[i]);
+if(!d)continue;
+if(!menor||d<menor)menor=d;
+if(d>maior)maior=d}
+var ini;
+if("mes"===vgJanela)ini=hoje.slice(0,7)+"-01";
+else if("trimestre"===vgJanela)ini=vgMesMais(hoje.slice(0,7),-2)+"-01";
+else ini=menor||hoje.slice(0,7)+"-01";
+return{ini:ini,fim:maior}}
+function vgAgregar(linhas,lim){
+var r={n:0,pre:0,fat:0,luc:0,custo:0,frete:0,taxas:0,meses:[]},mapa={},i,v,d,ym,m,fat,luc;
+for(i=0;i<linhas.length;i++){
+v=linhas[i];
+if("cancelada"===v.status)continue;
+d=vgDataDe(v);
+if(!d||d<lim.ini||d>lim.fim)continue;
+fat=Number(v.valor_venda)||0;
+luc=Number(v.lucro)||0;
+r.n++;
+if("pre_venda"===v.status)r.pre++;
+r.fat+=fat;r.luc+=luc;
+r.custo+=Number(v.custo_aparelho)||0;
+r.frete+=Number(v.despesa_frete)||0;
+r.taxas+=Number(v.despesa_taxas)||0;
+// O mes carrega a COMPOSICAO, nao so o par faturamento/lucro: a coluna do
+// grafico e empilhada, entao ela precisa saber quanto daquele mes foi custo,
+// quanto vazou e quanto sobrou. Sem isso, bater o olho no grafico so diz qual
+// mes foi maior.
+// Frete e taxas entram somados em `vaza`, e nao separados, porque o validador de
+// paleta reprovou o par: os dois so podiam sair da familia --morno (frete e taxa
+// sao a mesma natureza de despesa), e --morno contra --morno-fg mede ΔE 13.0 na
+// visao normal, abaixo do piso de 15 ("dificil distinguir mesmo com visao de
+// cores completa"). A cartilha diz que isso NAO se resolve com codificacao
+// secundaria: ou re-escalona, ou corta series. Cortar e a saida certa e nao
+// custa nada, porque vazamento ja e um numero so no placar e a quebra
+// frete/taxas continua em texto no bloco dele.
+// Os hexes ficam de fora deste arquivo de proposito: cor vive no :root, e o
+// validar.py reprova hex no app.js ate dentro de comentario.
+ym=d.slice(0,7);
+m=mapa[ym];
+if(!m){m={ym:ym,n:0,fat:0,luc:0,custo:0,vaza:0};mapa[ym]=m;r.meses.push(m)}
+m.n++;m.fat+=fat;m.luc+=luc;
+m.custo+=Number(v.custo_aparelho)||0;
+m.vaza+=(Number(v.despesa_frete)||0)+(Number(v.despesa_taxas)||0)}
+r.meses.sort(function(a,b){return a.ym<b.ym?-1:a.ym>b.ym?1:0});
+return r}
+// Percentual com UMA casa e virgula. Sem base, devolve o travessao: 0% seria
+// afirmar uma medida que nao existe.
+function vgPct1(parte,todo){
+if(!(todo>0))return"—";
+return(Math.round(1e3*parte/todo)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+"%"}
+function vgMilhar(v){
+if(Math.abs(v)>=1e3)return"R$ "+(Math.round(v/100)/10).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:1})+" mil";
+return brlV(v)}
+function vgMesRot(ym){
+return new Date(ym+"-01T12:00:00").toLocaleDateString("pt-BR",{month:"short"}).replace(".","")}
+function vgMesLongo(ym){
+return new Date(ym+"-01T12:00:00").toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}
+// Uma frase so com tudo que saiu de baixo da barra. Serve ao aria-label (quem
+// navega por teclado ou leitor de tela nao tem hover) e ao tooltip, para os dois
+// nunca divergirem.
+function vgMesResumo(m){
+return vgMesLongo(m.ym)+": "+brlV(m.fat)+", "+m.n+(1===m.n?" venda":" vendas")+
+", margem "+vgPct1(m.luc,m.fat)+
+". Custo "+brlV(m.custo)+", vazamento "+brlV(m.vaza)+", lucro "+brlV(m.luc)+"."}
+// A coluna de valores. Nao da para reusar capCel/.pitboard aqui: aquele grid e
+// repeat(4,1fr) e nao cabe numa coluna de 228px. O que CONTINUA reusado e o
+// vocabulario de tipografia (.pb-rot, .pb-num, .pb-pe) dentro dos containers
+// novos, para a escala de texto seguir identica ao resto do app. Reusa-se a
+// escala, nao a grade.
+// data-cel segue sendo a chave por CODIGO (invariante 12): a suite le por ele,
+// nunca pelo rotulo exibido.
+// `extra` entra DENTRO do bloco, depois do pe: a decomposicao do vazamento tem
+// que ficar na mesma caixa destacada, senao o destaque para na borda e a linha
+// que explica o numero cai fora dele.
+function vgVal(cod,rot,num,pe,cls,extra){
+return'<div class="vg-val'+(cls?" "+cls:"")+'" data-cel="'+c(cod)+'">'+
+'<div class="pb-rot">'+c(rot)+"</div>"+
+'<div class="vg-num">'+c(num)+"</div>"+
+(pe?'<div class="pb-pe">'+c(pe)+"</div>":"")+(extra||"")+"</div>"}
+// Margem sai do PE do lucro e vira numero proprio. Ate a 1a passada ela era o
+// menor texto do bloco, e e ela que diz se a operacao vale a pena: a operacao
+// roda perto de 6,7%, e faturamento grande com margem fina foi exatamente o que
+// a tela escondia.
+function vgValores(a){
+var vaza=a.frete+a.taxas,tr="—";
+var pares='<div class="vg-val vg-par" data-cel="vg-luc-margem">'+
+'<div class="vg-par-cel" data-cel="vg-luc"><div class="pb-rot">lucro</div>'+
+'<div class="vg-num-m'+(a.n&&a.luc<0?" neg":"")+'">'+c(a.n?brlV(a.luc):tr)+"</div></div>"+
+'<div class="vg-par-cel" data-cel="vg-margem"><div class="pb-rot">margem</div>'+
+'<div class="vg-num-m'+(a.n&&a.luc<0?" neg":"")+'">'+c(a.n?vgPct1(a.luc,a.fat):tr)+"</div></div>"+
+"</div>";
+// Destaque ESTRUTURAL (borda forte, numero maior, decomposicao visivel), nunca
+// fundo tingido. No resto do app --morno quer dizer trabalho pendente e o
+// alerta quer dizer "isso esta errado agora"; vazamento existe em toda venda,
+// entao pintar de morno para sempre e gritar sem novidade, e em duas semanas o
+// dono para de ver. So os VALORES de frete e taxas usam --morno-fg.
+// Sem as classes s-* das fatias: estas duas linhas sao TEXTO do bloco de
+// valores, nao marcas do grafico, e reusar o nome da fatia faria parecer que ha
+// um segmento de frete no desenho, que desde a 3a passada nao existe mais.
+var quebra=a.n?'<div class="vg-quebra">'+
+"<span>frete <b>"+c(brlV(a.frete))+"</b></span>"+
+"<span>taxas <b>"+c(brlV(a.taxas))+"</b></span></div>":"";
+return'<div class="vg-valores">'+
+vgVal("vg-fat","faturamento",a.n?brlV(a.fat):tr,a.n+(1===a.n?" venda":" vendas"))+
+pares+
+vgVal("vg-vazamento","vazamento",a.n?brlV(vaza):tr,
+      a.luc>0?vgPct1(vaza,a.luc)+" do lucro":"frete + taxas","forte",quebra)+
+vgVal("vg-ticket","ticket médio",a.n?brlV(a.fat/a.n):tr,
+      a.n?"lucro médio "+brlV(a.luc/a.n):"por venda","raso")+
+"</div>"}
+// Coluna EMPILHADA, nao barra simples. A altura do preenchimento continua sendo
+// o faturamento do mes escalado pelo maior mes da janela, mas o preenchimento se
+// divide em custo, frete, taxas e lucro, nas MESMAS cores da barra de vazamento
+// (uma legenda serve os dois graficos). O motivo e o que o dono cobrou: bater o
+// olho tem que dizer de uma vez qual mes foi maior E qual mes guardou mais. A
+// versao anterior, com uma lasca de lucro dentro de um tubo cheio, so respondia
+// a primeira pergunta.
+// A margem de cada mes vai em TEXTO sob a coluna. Numa escala de faturamento ela
+// e genuinamente pequena (a operacao roda perto de 6,7%), e dar a ela uma escala
+// propria so para parecer maior seria o grafico mentindo.
+// Faturamento em neutro de proposito: barra azul ja foi reprovada duas vezes
+// (app.css, comentario da .met-barra).
+function vgMesSeg(cls,val,fat,topo){
+var p=fat>0?100*val/fat:0;
+if(!(p>0))return"";
+// fatia que existe nao pode sumir: vazamento de 0,3% vira uma linha fina, nunca
+// nada. Some so o que e zero de verdade.
+if(p<1.2)p=1.2;
+p=Math.round(100*p)/100;
+return'<span class="vg-seg s-'+cls+(topo?" topo":"")+'" style="height:'+p+'%"></span>'}
+function vgMeses(a){
+if(!a.meses.length)return"";
+var mx=0,i,m,hFat,neg,pilha,out="";
+for(i=0;i<a.meses.length;i++)if(a.meses[i].fat>mx)mx=a.meses[i].fat;
+for(i=0;i<a.meses.length;i++){
+m=a.meses[i];
+hFat=mx>0?Math.round(100*m.fat/mx):0;
+if(m.fat>0&&hFat<3)hFat=3;
+neg=m.luc<0;
+// Ordem no DOM = de cima para baixo. O lucro fica na BASE, como o que assentou
+// depois que o custo saiu; a marca cresce de UMA linha de base so. No mes em
+// prejuizo nao existe fatia de lucro para empilhar: entra a faixa hachurada,
+// dimensionada pelo tamanho do rombo.
+// `topo` marca a primeira fatia que aparece, que e a unica com canto
+// arredondado: ponta de dado de 4px em cima, quadrada na base.
+pilha=vgMesSeg("custo",m.custo,m.fat,!0)+vgMesSeg("vaza",m.vaza,m.fat,!(m.custo>0))+
+(neg?'<span class="vg-seg s-neg" style="height:'+Math.min(100,Math.max(2,Math.round(100*Math.abs(m.luc)/m.fat)))+'%"></span>'
+    :vgMesSeg("luc",m.luc,m.fat,!(m.custo>0||m.vaza>0)));
+// Sob a barra fica SO o mes. Numero em cada ponto e o erro mais comum de
+// grafico: valor, margem e n de vendas viviam aqui e inundavam a leitura.
+// Eles vao para o tooltip, e os totais da janela seguem grandes na coluna de
+// valores, entao nada fica represado.
+out+='<button type="button" class="vg-mes" data-acao="vg-mes" data-id="'+c(m.ym)+'" data-mes="'+c(m.ym)+
+'" aria-label="'+c(vgMesResumo(m))+'">'+
+'<span class="vg-tubo"><span class="vg-fat" style="height:'+hFat+'%">'+pilha+"</span></span>"+
+'<span class="vg-mes-rot">'+c(vgMesRot(m.ym))+"</span></button>"}
+// Os graficos ficam lado a lado com a coluna de valores, entao cada um precisa
+// dizer o proprio nome, e como se le o desenho.
+return'<p class="vg-tit">por mês <span>altura = faturamento</span></p>'+
+'<div class="vg-meses" role="img" aria-label="Composição do faturamento por mês na janela">'+out+"</div>"}
+// Barra de 100% sobre o faturamento da janela: onde cada real entrou e o que
+// sobrou. Frete e taxas usam --morno (trabalho pendente, a mesma familia da
+// falta de CPF e de NF), nunca --erro: margem sendo comida nao e falha de
+// sistema. Segmento com valor zero nao entra na barra, mas CONTINUA na legenda:
+// "taxas 0,0%" e informacao, taxa sumida e omissao.
+// Tres partes, as MESMAS da coluna por mes: uma paleta, uma legenda, dois
+// graficos. Frete e taxas somam em vazamento pelo motivo medido em vgAgregar.
+var VG_VAZA=[["custo","custo do aparelho"],["vaza","vazamento"],["luc","lucro"]];
+function vgVazamento(a){
+if(!a.n)return"";
+var val={custo:a.custo,vaza:a.frete+a.taxas,luc:a.luc},barra="",leg="",i,k,p;
+for(i=0;i<VG_VAZA.length;i++){
+k=VG_VAZA[i][0];
+p=a.fat>0?100*val[k]/a.fat:0;
+if(p>0)barra+='<span class="vg-vaza-seg s-'+k+'" style="width:'+p+'%"></span>';
+// A legenda fala em %, a coluna de valores fala em R$: e uma barra de
+// PROPORCAO, entao porcentagem e a unidade nativa dela, e repetir o R$ aqui
+// duplicaria o que ja esta na altura dos olhos, do lado direito.
+leg+='<span class="vg-vaza-item s-'+k+'" data-vaza="'+k+'"><i></i><b>'+c(VG_VAZA[i][1])+"</b> "+
+vgPct1(val[k],a.fat)+"</span>"}
+return'<p class="vg-tit">onde o dinheiro foi</p><div class="vg-vaza-bloco"><div class="vg-vaza'+(a.luc<0?" neg":"")+
+'" role="img" aria-label="Composição do faturamento da janela">'+barra+"</div>"+
+'<div class="vg-vaza-leg">'+leg+"</div></div>"}
+// A janela e parte do dado, nao legenda: tela que omite o recorte mente por
+// omissao (reforco do v33). Por isso o "de X a Y" nao e opcional, e a pre-venda
+// e contada em voz alta.
+function vgCab(a,lim){
+var op="",i;
+for(i=0;i<VG_JANELAS.length;i++)
+op+='<button class="met-faixa" data-acao="vg-janela" data-id="'+VG_JANELAS[i][0]+
+'" aria-pressed="'+(vgJanela===VG_JANELAS[i][0]?"true":"false")+'">'+c(VG_JANELAS[i][1])+"</button>";
+var rec="de "+vgDataBr(lim.ini)+" a "+vgDataBr(lim.fim)+" · "+a.n+(1===a.n?" venda":" vendas")+
+(a.pre?" · inclui "+a.pre+" pré-venda"+(1===a.pre?"":"s"):"");
+return'<div class="vg-cab"><span class="vg-recorte">'+c(rec)+'</span><div class="met-faixas">'+op+"</div></div>"}
+// O placar continua na tela mesmo vazio, com os rotulos e o travessao: so
+// renderizar campo que tem dado e o que faz a tela sumir na base zerada. O vazio
+// vira o proprio caminho de saida, com o botao que abre a janela.
+function vgVazio(){
+return'<div class="vg-vazio"><strong>Nenhuma venda nesta janela.</strong> '+
+("tudo"===vgJanela?"A base ainda não tem venda registrada."
+:'<button class="vg-abrir" data-acao="vg-janela" data-id="tudo">Abrir para tudo</button>')+"</div>"}
+// Duas colunas: graficos a esquerda, valores a direita.
+// No DOM os VALORES vem primeiro, e isso e de proposito duas vezes: e a ordem
+// do celular (uma coluna so, numero antes do desenho) e e a ordem de prioridade
+// para leitor de tela. No desktop a posicao vem de grid-column NOMEADO, nunca de
+// `order`: `order` move o pixel e deixa a leitura para tras.
+// A coluna de valores renderiza SEMPRE, cheia ou vazia. Na janela sem venda so
+// os graficos dao lugar ao aviso; antes o vazio engolia o painel inteiro.
+// Tooltip do grafico por mes. Existe porque os rotulos sairam de baixo da barra
+// (numero em cada ponto inunda a leitura), e a cartilha e clara que tooltip
+// ENRIQUECE mas nunca e o unico caminho para um valor: por isso ele abre no
+// hover E no toque, o aria-label do botao carrega a mesma frase, e os totais da
+// janela seguem grandes na coluna de valores.
+// Um div so, reusado, posicionado em relacao ao .vg-corpo.
+function vgLinhaTip(rot,val,cls){
+return'<span class="vg-tip-lin'+(cls?" "+cls:"")+'"><i></i><b>'+c(rot)+"</b><em>"+c(brlV(val))+"</em></span>"}
+function vgTipMostrar(ym,alvo){
+var tip=E("vgTip"),cx=alvo&&alvo.closest?alvo.closest(".vg-corpo"):null,m=null,i;
+if(!tip||!cx)return;
+for(i=0;i<VG_MESES_CACHE.length;i++)if(VG_MESES_CACHE[i].ym===ym)m=VG_MESES_CACHE[i];
+if(!m)return;
+tip.innerHTML='<span class="vg-tip-tit">'+c(vgMesLongo(m.ym))+"</span>"+
+'<span class="vg-tip-sub">'+c(brlV(m.fat))+" · "+m.n+(1===m.n?" venda":" vendas")+
+" · margem "+c(vgPct1(m.luc,m.fat))+"</span>"+
+vgLinhaTip("custo",m.custo,"s-custo")+vgLinhaTip("vazamento",m.vaza,"s-vaza")+
+vgLinhaTip("lucro",m.luc,m.luc<0?"s-neg":"s-luc");
+tip.hidden=!1;
+// posiciona pela geometria real, e prende dentro do container para o balao nao
+// vazar da tela no celular
+var rc=cx.getBoundingClientRect(),ra=alvo.getBoundingClientRect();
+var x=ra.left-rc.left+ra.width/2-tip.offsetWidth/2;
+if(x<0)x=0;
+if(x+tip.offsetWidth>rc.width)x=rc.width-tip.offsetWidth;
+tip.style.left=Math.round(x)+"px";
+tip.style.top=Math.round(ra.top-rc.top-tip.offsetHeight-8)+"px"}
+function vgTipEsconder(){var t=E("vgTip");if(t){t.hidden=!0}}
+var VG_MESES_CACHE=[];
+// Ligado UMA vez, a partir de pintarVendas: o init() vive na linha 1 minificada
+// e esta obra nao a toca. Delegado no #lista, que sobrevive ao innerHTML; sem a
+// guarda, cada repintura empilharia mais um listener.
+// focusin/focusout junto do mouse porque quem navega por teclado tem que ver o
+// mesmo que quem usa o mouse: a coluna e um <button> justamente para isso.
+var vgHoverLigado=!1;
+function vgAlvoMes(ev){
+return ev.target&&ev.target.closest?ev.target.closest('[data-acao="vg-mes"]'):null}
+function vgLigarHover(){
+if(vgHoverLigado)return;
+var lst=E("lista");
+if(!lst)return;
+vgHoverLigado=!0;
+var abre=function(ev){var b=vgAlvoMes(ev);if(b)vgTipMostrar(b.getAttribute("data-id"),b)};
+// so fecha o que o proprio ponteiro abriu: balao preso por toque fica ate o
+// proximo toque
+var fecha=function(ev){if(vgAlvoMes(ev)&&!VG_TIP_ABERTO)vgTipEsconder()};
+lst.addEventListener("mouseover",abre);
+lst.addEventListener("mouseout",fecha);
+lst.addEventListener("focusin",abre);
+lst.addEventListener("focusout",fecha)}
+function vgPainel(){
+var linhas=vendasData||[],lim=vgLimites(linhas),a=vgAgregar(linhas,lim);
+VG_MESES_CACHE=a.meses;
+return'<section class="vg" aria-label="Painel de vendas">'+vgCab(a,lim)+
+'<div class="vg-corpo">'+vgValores(a)+
+'<div class="vg-graf g-meses">'+(a.n?vgMeses(a):vgVazio())+"</div>"+
+'<div class="vg-graf g-vaza">'+(a.n?vgVazamento(a):"")+"</div>"+
+'<div class="vg-tip" id="vgTip" role="status" hidden></div>'+
+"</div></section>"}
 // Portao unico de leitura por tabela/view. Antes, os quatro carregadores faziam
 // `(r&&r.data)||[]` e nunca liam `r.error`: rede caida ou JWT expirado viravam
 // lista vazia, e a tela pintava o estado VAZIO, convidando o dono a recadastrar o
@@ -625,16 +927,27 @@ function cardVendaArq(v){
 return '<div class="card arquivada"><div class="card-top"><span class="card-code">'+c(v.venda_code||"")+'</span><span class="card-prod">'+c(v.modelo_texto||"")+'</span></div><div class="card-sub">'+
 c(v.comprador_nome||"sem cliente")+(v.data_venda?" · "+c(fmtDia(v.data_venda)):"")+" · "+brlV(v.valor_venda)+"</div>"+
 '<div class="venda-cli"><span class="venda-cli-code">fora do faturamento</span><button class="btn-acao" data-acao="venda-desarquivar" data-id="'+c(v.id)+'">Desarquivar</button></div></div>'}
+// Separado de renderVendas porque trocar a janela do painel (ou abrir as
+// arquivadas) e filtro sobre dado que JA esta na memoria. Refazer as tres
+// leituras de rede para isso e exatamente o defeito que o v51 tirou do resto do
+// app; nao vale reintroduzi-lo aqui.
+function pintarVendas(e){
+e=e||E("lista");
+if(!e)return;
+var lista=filtVendaBusca(vendasData,E("inputBusca")?E("inputBusca").value:"");
+var arq=vendasArq.length?' · <button class="venda-arq-btn" data-acao="venda-arq-alternar" aria-expanded="'+(vendasArqAberto?"true":"false")+'">'+vendasArq.length+" arquivada"+(1===vendasArq.length?"":"s")+"</button>":"";
+var topo='<div class="venda-topo"><button class="btn-cad" data-acao="nova-venda">+ Nova venda</button><span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
+e.innerHTML=vgPainel()+topo+(lista.length?lista.map(cardVenda).join(""):'<div class="estado"><strong>Nenhuma venda ainda.</strong><br>Toque em Nova venda pra registrar a primeira.</div>')+
+(vendasArqAberto&&vendasArq.length?'<p class="venda-arq-tit">Arquivadas · não contam no faturamento</p>'+vendasArq.map(cardVendaArq).join(""):"");
+// o balao morreu junto com o innerHTML antigo, entao o estado preso morre junto
+VG_TIP_ABERTO="";
+vgLigarHover()}
 async function renderVendas(e,sil){
 if(!sil)e.innerHTML='<div class="estado carregando">Lendo vendas…</div>';
 var rv=await carregarVendas(),rn=await carregarNfs(),ra=await carregarVendasArq();
 var falha=primeiraFalha(rv,rn,ra);
 if(falha){if(!1!==falha.sessao)e.innerHTML=estadoErro("as vendas",falha.erro);return}
-var lista=filtVendaBusca(vendasData,E("inputBusca")?E("inputBusca").value:"");
-var arq=vendasArq.length?' · <button class="venda-arq-btn" data-acao="venda-arq-alternar" aria-expanded="'+(vendasArqAberto?"true":"false")+'">'+vendasArq.length+" arquivada"+(1===vendasArq.length?"":"s")+"</button>":"";
-var topo='<div class="venda-topo"><button class="btn-cad" data-acao="nova-venda">+ Nova venda</button><span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
-e.innerHTML=topo+(lista.length?lista.map(cardVenda).join(""):'<div class="estado"><strong>Nenhuma venda ainda.</strong><br>Toque em Nova venda pra registrar a primeira.</div>')+
-(vendasArqAberto&&vendasArq.length?'<p class="venda-arq-tit">Arquivadas · não contam no faturamento</p>'+vendasArq.map(cardVendaArq).join(""):"")}
+pintarVendas(e)}
 function calcLucroVenda(){
 var num=function(id){var x=parseFloat(String((E(id)?E(id).value:"")||"").replace(",","."));return isNaN(x)?0:x};
 var lu=num("fvValor")-num("fvCusto")-num("fvFrete")-num("fvTaxas");
@@ -778,8 +1091,19 @@ var v=(vendasData||[]).filter(function(x){return String(x.id)===String(id)})[0];
 if(v)abrirPainelVenda(null,v);
 return!0}
 if("venda-entrega"===o){abrirPainelEntrega(id);return!0}if("venda-desarquivar"===o){desarquivarVenda(id);return!0}
-if("venda-arq-alternar"===o){vendasArqAberto=!vendasArqAberto;renderVendas(E("lista"));return!0}
+// Os dois so repintam: nao ha nada de novo no servidor para buscar, e ate a v51
+// este alternar refazia as 3 leituras e apagava a lista a cada toque.
+if("venda-arq-alternar"===o){vendasArqAberto=!vendasArqAberto;pintarVendas();return!0}
+if("vg-janela"===o){vgJanela=id||"trimestre";vgTipEsconder();pintarVendas();return!0}
+// Toque na coluna do mes: o celular nao tem hover, e sem este caminho a
+// composicao daquele mes ficaria represada atras de um gesto que nao existe.
+// Tocar de novo na mesma coluna fecha.
+if("vg-mes"===o){
+if(VG_TIP_ABERTO===id){VG_TIP_ABERTO="";vgTipEsconder()}
+else{VG_TIP_ABERTO=id;vgTipMostrar(id,el)}
+return!0}
 return!1}
+var VG_TIP_ABERTO="";
 
 // ---- Aba Clientes: cliente = lead que comprou --------------------------------
 // A identidade (CPF, RG, endereco) mora no LEAD, nunca na venda: a pessoa e uma

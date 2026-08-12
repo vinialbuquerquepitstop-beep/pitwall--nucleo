@@ -1467,6 +1467,241 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   color:var(--frio-fg);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
 }
 .venda-arq-btn:hover{color:var(--text)}
+
+/* ---------- Painel de Vendas (v52): o dinheiro somado no topo da aba --------
+   Reusa .pitboard/.pb-* (placar) e .met-faixa/.met-faixas (seletor de janela).
+   O que e novo aqui e so o grafico.
+
+   COR: os numeros abaixo sao MEDIDOS, e quem os remede e
+   `python ferramentas/prova_grafico.py`. Nao editar de cabeca: a primeira
+   versao deste comentario trazia valores estimados no olho (3.45 / 5.06 / 4.52)
+   e a prova mostrou que os reais eram outros.
+   O faturamento vai em NEUTRO pelo mesmo motivo escrito na .met-barra: barra
+   azul ja foi reprovada duas vezes, seria o quinto uso do azul, e quantidade
+   nao e estado. Quem carrega estado e o lucro.
+     .vg-fat  = --dim a .28 sobre --surface  -> #CBCED5
+     .vg-luc  = --ok-fg #0F7A52  -> 3.39 contra a fita, 4.99 contra o tubo.
+                Alvo de faixa e 3. Com --ok cheio dava 2.13 e REPROVAVA: o verde
+                da familia clara nao aguenta ficar dentro da fita.
+     .vg-luc.neg = --erro #B01235  -> 4.47 contra a fita.
+   DOIS pares nao alcancam o alvo, e nenhum dos dois se resolve trocando matiz:
+     - lucro x prejuizo mede 1.32. Verde e vermelho no mesmo tom e o caso
+       classico de daltonismo, entao a fita negativa leva HACHURA (ver abaixo).
+     - na barra de vazamento, os vizinhos ficam entre 1.82 e 3.19: custo x frete
+       1.94, frete x taxas 1.82. Quem separa e o corte de 1.5px em --bg mais a
+       legenda nomeada.
+   Nos dois casos vale a regra dos 7 trilhos: quando a luminancia colide, o
+   segundo canal (icone, hachura, corte) NAO e enfeite, e o que carrega a
+   distincao, e a prova reprova se ele sumir.
+   Frete e taxas usam a familia --morno (trabalho pendente, a mesma da falta de
+   CPF e de NF), nunca --erro: margem comida nao e falha de sistema. */
+.vg{margin:0 0 20px}
+.vg-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+/* o recorte nao e legenda, e parte do dado: tela que omite a janela mente por
+   omissao. Por isso ele fica no cabecalho, nao num rodape que ninguem le. */
+.vg-recorte{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+/* Duas colunas: graficos a esquerda (mais largos, porque bater o olho e tao
+   necessario quanto ler o numero), valores a direita. Abaixo de 900px vira uma
+   coluna e a ordem do DOM ja e a certa (valores primeiro), sem regra nenhuma:
+   por isso a colocacao no desktop e grid-column NOMEADO e nunca `order`, que
+   moveria o pixel e deixaria a leitura para tras. */
+/* grid-row:1 nos DOIS nao e enfeite. Com os valores primeiro no DOM e so
+   grid-column declarado, o auto-placement do Grid e SPARSE: ele nunca volta a
+   uma coluna anterior na mesma linha, entao os graficos caiam para a linha de
+   baixo e o painel ficava em diagonal. Medido em 11/08/2026 a 1280px
+   (graficos top=463, valores top=117); ler gridColumnStart devolvia 1 e 2 e
+   dizia que estava tudo certo. Geometria ganha de propriedade computada. */
+/* Tres colunas: os dois graficos ESTREITOS a esquerda e os valores a direita.
+   Estreito nao e economia de espaco, e a regra da marca: barra de dado tem no
+   maximo 24px e a sobra da faixa e ar. Antes as colunas eram 1.5fr e com 2 meses
+   cada barra ficava com ~289px, que e o que o dono reprovou como desproporcao.
+   grid-row:1 nos tres nao e enfeite: com os valores primeiro no DOM e so
+   grid-column declarado, o auto-placement do Grid e SPARSE e nunca volta a uma
+   coluna anterior na mesma linha, entao os graficos caiam para a linha de baixo
+   (medido a 1280px: graficos top=463, valores top=117). */
+.vg-corpo{display:grid;grid-template-columns:220px 240px minmax(260px,1fr);gap:18px;align-items:start;position:relative}
+.vg-graf{grid-row:1;min-width:0}
+.vg-graf.g-meses{grid-column:1}
+.vg-graf.g-vaza{grid-column:2}
+.vg-valores{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px}
+/* Os seletores aqui repetem a classe de propósito. Media query NAO acrescenta
+   especificidade: `.vg-graf` (0,1,0) perde para `.vg-graf.g-vaza` (0,2,0) da
+   regra de cima, e o resultado medido a 390px era os dois graficos lado a lado
+   num viewport de celular. */
+@media (max-width:900px){
+.vg-corpo{grid-template-columns:1fr;gap:14px}
+.vg-graf.g-meses,.vg-graf.g-vaza,.vg-valores{grid-column:1;grid-row:auto}
+}
+/* Titulo de secao do grafico. O <span> carrega como se le o desenho: sem ele,
+   uma coluna empilhada e um enigma bonito. */
+.vg-tit{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;
+}
+.vg-tit span{letter-spacing:.02em;text-transform:none;font-size:10px;opacity:.85}
+
+/* 24px TRAVADO, nunca 1fr: a barra nao preenche o slot, e a sobra da faixa e ar.
+   justify-content:start mantem as colunas ancoradas a esquerda em vez de
+   espalhar. Com 12 meses passa de 220px e rola dentro do proprio container. */
+.vg-meses{
+  display:grid;grid-auto-flow:column;grid-auto-columns:24px;justify-content:start;
+  gap:10px;margin:0;overflow-x:auto;padding-bottom:2px;
+}
+/* a coluna e um <button> para o teclado alcancar o mesmo balao que o mouse */
+.vg-mes{
+  display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;
+  background:none;border:0;padding:0;cursor:pointer;font:inherit;
+}
+.vg-mes:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+/* A borda de 1px delimita a AREA do grafico. Sem ela, o topo da coluna (fatia de
+   custo, neutra clara) separa so 1.46 do fundo e nao da para ver onde a barra
+   acaba. Mesma escolha de fundo neutro de .rot-carga-fita e .met-barra, que ja
+   estao no ar: barra colorida foi reprovada duas vezes. */
+/* 200px: a coluna de valores tem ~330px de altura, e com o tubo em 118px
+   sobrava um buraco de quase 200px sob os graficos, medido na foto de
+   12/08/2026. Altura maior tambem faz a fatia fina de margem ganhar pixel sem
+   que nenhum numero seja distorcido: o eixo continua sendo o faturamento.
+   A borda de 1px delimita a AREA do grafico, senao nao da para ver onde a barra
+   acaba contra o fundo. */
+.vg-tubo{width:100%;height:200px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-p);display:flex;align-items:flex-end;overflow:hidden}
+/* A altura preenchida e o faturamento do mes; as fatias dentro dela sao a
+   composicao daquele mes, nas MESMAS cores da barra de vazamento, entao a
+   legenda de la serve os dois graficos. Sem fundo proprio: quem pinta agora sao
+   as fatias, e o tubo cinza ao redor e o que falta para o melhor mes. */
+.vg-fat{width:100%;display:flex;flex-direction:column;justify-content:flex-end}
+.vg-seg{display:block;width:100%;flex:none}
+/* Ponta de dado arredondada em 4px em cima, QUADRADA na base: a coluna cresce de
+   uma linha de base so, e o canto arredondado marca onde o dado termina. So a
+   primeira fatia visivel leva o canto. */
+.vg-seg.topo{border-radius:4px 4px 0 0}
+/* VAO de 2px na cor da superficie, nunca borda em volta da marca. Antes era
+   border de 1.5px e ainda em --bg, quando o fundo real do tubo e --surface: o
+   corte aparecia na cor errada. */
+.vg-seg+.vg-seg{margin-top:2px}
+/* --dim e --morno CHEIOS. A 28% e 45% de opacidade as fatias mediam 0.01 e 0.079
+   de croma e caiam fora da banda de luminosidade (validate_palette.js): liam
+   como papel, nao como marca. Custo continua neutro de proposito, pela regra da
+   .met-barra: quantidade nao e estado, e barra colorida ja foi reprovada duas
+   vezes. Medido: ΔE 22.9 na visao normal e 12.3 em protanopia. */
+.vg-seg.s-custo{background:var(--dim)}
+.vg-seg.s-vaza{background:var(--morno)}
+.vg-seg.s-luc{background:var(--ok-fg)}
+/* Lucro x prejuizo separam so 1.32 de luminancia (medido em prova_grafico.py):
+   verde e vermelho no MESMO tom e o caso classico de daltonismo vermelho-verde,
+   e a fatia e pequena demais para o matiz se defender sozinho. A hachura e o
+   segundo canal, no mesmo principio do icone dos trilhos: quem nao distingue
+   matiz continua vendo que aquele mes e diferente. */
+.vg-seg.s-neg{
+  background:var(--erro);
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0 2px,transparent 2px 5px);
+}
+/* Sob a barra fica SO o mes, que e o eixo. Valor, margem e n de vendas viviam
+   aqui: quatro rotulos por coluna e a definicao de inundar um grafico, e o que
+   se le nesse caso e nada. Eles vivem no balao e no aria-label. */
+.vg-mes-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+.vg-vaza-bloco{margin:0}
+.vg-vaza{display:flex;height:14px;border-radius:4px;background:var(--surface);overflow:hidden}
+.vg-vaza-seg{display:block;height:100%;min-width:2px}
+/* mesmo vao de 2px da coluna empilhada, virado de lado. Vao, nunca borda: borda
+   e tinta com peso de dado que nao e dado. */
+.vg-vaza-seg+.vg-vaza-seg{margin-left:2px}
+.vg-vaza-seg.s-custo{background:var(--dim)}
+.vg-vaza-seg.s-vaza{background:var(--morno)}
+.vg-vaza-seg.s-luc{background:var(--ok-fg)}
+/* Esta legenda e a chave de cor dos DOIS graficos: as fatias das colunas por mes
+   usam as mesmas classes s-*. Por isso cada item carrega o quadradinho, que e o
+   que amarra desenho e nome. */
+/* Esta legenda e a chave de cor dos DOIS graficos: as fatias da coluna por mes
+   usam as mesmas classes s-*. Empilhada, uma por linha, porque a coluna e
+   estreita e legenda que quebra no meio de um nome nao serve de chave.
+   O NOME nunca veste a cor do dado: quem carrega identidade e o quadradinho ao
+   lado. Cor em texto pequeno e o jeito mais rapido de perder legibilidade. */
+.vg-vaza-leg{display:flex;flex-direction:column;gap:4px;margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.vg-vaza-item{display:flex;align-items:center;gap:6px}
+.vg-vaza-item i{width:9px;height:9px;border-radius:2px;flex:none}
+.vg-vaza-item.s-custo i{background:var(--dim)}
+.vg-vaza-item.s-vaza i{background:var(--morno)}
+.vg-vaza-item.s-luc i{background:var(--ok-fg)}
+.vg-vaza-item b{font-weight:500;color:var(--text);flex:1 1 auto}
+
+/* Balao do grafico por mes. Sai do fluxo e se posiciona pela geometria real, sem
+   nunca vazar do .vg-corpo. */
+.vg-tip{
+  position:absolute;z-index:5;pointer-events:none;
+  min-width:172px;padding:9px 11px;
+  background:var(--panel);border:1px solid var(--line-forte);border-radius:var(--radius);
+  box-shadow:0 4px 14px rgba(15,21,35,.11);
+  display:flex;flex-direction:column;gap:3px;
+}
+.vg-tip[hidden]{display:none}
+.vg-tip-tit{font-size:12.5px;font-weight:600;color:var(--text);text-transform:capitalize}
+.vg-tip-sub{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:4px}
+.vg-tip-lin{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.vg-tip-lin i{width:9px;height:9px;border-radius:2px;flex:none}
+.vg-tip-lin.s-custo i{background:var(--dim)}
+.vg-tip-lin.s-vaza i{background:var(--morno)}
+.vg-tip-lin.s-luc i{background:var(--ok-fg)}
+.vg-tip-lin.s-neg i{background:var(--erro)}
+.vg-tip-lin b{font-weight:400;color:var(--dim);flex:1 1 auto}
+.vg-tip-lin em{font-style:normal;color:var(--text);font-weight:500}
+
+/* ---- coluna de valores ----
+   Reusa a ESCALA de texto do pitboard (.pb-rot, .pb-pe) sem reusar a grade dele,
+   que e repeat(4,1fr) e nao cabe numa coluna de 212px. */
+.vg-val{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;background:var(--bg)}
+/* SEM tabular-nums: numero grande e solto usa as figuras proporcionais da fonte.
+   Digito com largura de zero deixa "R$ 1.096,00" frouxo em corpo de display.
+   tabular-nums fica onde numero alinha na vertical: legenda, balao, eixo. */
+.vg-num{font-family:var(--display);font-weight:600;font-size:25px;line-height:1.1;letter-spacing:-.015em;color:var(--text)}
+.vg-num-m{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.15;letter-spacing:-.01em;color:var(--text)}
+.vg-num-m.neg{color:var(--erro-fg)}
+/* lucro e margem sao UMA historia, entao dividem a mesma caixa. Margem saiu do
+   pe do lucro, onde era o menor texto do bloco, e e ela que diz se a operacao
+   vale a pena. */
+.vg-par{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
+.vg-par-cel{min-width:0}
+.vg-par-cel:last-child{text-align:right}
+/* Destaque do vazamento: ESTRUTURAL (borda forte, numero maior, decomposicao
+   visivel), nunca fundo tingido. No resto do app --morno significa trabalho
+   pendente e .pb-num.alerta significa "isso esta errado agora"; vazamento existe
+   em toda venda, entao tingir para sempre e gritar sem novidade e em duas
+   semanas o dono para de ver. Cor so nos VALORES de frete e taxas. */
+.vg-val.forte{border:1.5px solid var(--line-forte);padding:12px}
+.vg-val.forte .vg-num{font-size:28px}
+.vg-quebra{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:7px;padding-top:7px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.vg-quebra b{font-weight:500;color:var(--morno-fg)}
+/* ticket medio e apoio, nao manchete: UMA linha rasa, tudo no mesmo baseline.
+   O `flex:1 1 100%` no pe quebrava a linha e, sem nowrap, "TICKET MEDIO" e
+   "R$ 2.800,00" partiam no meio: dois rotulos de duas linhas onde cabia uma. */
+.vg-val.raso{display:flex;align-items:baseline;gap:10px;padding:9px 12px;flex-wrap:wrap}
+.vg-val.raso .pb-rot,.vg-val.raso .vg-num,.vg-val.raso .pb-pe{white-space:nowrap}
+.vg-val.raso .vg-num{font-size:14px;font-family:var(--mono);font-weight:500;margin-left:auto}
+.vg-val.raso .pb-pe{flex:0 0 100%;text-align:right}
+
+/* Janela vazia NAO derruba o painel: o placar fica com os rotulos e o travessao,
+   e o vazio vira o proprio caminho de saida. Renderizar so o que tem dado e o
+   que faz a tela sumir na base zerada. */
+.vg-vazio{
+  font-size:12.5px;color:var(--dim);line-height:1.5;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;
+}
+.vg-vazio strong{color:var(--text);font-weight:500}
+/* Botao de texto no idioma que a aba ja tem (.venda-arq-btn): neutro sublinhado.
+   Azul aqui seria uso NOVO de --accent como cor de link, que a secao 13 do v29
+   barrou e o validar.py reprova; hover, sim, e papel aprovado. */
+.vg-abrir{
+  background:none;border:0;padding:0;cursor:pointer;font-family:var(--mono);font-size:11.5px;
+  color:var(--text);text-decoration:underline;text-underline-offset:2px;
+}
+.vg-abrir:hover{color:var(--accent)}
+@media (max-width:560px){
+.vg-tubo{height:132px}
+.vg-vaza-leg{gap:4px 10px;font-size:10px}
+.vg-num{font-size:23px}
+.vg-val.forte .vg-num{font-size:26px}
+}
 .fv-cli-falta{
   font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
   letter-spacing:.06em;text-transform:uppercase;

@@ -40,24 +40,55 @@ var LEADS = %s, ROTULOS = %s, HIST = %s;
 // A v1 tem a entrega completa; a v2 nasce SEM endereco de proposito, porque a
 // linha de entrega do card tem que aparecer NOS DOIS casos: fixture so com o
 // campo preenchido nunca provaria o estado que precisa de acao.
+//
+// v3, v4 e v5 nasceram na v52, para o painel de vendas. Cada uma existe por um
+// motivo que o painel POSSA ERRAR, nao para engordar a lista:
+//   v3 cancelada  -> aparece como card, mas NAO pode entrar no faturamento;
+//   v4 pre_venda  -> entra no faturamento E tem que ser declarada no cabecalho;
+//   v5 prejuizo   -> puxa agosto para lucro negativo, que e o unico jeito de
+//                    provar que a fita muda para a cor de erro.
+// Em todas, valor - custo - frete - taxas bate com o campo lucro de proposito:
+// a suite compara as DUAS contas, e fixture inconsistente cegaria justamente a
+// assercao que existe para pegar duas definicoes de lucro no sistema.
 var VENDAS_STUB = [{ id:'v1', venda_code:'VENDA-0001', modelo_rotulo:'iPhone 13', capacidade:'128GB',
   cor:'Meia-noite', condicao:'seminovo', imei:'355000000000001', cliente_nome:'Diego Souza',
   data_venda:'2026-07-18', valor_venda:3200, lucro:540, status:'concluida', tem_trade_in:false,
+  custo_aparelho:2600, despesa_frete:30, despesa_taxas:30,
   lead_id:'l9', cliente_whatsapp:'5521990000000',
   fornecedor_local_retirada:'Campo Grande', endereco_entrega:'Rua das Laranjeiras 100, apto 501',
   valor_a_cobrar:90, forma_pagamento:'pix', motoboy:'Hiago', motoboy_whatsapp:'5521987654321' },
   { id:'v2', venda_code:'VENDA-0002', modelo_rotulo:'iPhone 15', capacidade:'256GB',
   cliente_nome:'Ana Lima', data_venda:'2026-07-19', valor_venda:5000, lucro:800,
+  custo_aparelho:4100, despesa_frete:90, despesa_taxas:10,
   status:'concluida', tem_trade_in:false, lead_id:'l8', cliente_whatsapp:'5521990000001',
   endereco_entrega:null, valor_a_cobrar:null, forma_pagamento:null,
-  motoboy:null, motoboy_whatsapp:null }];
+  motoboy:null, motoboy_whatsapp:null },
+  { id:'v3', venda_code:'VENDA-0003', modelo_rotulo:'iPhone 16', cliente_nome:'Fantasma',
+  data_venda:'2026-07-20', valor_venda:9999, lucro:9999, status:'cancelada', tem_trade_in:false,
+  custo_aparelho:0, despesa_frete:0, despesa_taxas:0, lead_id:'l7' },
+  { id:'v4', venda_code:'VENDA-0004', modelo_rotulo:'iPhone 14', cliente_nome:'Bruno Reis',
+  data_venda:'2026-08-05', valor_venda:2000, lucro:300, status:'pre_venda', tem_trade_in:false,
+  custo_aparelho:1650, despesa_frete:50, despesa_taxas:0, lead_id:'l6' },
+  { id:'v5', venda_code:'VENDA-0005', modelo_rotulo:'iPhone 12', cliente_nome:'Carla Nunes',
+  data_venda:'2026-08-06', valor_venda:1000, lucro:-500, status:'concluida', tem_trade_in:false,
+  custo_aparelho:1400, despesa_frete:100, despesa_taxas:0, lead_id:'l5' }];
+// carregarVendasArq() le a TABELA venda com .not('arquivado_em','is',null). O
+// stub trata .not como PASSAGEM, nao como filtro, entao quem carrega o sentido
+// do filtro aqui e o proprio fixture: nesta chave entra so a linha ja
+// arquivada. Ela existe por dois motivos: provar que venda arquivada fica FORA
+// do faturamento do painel, e fazer aparecer o botao "1 arquivada", sem o qual
+// a assercao de que abrir a gaveta nao rele a base nao roda em rodada nenhuma.
+var VENDAS_ARQ_STUB = [{ id:'v9', venda_code:'VENDA-0009', modelo_texto:'iPhone 11',
+  comprador_nome:'Duplicata arquivada', valor_venda:8400, data_venda:'2026-07-16',
+  arquivado_em:'2026-07-27T10:00:00Z' }];
 var CATALOGO_STUB = [{ id:'m1', rotulo:'iPhone 13' }, { id:'m2', rotulo:'iPhone 15' }];
 // Motoboys cadastrados. O segundo nasce SEM telefone de proposito: a lista tem
 // que dizer "sem WhatsApp" e o botao dele tem que recusar o despacho, em vez de
 // montar um wa.me sem numero.
 var MOTOBOYS = [{ id:'mb1', nome:'Hiago', whatsapp:'5521987654321' },
                 { id:'mb2', nome:'Rafa sem numero', whatsapp:null }];
-var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB, catalogo_iphone: CATALOGO_STUB,
+var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB,
+  venda: VENDAS_ARQ_STUB, catalogo_iphone: CATALOGO_STUB,
   motoboy: MOTOBOYS,
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
@@ -1082,16 +1113,359 @@ async function rodar() {
 
   document.getElementById('abaVendas').click();
   await espera(220);
-  ok('as duas vendas do fixture renderizaram',
-     document.querySelectorAll('#lista .card').length === 2,
+  ok('as cinco vendas do fixture renderizaram',
+     document.querySelectorAll('#lista .card').length === 5,
      'n=' + document.querySelectorAll('#lista .card').length);
-  // a linha existe nos DOIS cards: campo vazio que nao aparece esconde
+  // A cancelada CONTINUA na lista: ela sai do faturamento, nao da tela. Quem
+  // some da lista e a arquivada, que e outra coisa.
+  ok('a venda cancelada aparece na lista mesmo fora do faturamento',
+     telaTxt().indexOf('VENDA-0003') >= 0, telaTxt().slice(0, 120));
+  // a linha existe em TODO card: campo vazio que nao aparece esconde
   // exatamente a venda que precisa de acao
   ok('a linha de entrega existe em todo card',
-     document.querySelectorAll('#lista .venda-ent').length === 2,
+     document.querySelectorAll('#lista .venda-ent').length === 5,
      'n=' + document.querySelectorAll('#lista .venda-ent').length);
   ok('a venda sem endereco declara a falta na linha',
      telaTxt().indexOf('sem endereço de entrega') >= 0, telaTxt().slice(0, 90));
+  // ============ painel de vendas: o dinheiro somado no topo (v52) ============
+  // A janela e fixada em "Tudo" antes dos numeros literais de proposito.
+  // "Trimestre" e o padrao, mas depende da data em que a suite roda: assercao
+  // com numero exato amarrada ao calendario comeca a reprovar sozinha em
+  // janeiro, e guard-rail que reprova por conta propria e ruido, nao guarda.
+  ok('o painel de vendas existe', !!document.querySelector('#lista .vg'));
+  ok('o painel vem ANTES do primeiro card (dinheiro no topo, nao no rodape)',
+     !!document.querySelector('#lista .vg') && !!document.querySelector('#lista .card') &&
+     (document.querySelector('#lista .vg').compareDocumentPosition(document.querySelector('#lista .card'))
+      & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+  ok('a janela padrao e Trimestre',
+     !!document.querySelector('#lista [data-acao="vg-janela"][data-id="trimestre"][aria-pressed="true"]'));
+
+  // ---- layout de tres colunas (3a passada) ----
+  var vgGraf = document.querySelector('#lista .vg-graf.g-meses');
+  var vgGrafV = document.querySelector('#lista .vg-graf.g-vaza');
+  var vgVals = document.querySelector('#lista .vg-valores');
+  ok('o painel tem os dois graficos separados e a coluna de valores',
+     !!vgGraf && !!vgGrafV && !!vgVals);
+  // O headless roda a 800px, que e ABAIXO do corte de 900: aqui o certo e a
+  // coluna unica com os valores em cima. As duas colunas lado a lado sao
+  // provadas em diag_mobile.py, que monta o app num iframe da largura pedida e
+  // mede a geometria real. Assertar gridColumnStart aqui daria o valor do
+  // layout empilhado e passaria pelo motivo errado.
+  ok('a 800px o painel esta empilhado, e os VALORES ficam em cima',
+     !!vgGraf && !!vgVals &&
+     vgVals.getBoundingClientRect().top < vgGraf.getBoundingClientRect().top,
+     'valores=' + (vgVals ? Math.round(vgVals.getBoundingClientRect().top) : '?') +
+     ' graficos=' + (vgGraf ? Math.round(vgGraf.getBoundingClientRect().top) : '?'));
+  // Esta e a que sustenta o celular SEM nenhuma regra de `order`: com os valores
+  // primeiro no DOM, a coluna unica ja nasce na ordem certa. Se alguem inverter
+  // o DOM e "consertar" com order, o pixel fica igual e a leitura quebra.
+  ok('no DOM os VALORES vem antes dos graficos (e o que da a ordem do celular)',
+     !!vgGraf && !!vgVals &&
+     (vgVals.compareDocumentPosition(vgGraf) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+  ok('e ninguem usa `order` para posicionar as colunas',
+     !!vgGraf && !!vgVals &&
+     getComputedStyle(vgGraf).order === '0' && getComputedStyle(vgVals).order === '0',
+     (vgGraf ? getComputedStyle(vgGraf).order : '?') + ' / ' + (vgVals ? getComputedStyle(vgVals).order : '?'));
+  // A REGRA QUE O DONO REPROVOU. Barra de dado tem no maximo 24px e a sobra da
+  // faixa e ar; antes a coluna era 1fr e com 2 meses cada barra ficava com
+  // ~289px. Assertar so "existe coluna" nunca teria pego isso.
+  var vgTubo1 = document.querySelector('#lista .vg-mes .vg-tubo');
+  ok('a barra do grafico mede 24px, nao preenche o slot',
+     !!vgTubo1 && Math.round(vgTubo1.getBoundingClientRect().width) === 24,
+     vgTubo1 ? Math.round(vgTubo1.getBoundingClientRect().width) + 'px' : '(sem tubo)');
+  // Leitor de estilo tolerante a ausencia. Sem ele, uma assercao nova estoura em
+  // getComputedStyle(null) e leva junto o resto da rodada, que e o defeito que a
+  // secao 6 do v51 ja tinha nomeado uma vez.
+  var vgEstilo = function (sel, prop) {
+    var el = document.querySelector(sel);
+    return el ? getComputedStyle(el)[prop] : '(sem ' + sel + ')';
+  };
+  ok('e as colunas ficam ancoradas a esquerda, sem espalhar',
+     vgEstilo('#lista .vg-meses', 'justifyContent') === 'start',
+     vgEstilo('#lista .vg-meses', 'justifyContent'));
+
+  // Leitores TOLERANTES a ausencia, e o clique tambem. Rodando contra um app.js
+  // que ainda nao tem o painel, o bloco inteiro tem que REPROVAR 31 vezes; a
+  // primeira versao destas assercoes estourava num null.click() e levava junto
+  // 115 assercoes que nunca chegaram a ser avaliadas. Falha reprova, nao derruba
+  // a rodada (mesma licao da secao 6 do v51).
+  // O bloco de valor deixou de ser .pb-celula na 2a passada (o grid do pitboard
+  // e repeat(4,1fr) e nao cabe na coluna estreita), mas a CHAVE continua sendo
+  // data-cel, por codigo: e por isso que a troca de markup custou um seletor, e
+  // nao a reescrita de toda assercao de numero.
+  var vgCel = function (cod) {
+    var el = document.querySelector('#lista .vg-valores [data-cel="' + cod + '"]');
+    return el ? el.textContent : '(sem celula ' + cod + ')';
+  };
+  var vgLeg = function (k) {
+    var el = document.querySelector('#lista .vg-vaza-item[data-vaza="' + k + '"]');
+    return el ? el.textContent : '(sem legenda ' + k + ')';
+  };
+  var vgClica = function (id) {
+    var b = document.querySelector('#lista [data-acao="vg-janela"][data-id="' + id + '"]');
+    if (b) b.click();
+    return !!b;
+  };
+  var vgSub = function (col, cls) { return col ? col.querySelector(cls) : null; };
+  var vgAlt = function (col, cls) { var el = vgSub(col, cls); return el ? el.style.height : '(sem ' + cls + ')'; };
+  var vgCor = function (col, cls) { var el = vgSub(col, cls); return el ? getComputedStyle(el).backgroundColor : '(sem ' + cls + ')'; };
+  var vgCls = function (col, cls) { var el = vgSub(col, cls); return el ? el.className : '(sem ' + cls + ')'; };
+  // aria-label da coluna: e por onde teclado e leitor de tela leem o que saiu de
+  // baixo da barra, entao varias assercoes dependem dele. Fica aqui em cima com
+  // os outros leitores: definido depois do primeiro uso, `var` iça a declaracao
+  // mas nao a atribuicao, e a rodada morre num "not a function".
+  var vgAria = function (el) { return el ? (el.getAttribute('aria-label') || '') : '(sem coluna)'; };
+
+  vgClica('tudo');
+  await espera(90);
+  // Fixture: 3200 + 5000 + 2000 + 1000 = 11200. A cancelada de 9999 fica FORA.
+  ok('faturamento soma so as nao canceladas', vgCel('vg-fat').indexOf('R$ 11.200,00') >= 0, vgCel('vg-fat'));
+  // Assercao NEGATIVA exige a celula existir: sem isso ela e vacuamente
+  // verdadeira num app que nem tem painel, e guard-rail que nao morde e enfeite.
+  ok('a cancelada nao entrou no faturamento',
+     !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]') &&
+     vgCel('vg-fat').indexOf('9.999') < 0, vgCel('vg-fat'));
+  // A arquivada de 8400 vem da tabela venda, nunca da v_venda: se um dia ela
+  // vazar para o faturamento, o total salta para 19.600 e e aqui que aparece.
+  ok('venda arquivada tambem fica fora do faturamento',
+     !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]') &&
+     vgCel('vg-fat').indexOf('19.600') < 0 && vgCel('vg-fat').indexOf('R$ 11.200,00') >= 0,
+     vgCel('vg-fat'));
+  ok('o contador do placar diz 4 vendas, nao 5', vgCel('vg-fat').indexOf('4 vendas') >= 0, vgCel('vg-fat'));
+  // 540 + 800 + 300 - 500 = 1140
+  ok('lucro soma a coluna lucro da view, inclusive o negativo',
+     vgCel('vg-luc').indexOf('R$ 1.140,00') >= 0, vgCel('vg-luc'));
+  // Margem saiu do PE do lucro e virou numero proprio. Era o menor texto do
+  // bloco e e ela que diz se a operacao vale a pena.
+  ok('margem e numero proprio, com chave propria (1140/11200)',
+     vgCel('vg-margem').indexOf('10,2%') >= 0, vgCel('vg-margem'));
+  ok('e nao e mais rodape do lucro', vgCel('vg-luc').indexOf('margem') < 0, vgCel('vg-luc'));
+  ok('ticket medio = faturamento / vendas (11200/4)',
+     vgCel('vg-ticket').indexOf('R$ 2.800,00') >= 0, vgCel('vg-ticket'));
+  ok('e o pe do ticket traz o lucro medio (1140/4)',
+     vgCel('vg-ticket').indexOf('R$ 285,00') >= 0, vgCel('vg-ticket'));
+  // frete 30+90+50+100 = 270; taxas 30+10+0+0 = 40
+  ok('vazamento = frete + taxas (270 + 40)', vgCel('vg-vazamento').indexOf('R$ 310,00') >= 0, vgCel('vg-vazamento'));
+  ok('e diz quanto isso pesa no lucro (310/1140)',
+     vgCel('vg-vazamento').indexOf('27,2% do lucro') >= 0, vgCel('vg-vazamento'));
+  // A legenda passou a falar so em % (a coluna de valores fala em R$), entao a
+  // conta e conferida do jeito que importa mais: o GRAFICO e o NUMERO tem que
+  // dizer a mesma coisa. Se um dia alguem recalcular lucro no cliente em vez de
+  // somar a coluna da view, os dois lados divergem e e aqui que aparece.
+  // TRES partes, nao quatro. Frete e taxas viraram uma so porque o par de cores
+  // possivel para elas media ΔE 13.0 na visao normal, abaixo do piso de 15.
+  // 9750/11200 = 87,1% · 310/11200 = 2,8% · 1140/11200 = 10,2%
+  ok('a barra de vazamento fecha 100% do faturamento em 3 partes',
+     vgLeg('custo').indexOf('87,1%') >= 0 && vgLeg('vaza').indexOf('2,8%') >= 0 &&
+     vgLeg('luc').indexOf('10,2%') >= 0,
+     vgLeg('custo') + ' | ' + vgLeg('vaza') + ' | ' + vgLeg('luc'));
+  ok('e a fatia de lucro do grafico bate com a margem do numero (10,2% nos dois)',
+     vgLeg('luc').indexOf('10,2%') >= 0 && vgCel('vg-margem').indexOf('10,2%') >= 0,
+     'grafico=' + vgLeg('luc') + ' numero=' + vgCel('vg-margem'));
+  ok('nao ha mais fatia separada de frete nem de taxas',
+     !document.querySelector('#lista [data-vaza="frete"]') &&
+     !document.querySelector('#lista [data-vaza="taxas"]'));
+  // A quebra frete/taxas nao se perdeu: ela vive em R$ no bloco de vazamento.
+  ok('a quebra frete/taxas continua legivel, em R$, no bloco de valores',
+     vgCel('vg-vazamento').indexOf('R$ 270,00') >= 0 && vgCel('vg-vazamento').indexOf('R$ 40,00') >= 0,
+     vgCel('vg-vazamento'));
+  // A legenda e a chave de cor dos DOIS graficos, entao cada item precisa do
+  // quadradinho: sem ele o nome nao amarra em fatia nenhuma.
+  ok('cada item da legenda tem o quadradinho que amarra cor e nome',
+     document.querySelectorAll('#lista .vg-vaza-item i').length === 3,
+     'n=' + document.querySelectorAll('#lista .vg-vaza-item i').length);
+  // O recorte e parte do dado: sem ele a tela mente por omissao. O fim varia com
+  // a data de hoje, entao a assercao cobre o inicio e a contagem, nunca o fim.
+  var vgRec = document.querySelector('#lista .vg-recorte');
+  ok('o painel DECLARA a janela (de X a ...)',
+     !!vgRec && vgRec.textContent.indexOf('de 18/07/2026 a ') === 0, vgRec && vgRec.textContent);
+  ok('e declara a pre-venda que esta somada dentro',
+     !!vgRec && vgRec.textContent.indexOf('4 vendas · inclui 1 pré-venda') >= 0, vgRec && vgRec.textContent);
+
+  // ---- as barras por mes ----
+  var vgJul = document.querySelector('#lista .vg-mes[data-mes="2026-07"]');
+  var vgAgo = document.querySelector('#lista .vg-mes[data-mes="2026-08"]');
+  ok('ha uma coluna por mes com venda na janela',
+     document.querySelectorAll('#lista .vg-mes').length === 2 && !!vgJul && !!vgAgo,
+     'n=' + document.querySelectorAll('#lista .vg-mes').length);
+  // A cancelada de julho nao virou coluna propria NEM engordou a de julho: sao
+  // 2 vendas no mes, nao 3. A contagem saiu do texto sob a barra e vive no
+  // aria-label, que e por onde teclado e leitor de tela leem.
+  ok('a cancelada nao virou coluna propria nem somou em julho',
+     vgAria(vgJul).indexOf('2 vendas') >= 0, vgAria(vgJul));
+  // julho 8200 e o maior mes -> 100%; agosto 3000 -> 37%
+  ok('a fita do maior mes ocupa o tubo inteiro',
+     vgAlt(vgJul, '.vg-fat') === '100%', vgAlt(vgJul, '.vg-fat'));
+  ok('e o mes menor e proporcional ao maior (3000/8200)',
+     vgAlt(vgAgo, '.vg-fat') === '37%', vgAlt(vgAgo, '.vg-fat'));
+  // A coluna e EMPILHADA: bater o olho tem que dizer de uma vez qual mes foi
+  // maior E qual mes guardou mais. A versao anterior, com uma lasca de lucro
+  // dentro de um tubo cheio, so respondia a primeira pergunta.
+  // Julho: fat 8200, custo 6700, frete 120, taxas 40, lucro 1340.
+  ok('a coluna do mes e empilhada nas 3 partes, nao uma fatia so',
+     (vgJul ? vgJul.querySelectorAll('.vg-seg').length : 0) === 3,
+     'n=' + (vgJul ? vgJul.querySelectorAll('.vg-seg').length : 0));
+  // custo 6700 + vazamento 160 + lucro 1340 = 8200, o faturamento do mes
+  ok('a fatia de custo e 6700/8200 do mes', vgAlt(vgJul, '.s-custo') === '81.71%', vgAlt(vgJul, '.s-custo'));
+  ok('a fatia de vazamento e 160/8200 do mes', vgAlt(vgJul, '.s-vaza') === '1.95%', vgAlt(vgJul, '.s-vaza'));
+  ok('a fatia de lucro e 1340/8200 do mes', vgAlt(vgJul, '.s-luc') === '16.34%', vgAlt(vgJul, '.s-luc'));
+  ok('as fatias usam as MESMAS cores da legenda (uma chave serve os dois graficos)',
+     vgCor(vgJul, '.s-luc') === 'rgb(15, 122, 82)' && vgCor(vgJul, '.s-vaza') === 'rgb(196, 136, 8)' &&
+     vgCor(vgJul, '.s-custo') === 'rgb(92, 102, 117)',
+     vgCor(vgJul, '.s-luc') + ' | ' + vgCor(vgJul, '.s-vaza') + ' | ' + vgCor(vgJul, '.s-custo'));
+  // --dim e --morno CHEIOS: a 28% e 45% de opacidade as fatias liam como papel,
+  // fora da banda de luminosidade do validador.
+  ok('as fatias sao opacas, nao lavadas',
+     (vgSub(vgJul, '.s-custo') ? getComputedStyle(vgSub(vgJul, '.s-custo')).opacity : '?') === '1',
+     vgSub(vgJul, '.s-custo') ? getComputedStyle(vgSub(vgJul, '.s-custo')).opacity : '(sem fatia)');
+  // Vao de 2px na cor da superficie, nunca borda em volta da marca.
+  ok('as fatias vizinhas separam por VAO de 2px, nao por borda',
+     (vgSub(vgJul, '.s-vaza') ? getComputedStyle(vgSub(vgJul, '.s-vaza')).marginTop : '?') === '2px' &&
+     (vgSub(vgJul, '.s-vaza') ? getComputedStyle(vgSub(vgJul, '.s-vaza')).borderTopWidth : '?') === '0px',
+     'margin=' + (vgSub(vgJul, '.s-vaza') ? getComputedStyle(vgSub(vgJul, '.s-vaza')).marginTop : '?') +
+     ' border=' + (vgSub(vgJul, '.s-vaza') ? getComputedStyle(vgSub(vgJul, '.s-vaza')).borderTopWidth : '?'));
+  // Ponta de dado: 4px em cima, quadrada na base. A coluna cresce de UMA linha
+  // de base, e o canto marca onde o dado termina.
+  ok('a fatia do topo tem canto de 4px',
+     (vgSub(vgJul, '.s-custo') ? getComputedStyle(vgSub(vgJul, '.s-custo')).borderTopLeftRadius : '?') === '4px',
+     vgSub(vgJul, '.s-custo') ? getComputedStyle(vgSub(vgJul, '.s-custo')).borderTopLeftRadius : '?');
+  ok('e a fatia da base e quadrada',
+     (vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).borderBottomLeftRadius : '?') === '0px',
+     vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).borderBottomLeftRadius : '?');
+  // agosto: 300 - 500 = -200. Prejuizo nao tem fatia de lucro para empilhar.
+  ok('mes no prejuizo nao tem fatia de lucro', !vgSub(vgAgo, '.s-luc'));
+  ok('e ganha a faixa negativa, dimensionada pelo rombo (200/3000)',
+     vgAlt(vgAgo, '.s-neg') === '7%', vgAlt(vgAgo, '.s-neg'));
+  ok('a faixa negativa usa a cor de erro',
+     vgCor(vgAgo, '.s-neg') === 'rgb(176, 18, 53)', vgCor(vgAgo, '.s-neg'));
+  // Verde x vermelho no mesmo tom separam 1.32 (prova_grafico.py): matiz sozinho
+  // deixa lucro e prejuizo iguais para quem tem daltonismo vermelho-verde. A
+  // hachura e o segundo canal, e aqui ela e conferida no DOM RENDERIZADO, nao
+  // so na folha de estilo.
+  ok('o mes de prejuizo tem hachura, nao so cor (matiz nao pode ser o unico canal)',
+     (vgSub(vgAgo, '.s-neg') ? getComputedStyle(vgSub(vgAgo, '.s-neg')).backgroundImage : 'none')
+       .indexOf('repeating-linear-gradient') >= 0,
+     vgSub(vgAgo, '.s-neg') ? getComputedStyle(vgSub(vgAgo, '.s-neg')).backgroundImage : '(sem faixa)');
+  ok('e o mes de lucro NAO tem hachura (senao o segundo canal nao distingue nada)',
+     (vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).backgroundImage : 'x') === 'none',
+     vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).backgroundImage : '(sem fatia)');
+  // SOB A BARRA FICA SO O MES. Quatro rotulos por coluna (valor, mes, margem,
+  // n de vendas) e a definicao de inundar um grafico, e o que se le nesse caso e
+  // nada. Estas duas assercoes travam o retorno.
+  ok('sob a coluna fica so o rotulo do mes, mais nada',
+     !!vgJul && vgJul.textContent.replace(/\s+/g, '') === 'jul',
+     vgJul ? JSON.stringify(vgJul.textContent) : '(sem coluna)');
+  ok('nenhuma coluna imprime valor nem margem',
+     document.querySelectorAll('#lista .vg-mes-num, #lista .vg-mes-mg, #lista .vg-mes-pe').length === 0,
+     'n=' + document.querySelectorAll('#lista .vg-mes-num, #lista .vg-mes-mg, #lista .vg-mes-pe').length);
+  // Nada fica represado atras do hover: quem usa teclado ou leitor de tela le a
+  // mesma frase no aria-label do botao.
+  ok('a coluna carrega o resumo do mes no aria-label',
+     vgAria(vgJul).indexOf('margem 16,3%') >= 0 && vgAria(vgJul).indexOf('R$ 8.200,00') >= 0,
+     vgAria(vgJul));
+  ok('o grafico explica a propria leitura no titulo',
+     (document.querySelector('#lista .vg-tit') || {}).textContent &&
+     document.querySelector('#lista .vg-tit').textContent.indexOf('altura = faturamento') >= 0,
+     (document.querySelector('#lista .vg-tit') || {}).textContent);
+  // tabular-nums da largura de zero a todo digito e deixa numero grande frouxo.
+  ok('o numero grande usa figuras proporcionais, nao tabular-nums',
+     vgEstilo('#lista .vg-val[data-cel="vg-fat"] .vg-num', 'fontVariantNumeric').indexOf('tabular-nums') < 0,
+     vgEstilo('#lista .vg-val[data-cel="vg-fat"] .vg-num', 'fontVariantNumeric'));
+
+  // ---- o balao: hover no desktop, TOQUE no celular ----
+  // A cartilha e clara que tooltip enriquece mas nunca e o unico caminho para um
+  // valor. No celular nao existe hover, entao sem o toque a composicao do mes
+  // ficaria represada atras de um gesto que o aparelho nao tem.
+  var vgTip = document.getElementById('vgTip');
+  ok('o balao existe e comeca escondido', !!vgTip && vgTip.hidden);
+  if (vgJul) vgJul.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  await espera(60);
+  ok('passar o mouse na coluna abre o balao', !!vgTip && !vgTip.hidden);
+  ok('e ele traz as TRES partes em R$ (custo 6700, vazamento 160, lucro 1340)',
+     !!vgTip && vgTip.textContent.indexOf('R$ 6.700,00') >= 0 &&
+     vgTip.textContent.indexOf('R$ 160,00') >= 0 && vgTip.textContent.indexOf('R$ 1.340,00') >= 0,
+     vgTip ? vgTip.textContent : '(sem balao)');
+  ok('e nomeia o mes por extenso, com a margem',
+     !!vgTip && vgTip.textContent.indexOf('julho') >= 0 && vgTip.textContent.indexOf('16,3%') >= 0,
+     vgTip ? vgTip.textContent : '(sem balao)');
+  if (vgJul) vgJul.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+  await espera(60);
+  ok('tirar o mouse fecha', !!vgTip && vgTip.hidden);
+  if (vgJul) vgJul.click();
+  await espera(60);
+  ok('e o TOQUE tambem abre (celular nao tem hover)', !!vgTip && !vgTip.hidden);
+  if (vgJul) vgJul.click();
+  await espera(60);
+  ok('tocar de novo fecha', !!vgTip && vgTip.hidden);
+
+  // ---- trocar a janela nao pode custar rede ----
+  // A tela ja tem as linhas na memoria; refazer as 3 leituras para reagrupar o
+  // que ja esta aqui e o defeito que o v51 tirou do resto do app.
+  var vgFromAntes = (window.__fromChamadas || []).length;
+  var vgRpcAntes = (window.__rpcChamadas || []).length;
+  var vgCardsAntes = document.querySelectorAll('#lista .card').length;
+  // vgTrocou guarda as tres assercoes abaixo: sem ele, "nao leu rede" e verdade
+  // trivial num app onde o botao nem existe para ser clicado.
+  var vgTrocou = vgClica('mes');
+  await espera(90);
+  ok('trocar a janela do painel NAO le nenhuma tabela',
+     vgTrocou && (window.__fromChamadas || []).length === vgFromAntes,
+     'clicou=' + vgTrocou + ' antes=' + vgFromAntes + ' depois=' + (window.__fromChamadas || []).length);
+  ok('trocar a janela do painel NAO chama nenhuma RPC',
+     vgTrocou && (window.__rpcChamadas || []).length === vgRpcAntes,
+     'clicou=' + vgTrocou + ' antes=' + vgRpcAntes + ' depois=' + (window.__rpcChamadas || []).length);
+  ok('e a lista de cards nao pisca nem encolhe',
+     vgTrocou && document.querySelectorAll('#lista .card').length === vgCardsAntes &&
+     !document.querySelector('#lista .estado.carregando'),
+     'clicou=' + vgTrocou + ' n=' + document.querySelectorAll('#lista .card').length);
+  ok('o botao clicado ficou marcado, e so ele',
+     document.querySelectorAll('#lista [data-acao="vg-janela"][aria-pressed="true"]').length === 1 &&
+     document.querySelector('#lista [data-acao="vg-janela"][data-id="mes"]').getAttribute('aria-pressed') === 'true');
+  // Vazio NAO derruba o painel: os quatro rotulos ficam, com travessao no lugar
+  // do numero. So renderizar campo que tem dado e o que faz a tela sumir na base
+  // zerada. O mes corrente pode ou nao ter venda conforme o dia em que a suite
+  // roda, entao os DOIS ramos afirmam alguma coisa.
+  ok('todo rotulo da coluna de valores continua na tela em qualquer janela',
+     ['vg-fat', 'vg-luc', 'vg-margem', 'vg-ticket', 'vg-vazamento'].every(function (k) {
+       return !!document.querySelector('#lista .vg-valores [data-cel="' + k + '"] .pb-rot'); }));
+  var vgMesVazio = !document.querySelector('#lista .vg-mes');
+  if (vgMesVazio) {
+    ok('janela vazia mantem o painel e mostra o travessao, nao some',
+       vgCel('vg-fat').indexOf('—') >= 0 && !!document.querySelector('#lista .vg-vazio'), vgCel('vg-fat'));
+    ok('e o vazio oferece o caminho de saida (abrir para tudo)',
+       !!document.querySelector('#lista .vg-abrir[data-id="tudo"]'));
+    // Na 1a passada o vazio engolia o painel inteiro. Agora ele ocupa so o lugar
+    // dos graficos: o numero continua na tela, com travessao.
+    ok('e o aviso fica DENTRO da coluna de graficos, sem derrubar os valores',
+       !!document.querySelector('#lista .vg-graficos .vg-vazio') &&
+       !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]'));
+  } else {
+    ok('janela do mes corrente tem venda: o painel mostra as barras',
+       !!document.querySelector('#lista .vg-meses') && !document.querySelector('#lista .vg-vazio'));
+    ok('e o faturamento do mes nao e o da base inteira',
+       vgCel('vg-fat').indexOf('R$ 11.200,00') < 0, vgCel('vg-fat'));
+  }
+
+  // ---- abrir as arquivadas tambem parou de reler a base ----
+  vgClica('tudo');
+  await espera(90);
+  // Sem `if`: ate agora esta assercao nao rodava em rodada NENHUMA, porque o
+  // fixture nao tinha venda arquivada e o botao nunca existia. Assercao que nao
+  // roda parece cobertura e nao e.
+  var vgArqBt = document.querySelector('#lista [data-acao="venda-arq-alternar"]');
+  ok('a gaveta das arquivadas aparece quando ha arquivada', !!vgArqBt);
+  var arqFrom = (window.__fromChamadas || []).length;
+  if (vgArqBt) vgArqBt.click();
+  await espera(90);
+  ok('abrir as arquivadas NAO le a base de novo (ate a v51 relia as 3)',
+     !!vgArqBt && (window.__fromChamadas || []).length === arqFrom,
+     'botao=' + !!vgArqBt + ' antes=' + arqFrom + ' depois=' + (window.__fromChamadas || []).length);
+  ok('e a arquivada aparece na gaveta, fora do faturamento',
+     telaTxt().indexOf('VENDA-0009') >= 0 && telaTxt().indexOf('fora do faturamento') >= 0,
+     telaTxt().slice(-140));
+  if (vgArqBt) vgArqBt.click();
+  await espera(90);
+
   var btEnt1 = document.querySelector('[data-acao="venda-entrega"][data-id="v1"]');
   var btEnt2 = document.querySelector('[data-acao="venda-entrega"][data-id="v2"]');
   ok('as duas vendas tem o botao Relatorio', !!btEnt1 && !!btEnt2);
