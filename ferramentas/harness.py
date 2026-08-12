@@ -114,6 +114,10 @@ var CONT = [
   { id:'c7', titulo:'Story ideia velha', data:_dISO(-7), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Descartado',  status_codigo:'descartado',  semana:'S29', url:null, hoje:false }];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
+// Contador irmao do __rpcChamadas, para o lado das TABELAS. Sem ele nao da para
+// afirmar "este clique nao releu a base": so se via a RPC, e a leitura de
+// v_lead/dicionario_rotulos passava invisivel.
+window.__fromChamadas = [];
 window.supabase = {
   createClient: function () {
     return {
@@ -130,14 +134,30 @@ window.supabase = {
       // deixando "Lendo vendas…" na tela. Isso derrubava 3 assercoes e MATAVA a
       // rodada num null.click(), entao tudo depois da aba Vendas (incluindo a Fila)
       // nunca era testado. Stub incompleto nao falha barulhento: ele cega o teste.
+      // .eq() e .neq() FILTRAM de verdade desde 11/08/2026. Antes devolviam a
+      // tabela inteira, e isso cegava o teste do mesmo jeito que o .not()
+      // ausente cegava: a troca cirurgica do card faz
+      // .from('v_lead').select('*').eq('id', id), esperando UMA linha, e o stub
+      // devolvia as 25. O app pegava data[0] (lead ERRADO) e a assercao passava
+      // pelo motivo errado. Stub que ignora filtro nao e stub: e mentira.
       from: function (tabela) {
-        var payload = { data: TABELAS[tabela] || [], error: null };
+        window.__fromChamadas.push(tabela);
+        var filtros = [];
         var api = {};
-        ['select', 'eq', 'neq', 'not', 'is', 'in', 'gt', 'gte', 'lt', 'lte',
+        ['select', 'not', 'is', 'in', 'gt', 'gte', 'lt', 'lte',
          'like', 'ilike', 'or', 'limit', 'range', 'order'].forEach(function (m) {
           api[m] = function () { return api; };
         });
-        api.then = function (f, r) { return Promise.resolve(payload).then(f, r); };
+        api.eq  = function (col, val) { filtros.push([col, val, false]); return api; };
+        api.neq = function (col, val) { filtros.push([col, val, true]);  return api; };
+        api.then = function (f, r) {
+          var linhas = (TABELAS[tabela] || []).filter(function (x) {
+            return filtros.every(function (ft) {
+              return ft[2] ? x[ft[0]] !== ft[1] : x[ft[0]] === ft[1];
+            });
+          });
+          return Promise.resolve({ data: linhas, error: null }).then(f, r);
+        };
         return api;
       },
       rpc: function (nome, args) {
@@ -252,6 +272,40 @@ window.supabase = {
           // espelha o soft delete REAL (removida_em, P4): a linha fica, some da leitura
           DIA.forEach(function (x) { if (x.id === args.p_tarefa_id) x.removida = true; });
           return Promise.resolve({ data: { ok: true, msg: 'Tarefa removida' }, error: null });
+        }
+        // ---- escrita de lead. Ate 11/08/2026 NENHUMA delas era stubada: caiam
+        // no 'rpc nao stubada' (ok:false), q() ia para o ramo de erro, e o
+        // caminho de recarga pos-acao NUNCA era exercitado pela suite. Os
+        // efeitos abaixo espelham pg_get_functiondef, lido do banco em
+        // 11/08/2026:
+        //   registrar_toque       -> ultimo_toque_em = now()  (tira da fila do
+        //                            dia, porque entraNaFila exige
+        //                            dataLocalDe(ultimo_toque_em) !== hoje)
+        //   registrar_resposta    -> respondido_em = now()    (NAO tira da fila)
+        //   registrar_conversando -> etapa_cadencia + ultimo_toque_em
+        //   registrar_desfecho    -> sem_interesse: status=lista_fria e
+        //                            proximo_contato=null
+        if (nome === 'registrar_toque') {
+          LEADS.forEach(function (x) { if (x.id === args.p_lead_id) x.ultimo_toque_em = new Date().toISOString(); });
+          return Promise.resolve({ data: { ok: true, msg: 'Toque registrado', lead_id: args.p_lead_id }, error: null });
+        }
+        if (nome === 'registrar_resposta') {
+          LEADS.forEach(function (x) { if (x.id === args.p_lead_id) x.respondido_em = new Date().toISOString(); });
+          return Promise.resolve({ data: { ok: true, msg: 'Resposta registrada', lead_id: args.p_lead_id }, error: null });
+        }
+        if (nome === 'registrar_conversando') {
+          LEADS.forEach(function (x) { if (x.id === args.p_lead_id) { x.etapa_cadencia = 'conversando'; x.ultimo_toque_em = new Date().toISOString(); } });
+          return Promise.resolve({ data: { ok: true, msg: 'Conversa registrada', lead_id: args.p_lead_id }, error: null });
+        }
+        if (nome === 'registrar_desfecho') {
+          if (args.p_tipo !== 'convertido' && args.p_tipo !== 'sem_interesse')
+            return Promise.resolve({ data: { ok: false, msg: 'Tipo de desfecho invalido: ' + args.p_tipo }, error: null });
+          LEADS.forEach(function (x) {
+            if (x.id !== args.p_lead_id) return;
+            if (args.p_tipo === 'sem_interesse') { x.status = 'lista_fria'; x.proximo_contato = null; }
+            else x.status = 'convertido';
+          });
+          return Promise.resolve({ data: { ok: true, msg: 'Sem interesse (app)', lead_id: args.p_lead_id }, error: null });
         }
         if (nome === 'salvar_nota') { DIA_NOTA = args.p_texto; return Promise.resolve({ data: { ok: true, msg: 'Nota salva' }, error: null }); }
         if (nome === 'salvar_lembrete') { LEMB.push({ id: 'lb' + (LEMB.length + 1), texto: args.p_texto, feito: false }); return Promise.resolve({ data: { ok: true, msg: 'Lembrete salvo' }, error: null }); }
@@ -1277,6 +1331,172 @@ async function rodar() {
   ok('e some da coluna A produzir',
      ![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="a_produzir"] .cont-card'),
        function (el) { return el.getAttribute('data-id') === 'c1'; })[0]);
+
+  // ================= v51: clique de acao nao recarrega a tela =================
+  // Ate 11/08/2026 todo clique de acao chamava B(), a carga completa. Medido
+  // nesta maquina com fila de 25 leads: 20 chamadas de rede por clique, a lista
+  // piscando com 'Lendo a base…', e 0 de 24 cards sobrevivendo. Estas assercoes
+  // sao sobre CONTAGEM DE REDE e IDENTIDADE DE NO DO DOM, que e o unico jeito de
+  // provar que uma tela NAO foi remontada: comparar HTML nao distingue "igual"
+  // de "recriado igual".
+  document.getElementById('abaFila').click();
+  await espera(320);
+  var cds = document.querySelectorAll('#lista .card');
+  ok('a Fila tem 2+ cards para a prova cirurgica', cds.length >= 2, 'cards=' + cds.length);
+  [].forEach.call(cds, function (el, ix) { el.setAttribute('data-prova', 'p' + ix); });
+  var noP0 = cds[0];
+
+  document.querySelector('#lista .card[data-prova="p0"] [data-acao="historico"]').click();
+  await espera(240);
+  ok('o Historico do card 1 abriu (estado que a acao no card 2 nao pode derrubar)',
+     !!noP0.querySelector('[data-hist]'));
+
+  var filaAntes = parseInt(document.getElementById('pbFila').textContent, 10);
+  var alvo = document.querySelector('#lista .card[data-prova="p1"]');
+  var codAlvo = alvo.getAttribute('data-lead');
+  window.__rpcChamadas.length = 0;
+  window.__fromChamadas.length = 0;
+  // Poll nao serve: o stub resolve na hora e o spinner pode viver menos que um
+  // tick, o que leria 'nao piscou' num app que pisca na producao (rede real de
+  // 200-400ms). O observer pega a troca mesmo com duracao zero.
+  var piscou = false;
+  var obsL = new MutationObserver(function () {
+    if (document.querySelector('#lista .estado.carregando')) piscou = true; });
+  obsL.observe(document.getElementById('lista'), { childList: true, subtree: true });
+  alvo.querySelector('[data-acao="toque"]').click();
+  await espera(520);
+  obsL.disconnect();
+
+  var froms = window.__fromChamadas, rpcs = window.__rpcChamadas;
+  ok('o clique NAO pisca a lista (nenhum estado.carregando entrou no DOM)', !piscou);
+  ok('o clique NAO rele dicionario_rotulos (config, nao dado vivo)',
+     froms.filter(function (x) { return x === 'dicionario_rotulos'; }).length === 0, froms.join(','));
+  ok('o clique le v_lead uma vez so (UMA linha por .eq, nao a base)',
+     froms.filter(function (x) { return x === 'v_lead'; }).length === 1, froms.join(','));
+  ok('o clique NAO dispara a rajada de sugerir_mensagem',
+     rpcs.filter(function (r) { return r.nome === 'sugerir_mensagem'; }).length === 0,
+     rpcs.length + ' rpcs');
+  ok('custo total do clique <= 2 chamadas de rede',
+     rpcs.length + froms.length <= 2, 'rpc=' + rpcs.length + ' from=' + froms.length);
+
+  var pos = document.querySelectorAll('#lista .card');
+  ok('o card tocado sai da Fila (registrar_toque grava ultimo_toque_em = hoje)',
+     ![].filter.call(pos, function (el) { return el.getAttribute('data-lead') === codAlvo; })[0], codAlvo);
+  ok('os demais cards NAO foram recriados (a marca sobreviveu)',
+     pos.length > 0 && [].filter.call(pos, function (el) { return el.getAttribute('data-prova'); }).length === pos.length,
+     [].filter.call(pos, function (el) { return el.getAttribute('data-prova'); }).length + ' de ' + pos.length);
+  ok('o card 1 e o MESMO no do DOM (identidade, nao HTML igual)',
+     document.querySelector('#lista .card[data-prova="p0"]') === noP0);
+  ok('o Historico aberto sobreviveu a acao no outro card',
+     !!document.querySelector('#lista .card[data-prova="p0"] [data-hist]'));
+  ok('o pitboard acompanhou sem tocar na rede',
+     parseInt(document.getElementById('pbFila').textContent, 10) === filaAntes - 1,
+     'antes=' + filaAntes + ' depois=' + document.getElementById('pbFila').textContent);
+
+  // ---- Respondeu: o outro caminho. NAO tira da fila (registrar_resposta nao
+  // mexe em status, proximo_contato nem ultimo_toque_em), entao o card fica e e
+  // trocado no lugar. E a sugestao daquele lead e REBUSCADA, porque cache de
+  // sugestao velha mentiria sobre o passo da cadencia (invariante 13).
+  // O card do lead COM consentimento e o que tem link de WhatsApp: e a mesma
+  // condicao que o prefetch exige, entao nao se escolhe por posicao (a fila
+  // ordena por proximo_contato e o 1o do fixture e justamente um SEM consent).
+  var vivo = [].filter.call(document.querySelectorAll('#lista .card[data-prova]'),
+    function (el) { return !!el.querySelector('[data-wa-lead]'); })[0];
+  // O `if` nao e frescura: quando estas assercoes rodaram contra o app ANTIGO
+  // (para provar que elas mordem), a lista era recriada, `data-prova` sumia,
+  // `vivo` vinha undefined e a suite ESTOURAVA aqui, levando junto os blocos de
+  // Escopo e Hoje, que nunca chegaram a ser avaliados. Falha tem que reprovar,
+  // nao derrubar a rodada.
+  ok('ha um card com consentimento na fila para esta prova', !!vivo);
+  if (vivo) {
+  var codVivo = vivo.getAttribute('data-lead');
+  vivo.querySelector('[data-acao="leque"]').click();
+  await espera(120);
+  window.__rpcChamadas.length = 0; window.__fromChamadas.length = 0;
+  vivo.querySelector('[data-acao="respondeu"]').click();
+  await espera(520);
+  var aindaLa = [].filter.call(document.querySelectorAll('#lista .card'),
+    function (el) { return el.getAttribute('data-lead') === codVivo; })[0];
+  ok('Respondeu NAO tira o lead da fila: o card continua la', !!aindaLa);
+  ok('e o card foi TROCADO no lugar (perdeu a marca; os vizinhos nao)',
+     !!aindaLa && !aindaLa.getAttribute('data-prova'));
+  ok('a sugestao daquele lead foi rebuscada, nao reaproveitada do cache',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'sugerir_mensagem'; }).length === 1,
+     window.__rpcChamadas.map(function (r) { return r.nome; }).join(','));
+  }
+
+  // ---- LGPD no caminho novo (invariante 16). O repintar cirurgico usa o mesmo
+  // x() da lista, mas isso precisa ser PROVADO no caminho novo, nao deduzido:
+  // lead sem consentimento nao ganha link nem sugestao ao ser repintado.
+  var semC = [].filter.call(document.querySelectorAll('#lista .card[data-prova]'),
+    function (el) { return !el.querySelector('[data-wa-lead]'); })[0];
+  ok('ha um card SEM consentimento na fila para a prova de LGPD', !!semC);
+  if (semC) {
+  semC.querySelector('[data-acao="leque"]').click();
+  await espera(120);
+  window.__rpcChamadas.length = 0;
+  semC.querySelector('[data-acao="respondeu"]').click();
+  await espera(520);
+  var semCodigo = semC.getAttribute('data-lead');
+  var repintado = [].filter.call(document.querySelectorAll('#lista .card'),
+    function (el) { return el.getAttribute('data-lead') === semCodigo; })[0];
+  ok('o card sem consentimento foi repintado', !!repintado && !repintado.getAttribute('data-prova'));
+  ok('e continua SEM link de WhatsApp depois da troca cirurgica (invariante 16)',
+     !!repintado && !repintado.querySelector('[data-wa-lead]')
+     && repintado.textContent.indexOf('Sem consentimento') >= 0);
+  ok('e nenhuma sugestao foi pedida para lead sem consentimento',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'sugerir_mensagem'; }).length === 0,
+     window.__rpcChamadas.map(function (r) { return r.nome; }).join(','));
+  }
+
+  // ---- aba que nao e de lead nao pode baixar a base de leads ----
+  document.getElementById('abaEscopo').click();
+  await espera(300);
+  window.__fromChamadas.length = 0; window.__rpcChamadas.length = 0;
+  var piscou2 = false;
+  var obsE = new MutationObserver(function () {
+    if (document.querySelector('#lista .estado.carregando')) piscou2 = true; });
+  obsE.observe(document.getElementById('lista'), { childList: true, subtree: true });
+  document.querySelector('#lista [data-acao="esc-status"]').click();
+  await espera(420);
+  obsE.disconnect();
+  ok('acao no Escopo NAO baixa a base de leads (antes baixava v_lead inteira)',
+     window.__fromChamadas.filter(function (x) { return x === 'v_lead'; }).length === 0,
+     window.__fromChamadas.join(','));
+  ok('acao no Escopo NAO pisca a lista (antes eram DOIS apagoes por clique)', !piscou2);
+
+  // ---- Hoje: marcar tarefa mexe na linha, nao no dia inteiro ----
+  document.getElementById('abaHoje').click();
+  await espera(320);
+  var celRot = document.querySelector('#lista .pb-celula[data-cel="rotina"]');
+  ok('a celula do placar tem chave por CODIGO (data-cel), nao pelo rotulo exibido',
+     !!celRot);
+  var tf = document.querySelector('#lista [data-acao="dia-marcar"]');
+  if (celRot && tf) {
+  // Um bloco anterior desta mesma suite ja marcou esta tarefa, entao aqui o
+  // clique DESMARCA. A assercao e sobre VIRAR, nao sobre virar para 'true':
+  // fixar o valor esperado faria a prova depender da ordem dos blocos.
+  var checkAntes = tf.getAttribute('aria-checked');
+  var peAntes = celRot.querySelector('.pb-pe').textContent;
+  window.__rpcChamadas.length = 0; window.__fromChamadas.length = 0;
+  tf.click();
+  await espera(400);
+  ok('marcar tarefa NAO rele painel_do_dia (o dia inteiro era remontado)',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'painel_do_dia'; }).length === 0,
+     window.__rpcChamadas.map(function (r) { return r.nome; }).join(','));
+  ok('marcar tarefa custa 1 chamada: a propria RPC',
+     window.__rpcChamadas.length + window.__fromChamadas.length === 1,
+     'rpc=' + window.__rpcChamadas.length + ' from=' + window.__fromChamadas.length);
+  ok('o checkbox daquela linha virou', tf.getAttribute('aria-checked') !== checkAntes,
+     checkAntes + ' -> ' + tf.getAttribute('aria-checked'));
+  ok('e a linha e o MESMO no do DOM (a linha nao foi remontada)',
+     document.querySelector('#lista [data-acao="dia-marcar"]') === tf);
+  ok('o placar do dia acompanhou',
+     celRot.querySelector('.pb-pe').textContent !== peAntes,
+     peAntes + ' -> ' + celRot.querySelector('.pb-pe').textContent);
+  ok('e o placar e o MESMO no do DOM: nao houve remontagem',
+     document.querySelector('#lista .pb-celula[data-cel="rotina"]') === celRot);
+  }
 
   fim();
 
