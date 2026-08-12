@@ -107,6 +107,7 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
 .bdg{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:100px}
 .bdg-g{background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr)}
 .bdg-o{background:var(--or-bg);border:1px solid var(--or-bd);color:var(--or)}
+.bdg-b{background:var(--bl-bg);border:1px solid var(--bl-bd);color:var(--bl)}
 .db{background:var(--gr-bg);border:1px solid var(--gr-bd);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
 .dbh{padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.06)}
 .dbht{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--gr)}
@@ -281,7 +282,7 @@ function setNiv(n){
 }
 function com(cat,tp){
   const t=C.comissao&&C.comissao[NIVEL];if(!t)return null;
-  const tab=(tp==='Lacrado')?t.lacrado:t.seminovo;
+  const tab=(tp==='Seminovo')?t.seminovo:t.lacrado;
   if(!tab||typeof tab[cat]!=='number')return null;
   return tab[cat];
 }
@@ -294,7 +295,8 @@ function avisoSem(tp){
 function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function r2(v){return Math.round(v*100)/100}
 function PB(v){return v>0?v+C.pb:v}
-function gar(tp){return tp==='Lacrado'?'1 ano':'3 meses'}
+function gar(tp){return tp==='Seminovo'?'3 meses':'1 ano'}
+function bdgCls(tp){return tp==='Seminovo'?'bdg-o':(tp==='Lacrado'?'bdg-g':'bdg-b')}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.className='toast on';setTimeout(()=>t.className='toast',2500)}
 function cp(txt,m){if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>toast(m));}else{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);toast(m);}}
 function swTab(id){['v','u'].forEach(x=>{document.getElementById('tb'+x).className='tb t'+x+(x===id?' on':'');document.getElementById('pg-'+x).className='pg'+(x===id?' on':'');});}
@@ -348,7 +350,7 @@ function qSel(idx){
   document.getElementById('qsi').style.display='none';
   document.getElementById('qcard').style.display='block';
   document.getElementById('qbdg').textContent=p.t;
-  document.getElementById('qbdg').className='bdg '+(p.t==='Lacrado'?'bdg-g':'bdg-o');
+  document.getElementById('qbdg').className='bdg '+bdgCls(p.t);
   document.getElementById('qnm').textContent=p.n;
   document.getElementById('qct').textContent=p.c;
   document.getElementById('qgar').textContent=gar(p.t);
@@ -410,7 +412,7 @@ function uSel(idx){
   document.getElementById('usi').style.display='none';
   document.getElementById('ucard').style.display='block';
   document.getElementById('ubdg').textContent=p.t;
-  document.getElementById('ubdg').className='bdg '+(p.t==='Lacrado'?'bdg-g':'bdg-o');
+  document.getElementById('ubdg').className='bdg '+bdgCls(p.t);
   document.getElementById('unm').textContent=p.n;
   document.getElementById('uct').textContent=p.c;
   document.getElementById('ugar').textContent=gar(p.t);

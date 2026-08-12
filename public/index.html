@@ -131,6 +131,14 @@
         <h1 class="topo-tit" id="topoTit">Hoje</h1>
         <span class="topo-sub" id="topoSub"></span>
       </div>
+      <!-- A busca subiu pra ca em 09/08/2026. Ela existia desde sempre, mas
+           morava ENTRE o placar e a lista, onde ninguem procura por ela. Na
+           referencia do dono a busca e chrome do topo. O id nao muda, entao
+           nenhuma ligacao de evento do app.js muda: so o lugar no DOM. -->
+      <div class="busca" id="blocoBusca">
+        <svg class="busca-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg>
+        <input id="inputBusca" type="search" placeholder="Buscar por nome, telefone ou produto" autocomplete="off">
+      </div>
       <div class="topo-acoes">
         <button id="btnAtualizar" class="link-acao">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -149,10 +157,10 @@
          continua vendo o placar normalmente; o que se evita e o pisca-pisca de
          um placar errado zerado enquanto a base carrega. -->
     <div class="pitboard oculto" id="pitboard">
-      <div class="pb-celula"><div class="pb-rot">na fila</div><div class="pb-num" id="pbFila">0</div><div class="pb-pe">vencendo hoje</div></div>
-      <div class="pb-celula"><div class="pb-rot">em atraso</div><div class="pb-num" id="pbAtraso">0</div><div class="pb-pe">passaram da data</div></div>
-      <div class="pb-celula"><div class="pb-rot">ativos</div><div class="pb-num" id="pbAtivos">0</div><div class="pb-pe">leads pendentes</div></div>
-      <div class="pb-celula"><div class="pb-rot">na base</div><div class="pb-num" id="pbTotal">0</div><div class="pb-pe">no total</div></div>
+      <div class="pb-celula"><div class="pb-topo"><div class="pb-rot">na fila</div><svg class="pb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7" stroke-linecap="round"/></svg></div><div class="pb-num" id="pbFila">0</div><div class="pb-pe">vencendo hoje</div></div>
+      <div class="pb-celula"><div class="pb-topo"><div class="pb-rot">em atraso</div><svg class="pb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5l8 14H4l8-14z" stroke-linejoin="round"/><path d="M12 10v4M12 16.4v.2" stroke-linecap="round"/></svg></div><div class="pb-num" id="pbAtraso">0</div><div class="pb-pe">passaram da data</div></div>
+      <div class="pb-celula"><div class="pb-topo"><div class="pb-rot">ativos</div><svg class="pb-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l-8 10h6l-1 8 8-10h-6l1-8z" stroke-linejoin="round"/></svg></div><div class="pb-num" id="pbAtivos">0</div><div class="pb-pe">leads pendentes</div></div>
+      <div class="pb-celula"><div class="pb-topo"><div class="pb-rot">na base</div><svg class="pb-ico" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v11c0 1.7 3.1 3 7 3s7-1.3 7-3v-11" stroke-linecap="round"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke-linecap="round"/></svg></div><div class="pb-num" id="pbTotal">0</div><div class="pb-pe">no total</div></div>
     </div>
 
     <!-- ---------- Novo lead ---------- -->
@@ -261,6 +269,7 @@
       <div class="campo"><label for="fvEndereco">Endereço de entrega</label><input id="fvEndereco" type="text" autocomplete="off"></div>
       <div class="campo"><label for="fvCobrar">Valor a cobrar na entrega (R$)</label><input id="fvCobrar" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="campo"><label for="fvMotoboy">Motoboy</label><input id="fvMotoboy" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="fvMotoboyWhats">WhatsApp do motoboy</label><input id="fvMotoboyWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"><span class="campo-nota">É por ele que o relatório de entrega abre a conversa. Sem ele, só dá pra copiar o texto.</span></div>
 
       <p class="cad-grupo">Fechamento</p>
       <div class="campo"><label for="fvPgto">Forma de pagamento</label><select id="fvPgto"><option value="">—</option><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="misto">Misto</option></select></div>
@@ -279,6 +288,48 @@
         <button id="btnArquivarVenda" class="btn-cad perigo" data-acao="venda-arquivar">Arquivar esta venda</button>
       </div>
       <div id="fvErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <!-- ---------- Relatório de entrega (o que vai pro motoboy) ----------
+         Os campos são os MESMOS da venda, não uma cópia paralela: o que for
+         corrigido aqui grava na venda pela editar_venda. Painel que só monta
+         texto faria o dono digitar o endereço duas vezes e guardar zero. -->
+    <div id="painelEntrega" class="painel-cadastro oculto">
+      <h2 id="peTitulo">Relatório de entrega</h2>
+      <p class="cad-nota" id="peAlvo"></p>
+      <!-- Nome e telefone do cliente são LEITURA: a identidade mora no cadastro
+           do cliente, não na venda. Editáveis aqui, virariam uma segunda versão
+           da mesma pessoa, e a tela mostraria uma, o WhatsApp abriria a outra. -->
+      <p class="cad-grupo">Cliente</p>
+      <div class="campo"><label for="peNome">Nome do cliente</label><input id="peNome" type="text" readonly autocomplete="off"><span class="campo-nota">Vem do cadastro do cliente. Para corrigir, use Ver cliente no card da venda.</span></div>
+      <div class="campo"><label for="peWhats">WhatsApp do cliente</label><input id="peWhats" type="tel" readonly autocomplete="off"><span class="campo-nota">É o número que o motoboy liga ao chegar.</span></div>
+      <p class="cad-grupo">Trajeto</p>
+      <div class="campo"><label for="peRetirada">Local de retirada</label><input id="peRetirada" type="text" placeholder="Onde o motoboy pega o aparelho" autocomplete="off"></div>
+      <div class="campo"><label for="peEntrega">Endereço de entrega *</label><input id="peEntrega" type="text" placeholder="Rua, número, complemento, bairro" autocomplete="off"></div>
+      <p class="cad-grupo">Dinheiro</p>
+      <div class="campo"><label for="peValor">Valor a cobrar na entrega (R$)</label><input id="peValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"><span class="campo-nota">Em branco o relatório diz "nada a cobrar", nunca omite a linha: silêncio sobre dinheiro é como nasce cobrança errada.</span></div>
+      <div class="campo"><label for="pePgto">Forma de pagamento</label><select id="pePgto"><option value="">—</option><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="misto">Misto</option></select></div>
+      <!-- A lista de motoboys cadastrados. Cada linha é um botão que já despacha:
+           preenche o motoboy na venda, salva e abre a conversa dele com o texto
+           pronto. Os dois campos abaixo continuam existindo para o motoboy
+           eventual, e o botão promove esse avulso à lista. -->
+      <p class="cad-grupo">Motoboy</p>
+      <div id="peMotoLista" class="moto-lista"></div>
+      <div class="campo"><label for="peMotoboy">Motoboy desta entrega</label><input id="peMotoboy" type="text" autocomplete="off"><span class="campo-nota">Preenchido pelo botão acima, ou digitado à mão para um motoboy avulso.</span></div>
+      <div class="campo"><label for="peMotoWhats">WhatsApp do motoboy</label><input id="peMotoWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"></div>
+      <div class="cad-acoes">
+        <button class="btn-cad secundario" data-acao="ent-moto-salvar">Salvar na lista de motoboys</button>
+      </div>
+      <div class="campo"><label for="peRecado">Recado desta corrida</label><input id="peRecado" type="text" placeholder="interfone quebrado, ligar ao chegar…" autocomplete="off"><span class="campo-nota">Entra só nesta mensagem e NÃO fica gravado: é da corrida, não da venda.</span></div>
+      <p class="cad-grupo">Como vai chegar</p>
+      <pre class="ent-previa" id="pePrevia" aria-live="polite"></pre>
+      <div id="peFalta" class="ent-falta-lista" role="status"></div>
+      <div class="cad-acoes">
+        <button id="btnEnviarEntrega" class="btn-cad">Salvar e enviar</button>
+        <button id="btnCopiarEntrega" class="btn-cad secundario">Salvar e copiar</button>
+        <button id="btnFecharEntrega" class="btn-cad secundario">Fechar</button>
+      </div>
+      <div id="peErro" class="cad-erro" role="alert"></div>
     </div>
 
     <!-- ---------- Dados do cliente (identidade: CPF, RG, endereço) ---------- -->
@@ -316,8 +367,17 @@
       <div id="nfErro" class="cad-erro" role="alert"></div>
     </div>
 
-    <div class="busca" id="blocoBusca">
-      <input id="inputBusca" type="search" placeholder="Buscar por nome, telefone ou produto" autocomplete="off">
+    <!-- Cabecalho da lista. Aparece SO na Fila, por :has(#lista[data-aba="fila"]).
+         A legenda existe porque o chip de estado e a unica coisa nova na tela
+         que o dono nao tinha como decifrar sozinha: quatro estados, quatro
+         matizes, cada um com a palavra ao lado. -->
+    <div class="sec-lista" id="secLista">
+      <div class="sec-tit">Fila de atendimento</div>
+      <div class="sec-leg">
+        <span class="chip est sn-andamento">Em andamento</span>
+        <span class="chip est sn-urgente">Urgente</span>
+        <span class="chip est sn-pendente">Pendente</span>
+      </div>
     </div>
 
     <div class="lista" id="lista" aria-live="polite"></div>

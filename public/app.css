@@ -231,6 +231,15 @@ a{color:inherit}
 .pb-celula:has(.pb-num.alerta){border-color:var(--quente-linha);background:var(--quente-bg)}
 .pb-celula:has(.pb-num.alerta) .pb-rot,
 .pb-celula:has(.pb-num.alerta) .pb-pe{color:var(--quente-fg)}
+/* --- icone do cartao-numero (09/08/2026) ---
+   Vem da referencia do dono. E DECORACAO, nao dado: fica em --line-forte, que
+   nao compete com o numero, e some do leitor de tela por aria-hidden. O que a
+   referencia punha embaixo do numero (barra de progresso, "Urgencia: Critica",
+   "Limpeza: 100% ok") NAO entrou: nenhum desses numeros existe no banco. O pe
+   real de cada celula continua sendo o de sempre. */
+.pb-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pb-ico{width:15px;height:15px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.5;color:var(--line-forte)}
+.pb-celula:has(.pb-num.alerta) .pb-ico{color:var(--quente)}
 
 /* --- Dashboard: de onde veio x o que rendeu (25/07/2026) ---
    Saiu a moldura vazia ("metrica a definir") que ocupava este bloco desde a
@@ -268,7 +277,12 @@ a{color:inherit}
 .met-lin-rot{font-size:13.5px;font-weight:500}
 .met-lin-val{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
 .met-barra{display:block;height:4px;border-radius:2px;background:var(--surface);margin:6px 0 5px;overflow:hidden}
-.met-barra i{display:block;height:100%;background:var(--accent);opacity:.55;border-radius:2px}
+/* barra de PROPORCAO, nao de marca. Era var(--accent) a .55 (3.23 contra o
+   trilho), ou seja o quinto uso do azul: a mesma barra de progresso que a
+   secao 13 do v29 ja barrou uma vez pelo nome, de volta com outro nome.
+   Quantidade nao e estado, entao vai em neutro. --dim cheio mede 5.43
+   contra var(--surface), alvo 3. */
+.met-barra i{display:block;height:100%;background:var(--dim);border-radius:2px}
 .met-lin-pe{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;gap:9px;flex-wrap:wrap}
 .met-lin-hist{color:var(--dim);opacity:.8}
 
@@ -300,12 +314,24 @@ a{color:inherit}
    BUSCA
    ========================================================================== */
 .busca{display:none}
-.busca.visivel{display:block}
+/* A busca virou item do .topo em 09/08/2026. `flex` (nao `block`) porque agora
+   ela carrega a lupa ao lado do campo; o display continua sendo o que a
+   assercao do harness le pra saber se ela esta visivel em Clientes e Vendas. */
+.busca.visivel{display:flex}
+/* 400px e o que faz o placeholder inteiro caber sem reticencias ("Buscar por
+   nome, telefone ou produto"). Medido no topo mais cheio, o da Fila (titulo +
+   data + Atualizar + Novo lead): sobram ~570px a 1280. */
+.busca{position:relative;align-items:center;flex:1 1 260px;max-width:400px;min-width:0}
+.busca-ico{
+  position:absolute;left:11px;width:15px;height:15px;pointer-events:none;
+  stroke:var(--dim);fill:none;stroke-width:1.7;
+}
 .busca input{
   width:100%;background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
-  border-radius:var(--radius-p);padding:10px 13px;font-size:16px;outline:0;
+  border-radius:999px;padding:8px 13px 8px 33px;font-size:16px;outline:0;
 }
 .busca input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.busca input:focus~.busca-ico,.busca:focus-within .busca-ico{stroke:var(--accent)}
 
 /* ==========================================================================
    CARD
@@ -324,6 +350,10 @@ a{color:inherit}
    pessoa ainda. Usa a paleta de urgencia (--quente, ja medida) porque e o estado
    que mais pede acao, mas com rotulo proprio pra nao se disfarcar de "vai bem". */
 .card.t-sem_contato::before{background:var(--quente)}
+/* cliente nao tem temperatura: ja comprou, saiu da regua de lead. A faixa entao
+   carrega IDENTIDADE (trilho pos-venda), nao urgencia. Sem esta regra o card de
+   cliente herdava a faixa cinza do .card e lia como lead sem leitura. */
+.card.cliente::before{background:var(--tr-pos-venda)}
 .card-topo{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .card-nome{font-family:var(--display);font-weight:600;font-size:15.5px;letter-spacing:-.012em}
 .card-code{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
@@ -380,12 +410,84 @@ a{color:inherit}
 .chip.st-lista_fria{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
 .chip.st-cancelado{color:var(--erro-fg);background:var(--erro-bg);border-color:var(--erro-linha)}
 
+/* ==========================================================================
+   A LINHA DE ATENDIMENTO DA FILA (09/08/2026)
+   Referencia: imagem trazida pelo dono. Entra a FORMA (avatar, colunas
+   rotuladas, chip de estado a direita); a paleta continua sendo a da
+   referencia-visual-v3.
+   ========================================================================== */
+
+/* --- o chip de ESTADO: o Sinal da linha ---
+   A referencia pintava Urgente, Em Andamento e Pendente com TRES TONS DO MESMO
+   AZUL (2.08 entre si). Isso colapsa o invariante 3 e o sistema Trilho x Sinal:
+   quem so ve luminancia nao separa nada. Aqui cada estado tem MATIZ propria, de
+   token ja medido, e a palavra sempre acompanha o ponto. Prefixo `sn-` e nao
+   `est-` de proposito: `est-` casaria com o seletor `.chip[class*="st-"]` logo
+   acima, por substring, e herdaria regra que nao e dele. */
+.chip.est{border-radius:999px;padding:2px 10px;font-weight:500;white-space:nowrap}
+.chip.est::before{
+  content:"";width:5.5px;height:5.5px;border-radius:999px;background:currentColor;flex:0 0 auto;
+}
+.sn-andamento{color:var(--ok-fg);background:var(--ok-bg);border-color:var(--ok-linha)}
+.sn-urgente{
+  color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha);
+  font-variant-numeric:tabular-nums;
+}
+.sn-pendente{color:var(--morno-fg);background:var(--morno-bg);border-color:var(--morno-linha)}
+.sn-fila{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
+
+/* --- cabecalho da lista + legenda --- */
+.sec-lista{display:none}
+body:has(#lista[data-aba="fila"]) .sec-lista{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-bottom:-6px;
+}
+.sec-tit{font-family:var(--display);font-weight:600;font-size:14.5px;letter-spacing:-.015em}
+.sec-leg{display:flex;gap:6px;flex-wrap:wrap}
+
+/* --- a linha ---
+   `auto` na ultima coluna deixa o chip mandar na propria largura: "Em andamento"
+   e "Urgente · 30d" tem tamanhos diferentes e o chip nunca deve quebrar. */
+.card-linha{
+  display:grid;gap:12px;align-items:center;
+  grid-template-columns:28px minmax(0,1.25fr) minmax(0,1.15fr) minmax(0,.85fr) auto;
+}
+.card-av{
+  width:28px;height:28px;border-radius:999px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);border:1px solid var(--line);color:var(--dim);
+  font-family:var(--display);font-weight:600;font-size:12px;line-height:1;
+}
+.card-id{min-width:0}
+.card-col{min-width:0}
+/* micro-rotulo: e ele que faz a coluna dizer O QUE e o dado. Sem rotulo,
+   "Instagram" solto na linha nao se distingue de "17 Pro 256GB". */
+.col-rot{
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);line-height:1.5;
+}
+.col-val{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col-val .cond{color:var(--dim)}
+/* Campo vazio nao some: o rotulo continua na tela e o valor diz que falta.
+   Tela que so renderiza o que tem dado desaparece na base zerada. */
+.col-val.vazio{color:var(--dim);font-style:italic}
+.card-dir{display:flex;align-items:center;gap:10px;justify-self:end}
+/* o nome ja e o titulo da linha; o code desce pra segunda linha, em mono */
+.card-linha .card-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-linha .card-code{display:block;line-height:1.5}
+/* o telefone entra colado no LEAD-code em vez de virar bloco solto: solto ele
+   nascia embaixo do avatar, 42px a esquerda do nome, e a linha lia torta */
+.card-tel-in{color:var(--dim)}
+
 .silencio{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:7px;font-variant-numeric:tabular-nums}
 .silencio.alerta{color:var(--quente-fg)}
 
 /* --- acoes do card --- */
 .card-acoes{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-.card-acoes.escrita{margin-top:7px}
+/* o grupo de ESCRITA (Toque enviado, Desfecho) mora dentro da mesma faixa da
+   leitura desde 11/08/2026. E um grupo de verdade e nao dois botoes soltos no
+   fim da fila: agrupado, ele wrappa junto e nunca se separa no meio. */
+.acoes-escrita{display:flex;gap:7px}
 /* na Fila o WhatsApp e a acao principal: linha inteira acima de Sugerir/Historico */
 .card-acoes .card-wa-linha{order:-1;flex:1 1 100%}
 .btn-wa{
@@ -408,6 +510,12 @@ a{color:inherit}
 .btn-acao:hover{background:var(--surface)}
 .btn-acao.toque,.btn-acao.sugerir{background:var(--accent-tint);border-color:var(--accent-linha);color:var(--accent)}
 .btn-acao.toque:hover,.btn-acao.sugerir:hover{background:rgba(0,37,204,.09)}
+/* .btn-acao.respondeu saiu daqui em 03/08/2026: o botao Respondeu mudou para
+   dentro do leque Desfecho e agora e .btn-desf.respondeu, mais abaixo. */
+/* "Ver cliente" salta para OUTRO registro: nao age sobre esta venda, entao nao
+   disputa peso com os botoes que agem aqui. */
+.btn-acao.venda-cli-btn{color:var(--dim)}
+.btn-acao.venda-cli-btn:hover{color:var(--text);border-color:var(--line-forte)}
 .btn-acao:disabled,.btn-cad:disabled,.btn-desf:disabled{opacity:.45;cursor:default}
 
 .desfechos{display:none;gap:7px;margin-top:7px;flex-wrap:wrap}
@@ -419,6 +527,13 @@ a{color:inherit}
 .btn-desf:hover{background:var(--surface)}
 .btn-desf.ok{color:var(--ok-fg);border-color:var(--ok-linha);background:var(--ok-bg)}
 .btn-desf.frio{color:var(--frio-fg);border-color:var(--frio-linha);background:var(--frio-bg)}
+/* Respondeu entrou no leque em 03/08/2026 (pedido do dono). Fica NEUTRO de
+   proposito: no leque o verde ja quer dizer venda (.ok = Fechou), e um segundo
+   verde ao lado dilui esse significado. Tentei separar por preenchimento
+   (contorno x solido) e medi 1.11 entre os dois fundos, ou seja quase nada.
+   A enfase dele vem da POSICAO: primeiro do leque e ocupando a linha inteira,
+   porque e o desfecho mais frequente e o unico que freia a regua. */
+.btn-desf.respondeu{flex:1 1 100%}
 
 .retomar{display:none;gap:7px;margin-top:7px}
 .retomar.aberto{display:flex}
@@ -1190,6 +1305,10 @@ a{color:inherit}
 .nf-lista{margin-bottom:6px}
 /* segmentos da aba: com nota x falta nota, com a contagem dentro do botao,
    porque "12 notas" sem "3 vendas sem nota" ao lado mente por omissao */
+/* .nf-topo e a linha que ABRIGA os segmentos. O nome vem da aba Notas fiscais,
+   que estreou o padrao, mas hoje quem emite e a aba Clientes. Sem esta regra a
+   linha de filtro encostava no primeiro card. */
+.nf-topo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .nf-segs{display:flex;gap:6px;flex-wrap:wrap}
 .nf-seg{
   display:inline-flex;align-items:center;gap:6px;cursor:pointer;
@@ -1260,6 +1379,74 @@ a{color:inherit}
    nele. Com um botao so, o efeito e o mesmo de antes (margin-left:auto). */
 .venda-cli .btn-acao:first-of-type{margin-left:auto}
 
+/* ---------- Relatorio de entrega: a linha do card e a previa do painel ----
+   (08/08/2026) A linha existe SEMPRE, com endereco ou sem: entrega sem destino
+   e a pendencia mais cara desta aba, e tela que so mostra campo preenchido
+   esconde justamente o que precisa de acao. "Sem endereco" usa a semantica de
+   MORNO (trabalho pendente), igual a falta de NF, nunca a de erro: nao e falha
+   do sistema, e cadastro que falta. Nenhum token novo: --erro-fg ja existe. */
+.venda-ent{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin-top:8px;padding-top:7px;border-top:1px solid var(--line);
+}
+.venda-ent-rot{
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.venda-ent-val{font-size:12.5px;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.venda-ent-falta{
+  font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.venda-ent .btn-acao{flex:0 0 auto;padding:6px 12px;font-size:12px}
+.venda-ent .btn-acao:first-of-type{margin-left:auto}
+.btn-acao.ent-pede{background:var(--morno-bg);border-color:var(--morno-linha);color:var(--morno-fg)}
+.btn-acao.ent-pede:hover{border-color:var(--morno);color:var(--morno-fg)}
+
+/* A lista de motoboys cadastrados dentro do painel de entrega. Cada linha e um
+   botao que ja despacha, e o nome vem antes do numero porque e pelo nome que o
+   dono escolhe. O telefone fica visivel de proposito: escolher o motoboy errado
+   custa uma corrida. */
+.moto-lista{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.moto-linha{display:flex;align-items:center;gap:6px}
+.moto-chip{
+  flex:1 1 auto;display:flex;align-items:baseline;gap:8px;min-width:0;
+  padding:9px 12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer;
+}
+.moto-chip:hover{border-color:var(--accent-linha);background:var(--accent-tint)}
+.moto-chip strong{font-weight:500;overflow-wrap:anywhere}
+.moto-chip span{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+.moto-rm{
+  flex:0 0 auto;padding:9px 10px;background:none;
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer;
+}
+.moto-rm:hover{border-color:var(--erro-linha);color:var(--erro-fg)}
+.moto-vazio{
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 0 4px;
+}
+
+/* A previa mostra o texto EXATO que sai daqui. Sem ela o dono so descobre o
+   que mandou depois de mandar, e ai o motoboy ja leu. */
+.ent-previa{
+  margin:0;padding:12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--text);
+  white-space:pre-wrap;overflow-wrap:anywhere;
+}
+/* O que falta aparece ANTES do envio, nomeado, e nao vira surpresa do outro
+   lado. Nao bloqueia o copiar: so o enviar exige endereco e numero. */
+.ent-falta-lista{
+  margin:8px 0 0;padding:8px 10px;
+  background:var(--morno-bg);border:1px solid var(--morno-linha);
+  border-radius:var(--radius-p);
+  font-size:12px;line-height:1.5;color:var(--morno-fg);
+}
+.ent-falta-lista:empty{display:none}
+
 /* --- correcao e arquivamento de venda (31/07/2026) --- */
 /* O painel e UM so: o mesmo formulario serve cadastro e correcao, para nao
    existirem dois campos "valor" que divergem com o tempo. A regra abaixo so
@@ -1280,6 +1467,241 @@ a{color:inherit}
   color:var(--frio-fg);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
 }
 .venda-arq-btn:hover{color:var(--text)}
+
+/* ---------- Painel de Vendas (v52): o dinheiro somado no topo da aba --------
+   Reusa .pitboard/.pb-* (placar) e .met-faixa/.met-faixas (seletor de janela).
+   O que e novo aqui e so o grafico.
+
+   COR: os numeros abaixo sao MEDIDOS, e quem os remede e
+   `python ferramentas/prova_grafico.py`. Nao editar de cabeca: a primeira
+   versao deste comentario trazia valores estimados no olho (3.45 / 5.06 / 4.52)
+   e a prova mostrou que os reais eram outros.
+   O faturamento vai em NEUTRO pelo mesmo motivo escrito na .met-barra: barra
+   azul ja foi reprovada duas vezes, seria o quinto uso do azul, e quantidade
+   nao e estado. Quem carrega estado e o lucro.
+     .vg-fat  = --dim a .28 sobre --surface  -> #CBCED5
+     .vg-luc  = --ok-fg #0F7A52  -> 3.39 contra a fita, 4.99 contra o tubo.
+                Alvo de faixa e 3. Com --ok cheio dava 2.13 e REPROVAVA: o verde
+                da familia clara nao aguenta ficar dentro da fita.
+     .vg-luc.neg = --erro #B01235  -> 4.47 contra a fita.
+   DOIS pares nao alcancam o alvo, e nenhum dos dois se resolve trocando matiz:
+     - lucro x prejuizo mede 1.32. Verde e vermelho no mesmo tom e o caso
+       classico de daltonismo, entao a fita negativa leva HACHURA (ver abaixo).
+     - na barra de vazamento, os vizinhos ficam entre 1.82 e 3.19: custo x frete
+       1.94, frete x taxas 1.82. Quem separa e o corte de 1.5px em --bg mais a
+       legenda nomeada.
+   Nos dois casos vale a regra dos 7 trilhos: quando a luminancia colide, o
+   segundo canal (icone, hachura, corte) NAO e enfeite, e o que carrega a
+   distincao, e a prova reprova se ele sumir.
+   Frete e taxas usam a familia --morno (trabalho pendente, a mesma da falta de
+   CPF e de NF), nunca --erro: margem comida nao e falha de sistema. */
+.vg{margin:0 0 20px}
+.vg-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+/* o recorte nao e legenda, e parte do dado: tela que omite a janela mente por
+   omissao. Por isso ele fica no cabecalho, nao num rodape que ninguem le. */
+.vg-recorte{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+/* Duas colunas: graficos a esquerda (mais largos, porque bater o olho e tao
+   necessario quanto ler o numero), valores a direita. Abaixo de 900px vira uma
+   coluna e a ordem do DOM ja e a certa (valores primeiro), sem regra nenhuma:
+   por isso a colocacao no desktop e grid-column NOMEADO e nunca `order`, que
+   moveria o pixel e deixaria a leitura para tras. */
+/* grid-row:1 nos DOIS nao e enfeite. Com os valores primeiro no DOM e so
+   grid-column declarado, o auto-placement do Grid e SPARSE: ele nunca volta a
+   uma coluna anterior na mesma linha, entao os graficos caiam para a linha de
+   baixo e o painel ficava em diagonal. Medido em 11/08/2026 a 1280px
+   (graficos top=463, valores top=117); ler gridColumnStart devolvia 1 e 2 e
+   dizia que estava tudo certo. Geometria ganha de propriedade computada. */
+/* Tres colunas: os dois graficos ESTREITOS a esquerda e os valores a direita.
+   Estreito nao e economia de espaco, e a regra da marca: barra de dado tem no
+   maximo 24px e a sobra da faixa e ar. Antes as colunas eram 1.5fr e com 2 meses
+   cada barra ficava com ~289px, que e o que o dono reprovou como desproporcao.
+   grid-row:1 nos tres nao e enfeite: com os valores primeiro no DOM e so
+   grid-column declarado, o auto-placement do Grid e SPARSE e nunca volta a uma
+   coluna anterior na mesma linha, entao os graficos caiam para a linha de baixo
+   (medido a 1280px: graficos top=463, valores top=117). */
+.vg-corpo{display:grid;grid-template-columns:220px 240px minmax(260px,1fr);gap:18px;align-items:start;position:relative}
+.vg-graf{grid-row:1;min-width:0}
+.vg-graf.g-meses{grid-column:1}
+.vg-graf.g-vaza{grid-column:2}
+.vg-valores{grid-column:3;grid-row:1;display:flex;flex-direction:column;gap:8px}
+/* Os seletores aqui repetem a classe de propósito. Media query NAO acrescenta
+   especificidade: `.vg-graf` (0,1,0) perde para `.vg-graf.g-vaza` (0,2,0) da
+   regra de cima, e o resultado medido a 390px era os dois graficos lado a lado
+   num viewport de celular. */
+@media (max-width:900px){
+.vg-corpo{grid-template-columns:1fr;gap:14px}
+.vg-graf.g-meses,.vg-graf.g-vaza,.vg-valores{grid-column:1;grid-row:auto}
+}
+/* Titulo de secao do grafico. O <span> carrega como se le o desenho: sem ele,
+   uma coluna empilhada e um enigma bonito. */
+.vg-tit{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;
+}
+.vg-tit span{letter-spacing:.02em;text-transform:none;font-size:10px;opacity:.85}
+
+/* 24px TRAVADO, nunca 1fr: a barra nao preenche o slot, e a sobra da faixa e ar.
+   justify-content:start mantem as colunas ancoradas a esquerda em vez de
+   espalhar. Com 12 meses passa de 220px e rola dentro do proprio container. */
+.vg-meses{
+  display:grid;grid-auto-flow:column;grid-auto-columns:24px;justify-content:start;
+  gap:10px;margin:0;overflow-x:auto;padding-bottom:2px;
+}
+/* a coluna e um <button> para o teclado alcancar o mesmo balao que o mouse */
+.vg-mes{
+  display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;
+  background:none;border:0;padding:0;cursor:pointer;font:inherit;
+}
+.vg-mes:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+/* A borda de 1px delimita a AREA do grafico. Sem ela, o topo da coluna (fatia de
+   custo, neutra clara) separa so 1.46 do fundo e nao da para ver onde a barra
+   acaba. Mesma escolha de fundo neutro de .rot-carga-fita e .met-barra, que ja
+   estao no ar: barra colorida foi reprovada duas vezes. */
+/* 200px: a coluna de valores tem ~330px de altura, e com o tubo em 118px
+   sobrava um buraco de quase 200px sob os graficos, medido na foto de
+   12/08/2026. Altura maior tambem faz a fatia fina de margem ganhar pixel sem
+   que nenhum numero seja distorcido: o eixo continua sendo o faturamento.
+   A borda de 1px delimita a AREA do grafico, senao nao da para ver onde a barra
+   acaba contra o fundo. */
+.vg-tubo{width:100%;height:200px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-p);display:flex;align-items:flex-end;overflow:hidden}
+/* A altura preenchida e o faturamento do mes; as fatias dentro dela sao a
+   composicao daquele mes, nas MESMAS cores da barra de vazamento, entao a
+   legenda de la serve os dois graficos. Sem fundo proprio: quem pinta agora sao
+   as fatias, e o tubo cinza ao redor e o que falta para o melhor mes. */
+.vg-fat{width:100%;display:flex;flex-direction:column;justify-content:flex-end}
+.vg-seg{display:block;width:100%;flex:none}
+/* Ponta de dado arredondada em 4px em cima, QUADRADA na base: a coluna cresce de
+   uma linha de base so, e o canto arredondado marca onde o dado termina. So a
+   primeira fatia visivel leva o canto. */
+.vg-seg.topo{border-radius:4px 4px 0 0}
+/* VAO de 2px na cor da superficie, nunca borda em volta da marca. Antes era
+   border de 1.5px e ainda em --bg, quando o fundo real do tubo e --surface: o
+   corte aparecia na cor errada. */
+.vg-seg+.vg-seg{margin-top:2px}
+/* --dim e --morno CHEIOS. A 28% e 45% de opacidade as fatias mediam 0.01 e 0.079
+   de croma e caiam fora da banda de luminosidade (validate_palette.js): liam
+   como papel, nao como marca. Custo continua neutro de proposito, pela regra da
+   .met-barra: quantidade nao e estado, e barra colorida ja foi reprovada duas
+   vezes. Medido: ΔE 22.9 na visao normal e 12.3 em protanopia. */
+.vg-seg.s-custo{background:var(--dim)}
+.vg-seg.s-vaza{background:var(--morno)}
+.vg-seg.s-luc{background:var(--ok-fg)}
+/* Lucro x prejuizo separam so 1.32 de luminancia (medido em prova_grafico.py):
+   verde e vermelho no MESMO tom e o caso classico de daltonismo vermelho-verde,
+   e a fatia e pequena demais para o matiz se defender sozinho. A hachura e o
+   segundo canal, no mesmo principio do icone dos trilhos: quem nao distingue
+   matiz continua vendo que aquele mes e diferente. */
+.vg-seg.s-neg{
+  background:var(--erro);
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0 2px,transparent 2px 5px);
+}
+/* Sob a barra fica SO o mes, que e o eixo. Valor, margem e n de vendas viviam
+   aqui: quatro rotulos por coluna e a definicao de inundar um grafico, e o que
+   se le nesse caso e nada. Eles vivem no balao e no aria-label. */
+.vg-mes-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+
+.vg-vaza-bloco{margin:0}
+.vg-vaza{display:flex;height:14px;border-radius:4px;background:var(--surface);overflow:hidden}
+.vg-vaza-seg{display:block;height:100%;min-width:2px}
+/* mesmo vao de 2px da coluna empilhada, virado de lado. Vao, nunca borda: borda
+   e tinta com peso de dado que nao e dado. */
+.vg-vaza-seg+.vg-vaza-seg{margin-left:2px}
+.vg-vaza-seg.s-custo{background:var(--dim)}
+.vg-vaza-seg.s-vaza{background:var(--morno)}
+.vg-vaza-seg.s-luc{background:var(--ok-fg)}
+/* Esta legenda e a chave de cor dos DOIS graficos: as fatias das colunas por mes
+   usam as mesmas classes s-*. Por isso cada item carrega o quadradinho, que e o
+   que amarra desenho e nome. */
+/* Esta legenda e a chave de cor dos DOIS graficos: as fatias da coluna por mes
+   usam as mesmas classes s-*. Empilhada, uma por linha, porque a coluna e
+   estreita e legenda que quebra no meio de um nome nao serve de chave.
+   O NOME nunca veste a cor do dado: quem carrega identidade e o quadradinho ao
+   lado. Cor em texto pequeno e o jeito mais rapido de perder legibilidade. */
+.vg-vaza-leg{display:flex;flex-direction:column;gap:4px;margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.vg-vaza-item{display:flex;align-items:center;gap:6px}
+.vg-vaza-item i{width:9px;height:9px;border-radius:2px;flex:none}
+.vg-vaza-item.s-custo i{background:var(--dim)}
+.vg-vaza-item.s-vaza i{background:var(--morno)}
+.vg-vaza-item.s-luc i{background:var(--ok-fg)}
+.vg-vaza-item b{font-weight:500;color:var(--text);flex:1 1 auto}
+
+/* Balao do grafico por mes. Sai do fluxo e se posiciona pela geometria real, sem
+   nunca vazar do .vg-corpo. */
+.vg-tip{
+  position:absolute;z-index:5;pointer-events:none;
+  min-width:172px;padding:9px 11px;
+  background:var(--panel);border:1px solid var(--line-forte);border-radius:var(--radius);
+  box-shadow:0 4px 14px rgba(15,21,35,.11);
+  display:flex;flex-direction:column;gap:3px;
+}
+.vg-tip[hidden]{display:none}
+.vg-tip-tit{font-size:12.5px;font-weight:600;color:var(--text);text-transform:capitalize}
+.vg-tip-sub{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:4px}
+.vg-tip-lin{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.vg-tip-lin i{width:9px;height:9px;border-radius:2px;flex:none}
+.vg-tip-lin.s-custo i{background:var(--dim)}
+.vg-tip-lin.s-vaza i{background:var(--morno)}
+.vg-tip-lin.s-luc i{background:var(--ok-fg)}
+.vg-tip-lin.s-neg i{background:var(--erro)}
+.vg-tip-lin b{font-weight:400;color:var(--dim);flex:1 1 auto}
+.vg-tip-lin em{font-style:normal;color:var(--text);font-weight:500}
+
+/* ---- coluna de valores ----
+   Reusa a ESCALA de texto do pitboard (.pb-rot, .pb-pe) sem reusar a grade dele,
+   que e repeat(4,1fr) e nao cabe numa coluna de 212px. */
+.vg-val{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;background:var(--bg)}
+/* SEM tabular-nums: numero grande e solto usa as figuras proporcionais da fonte.
+   Digito com largura de zero deixa "R$ 1.096,00" frouxo em corpo de display.
+   tabular-nums fica onde numero alinha na vertical: legenda, balao, eixo. */
+.vg-num{font-family:var(--display);font-weight:600;font-size:25px;line-height:1.1;letter-spacing:-.015em;color:var(--text)}
+.vg-num-m{font-family:var(--display);font-weight:600;font-size:17px;line-height:1.15;letter-spacing:-.01em;color:var(--text)}
+.vg-num-m.neg{color:var(--erro-fg)}
+/* lucro e margem sao UMA historia, entao dividem a mesma caixa. Margem saiu do
+   pe do lucro, onde era o menor texto do bloco, e e ela que diz se a operacao
+   vale a pena. */
+.vg-par{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
+.vg-par-cel{min-width:0}
+.vg-par-cel:last-child{text-align:right}
+/* Destaque do vazamento: ESTRUTURAL (borda forte, numero maior, decomposicao
+   visivel), nunca fundo tingido. No resto do app --morno significa trabalho
+   pendente e .pb-num.alerta significa "isso esta errado agora"; vazamento existe
+   em toda venda, entao tingir para sempre e gritar sem novidade e em duas
+   semanas o dono para de ver. Cor so nos VALORES de frete e taxas. */
+.vg-val.forte{border:1.5px solid var(--line-forte);padding:12px}
+.vg-val.forte .vg-num{font-size:28px}
+.vg-quebra{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:7px;padding-top:7px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.vg-quebra b{font-weight:500;color:var(--morno-fg)}
+/* ticket medio e apoio, nao manchete: UMA linha rasa, tudo no mesmo baseline.
+   O `flex:1 1 100%` no pe quebrava a linha e, sem nowrap, "TICKET MEDIO" e
+   "R$ 2.800,00" partiam no meio: dois rotulos de duas linhas onde cabia uma. */
+.vg-val.raso{display:flex;align-items:baseline;gap:10px;padding:9px 12px;flex-wrap:wrap}
+.vg-val.raso .pb-rot,.vg-val.raso .vg-num,.vg-val.raso .pb-pe{white-space:nowrap}
+.vg-val.raso .vg-num{font-size:14px;font-family:var(--mono);font-weight:500;margin-left:auto}
+.vg-val.raso .pb-pe{flex:0 0 100%;text-align:right}
+
+/* Janela vazia NAO derruba o painel: o placar fica com os rotulos e o travessao,
+   e o vazio vira o proprio caminho de saida. Renderizar so o que tem dado e o
+   que faz a tela sumir na base zerada. */
+.vg-vazio{
+  font-size:12.5px;color:var(--dim);line-height:1.5;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;
+}
+.vg-vazio strong{color:var(--text);font-weight:500}
+/* Botao de texto no idioma que a aba ja tem (.venda-arq-btn): neutro sublinhado.
+   Azul aqui seria uso NOVO de --accent como cor de link, que a secao 13 do v29
+   barrou e o validar.py reprova; hover, sim, e papel aprovado. */
+.vg-abrir{
+  background:none;border:0;padding:0;cursor:pointer;font-family:var(--mono);font-size:11.5px;
+  color:var(--text);text-decoration:underline;text-underline-offset:2px;
+}
+.vg-abrir:hover{color:var(--accent)}
+@media (max-width:560px){
+.vg-tubo{height:132px}
+.vg-vaza-leg{gap:4px 10px;font-size:10px}
+.vg-num{font-size:23px}
+.vg-val.forte .vg-num{font-size:26px}
+}
 .fv-cli-falta{
   font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);
   letter-spacing:.06em;text-transform:uppercase;
@@ -1353,3 +1775,229 @@ a{color:inherit}
 .esc-form input{flex:1 1 180px;min-width:0}
 .esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
 .esc-travar{font-size:11px;flex:0 0 auto;white-space:nowrap}
+
+/* ==========================================================================
+   ABA FILA  —  forma do Stitch, cor do Pit Wall            (03/08/2026)
+   --------------------------------------------------------------------------
+   Origem: os 4 mockups do projeto Stitch "Pit Wall CRM", lidos em 03/08/2026.
+   O que veio de la e SO FORMA: bandeja tingida com card branco flutuando, raio
+   maior, sombra, hover, chip em pilula. A PALETA de la foi recusada: era azul
+   monocromatica, com `Urgente` e `Em Andamento` a 2.08 entre si e a marca a
+   1.12 do erro, ou seja o mesmo defeito que a v25 ja tinha consertado aqui.
+   Nenhuma cor nova entra neste bloco. Nenhum uso novo de var(--accent).
+
+   ESCOPO: tudo pendurado em #lista[data-aba="fila"]. Fila, Todos e Clientes
+   renderizam o MESMO .card no MESMO #lista; sem esse gancho toda regra daqui
+   vazaria para as outras duas. O data-aba nasceu junto, em
+   ferramentas/patch_lista_data_aba.py (50 bytes no app.js, provados).
+
+   Para reverter: apagar deste comentario ate o fim do arquivo.
+   ========================================================================== */
+
+/* A bandeja e o que faz o card branco existir. Hoje card e pagina sao os dois
+   var(--bg) branco, entao so a borda de 1px separa os dois: e por isso que a
+   lista le como planilha e nao como pilha de cartoes. */
+#lista[data-aba="fila"]{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:8px;gap:7px;
+}
+#lista[data-aba="fila"] .card{
+  border-radius:12px;padding:11px 14px 11px 17px;
+  box-shadow:0 1px 2px rgba(15,21,35,.06);
+}
+/* hover so onde ha ponteiro de verdade: no toque ele gruda e o card fica preso
+   no estado ativo depois do tap. */
+@media (hover:hover){
+  #lista[data-aba="fila"] .card{transition:box-shadow .15s ease,border-color .15s ease}
+  #lista[data-aba="fila"] .card:hover{
+    border-color:var(--line-forte);box-shadow:0 4px 14px rgba(15,21,35,.09);
+  }
+}
+/* a faixa de 3px e o trilho: acompanha o raio novo, senao sobra um canto reto */
+#lista[data-aba="fila"] .card::before{border-radius:12px 0 0 12px}
+
+/* nome e code ganham a hierarquia da linha de lead do mockup: o nome sobe, o
+   code desce para mono apagado. Os dois ja eram assim; muda so a escala. */
+#lista[data-aba="fila"] .card-nome{font-size:16px}
+#lista[data-aba="fila"] .card-code{letter-spacing:.04em}
+#lista[data-aba="fila"] .chips{margin-top:10px}
+
+/* chip em pilula. A COR de cada chip nao muda: nivel-morno, nivel-frio,
+   nivel-sem_contato, atraso e st-* seguem com os mesmos valores medidos, e o
+   ponto colorido do ::before continua carregando a distincao (matiz sozinho
+   nao separa, vide prova_trilho.py). Muda o raio e o respiro. */
+#lista[data-aba="fila"] .chip{border-radius:999px;padding:1.5px 9px}
+#lista[data-aba="fila"] .chip::before{width:6px;height:6px}
+
+/* O filete em cima separa a LEITURA (quem e, o que quer, de onde veio, em que
+   estado) da ESCRITA (o que eu faco agora). A referencia do dono resolvia essa
+   separacao escondendo a escrita atras de um raio e um kebab; a decisao desta
+   sessao foi manter a escrita aberta e separar por filete, que custa 1px em vez
+   de um clique por lead. */
+#lista[data-aba="fila"] .card-acoes{
+  margin-top:8px;gap:6px;padding-top:8px;border-top:1px solid var(--line);
+}
+
+/* --- DENSIDADE (pedido do dono, 09/08/2026: "mais estreita, pra conter mais
+   leads") ---
+   A gordura nao estava na linha, estava na fileira de botoes. `.btn-acao` nasce
+   com `flex:1` para preencher: a ~940px de card isso dava um "Historico" de
+   460px, e como `.card-wa-linha` toma `flex:1 1 100%`, o WhatsApp ainda comia
+   uma terceira faixa sozinho. Eram tres faixas de botao, ~130px, em todo card.
+
+   Aqui os cinco botoes voltam a ter a largura do proprio texto e cabem numa
+   faixa so. Nao e so densidade: um "Desfecho" de 460px lia como acao principal
+   do card sendo secundaria.
+
+   ESCOPO: `#lista[data-aba="fila"]` e so. O `flex:1` global continua valendo em
+   Todos, Clientes, Vendas, Hoje e NF, que nao foram pedidos e nao foram
+   medidos. E o breakpoint de 560px devolve o comportamento antigo: a 390px os
+   botoes de largura propria nao cabem numa faixa e quebrariam sozinhos, o que
+   a v45 ja tinha brigado para evitar. */
+#lista[data-aba="fila"] .card-acoes .btn-acao,
+#lista[data-aba="fila"] .card-acoes .btn-wa,
+#lista[data-aba="fila"] .card-acoes .sem-tel{
+  flex:0 0 auto;padding:7px 13px;
+}
+/* o WhatsApp deixa de tomar a faixa inteira, mas continua PRIMEIRO (order:-1):
+   ele segue sendo a acao principal, so nao precisa de 940px para dizer isso */
+#lista[data-aba="fila"] .card-acoes .card-wa-linha{flex:0 0 auto}
+/* --- uma faixa so, leitura na esquerda e escrita na direita ---
+   Pedido do dono em 11/08/2026: "realoque os chips de toque, resposta, sugerir
+   de forma mais coerente, horizontal talvez".
+
+   Ate aqui a escrita era um SEGUNDO .card-acoes, logo abaixo. A separacao
+   leitura x escrita continua sendo do projeto e nao acidente, so mudou de
+   eixo: era vertical (duas faixas), virou horizontal (duas pontas da mesma
+   faixa). O operador para de varrer duas linhas para achar o botao que grava,
+   e some uma faixa por card.
+
+   `margin-left:auto` em vez de um espacador com flex:1 porque o auto morre
+   sozinho quando a faixa quebra: o grupo desce inteiro e encosta na esquerda,
+   em vez de ficar pendurado na direita de uma linha vazia. */
+#lista[data-aba="fila"] .acoes-escrita{margin-left:auto;gap:6px}
+
+/* chips e "Nd sem resposta" na mesma faixa: eram duas linhas para dois dados
+   curtos. inline-flex/inline-block deixa os dois fluirem juntos e quebrarem
+   sozinhos quando nao couberem. */
+#lista[data-aba="fila"] .chips{
+  display:inline-flex;vertical-align:middle;margin-top:7px;margin-right:9px;
+}
+#lista[data-aba="fila"] .silencio{display:inline-block;vertical-align:middle;margin-top:7px}
+#lista[data-aba="fila"] .obs{margin-top:5px}
+
+/* --- a linha na Fila --- */
+#lista[data-aba="fila"] .card-linha{gap:12px}
+#lista[data-aba="fila"] .col-rot{font-size:9.5px}
+#lista[data-aba="fila"] .col-val{font-size:13.5px}
+/* o Editar so aparece quando o ponteiro entra no card: na referencia a direita
+   da linha e do chip de estado, e um link permanente ali rouba a leitura dele.
+   Em telas sem hover (celular) ele fica sempre visivel, senao vira inalcancavel. */
+@media (hover:hover){
+  #lista[data-aba="fila"] .card-dir .btn-editar{opacity:0;transition:opacity .12s ease}
+  #lista[data-aba="fila"] .card:hover .card-dir .btn-editar,
+  #lista[data-aba="fila"] .card-dir .btn-editar:focus-visible{opacity:1}
+}
+
+/* pitboard: os mesmos cartoes flutuando, e o numero manda mais. A celula em
+   alerta continua com a paleta --quente, ja medida, e nao vira azul. */
+.pitboard .pb-celula{border-radius:12px;box-shadow:0 1px 2px rgba(15,21,35,.06)}
+.pitboard .pb-num{font-size:30px}
+
+/* No celular a bandeja custa caro: 10px de padding de cada lado mais 2px de
+   borda sao 22px de largura de card a 360px, onde a v45 acabou de brigar por
+   cada pixel. Ela some e o efeito passa a vir so da sombra, que e de graca em
+   largura. Os mockups do Stitch nao tratam celular em nenhuma das 4 telas
+   (barra lateral fixa de 256px, sem um unico breakpoint), entao esta decisao
+   nao veio de la: e o preco de trazer a forma deles para uma tela que roda no
+   bolso do dono. */
+@media (max-width:560px){
+  #lista[data-aba="fila"]{background:none;border:0;border-radius:0;padding:0;gap:8px}
+  #lista[data-aba="fila"] .card{padding:12px 14px 12px 17px}
+  /* o respiro extra entre botoes e luxo de desktop: a 390px sobram ~114px por
+     botao e 1px a mais ja faz "Toque enviado" quebrar em duas linhas, o que
+     desalinha a fileira inteira. Volta ao valor do HEAD. */
+  #lista[data-aba="fila"] .card-acoes{margin-top:8px;gap:7px;padding-top:8px}
+  /* botao de largura propria e ganho de DESKTOP. A 390px sobram ~114px por
+     botao: com largura de conteudo "Chamar no WhatsApp" e "Sugerir mensagem"
+     nao caberiam lado a lado e a fileira quebraria desalinhada, que e
+     exatamente a briga que a v45 ja tinha comprado. Volta o flex:1. */
+  #lista[data-aba="fila"] .card-acoes .btn-acao,
+  #lista[data-aba="fila"] .card-acoes .btn-wa,
+  #lista[data-aba="fila"] .card-acoes .sem-tel{flex:1;padding:9px}
+  #lista[data-aba="fila"] .card-acoes .card-wa-linha{flex:1 1 100%}
+  /* a 390px nao ha "direita" para empurrar nada: os botoes ja ocupam a largura
+     toda. O grupo de escrita volta a ter faixa propria, que e o comportamento
+     que a v45 comprou e o v49 preservou no celular. */
+  #lista[data-aba="fila"] .acoes-escrita{flex:1 1 100%;margin-left:0;gap:7px}
+  /* e os dois dados curtos voltam a ter faixa propria: a 390px eles nao dividem */
+  #lista[data-aba="fila"] .chips{display:flex;margin-right:0}
+  #lista[data-aba="fila"] .silencio{display:block}
+
+  /* A linha de 5 colunas nao cabe a 360px: PRODUTO e ORIGEM ficariam com ~50px
+     cada e viravam reticencias. Ela quebra em duas faixas -- identidade + chip
+     em cima, as duas colunas rotuladas embaixo -- e o dado continua inteiro.
+     A referencia do dono nao tem breakpoint nenhum: esta parte e o preco de
+     trazer a forma dela pra uma tela que roda no bolso. */
+  .card-linha{
+    grid-template-columns:28px minmax(0,1fr) auto;
+    grid-template-areas:"av id dir" ". c1 c1" ". c2 c2";
+    gap:4px 12px;align-items:start;
+  }
+  .card-av{grid-area:av}
+  .card-id{grid-area:id}
+  /* a 360px o Editar nao tem hover pra revelar: fica sempre no fluxo, sob o chip */
+  .card-dir{grid-area:dir;align-self:start;flex-direction:column;align-items:flex-end;gap:4px}
+  /* nth-CHILD, nao nth-of-type: os cinco filhos da linha sao todos <div>, entao
+     of-type(1) pegaria o avatar. Produto e o 3o filho, origem o 4o. */
+  .card-linha>.card-col:nth-child(3){grid-area:c1;margin-top:6px}
+  .card-linha>.card-col:nth-child(4){grid-area:c2;margin-top:4px}
+  .col-val{white-space:normal}
+}
+
+/* ==========================================================================
+   HOJE — a forma do Stitch, o mesmo transplante que a Fila recebeu (08/08/2026)
+
+   So FORMA. Nenhum token novo, nenhuma cor nova, nenhum uso novo de
+   var(--accent). Os quatro numeros do placar do Hoje (rotina, conteudo,
+   lembretes, sync) ja eram dado real e continuam sendo: o que muda e o
+   recipiente. Os mockups preenchem esse mesmo lugar com Uptime 99.98% e
+   70% da Capacidade Total, que nao existem neste banco e nao entraram.
+
+   ESCOPO: tudo pendurado em #lista[data-aba="hoje"]. Hoje, Fila, Todos e
+   Clientes dividem o MESMO #lista; sem esse gancho a bandeja tingiria as
+   outras. O gancho e o mesmo que a Fila usa, e so passou a funcionar quando
+   patch_lista_data_aba.py foi finalmente rodado.
+
+   Os cinco blocos do Hoje (fila embutida, tarefas, conteudo, lembretes, nota)
+   usam .dia-sec como container, entao uma regra alcanca os cinco.
+
+   Para reverter: apagar deste comentario ate o fim do arquivo.
+   ========================================================================== */
+
+/* A bandeja: mesma razao da Fila. .dia-sec ja e var(--bg) branco com borda de
+   1px, e a pagina tambem e branca, entao hoje so a borda separa secao de fundo.
+   Tingir o fundo e o que faz as cinco secoes lerem como pilha de cartoes. */
+#lista[data-aba="hoje"]{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:10px;gap:10px;
+}
+#lista[data-aba="hoje"] .dia-sec{
+  border-radius:12px;box-shadow:0 1px 2px rgba(15,21,35,.06);
+}
+
+/* O titulo de secao era 10.5px em var(--dim): um sussurro do lado de um numero
+   de 30px. Sobe para var(--text) e ganha meio ponto. Continua uppercase com o
+   mesmo tracking, porque ele e irmao do .pb-rot e do .dia-cat-rot: virar titulo
+   de caixa alta e baixa quebraria a familia inteira de rotulo do app. */
+#lista[data-aba="hoje"] .dia-sec-tit{font-size:11px;color:var(--text)}
+
+/* O trilho de categoria NAO muda: .dia-cat-rot segue com a barra de 3px, o
+   icone e a cor var(--tr) medida. Trilho sem icone e regressao, e o harness
+   assere isso. */
+
+@media (max-width:560px){
+  /* mesmo calculo da Fila: 22px de largura de card a 360px e caro demais. A
+     bandeja some e a separacao passa a vir so da sombra. */
+  #lista[data-aba="hoje"]{background:none;border:0;border-radius:0;padding:0;gap:10px}
+}

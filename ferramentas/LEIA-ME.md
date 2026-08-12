@@ -16,6 +16,18 @@ Rodar sempre da raiz do repo.
 | `contraste.py` / `paleta.py` | Medem contraste WCAG. Cor semantica se MEDE (4.5:1 texto, 3:1 faixa), nao se escolhe no olho. |
 | `build.py` / `preview.py` | Da era do redesign v25, quando o build vivia num scratchpad. **Baseline antiga:** apontam para `build/` e `pitwall--nucleo/`, que nao existem mais. Repontar antes de usar. |
 | `app.js.antes` | Baseline pre-Fase 4, usada por `validar.py` como "velho". Ver aviso abaixo. |
+| `prova_entrega.sql` | Banco do relatorio de entrega (bloco 1, 16 assercoes) e do cadastro de motoboy (bloco 2, 12). Roda como `authenticated` e termina em rollback. |
+| `patch_entrega.js` / `patch_motoboy.js` | As costuras de 08/08/2026 no `app.js` minificado. Registro de como a mudanca entrou. |
+
+## Armadilha do `harness.py`: o teste e uma string PYTHON
+
+O bloco `TESTE` e uma string comum, nao raw. Escrever `/\n/g` numa regex JS ali
+faz o Python trocar por uma quebra de linha REAL, o `<script>` inteiro morre com
+erro de sintaxe e **nada do teste roda** — nem as assercoes antigas. Sempre `\\n`.
+(`\D` sobrevive por acidente: e escape invalido, entao o Python preserva.)
+
+Se o teste travar, o watchdog grava o log parcial com
+`FALHOU  a suite TRAVOU` depois de 30s. A ultima linha antes disso e onde parou.
 
 ## Por que Chrome e nao acorn/jsdom
 
