@@ -240,14 +240,24 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 - Entregar arquivo completo, pronto para aplicar, nunca fragmento. Fragmento foi a
   causa raiz de corrupcao no historico do projeto.
 - Frontend: a suite de validacao e PYTHON, da raiz do repo (nao acorn nem jsdom, que a
-  v32 afirmava por engano e nao existem aqui). Tres provas reexecutaveis:
+  v32 afirmava por engano e nao existem aqui). Ate a v55 este bloco listava TRES
+  provas; sao SEIS comandos, e os tres que faltavam sao justamente os que pegaram
+  regressao real (o `diag_mobile` achou o botao fora da tela em 360px, o
+  `prova_grafico` achou os dois degraus indistinguiveis):
   ```
-  python ferramentas/validar.py       # sintaxe, via esprima
-  python ferramentas/harness.py       # comportamento, Chrome headless (assere cor computada)
-  python ferramentas/prova_trilho.py  # contraste dos 7 trilhos de categoria
+  python ferramentas/validar.py          # sintaxe, via esprima, + regra 11.1 do azul
+  python ferramentas/harness.py          # comportamento, Chrome headless (assere cor computada)
+  python ferramentas/prova_trilho.py     # contraste dos 7 trilhos de categoria
+  python ferramentas/prova_grafico.py    # os degraus do grafico do Escopo
+  python ferramentas/prova_atmosfera.py  # contraste da aba Conteudo nos dois chaos
+  node --check public/app.js
+  for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
-  cor computada. Estado atual: 133 assercoes, 0 falhas.
+  cor computada. Estado atual medido em 13/08/2026: **426 assercoes, 0 falhas**, e
+  EXIT 0 nas cinco larguras. O numero 133 que estava aqui era de antes da v33.
+  **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
+  quem nao rodar as cinco nao esta olhando para o celular.
   **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
   linhas verdes e pode terminar em `REPROVOU:`; ler o texto por cima ja fez commitar
   vermelho. Ao assertar UI, consultar o DOM RENDERIZADO (so `#lista`), nunca

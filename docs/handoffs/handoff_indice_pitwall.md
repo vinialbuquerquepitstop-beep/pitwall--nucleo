@@ -7,7 +7,32 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v55.md` (13/08/2026, **a Fatia B do Escopo
+- topo: `handoff_migracao_pitwall_v56.md` (13/08/2026, **a atmosfera da aba
+  Conteudo estava pronta, verde e INVISIVEL para a suite**. Bandeja tingida,
+  cartao branco com sombra e azul nos rotulos de grupo estavam na copia de
+  trabalho sem commit, com as seis suites em EXIT 0 — e elas dariam EXIT 0 com a
+  mudanca inteira revertida, porque as 415 assercoes do harness nao olhavam para
+  nenhum pixel da aba. Escritas **11 assercoes de cor computada** (426 no total),
+  e elas acharam o defeito: **a justificativa medida falava do elemento errado**.
+  O comentario do CSS e o da prova diziam que o cartao branco resgatava a barra de
+  nivel de 2.83/2.85/2.85 para o alvo de 3:1, mas na aba Conteudo o bloco "a barra
+  diz o TIPO" (`app.css:1269-1274`) sobrescreve as seis regras de nivel escritas
+  antes, e a barra e sempre `--tp` — medido no Chrome, `rgb(91, 75, 168)` =
+  `--tp-reels`. Os tokens de nivel como barra vivem em `.card`, na Fila, que ja era
+  branco desde antes; e `--tp` mede 4.24 a 6.50 sobre a bandeja, ou seja passaria
+  tingido tambem. O cartao branco continua certo por GRAMATICA (chao tingido +
+  cartao que flutua, igual Hoje e Fila), nunca por contraste. Os dois textos
+  corrigidos com a correcao nomeada, e a medida virou reexecutavel (bloco 2a da
+  `prova_atmosfera.py`, que reprova se `--tp` cair de 3:1 sobre a bandeja). A
+  assercao tambem pegou o cartao `nivel-vencido`, que tinge de proposito desde
+  antes e ganhou assercao propria em vez de a mira mudar em silencio. Prova de
+  mutacao em copia: 3 mutacoes, 3 reprovacoes nomeadas, EXIT 1 nas duas suites.
+  `prova_atmosfera.py` versionada; `CLAUDE.md` corrigido de TRES provas / 133
+  assercoes para os SEIS comandos / 426. Aberto: o "plano" citado na prova nao
+  existe em disco, `.cont-card::before` 1151-1156 e CSS morto, `.gitattributes`
+  segue faltando na quinta sessao, e a Fatia 2 do molde — urgencia na grade — nao
+  comecou.)
+- anterior: `handoff_migracao_pitwall_v55.md` (13/08/2026, **a Fatia B do Escopo
   estava construida e NAO PROVADA**. O grafico vertical de abandono mais o seletor
   de urgencia ja estavam escritos nos quatro arquivos, sem commit, e **nenhuma das
   24 assercoes do criterio de aceite tinha sido rodada**. Esta sessao nao construiu

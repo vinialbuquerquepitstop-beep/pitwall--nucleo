@@ -1130,13 +1130,33 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    entao a coluna inteira e area de drop. Sem isso uma coluna curta so aceita drop
    la no topo, e o operador tem que rolar pra cima pra mirar num card. */
 .cont-kanban{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
-.cont-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:9px}
+/* A coluna vira BANDEJA, igual a secao do molde: uma gramatica so na aba.
+   Ate 13/08/2026 era o contrario do molde (coluna branca com cartao tingido),
+   e as duas metades da tela se contradiziam. */
+.cont-col{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:9px}
 .cont-col-cab{display:flex;align-items:center;gap:7px;padding:0 2px 8px;border-bottom:1px solid var(--line);margin-bottom:8px}
-.cont-col-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+/* ROTULO DE GRUPO em azul, mesmo papel do dia da semana no molde. Pedido do
+   dono em 13/08/2026, nomeado na regra 11.1. Medido: 9.18 sobre a bandeja. */
+.cont-col-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .cont-col-n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text)}
 .cont-col-venc{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:99px;padding:1px 6px;margin-left:auto}
 .cont-col-vazio{font-size:12px;color:var(--dim);padding:6px 2px}
-.cont-card{position:relative;padding:9px 9px 9px 12px;margin-bottom:6px;border-radius:var(--radius-p);background:var(--surface);border:1px solid var(--line)}
+/* Cartao BRANCO com sombra, pela mesma gramatica ja provada no Hoje e na Fila:
+   chao tingido, cartao que flutua. Ate 13/08/2026 esta aba fazia o CONTRARIO
+   na mesma tela (coluna branca, cartao tingido), e as duas metades se
+   contradiziam.
+
+   Correcao de 13/08/2026, do meu proprio texto: a versao anterior deste
+   comentario dizia que o cartao branco resgatava a barra de nivel de 2.83
+   (quente), 2.85 (morno) e 2.85 (frio) para o alvo de 3:1. Isso mede o
+   elemento ERRADO. Nesta aba a barra e sempre --tp (o bloco logo abaixo,
+   "a barra diz o TIPO", sobrescreve as seis regras de nivel escritas antes),
+   e --tp mede 4.24 a 6.50 sobre a bandeja e 4.55 a 6.96 sobre o branco: passa
+   nos dois. Os tres tokens de nivel como barra vivem em .card, na Fila, que ja
+   era branco desde antes. Provado no Chrome: a barra deste cartao computa
+   rgb(91, 75, 168), que e --tp-reels.
+   Prova: python ferramentas/prova_atmosfera.py + harness.py */
+.cont-card{position:relative;padding:9px 9px 9px 12px;margin-bottom:6px;border-radius:var(--radius-p);background:var(--panel);border:1px solid var(--line);box-shadow:0 1px 2px rgba(15,21,35,.06)}
 .cont-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;background:var(--frio)}
 .cont-card.nivel-vencido::before,.cont-card.nivel-quente::before{background:var(--quente)}
 .cont-card.nivel-morno::before{background:var(--morno)}
@@ -2424,10 +2444,19 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    ZERO token de cor novo. O molde nao carrega urgencia: ele diz o que estava
    combinado. Urgencia e da Fatia 2, e vai usar --quente/--morno/--frio ja
    calibrados, com icone e palavra carregando a distincao. */
-.mol{margin:0 0 22px}
-.mol-cab{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:0 0 10px}
-.mol-tit{font-size:14px;font-weight:600;margin:0;letter-spacing:-.01em}
-.mol-ver,.mol-janela,.mol-lido{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--dim)}
+/* A BANDEJA. O azul entra aqui, como chao, nao como tinta: --surface e o
+   neutro azulado que o :root ja declara ("nao cinza puro"). O cartao branco
+   flutua sobre ele. Medido: cartao x bandeja = 1.07, ou seja, a cor sozinha
+   NAO separa, e por isso a sombra do cartao e estrutural.
+   Prova: python ferramentas/prova_atmosfera.py */
+.mol{margin:0 0 20px;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.mol-cab{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;padding:0 2px 10px;border-bottom:1px solid var(--line);margin:0 0 12px}
+.mol-tit{font-family:var(--display);font-size:14px;font-weight:600;margin:0;letter-spacing:-.01em}
+.mol-ver,.mol-janela,.mol-lido{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+/* Hierarquia por PESO, nao por regua igual: a version identifica o molde,
+   entao ela fala com a voz do dado; janela e idade sao contexto. */
+.mol-ver{color:var(--text)}
+.mol-janela,.mol-lido{color:var(--dim)}
 .mol-janela{margin-left:auto}
 .mol-lido.alerta{color:var(--erro-fg)}
 /* O aviso fica ACIMA da grade e nunca no lugar dela: molde velho continua
@@ -2435,14 +2464,22 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .mol-aviso{font-size:12px;line-height:1.45;color:var(--text);background:var(--surface);border-left:3px solid var(--line-forte);border-radius:var(--radius-p);padding:8px 10px;margin:0 0 8px}
 .mol-aviso.stale{border-left-color:var(--erro-fg);background:var(--erro-bg)}
 .mol-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:stretch}
-.mol-dia{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.mol-dia.hoje{border-color:var(--accent-linha);background:var(--accent-tint)}
-/* Dia sem peca de feed nao e falha: o molde manda nao publicar. Le como
-   pausa (mais apagado), nunca como alarme. */
-.mol-dia.folga{background:var(--surface);border-style:dashed}
+/* O cartao FLUTUA sobre a bandeja. A sombra e a mesma literal que a Fila e o
+   Hoje ja usam; nao e token novo, e nao e enfeite: sem ela a separacao e 1.07. */
+.mol-dia{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-p);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:0;box-shadow:0 1px 2px rgba(15,21,35,.06)}
+/* Hoje e ESTADO, e estado se marca, nao se sombreia: regua de 2px no topo mais
+   o tint. --accent-linha e --accent-tint sao papel de estado, o mesmo que a
+   referencia de record usa em navegacao ativa. */
+.mol-dia.hoje{border-color:var(--accent-linha);background:var(--accent-tint);border-top:2px solid var(--accent-linha);padding-top:7px}
+/* Dia sem peca de feed nao e falha: o molde manda nao publicar. Le como pausa.
+   Perde a sombra de proposito: peca de verdade flutua, folga fica no chao. */
+.mol-dia.folga{border-style:dashed;box-shadow:none}
 .mol-dia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:2px}
-.mol-dia-rot{font-weight:500;color:var(--text)}
-.mol-dia-data{letter-spacing:.02em}
+/* ROTULO DE GRUPO em azul: pedido do dono em 13/08/2026. Papel nomeado na
+   regra 11.1 da validar.py, nunca contrabandeado pelo regex. Medido: 9.83
+   sobre o cartao. */
+.mol-dia-rot{font-weight:500;color:var(--accent)}
+.mol-dia-data{letter-spacing:.02em;font-variant-numeric:tabular-nums}
 .mol-peca{font-size:12.5px;line-height:1.25;font-weight:500;color:var(--text);overflow-wrap:anywhere}
 .mol-dia.folga .mol-peca{color:var(--dim);font-weight:400}
 /* Tipo que a ponte molde -> calendario nao conhece aparece CRU e marcado. O

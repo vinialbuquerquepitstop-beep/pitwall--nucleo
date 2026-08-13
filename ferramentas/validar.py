@@ -278,17 +278,46 @@ ACAO_PRIMARIA = [
     'cont-met-ok',              # confirmar a metrica aferida
     'cont-met-btn.publiquei',   # marcar publicado, card do dia
 ]
+# Segundo papel de produto: ROTULO DE GRUPO. Aberto em 13/08/2026 a pedido
+# explicito do dono ("adicione o azul no titulo dos dias da semana, nas abas de
+# a produzir, em producao, pronto").
+#
+# Por que isto NAO e a pintura que a regra existe para barrar: o rotulo de grupo
+# nomeia um conjunto de cartoes, e nunca pinta o conteudo deles. Ele vive no
+# cabecalho, fora da area onde --frio (sinal de peca vencida) e --tp-*
+# (identidade de tipo) precisam ser lidos. A barra de progresso azul que a regra
+# pega e o oposto: ela pinta o DADO.
+#
+# Medidos antes de entrar, nunca escolhidos no olho:
+#   --accent #0025cc sobre o cartao  9.83
+#   --accent #0025cc sobre a bandeja 9.18
+# Prova reexecutavel: python ferramentas/prova_atmosfera.py
+#
+# Continua NOMEADO um a um, de proposito. Se virar padrao de nome (qualquer
+# coisa terminada em -rot, por exemplo), a regra apodrece exatamente como a
+# versao antiga dela, que listava nomes e gritava 8 vezes errado para 1 certa.
+ROTULO_DE_GRUPO = [
+    'mol-dia-rot',   # dia da semana, grade do molde
+    'cont-col-rot',  # A produzir / Em producao / Pronto / Publicado
+]
 def papel_do_azul(sel):
     for rx, nome in PAPEIS_MECANICOS:
         if re.search(rx, sel):
             return nome
     if any(a in sel for a in ACAO_PRIMARIA):
         return 'acao primaria'
+    if any(a in sel for a in ROTULO_DE_GRUPO):
+        return 'rotulo de grupo'
     return None
 # auto-teste: a regra so vale se ainda REPROVAR o caso que ela existe para pegar.
 assert papel_do_azul('.met-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'
 assert papel_do_azul('.cap-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'
 assert papel_do_azul('.nf-seg.on') == 'estado ativo de navegacao'
+assert papel_do_azul('.mol-dia-rot') == 'rotulo de grupo'
+assert papel_do_azul('.cont-col-rot') == 'rotulo de grupo'
+# e o rotulo de grupo NAO pode virar salvo-conduto para pintar o dado:
+assert papel_do_azul('.mol-peca') is None, 'rotulo de grupo vazou para o conteudo do cartao'
+assert papel_do_azul('.cont-card') is None, 'rotulo de grupo vazou para o cartao inteiro'
 novos_sel = seletores_com_accent(novo_css) - seletores_com_accent(velho_css)
 fora = sorted(s for s in novos_sel if papel_do_azul(s) is None)
 ck(not fora, 'uso NOVO de var(--accent) sem papel aprovado '

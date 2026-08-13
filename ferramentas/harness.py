@@ -897,6 +897,91 @@ async function rodar() {
   ok('molde fresco NAO mostra aviso de staleness',
      document.querySelectorAll('#lista .mol-aviso.stale').length === 0);
 
+  // ---- ATMOSFERA da aba Conteudo (13/08/2026) ------------------------------
+  // Por que estas existem: prova_atmosfera.py le o TEXTO do app.css e prova os
+  // numeros de contraste. Ela nao prova que a regra CASA com o elemento. Foi
+  // exatamente esse buraco que deixou 16 regras da Fila penduradas num seletor
+  // morto entre 06 e 08/08, com a suite verde. Aqui a cor e a COMPUTADA, no
+  // Chrome, lida do DOM renderizado (#lista).
+  //
+  // A gramatica e a mesma ja provada no Hoje (linha 480) e na Fila (514): chao
+  // tingido, cartao branco que flutua. Ate 13/08 a aba Conteudo fazia o
+  // CONTRARIO do molde na mesma tela (coluna branca, cartao tingido).
+  var AZUL = 'rgb(0, 37, 204)';       // --accent  #0025cc
+  var CHAO = 'rgb(246, 247, 250)';    // --surface #F6F7FA
+  var BRANCO = 'rgb(255, 255, 255)';  // --panel   #FFFFFF
+  var SOMBRA = 'rgba(15, 21, 35, 0.06)';
+
+  var molSec = document.querySelector('#lista .mol');
+  ok('a bandeja do molde esta tingida (o cartao do dia flutua)',
+     getComputedStyle(molSec).backgroundColor === CHAO,
+     getComputedStyle(molSec).backgroundColor);
+  // Dia normal: nem hoje (que e ESTADO, e leva tint) nem folga (que perde a
+  // sombra de proposito). Sem os :not, a assercao mediria outra coisa.
+  var diaN = document.querySelector('#lista .mol-dia:not(.hoje):not(.folga)');
+  ok('o cartao do dia e BRANCO', !!diaN && getComputedStyle(diaN).backgroundColor === BRANCO,
+     diaN ? getComputedStyle(diaN).backgroundColor : 'sem dia normal');
+  ok('e tem sombra (cartao x bandeja mede 1.07: a cor sozinha nao separa)',
+     !!diaN && getComputedStyle(diaN).boxShadow.indexOf(SOMBRA) >= 0,
+     diaN ? getComputedStyle(diaN).boxShadow : 'sem dia normal');
+  // Folga le como pausa: fica no chao, sem flutuar. Peca de verdade flutua.
+  var diaF = document.querySelector('#lista .mol-dia.folga');
+  ok('folga NAO tem sombra (peca de verdade flutua, folga fica no chao)',
+     !!diaF && getComputedStyle(diaF).boxShadow.indexOf(SOMBRA) < 0,
+     diaF ? getComputedStyle(diaF).boxShadow : 'sem folga');
+
+  // ---- o azul e ROTULO DE GRUPO, e so isso (pedido do dono, 13/08/2026) ----
+  // O papel esta nomeado na regra 11.1 da validar.py. Aqui se prova o alcance:
+  // o azul nomeia o CONJUNTO e nunca pinta o DADO. Se ele vazar para .mol-peca
+  // ou para o cartao, o --frio (peca vencida) passa a disputar canal com a
+  // identidade da marca, que e o defeito que a regra existe para barrar.
+  var rotD = document.querySelector('#lista .mol-dia-rot');
+  ok('o dia da semana e azul', !!rotD && getComputedStyle(rotD).color === AZUL,
+     rotD ? getComputedStyle(rotD).color : 'sem rotulo de dia');
+  var peca = document.querySelector('#lista .mol-peca');
+  ok('e o azul NAO vazou para a peca do dia (rotulo nomeia, nao pinta o dado)',
+     !!peca && getComputedStyle(peca).color !== AZUL,
+     peca ? getComputedStyle(peca).color : 'sem peca');
+
+  var col0 = document.querySelector('#lista .cont-col');
+  ok('a coluna do kanban tambem e bandeja (uma gramatica so na aba)',
+     getComputedStyle(col0).backgroundColor === CHAO,
+     getComputedStyle(col0).backgroundColor);
+  var rotC = document.querySelector('#lista .cont-col-rot');
+  ok('o cabecalho da coluna e azul', !!rotC && getComputedStyle(rotC).color === AZUL,
+     rotC ? getComputedStyle(rotC).color : 'sem rotulo de coluna');
+
+  // O cartao branco do kanban NAO e estetica: medido em 13/08, com ele em
+  // --surface a barra de nivel dava 2.83 (quente), 2.85 (morno) e 2.85 (frio)
+  // contra o proprio cartao, as TRES abaixo do alvo de 3:1. Elas foram
+  // calibradas contra BRANCO em 16/07 (3.03/3.06/3.05) e o chao tingido comia a
+  // margem. Por isso as duas assercoes abaixo andam juntas: o cartao branco E a
+  // barra que ele carrega. Numeros em prova_atmosfera.py.
+  // O :not(.nivel-vencido) nao e conveniencia para a assercao passar: peca
+  // vencida tem tint de --quente-bg desde antes (app.css:1277), e ela e o
+  // SINAL, nao o cartao normal. Sem o :not, esta assercao mediria o chao
+  // errado e falaria de outra coisa. O tint do vencido ganha assercao propria
+  // logo abaixo, para os dois nao se confundirem.
+  var card0 = document.querySelector('#lista .cont-card:not(.nivel-vencido)');
+  ok('o cartao do kanban e BRANCO (a barra de nivel foi calibrada contra branco)',
+     !!card0 && getComputedStyle(card0).backgroundColor === BRANCO,
+     card0 ? getComputedStyle(card0).backgroundColor : 'sem cartao');
+  var cardV = document.querySelector('#lista .cont-card.nivel-vencido');
+  ok('e a peca VENCIDA continua tingida (sinal, nao cartao normal)',
+     !!cardV && getComputedStyle(cardV).backgroundColor === 'rgb(253, 240, 233)',
+     cardV ? getComputedStyle(cardV).backgroundColor : 'sem peca vencida');
+  // A barra do cartao do kanban diz o TIPO, nunca a urgencia (app.css:1269).
+  // Dois canais, duas perguntas, no mesmo espirito dos invariantes 2 e 3: a
+  // urgencia vive na data (.cont-data-chip). Esta assercao existe porque a
+  // regra do tipo sobrescreve as seis regras de nivel escritas ANTES dela
+  // (app.css:1152-1156); sem prova, uma reordenacao devolveria a urgencia para
+  // a barra em silencio e os dois canais voltariam a disputar o mesmo pixel.
+  var TP = ['rgb(46, 125, 91)', 'rgb(47, 125, 168)', 'rgb(91, 75, 168)', 'rgb(168, 73, 126)'];
+  var NIVEL = ['rgb(242, 107, 49)', 'rgb(196, 136, 8)', 'rgb(131, 149, 175)'];
+  var barra = card0 ? getComputedStyle(card0, '::before').backgroundColor : '';
+  ok('e a barra dele diz o TIPO, nao a urgencia (urgencia mora na data)',
+     TP.indexOf(barra) >= 0 && NIVEL.indexOf(barra) < 0, barra || 'sem cartao');
+
   // ---- A prova central: cache vazio nao pode virar grade -------------------
   window.__MOLDE = { ok: true, tem_molde: false, semana_ini: '2026-08-10',
                      semana_fim: '2026-08-16', msg: 'Nunca consegui ler o molde do Notion.' };
