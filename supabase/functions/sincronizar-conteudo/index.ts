@@ -148,6 +148,7 @@ type Fonte = {
   notion_db_id: string;
   janela_ini: string;
   janela_fim: string;
+  notion_molde_page_id: string | null;
 };
 
 // Busca a janela inteira, paginando. LANCA em qualquer falha, de proposito:
@@ -228,29 +229,27 @@ async function buscarNotion(f: Fonte, avisos: string[]): Promise<Pagina[]> {
   return paginas;
 }
 
-// ---- SONDA TEMPORARIA DA FATIA 0 (13/08/2026) ----------------------------
-// Responde UMA pergunta: o NOTION_TOKEN desta function enxerga a pagina do
-// molde de conteudo? Sondar pelo MCP do Notion nao serve de prova, porque a
-// conexao MCP usa credencial DIFERENTE da que roda aqui (a mesma armadilha
-// que o CLAUDE.md registra sobre a capability "Update content").
+type Molde = { payload: Record<string, unknown>; blockId: string; version: number };
+
+// Le o molde da pagina do Notion. LANCA em qualquer falha, pelo mesmo motivo
+// de buscarNotion(): o chamador tem que abortar sem chamar a RPC. Molde
+// pela metade nunca pode chegar no cache, senao um fetch que quebrou apaga a
+// grade da tela.
 //
-// Nao escreve nada, nao chama RPC nenhuma, e o chamador retorna antes de
-// entrar no caminho do sync. Sai na Fatia 1, quando a leitura do molde vira
-// caminho de verdade e o page id passa a vir de conteudo_fonte.
+// O bloco se acha pelo campo `molde` DENTRO do JSON, nunca pelo titulo da
+// secao: o titulo mudou de v2 para v3 em 13/08/2026, e rotulo nao e chave
+// (invariante 12). Mesmo padrao de tituloDe(), que acha o titulo pelo tipo.
 //
 // Nao desce em child_page nem child_database de proposito: a pagina tem os
 // Pitwalls semanais e o Calendario aninhados, e varrer aquilo seria rastejar
-// o workspace inteiro atras de um bloco que mora aqui.
-async function sondarMolde(pageId: string): Promise<Record<string, unknown>> {
-  if (!NOTION_TOKEN) {
-    return { ok: false, etapa: 'token', msg: 'NOTION_TOKEN nao configurado no ambiente da function.' };
-  }
-  const achados: Record<string, unknown>[] = [];
-  let blocosLidos = 0;
-  let erro: Record<string, unknown> | null = null;
+// o workspace inteiro atras de um bloco que mora na raiz. Medido em
+// 13/08/2026: o bloco esta em profundidade 0, e a recursao existe so para
+// sobreviver ao dono move-lo para dentro de um toggle.
+async function lerMolde(pageId: string): Promise<Molde> {
+  const achados: Molde[] = [];
 
   async function varrer(id: string, prof: number): Promise<void> {
-    if (erro || prof > 2) return;
+    if (prof > 2) return;
     let cursor: string | undefined = undefined;
     do {
       const u = new URL(`${NOTION_API}/blocks/${id}/children`);
@@ -263,46 +262,34 @@ async function sondarMolde(pageId: string): Promise<Record<string, unknown>> {
 
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
-        erro = {
-          ok: false,
-          etapa: 'fetch',
-          status: res.status,
-          msg: res.status === 404
-            ? 'Notion respondeu 404. Quase sempre isto NAO e "pagina inexistente": e a pagina nao estar compartilhada com a integracao.'
-            : res.status === 401
-            ? 'Notion recusou o token (401). Conferir a integracao.'
-            : `Notion respondeu ${res.status}.`,
-          corpo: txt.slice(0, 300),
-        };
-        return;
+        if (res.status === 401) {
+          throw new Error('Notion recusou o token (401). Conferir a integração.');
+        }
+        if (res.status === 404) {
+          throw new Error(
+            'Notion respondeu 404. Quase sempre isto NAO e "pagina inexistente": ' +
+              'e a página do molde não estar compartilhada com a integração.',
+          );
+        }
+        if (res.status === 429) {
+          throw new Error('Notion pediu para esperar (429). Tentar de novo em instantes.');
+        }
+        throw new Error(`Notion respondeu ${res.status}. ${txt.slice(0, 200)}`);
       }
 
       const j = await res.json();
       const filhos: string[] = [];
       for (const b of j.results ?? []) {
-        blocosLidos++;
         if (b.type === 'code') {
           const txt = (b.code?.rich_text ?? []).map((x: any) => x?.plain_text ?? '').join('');
           let p: any = null;
           try {
             p = JSON.parse(txt);
           } catch {
-            continue;
+            continue; // bloco de codigo que nao e JSON: nao e assunto nosso
           }
-          // A chave e o campo `molde`, NUNCA o titulo da secao: o titulo ja
-          // mudou de v2 para v3 hoje mesmo. Invariante 12.
           if (p?.molde !== 'pitstop-grade-conteudo') continue;
-          achados.push({
-            block_id: b.id,
-            version: p.version,
-            vigente_desde: p.vigente_desde,
-            chaves: Object.keys(p),
-            dias_na_semana: (p.semana ?? []).length,
-            story_slots: (p.story_slots ?? []).length,
-            metas: p.metas,
-            bytes: txt.length,
-            profundidade: prof,
-          });
+          achados.push({ payload: p, blockId: b.id, version: Number(p.version ?? 0) });
           continue;
         }
         if (b.has_children && b.type !== 'child_page' && b.type !== 'child_database') {
@@ -311,23 +298,29 @@ async function sondarMolde(pageId: string): Promise<Record<string, unknown>> {
       }
       for (const f of filhos) await varrer(f, prof + 1);
       cursor = j.has_more ? j.next_cursor : undefined;
-    } while (cursor && !erro);
+    } while (cursor);
   }
 
   await varrer(pageId, 0);
-  if (erro) return erro;
 
-  return {
-    ok: achados.length === 1,
-    etapa: 'parse',
-    blocos_lidos: blocosLidos,
-    achados,
-    msg: achados.length === 0
-      ? 'Pagina legivel, mas nenhum bloco de codigo com molde="pitstop-grade-conteudo".'
-      : achados.length > 1
-      ? `Mais de um molde na pagina (${achados.length}). Dois moldes vigentes e a doenca original.`
-      : 'Molde encontrado e parseado.',
-  };
+  if (achados.length === 0) {
+    throw new Error(
+      'Nenhum bloco de código com molde="pitstop-grade-conteudo" na página. ' +
+        'O bloco se acha pelo campo "molde", nao pelo titulo da secao.',
+    );
+  }
+  if (achados.length > 1) {
+    achados.sort((a, b) => b.version - a.version);
+    // Empate de version e ERRO, nao "escolhe um": dois moldes vigentes ao
+    // mesmo tempo e exatamente a doenca que esta obra veio curar.
+    if (achados[0].version === achados[1].version) {
+      throw new Error(
+        `Dois blocos de molde com a mesma version (${achados[0].version}) na página. ` +
+          'Nada foi alterado: dois moldes vigentes e a doenca original.',
+      );
+    }
+  }
+  return achados[0];
 }
 
 Deno.serve(async (req) => {
@@ -347,21 +340,6 @@ Deno.serve(async (req) => {
   }
   const origem = papel === 'service_role' ? 'cron' : 'manual';
 
-  // Sonda da Fatia 0. So service_role: o page_id vem do chamador, e alvo
-  // escolhido pelo chamador e superficie de sondagem. Um authenticated nao
-  // alcanca este ramo. Retorna antes de tocar em fonte, RPC ou banco.
-  if (papel === 'service_role') {
-    let corpo: any = null;
-    try {
-      corpo = await req.json();
-    } catch {
-      corpo = null;
-    }
-    if (corpo?.probe_molde === true && typeof corpo?.page_id === 'string') {
-      return responder({ sonda: 'molde', ...(await sondarMolde(corpo.page_id)) });
-    }
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   // Quais fontes sincronizar.
@@ -378,7 +356,7 @@ Deno.serve(async (req) => {
       : admin;
     const { data, error } = await leitor
       .from('v_conteudo_fonte')
-      .select('tenant_id, codigo, notion_db_id, janela_ini, janela_fim');
+      .select('tenant_id, codigo, notion_db_id, janela_ini, janela_fim, notion_molde_page_id');
     if (error) {
       return responder({ ok: false, msg: `Nao consegui ler a config das fontes: ${error.message}` });
     }
@@ -407,8 +385,49 @@ Deno.serve(async (req) => {
 
   const resultados: unknown[] = [];
   let algumFalhou = false;
+  let moldeFalhou = false;
+  let moldeMsg: string | null = null;
 
   for (const f of fontes) {
+    // ---- MOLDE ------------------------------------------------------------
+    // Try/catch PROPRIO, e ANTES do calendario de proposito: o caminho do
+    // calendario faz `continue` no erro, e o molde nao pode ficar refem disso.
+    // Um nao derruba o outro, nos DOIS sentidos.
+    let molde: unknown = null;
+    if (f.notion_molde_page_id) {
+      try {
+        const m = await lerMolde(f.notion_molde_page_id);
+        const { data, error } = await admin.rpc('sincronizar_molde', {
+          p_tenant_id: f.tenant_id,
+          p_payload: m.payload,
+          p_block_id: m.blockId,
+          p_origem: origem,
+          p_duracao_ms: Date.now() - t0,
+        });
+        if (error) throw new Error(`Banco recusou o molde: ${error.message}`);
+        molde = data;
+        // A RPC recusa molde invalido devolvendo ok:false E MANTENDO o cache.
+        // Aqui isso e falha visivel, nunca sucesso silencioso.
+        if (data && (data as any).ok === false) {
+          moldeFalhou = true;
+          moldeMsg = (data as any).msg ?? 'Molde recusado.';
+        }
+      } catch (e) {
+        // ABORTA SO O MOLDE, sem chamar a RPC. O cache anterior fica intacto e
+        // a tela vai declarar a idade dele, em vez de sumir com a grade ou,
+        // pior, cair para um default embutido.
+        moldeFalhou = true;
+        moldeMsg = `Molde nao atualizado, cache anterior mantido. ${(e as Error).message}`;
+        molde = { ok: false, msg: moldeMsg };
+        await admin.rpc('registrar_falha_molde', {
+          p_tenant_id: f.tenant_id,
+          p_origem: origem,
+          p_msg: moldeMsg,
+          p_duracao_ms: Date.now() - t0,
+        });
+      }
+    }
+
     const avisos: string[] = [];
     let paginas: Pagina[];
     try {
@@ -423,7 +442,7 @@ Deno.serve(async (req) => {
         p_msg: msg,
         p_duracao_ms: Date.now() - t0,
       });
-      resultados.push({ fonte: f.codigo, ok: false, msg });
+      resultados.push({ fonte: f.codigo, ok: false, msg, molde });
       continue;
     }
 
@@ -446,17 +465,23 @@ Deno.serve(async (req) => {
         p_msg: `Banco recusou o sync: ${error.message}`,
         p_duracao_ms: Date.now() - t0,
       });
-      resultados.push({ fonte: f.codigo, ok: false, msg: error.message });
+      resultados.push({ fonte: f.codigo, ok: false, msg: error.message, molde });
       continue;
     }
 
-    resultados.push({ fonte: f.codigo, ...(data as object), avisos });
+    resultados.push({ fonte: f.codigo, ...(data as object), avisos, molde });
   }
 
   return responder({
-    ok: !algumFalhou,
+    ok: !algumFalhou && !moldeFalhou,
     origem,
     duracao_ms: Date.now() - t0,
+    // Calendario ok e molde falhou e um caso REAL, e a mensagem tem que dizer
+    // qual dos dois caiu. Sem isto o toast diria "Sync falhou" e o dono iria
+    // procurar defeito no calendario, que estava perfeito.
+    msg: !algumFalhou && moldeFalhou
+      ? `Calendário sincronizado. ${moldeMsg}`
+      : undefined,
     fontes: resultados,
   });
 });

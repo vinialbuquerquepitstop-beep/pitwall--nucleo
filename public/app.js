@@ -139,20 +139,87 @@ function contColuna(col,itens){
 var meus=itens.filter(function(x){return x.status_codigo===col.cod}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0});
 var venc=meus.filter(function(x){return"vencido"===nivelPeca(x.data,x.status_codigo)}).length;
 return'<div class="cont-col" data-col="'+c(col.cod)+'"><div class="cont-col-cab"><span class="cont-col-rot">'+c(col.rot)+'</span><span class="cont-col-n">'+meus.length+"</span>"+(venc?'<span class="cont-col-venc">'+venc+" vencida"+(1===venc?"":"s")+"</span>":"")+"</div>"+(meus.length?meus.map(function(x){return contCard(x,true)}).join(""):'<div class="cont-col-vazio">vazia</div>')+"</div>"}
+// ==========================================================================
+// Molde de conteudo: a grade oficial, lida do Notion (Fatia 1, 13/08/2026)
+// ==========================================================================
+// O app NUNCA declara grade. Ele le. Nao existe neste arquivo literal de dia
+// com peca, de meta ou de horario: tudo vem de molde_semana(), que le o cache
+// alimentado a partir do bloco JSON da pagina Central de Conteudo.
+// Sem cache, a secao DIZ que nao sabe e oferece o botao. Nunca desenha uma
+// grade "padrao": default embutido foi a causa das grades conflitantes, e
+// harness.py reprova se um aparecer aqui.
+//
+// Os dois mapas abaixo NAO sao grade: sao rotulo de exibicao para codigo. Eles
+// nao dizem QUE dia tem QUE peca (isso e do molde), so como escrever o codigo
+// que o molde mandou.
+var MOLDE_DIA_ROT={segunda:"seg",terca:"ter",quarta:"qua",quinta:"qui",sexta:"sex",sabado:"sáb",domingo:"dom"};
+// Ponte de vocabulario: o molde chama de `feed` a PECA do dia; o Calendario tem
+// um TIPO chamado `feed`. Mesmo nome, coisas diferentes, nunca colapsar.
+var MOLDE_PECA={reel_topo:"reel topo",reel:"reel",carrossel:"carrossel"};
+// fmtDia devolve "seg., 10 de ago.", que ja carrega o dia da semana. Aqui o
+// dia da semana ja e o rotulo da coluna, e a celula tem 2 colunas em 360px:
+// repetir "seg." dentro dela gasta a largura que o nome da peca precisa.
+function fmtDiaCurto(a){
+if(!a)return"";
+var d=new Date(a+"T12:00:00");
+return isNaN(d.getTime())?String(a):("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)}
+function moldeIdade(h){
+var n=Number(h||0);
+if(n<1)return"menos de 1h";
+if(n<48)return Math.round(n)+"h";
+return Math.round(n/24)+" dias"}
+function moldeDia(d,hoje){
+var pc=d.feed_previsto,conhecida=!!MOLDE_PECA[pc||""],
+rot=pc?(conhecida?MOLDE_PECA[pc]:pc):"—",
+mot=String(d.motor||"").replace(/_/g," ");
+return'<div class="mol-dia'+(d.data===hoje?" hoje":"")+(pc?"":" folga")+'">'+
+'<div class="mol-dia-cab"><span class="mol-dia-rot">'+c(MOLDE_DIA_ROT[d.dia]||d.dia)+'</span><span class="mol-dia-data">'+c(fmtDiaCurto(d.data))+"</span></div>"+
+'<div class="mol-peca'+(pc&&!conhecida?" desconhecida":"")+'">'+c(rot)+"</div>"+
+(d.horario?'<div class="mol-hora">'+c(d.horario)+"</div>":"")+
+'<div class="mol-motor">'+c(mot)+"</div></div>"}
+function moldeAvisos(m){
+var p=[];
+// Staleness NUNCA e silencioso: a grade continua na tela, e a idade dela vai
+// declarada junto. Tela que omite recorte mente.
+if(m.stale)p.push('<div class="mol-aviso stale">Molde não relido há '+c(moldeIdade(m.idade_horas))+' (limiar '+c(String(m.stale_horas))+'h). O que está aqui é o último molde que consegui ler, não necessariamente o que está no Notion agora.</div>');
+(m.avisos||[]).forEach(function(a){p.push('<div class="mol-aviso">'+c(a)+"</div>")});
+return p.join("")}
+function moldeSecao(m){
+if(!m||!1===m.ok)return'<section class="mol"><div class="estado erro">Falha ao ler o molde: '+c(m&&m.msg||"erro desconhecido")+"</div></section>";
+// O estado que faz a regra de ouro ser real: sem cache, nao ha grade nenhuma.
+if(!m.tem_molde)return'<section class="mol"><div class="mol-cab"><h2 class="mol-tit">Molde da semana</h2></div><div class="estado"><strong>Nunca consegui ler o molde do Notion.</strong>A grade oficial mora na página Central de Conteúdo, no bloco de código do molde. Toque em Sincronizar para lê-la. Até ela chegar esta seção fica vazia de propósito: o Pit Wall não inventa grade.</div></section>';
+var hoje=l(),mt=m.metas||{};
+var pe=[];
+if(null!=mt.reels_semana)pe.push(c(String(mt.reels_semana))+" reels");
+if(null!=mt.carrossel_semana)pe.push(c(String(mt.carrossel_semana))+" carrossel");
+if(null!=mt.stories_semana)pe.push(c(String(mt.stories_semana))+" stories");
+return'<section class="mol"><div class="mol-cab">'+
+'<h2 class="mol-tit">Molde da semana</h2>'+
+'<span class="mol-ver">v'+c(String(m.version))+(m.vigente_desde?" · vigente desde "+c(fmtDia(m.vigente_desde)):"")+"</span>"+
+'<span class="mol-janela">'+c(fmtDiaCurto(m.semana_ini))+" a "+c(fmtDiaCurto(m.semana_fim))+"</span>"+
+'<span class="mol-lido'+(m.stale?" alerta":"")+'">lido do Notion há '+c(moldeIdade(m.idade_horas))+"</span></div>"+
+moldeAvisos(m)+
+'<div class="mol-grade">'+(m.dias||[]).map(function(d){return moldeDia(d,hoje)}).join("")+"</div>"+
+(pe.length?'<div class="mol-metas">meta da semana: '+pe.join(" · ")+"</div>":"")+
+"</section>"}
 async function renderConteudo(silencioso){
 var e=E("lista");
 if(!silencioso)e.innerHTML='<div class="estado carregando">Lendo o calendário…</div>';
-var r=await t.rpc("conteudo_periodo",{});
-if(r.error)return void(e.innerHTML='<div class="estado erro">Falha ao ler o conteúdo: '+c(r.error.message)+". Toque em Atualizar para tentar de novo.</div>");
+// As duas leituras vao juntas, mas sao INDEPENDENTES: molde que falha nao pode
+// derrubar o kanban, e kanban que falha nao apaga o molde.
+var par=await Promise.all([t.rpc("conteudo_periodo",{}),t.rpc("molde_semana",{})]);
+var r=par[0],rm=par[1];
+var mol=moldeSecao(rm.error?{ok:!1,msg:rm.error.message}:rm.data);
+if(r.error)return void(e.innerHTML=mol+'<div class="estado erro">Falha ao ler o conteúdo: '+c(r.error.message)+". Toque em Atualizar para tentar de novo.</div>");
 var d=r.data;
-if(!d||!1===d.ok)return void(e.innerHTML='<div class="estado erro">'+c(d&&d.msg||"Falha ao ler o conteúdo.")+"</div>");
+if(!d||!1===d.ok)return void(e.innerHTML=mol+'<div class="estado erro">'+c(d&&d.msg||"Falha ao ler o conteúdo.")+"</div>");
 var itens=d.itens||[];
 var topo='<div class="cont-topo"><div class="cont-topo-esq"><span class="cont-janela">'+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+"</span>"+contUltimaPub(itens)+"</div>"+syncLinha(d.sync)+'<button class="btn-sync" data-acao="sync-agora">Sincronizar</button></div>';
-if(!itens.length)return void(e.innerHTML=topo+'<div class="estado"><strong>Calendário vazio na janela.</strong>De '+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+", nenhuma peça com Data no Notion."+(null==(d.sync||{}).ok?" O sync nunca rodou: toque em Sincronizar.":"")+"</div>");
+if(!itens.length)return void(e.innerHTML=topo+mol+'<div class="estado"><strong>Calendário vazio na janela.</strong>De '+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+", nenhuma peça com Data no Notion."+(null==(d.sync||{}).ok?" O sync nunca rodou: toque em Sincronizar.":"")+"</div>");
 var desc=itens.filter(function(x){return"descartado"===x.status_codigo});
 var kan='<div class="cont-kanban">'+CONT_COLUNAS.map(function(col){return contColuna(col,itens)}).join("")+"</div>";
 var dsc=desc.length?'<div class="cont-desc"><button class="cont-desc-cab" data-acao="cont-descartado" aria-expanded="false">Descartado <span class="cont-col-n">'+desc.length+'</span></button><div class="cont-desc-corpo">'+desc.map(function(x){return contCard(x)}).join("")+"</div></div>":"";
-e.innerHTML=topo+kan+dsc}async function sincronizarAgora(btn){btn&&(btn.disabled=!0,btn.textContent="Sincronizando…");var r=await t.functions.invoke("sincronizar-conteudo",{body:{origem:"manual"}});btn&&(btn.disabled=!1,btn.textContent="Sincronizar");if(r.error)I("Falha ao sincronizar: "+(r.error.message||"erro de rede"),!0);else{var d=r.data;d&&!1!==d.ok?I("Sincronizado"):I(d&&(d.msg||d.fontes&&d.fontes[0]&&d.fontes[0].msg)||"Sync falhou",!0)}"conteudo"===n?renderConteudo():"hoje"===n&&renderHoje()}
+e.innerHTML=topo+mol+kan+dsc}async function sincronizarAgora(btn){btn&&(btn.disabled=!0,btn.textContent="Sincronizando…");var r=await t.functions.invoke("sincronizar-conteudo",{body:{origem:"manual"}});btn&&(btn.disabled=!1,btn.textContent="Sincronizar");if(r.error)I("Falha ao sincronizar: "+(r.error.message||"erro de rede"),!0);else{var d=r.data;d&&!1!==d.ok?I("Sincronizado"):I(d&&(d.msg||d.fontes&&d.fontes[0]&&d.fontes[0].msg)||"Sync falhou",!0)}"conteudo"===n?renderConteudo():"hoje"===n&&renderHoje()}
 
 // ==========================================================================
 // Aba Dashboard: de onde veio (origem) x o que rendeu (conteudo)

@@ -2415,3 +2415,49 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 @media (max-width:520px){
   .esc-graf{--esc-slot:44px;--esc-h:140px}
 }
+
+/* ---------- Molde de conteudo: a grade oficial lida do Notion ----------
+   Reusa a ESCALA da grade de 7 colunas da Rotina (.rot-grade, linha 1098) sem
+   reusar a classe, no mesmo precedente ja escrito na linha 1670. Sao duas
+   grades de 7 colunas com anatomias diferentes: a da Rotina empilha tarefas,
+   esta descreve um dia so.
+   ZERO token de cor novo. O molde nao carrega urgencia: ele diz o que estava
+   combinado. Urgencia e da Fatia 2, e vai usar --quente/--morno/--frio ja
+   calibrados, com icone e palavra carregando a distincao. */
+.mol{margin:0 0 22px}
+.mol-cab{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+.mol-tit{font-size:14px;font-weight:600;margin:0;letter-spacing:-.01em}
+.mol-ver,.mol-janela,.mol-lido{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--dim)}
+.mol-janela{margin-left:auto}
+.mol-lido.alerta{color:var(--erro-fg)}
+/* O aviso fica ACIMA da grade e nunca no lugar dela: molde velho continua
+   sendo molde, e sumir com a tela seria pior do que declarar a idade. */
+.mol-aviso{font-size:12px;line-height:1.45;color:var(--text);background:var(--surface);border-left:3px solid var(--line-forte);border-radius:var(--radius-p);padding:8px 10px;margin:0 0 8px}
+.mol-aviso.stale{border-left-color:var(--erro-fg);background:var(--erro-bg)}
+.mol-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:stretch}
+.mol-dia{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mol-dia.hoje{border-color:var(--accent-linha);background:var(--accent-tint)}
+/* Dia sem peca de feed nao e falha: o molde manda nao publicar. Le como
+   pausa (mais apagado), nunca como alarme. */
+.mol-dia.folga{background:var(--surface);border-style:dashed}
+.mol-dia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:2px}
+.mol-dia-rot{font-weight:500;color:var(--text)}
+.mol-dia-data{letter-spacing:.02em}
+.mol-peca{font-size:12.5px;line-height:1.25;font-weight:500;color:var(--text);overflow-wrap:anywhere}
+.mol-dia.folga .mol-peca{color:var(--dim);font-weight:400}
+/* Tipo que a ponte molde -> calendario nao conhece aparece CRU e marcado. O
+   dado nunca some da tela por eu nao ter entendido: o aviso explica e o
+   codigo continua legivel. */
+.mol-peca.desconhecida{color:var(--erro-fg);font-family:var(--mono);font-size:11px}
+.mol-hora{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.mol-motor{font-size:11px;line-height:1.3;color:var(--dim);margin-top:auto;overflow-wrap:anywhere}
+.mol-metas{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--dim);margin:9px 0 0}
+/* 7 -> 4 -> 2 em vez de 7 -> 1: a semana perde o sentido virando lista, mas
+   sete colunas em 360px estouram. Medido com diag_mobile.py nos cinco tamanhos. */
+@media (max-width:900px){
+  .mol-grade{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mol-janela{margin-left:0}
+}
+@media (max-width:560px){
+  .mol-grade{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+}

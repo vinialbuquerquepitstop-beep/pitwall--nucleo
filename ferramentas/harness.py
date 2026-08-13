@@ -127,6 +127,30 @@ var ROT_TAREFAS = [
 var DIA = [{ id: 'dt1', categoria: 'fila_follow_up', titulo: 'Rodar a Fila do dia até zerar', origem: 'molde', concluida: false, removida: false }];
 var DIA_NOTA = ''; var LEMB = [];
 var SYNC = { ok: true, quando: '2026-07-17T05:30:00Z', msg: null, horas: 3 };
+// ---- Molde de conteudo (Fatia 1, 13/08/2026) ----
+// O fixture NAO foi inventado: e o retorno real de molde_semana() medido contra
+// o banco em 13/08/2026, depois de a Edge Function ler o bloco JSON da pagina
+// Central de Conteudo. Molde v3: segunda reel_topo, terca carrossel, quarta
+// reel, quinta nada, sexta reel, sabado nada, domingo nada. Se o molde do
+// Notion mudar, este fixture fica velho de proposito: ele prova a TELA, nao o
+// molde, e a prova do molde vivo e prova_molde.sql.
+var MOLDE_V3 = {
+  ok: true, tem_molde: true, version: 3, vigente_desde: '2026-08-13',
+  lido_em: '2026-08-13T12:00:00Z', idade_horas: 0.4, stale_horas: 24, stale: false,
+  semana_ini: '2026-08-10', semana_fim: '2026-08-16',
+  metas: { reels_semana: 3, carrossel_semana: 1, stories_semana: 49 },
+  avisos: [],
+  dias: [
+    { dia: 'segunda', data: '2026-08-10', motor: 'iphone_volume',         feed_previsto: 'reel_topo', horario: '10h-11h' },
+    { dia: 'terca',   data: '2026-08-11', motor: 'macbook',               feed_previsto: 'carrossel', horario: '10h-11h' },
+    { dia: 'quarta',  data: '2026-08-12', motor: 'autoridade_apple',      feed_previsto: 'reel',      horario: '10h-11h' },
+    { dia: 'quinta',  data: '2026-08-13', motor: 'caixinha_e_oferta',     feed_previsto: null,        horario: null },
+    { dia: 'sexta',   data: '2026-08-14', motor: 'seguranca_procedencia', feed_previsto: 'reel',      horario: '10h-11h' },
+    { dia: 'sabado',  data: '2026-08-15', motor: 'ecossistema',           feed_previsto: null,        horario: null },
+    { dia: 'domingo', data: '2026-08-16', motor: 'indicacao_posvenda',    feed_previsto: null,        horario: null }
+  ]
+};
+window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
 // Datas RELATIVAS a hoje: com data fixa as assercoes de nivel apodreceriam
 // amanha. Os cinco status_codigo reais do banco: a_produzir, em_producao,
 // pronto, publicado, descartado. O stub antigo usava 'planejado', que NAO
@@ -397,6 +421,9 @@ window.supabase = {
         if (nome === 'salvar_rotina_tarefa') { ROT_TAREFAS.push({ id: 'rt' + (ROT_TAREFAS.length + 1), categoria: args.p_categoria, titulo: args.p_titulo, dias_semana: args.p_dias_semana || null, ordem: 99, ativa: true }); return Promise.resolve({ data: { ok: true, msg: 'Tarefa do molde salva' }, error: null }); }
         if (nome === 'remover_rotina_tarefa') { ROT_TAREFAS.forEach(function (x) { if (x.id === args.p_id) x.ativa = false; }); return Promise.resolve({ data: { ok: true, msg: 'Tarefa removida do molde' }, error: null }); }
         if (nome === 'conteudo_periodo') { return Promise.resolve({ data: { ok: true, ini: '2026-07-10', fim: '2026-08-14', itens: CONT.slice(), sync: SYNC }, error: null }); }
+        // O molde vem de window.__MOLDE para o teste trocar de cena (cache
+        // vazio, stale, tipo desconhecido) sem recarregar a pagina.
+        if (nome === 'molde_semana') { return Promise.resolve({ data: window.__MOLDE, error: null }); }
         return Promise.resolve({ data: { ok: false, msg: 'rpc nao stubada: ' + nome }, error: null });
       },
       functions: {
@@ -827,6 +854,110 @@ async function rodar() {
   ok('em_producao conta 1', colN('em_producao') === '1', colN('em_producao'));
   ok('pronto conta 1', colN('pronto') === '1', colN('pronto'));
   ok('publicado conta 1', colN('publicado') === '1', colN('publicado'));
+
+  // ---- MOLDE DE CONTEUDO: a grade oficial, lida do Notion (Fatia 1) --------
+  // A regra de ouro do dono: o app NUNCA declara grade. Le, e sem cache nao
+  // desenha nada. Todas as assercoes consultam o DOM RENDERIZADO (#lista),
+  // nunca document.body.textContent, que enxerga o proprio app.js colado.
+  window.__erroMolde = [];
+  window.addEventListener('error', function (ev) { window.__erroMolde.push(String(ev.message)); });
+
+  async function reabrirConteudo() {
+    document.getElementById('abaHoje').click();
+    await espera(160);
+    document.getElementById('abaConteudo').click();
+    await espera(280);
+  }
+  function molDias() { return [].slice.call(document.querySelectorAll('#lista .mol-grade .mol-dia')); }
+  function molPecas() {
+    return molDias().map(function (d) {
+      var p = d.querySelector('.mol-peca'); return p ? p.textContent.trim() : '';
+    });
+  }
+
+  ok('a secao do molde existe acima do kanban', !!document.querySelector('#lista .mol'));
+  ok('o molde desenha 7 dias', molDias().length === 7, 'n=' + molDias().length);
+  // A grade tem que ser o v3 do Notion, dia a dia. Se alguem chumbar uma grade
+  // no JS, ela vai divergir daqui na primeira vez que o dono editar o Notion.
+  ok('a grade e a do molde v3, dia a dia',
+     molPecas().join('|') === 'reel topo|carrossel|reel|—|reel|—|—', molPecas().join('|'));
+  ok('a version do molde esta declarada na tela',
+     document.querySelector('#lista .mol-ver').textContent.indexOf('v3') >= 0,
+     document.querySelector('#lista .mol-ver').textContent);
+  ok('a semana esta DECLARADA (tela que omite recorte mente)',
+     document.querySelector('#lista .mol-janela').textContent.trim() === '10/08 a 16/08',
+     document.querySelector('#lista .mol-janela').textContent);
+  ok('as metas do molde aparecem, e vem do molde',
+     /3 reels/.test(document.querySelector('#lista .mol-metas').textContent) &&
+     /49 stories/.test(document.querySelector('#lista .mol-metas').textContent),
+     document.querySelector('#lista .mol-metas').textContent);
+  ok('dia sem peca de feed le como folga, nao como falha',
+     document.querySelectorAll('#lista .mol-dia.folga').length === 3,
+     'n=' + document.querySelectorAll('#lista .mol-dia.folga').length);
+  ok('molde fresco NAO mostra aviso de staleness',
+     document.querySelectorAll('#lista .mol-aviso.stale').length === 0);
+
+  // ---- A prova central: cache vazio nao pode virar grade -------------------
+  window.__MOLDE = { ok: true, tem_molde: false, semana_ini: '2026-08-10',
+                     semana_fim: '2026-08-16', msg: 'Nunca consegui ler o molde do Notion.' };
+  await reabrirConteudo();
+  ok('SEM CACHE o app nao desenha grade nenhuma',
+     document.querySelectorAll('#lista .mol-grade').length === 0 &&
+     document.querySelectorAll('#lista .mol-dia').length === 0,
+     'grades=' + document.querySelectorAll('#lista .mol-grade').length +
+     ' dias=' + document.querySelectorAll('#lista .mol-dia').length);
+  ok('SEM CACHE a tela DIZ que nao sabe',
+     telaTxt().indexOf('Nunca consegui ler o molde do Notion') >= 0);
+  ok('SEM CACHE nenhum nome de peca vazou para a tela',
+     telaTxt().indexOf('reel topo') === -1 && telaTxt().indexOf('carrossel') === -1,
+     'reel topo=' + (telaTxt().indexOf('reel topo') >= 0) +
+     ' carrossel=' + (telaTxt().indexOf('carrossel') >= 0));
+  ok('SEM CACHE o kanban continua vivo (molde nao derruba a aba)',
+     document.querySelectorAll('#lista .cont-col').length === 4,
+     'n=' + document.querySelectorAll('#lista .cont-col').length);
+
+  // ---- Stale: a grade FICA, e a idade vai declarada junto ------------------
+  window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
+  window.__MOLDE.idade_horas = 96; window.__MOLDE.stale = true;
+  await reabrirConteudo();
+  ok('STALE mantem a grade na tela (sumir seria pior que declarar)',
+     molDias().length === 7, 'n=' + molDias().length);
+  ok('STALE mostra o aviso com a IDADE medida',
+     document.querySelectorAll('#lista .mol-aviso.stale').length === 1 &&
+     /4 dias/.test(document.querySelector('#lista .mol-aviso.stale').textContent),
+     document.querySelector('#lista .mol-aviso.stale')
+       ? document.querySelector('#lista .mol-aviso.stale').textContent.slice(0, 80) : 'sem aviso');
+  ok('STALE marca o cabecalho tambem',
+     document.querySelector('#lista .mol-lido').className.indexOf('alerta') >= 0,
+     document.querySelector('#lista .mol-lido').className);
+
+  // ---- Tipo desconhecido: aparece CRU e marcado, nunca some ---------------
+  window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
+  window.__MOLDE.dias[0].feed_previsto = 'carrossel_duplo';
+  window.__MOLDE.avisos = ['Tipo de peca nao reconhecido no molde: carrossel_duplo.'];
+  await reabrirConteudo();
+  ok('tipo desconhecido aparece CRU na tela, nao vira vazio',
+     molPecas()[0] === 'carrossel_duplo', molPecas()[0]);
+  ok('tipo desconhecido vem MARCADO',
+     document.querySelectorAll('#lista .mol-peca.desconhecida').length === 1,
+     'n=' + document.querySelectorAll('#lista .mol-peca.desconhecida').length);
+  ok('o aviso do servidor chega na tela',
+     telaTxt().indexOf('carrossel_duplo') >= 0 &&
+     document.querySelectorAll('#lista .mol-aviso').length >= 1);
+  ok('o dia desconhecido NAO some da grade', molDias().length === 7, 'n=' + molDias().length);
+
+  // ---- RPC que falha nao pode derrubar a aba ------------------------------
+  window.__MOLDE = { ok: false, msg: 'Sem tenant no contexto.' };
+  await reabrirConteudo();
+  ok('molde com ok:false mostra o erro, e o kanban sobrevive',
+     telaTxt().indexOf('Falha ao ler o molde') >= 0 &&
+     document.querySelectorAll('#lista .cont-col').length === 4,
+     'colunas=' + document.querySelectorAll('#lista .cont-col').length);
+
+  window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
+  await reabrirConteudo();
+  ok('nenhum TypeError em nenhuma das cenas do molde',
+     window.__erroMolde.length === 0, window.__erroMolde.join(' | '));
 
   // A className carrega nivel-* E tipo-*, entao a comparacao e por conter.
   function nivelDe(titulo) {
