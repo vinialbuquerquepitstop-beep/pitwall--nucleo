@@ -1768,24 +1768,36 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    alguem retunar uma das duas. Nao e o mesmo que reusar --quente, que
    INVERTERIA significado (la quente e bom). Se um dia o desenho quiser
    diferenciar, isso entra medido, como mudanca consciente. */
-.esc-placar{display:flex;flex-direction:column;gap:2px;margin-bottom:20px}
-.esc-linha{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px}
-.esc-linha:hover{background:var(--surface)}
-.esc-linha-nome{flex:1 1 150px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+/* O PLACAR DE TEXTO SAIU DO TOPO em 13/08/2026 (Fatia B), por decisao do dono:
+   quem abre a aba agora ve o grafico de abandono. As classes .esc-placar,
+   .esc-linha e .esc-linha-nome morreram JUNTO com o bloco que as usava; o que
+   elas vestiam (.esc-nota, .esc-faixa, .esc-parcelas) continua vivo e mudou de
+   casa para o cabecalho de cada frente. Nada de nota escondida: nota sem as
+   parcelas do lado vira fe, e ninguem discute com fe. */
 .esc-nota{font-family:var(--mono);font-weight:500;font-size:15px;min-width:34px;text-align:right}
 .esc-faixa{font-size:12px;min-width:66px}
 .esc-parcelas{font-family:var(--mono);font-size:12px;color:var(--dim);flex:1 1 180px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.esc-linha.f-em_baixa .esc-faixa{color:var(--erro-fg);font-weight:500}
-.esc-linha.f-em_baixa .esc-nota{color:var(--erro-fg)}
-.esc-linha.f-sem_dado{opacity:.62}
-.esc-linha.f-sem_dado .esc-nota,.esc-linha.f-sem_dado .esc-faixa{color:var(--dim)}
 
 .esc-frente{border-left:3px solid var(--line-forte);padding-left:12px;margin:18px 0}
-.esc-frente-cab{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+/* flex-wrap porque o cabecalho carrega cinco coisas agora (icone, nome, nota,
+   faixa, parcelas) e a 360px elas nao cabem numa linha so. Sem o wrap, o
+   ellipsis das parcelas comia o dado em vez de quebrar. */
+.esc-frente-cab{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .esc-frente-cab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;flex:0 0 auto}
 .esc-frente-tit{font-weight:600}
-.esc-frente-cont{font-family:var(--mono);font-size:12px;color:var(--dim)}
-.esc-acao{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.esc-frente-cab.f-em_baixa .esc-faixa{color:var(--erro-fg);font-weight:500}
+.esc-frente-cab.f-em_baixa .esc-nota{color:var(--erro-fg)}
+/* sem_dado NAO leva opacity aqui: no placar antigo a linha inteira desbotava,
+   mas este cabecalho e o titulo do bloco que o dono usa para criar a primeira
+   acao. Apagar o titulo da frente vazia esconderia justamente a que precisa de
+   trabalho. Desbota so a nota e a faixa, que sao o que nao existe. */
+.esc-frente-cab.f-sem_dado .esc-nota,.esc-frente-cab.f-sem_dado .esc-faixa{color:var(--dim)}
+/* flex-wrap NAO e enfeite: ate a Fatia B esta linha era texto + chip + travar +
+   x, e cabia em 360px. O seletor de urgencia (min-width 104px) entrou aqui e
+   empurrou o x 13px para fora da tela, medido por diag_mobile.py 360. Sem o
+   wrap o botao de descartar fica inalcancavel no celular, que e onde o dono
+   mais mexe no escopo. Mesma solucao que .esc-form ja usa logo abaixo. */
+.esc-acao{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
 .esc-acao:last-child{border-bottom:none}
 .esc-acao-txt{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
 .esc-chip{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--panel-2);color:var(--dim);white-space:nowrap;flex:0 0 auto}
@@ -1796,6 +1808,24 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .esc-form input{flex:1 1 180px;min-width:0}
 .esc-pend{margin-top:28px;padding-top:18px;border-top:2px solid var(--line-forte)}
 .esc-travar{font-size:11px;flex:0 0 auto;white-space:nowrap}
+/* O seletor de urgencia (Fatia B). <select> nativo de proposito: no celular
+   ele abre o seletor do sistema, e no teclado ja e alcancavel sem uma linha de
+   JS. Um leque de botoes custaria quatro elementos por acao e um estado de
+   aberto/fechado para entregar a mesma escolha entre tres valores.
+   font-size 16px no controle e o que impede o iOS de dar zoom ao focar; a
+   aparencia menor vem do padding, nunca de encolher a fonte. */
+.esc-prio{flex:0 0 auto;width:auto;min-width:104px;font-size:16px;padding:3px 6px;
+  border:1px solid var(--line-forte);border-radius:var(--radius-p);background:var(--bg);
+  color:var(--dim);font-family:var(--mono)}
+/* A urgencia declarada VESTE a cor do sinal, no mesmo par de tokens do grafico:
+   quem le a marca !! na coluna reencontra a mesma familia aqui embaixo. Texto,
+   entao vale o token -fg (4.6 no tint), nunca o de faixa. */
+.esc-prio.u-alta{color:var(--quente-fg);border-color:var(--quente-linha);font-weight:500}
+.esc-prio.u-media{color:var(--morno-fg);border-color:var(--morno-linha);font-weight:500}
+.esc-prio-txt{flex:0 0 auto;font-family:var(--mono);font-size:11px;white-space:nowrap}
+.esc-prio-txt.u-alta{color:var(--quente-fg);font-weight:500}
+.esc-prio-txt.u-media{color:var(--morno-fg);font-weight:500}
+.esc-prio-txt.vazia{color:var(--dim);opacity:.7}
 
 /* ==========================================================================
    ABA FILA  —  forma do Stitch, cor do Pit Wall            (03/08/2026)
@@ -2271,4 +2301,117 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    card alto, porque o numero parece outro. */
 @media (max-width:520px){
   .kp-faixa{grid-template-columns:1fr}
+}
+
+/* ==========================================================================
+   ESCOPO — o grafico de abandono                            (13/08/2026)
+   Fatia B da spec docs/superpowers/specs/2026-08-12-escopo-grafico-abandono-design.md
+
+   O dono pediu "grafico vertical das sessoes no escopo" e, quando as quatro
+   leituras possiveis foram postas na mesa, reprovou as quatro e declarou o
+   alvo: "ver quais estao em andamento, olhar as urgencias definidas, entender
+   quais estao sendo deixadas de lado". Sao TRES perguntas, e cada uma ganhou
+   um canal proprio, nunca o mesmo:
+
+     eixo Y  = abandono   (dias_parada, escala fixa 0-30)
+     cor     = abandono   (tres degraus, ver abaixo)
+     solido x hachurado + ponto = em andamento
+     marca !! / !         = urgencia declarada
+
+   Empilhar "em andamento" TAMBEM na cor faria dois significados disputarem o
+   mesmo canal, que e o erro que o sistema Trilho x Sinal existe para evitar.
+   Quando a luminancia colide, o segundo canal nao e enfeite: e o que carrega a
+   distincao, e prova_grafico.py reprova se ele sumir.
+
+   A familia visual e a .vg-* do painel de vendas (mesmo .vg-cab, .vg-tit e
+   .vg-recorte): grafico novo com moldura propria seria uma segunda gramatica
+   para a mesma pergunta. O que e proprio do Escopo mora aqui.
+
+   Cor, tres degraus, medidos em prova_grafico.py:
+     0 a 7 dias   --dim     dentro do normal, nao merece alarme
+     8 a 29 dias  --morno   trabalho pendente, a familia do frete e da falta de NF
+     30 ou mais   --quente  urgencia real
+   NUNCA --erro: frente parada nao e falha de sistema. E a mesma escolha do
+   painel de vendas, que pinta frete e taxas em --morno porque margem sendo
+   comida tambem nao e falha.                                                 */
+.esc-graf{
+  /* --esc-h e a altura TOTAL do tubo (com borda), --esc-b a borda, --esc-sat a
+     faixa reservada para a marca 30+. As linhas de corte e os rotulos do eixo
+     saem TODOS destas tres variaveis: numero solto em dois lugares e como um
+     grafico passa a mentir meio pixel por vez. */
+  --esc-h:160px;--esc-b:1px;--esc-sat:13px;--esc-slot:56px;
+  margin:0 0 22px;
+}
+.esc-graf-area{display:flex;align-items:flex-start;gap:4px}
+/* O eixo tem a MESMA altura do tubo mais a faixa da marca, e cada rotulo se
+   ancora pela geometria, nao por espacamento a olho: 30d na boca do tubo, 0d
+   na base, 7d no ponto exato de 23/30 da altura util. */
+.esc-eixo{position:relative;flex:0 0 30px;width:30px;height:calc(var(--esc-sat) + var(--esc-h))}
+.esc-eixo i{position:absolute;right:5px;transform:translateY(-50%);font-style:normal;
+  font-family:var(--mono);font-size:9.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.esc-eixo .e-teto{top:calc(var(--esc-sat) + var(--esc-b))}
+.esc-eixo .e-corte{top:calc(var(--esc-sat) + var(--esc-b) + (var(--esc-h) - 2 * var(--esc-b)) * 23 / 30)}
+.esc-eixo .e-zero{top:calc(var(--esc-sat) + var(--esc-h) - var(--esc-b))}
+/* O scroll horizontal mora no .esc-cols, mas as linhas de corte moram na
+   .esc-pista, que e min-width:max-content: linha de corte ancorada no
+   container que rola sumiria do desenho no primeiro arrasto. */
+.esc-cols{flex:1 1 auto;min-width:0;overflow-x:auto;padding-bottom:2px}
+.esc-pista{position:relative;display:grid;grid-auto-flow:column;
+  grid-auto-columns:var(--esc-slot);justify-content:start;gap:8px;min-width:max-content}
+/* Tracejado, nunca linha cheia: corte de referencia nao pode ter o mesmo peso
+   visual do dado. Absoluto, entao nao ocupa coluna nenhuma da grade. */
+.esc-corte{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--line-forte);
+  pointer-events:none;z-index:0}
+.esc-corte.c-teto{top:calc(var(--esc-sat) + var(--esc-b))}
+.esc-corte.c-ok{top:calc(var(--esc-sat) + var(--esc-b) + (var(--esc-h) - 2 * var(--esc-b)) * 23 / 30)}
+/* A coluna e um <button> para o teclado chegar no mesmo bloco de frente que o
+   toque alcanca. Grafico que so o mouse atravessa e meia entrega. */
+.esc-col{display:flex;flex-direction:column;align-items:center;min-width:0;width:100%;
+  background:none;border:0;padding:0;cursor:pointer;font:inherit;position:relative;z-index:1}
+.esc-col:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+/* A faixa da marca existe em TODA coluna, mesmo vazia: se ela so aparecesse na
+   coluna saturada, os tubos ficariam desalinhados entre si e a comparacao de
+   altura, que e o grafico inteiro, iria embora. */
+.esc-col-sat{height:var(--esc-sat);line-height:var(--esc-sat);font-family:var(--mono);
+  font-size:9.5px;font-weight:500;color:var(--quente-fg)}
+/* Mesmo tubo do painel de vendas: fundo --surface e borda de 1px que delimita a
+   AREA do grafico. Sem a borda nao da para ver onde a barra termina, e a coluna
+   de 2 dias vira um risco solto no branco. 24px travado, como a barra de la. */
+.esc-tubo{width:24px;height:var(--esc-h);background:var(--surface);
+  border:var(--esc-b) solid var(--line);border-radius:var(--radius-p);
+  display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+/* min-height de 2px: frente tocada hoje tem 0 dias e altura 0. Sem o piso, o
+   dado "esta viva" desapareceria, e some justamente a informacao boa. */
+.esc-barra{display:block;width:100%;min-height:2px;border-radius:4px 4px 0 0}
+.esc-barra.s-recente{background-color:var(--dim)}
+.esc-barra.s-pendente{background-color:var(--morno)}
+.esc-barra.s-abandono{background-color:var(--quente)}
+/* HACHURA = ninguem esta tocando nesta frente. Solido = tem acao em andamento.
+   E o segundo canal do desenho, no mesmo principio do icone dos 7 trilhos e da
+   fatia negativa do painel de vendas: a cor ja esta ocupada com abandono.
+   Se esta regra sumir, prova_grafico.py reprova. */
+.esc-barra:not(.fazendo){
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 2px,transparent 2px 5px);
+}
+/* O rotulo carrega o nome INTEIRO no DOM e so a tela corta: leitor de tela e
+   harness leem "Assistência técnica", o olho le o comeco. Abreviar de tres
+   letras no proprio texto seria esconder o dado de quem le por audio. */
+.esc-col-rot{margin-top:6px;max-width:100%;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.esc-col-mk{height:14px;display:flex;align-items:center;gap:4px;
+  font-family:var(--mono);font-size:11px;line-height:1}
+.esc-ponto{font-size:9px;color:var(--ok-fg)}
+.esc-urg{font-weight:600}
+.esc-urg.u-alta{color:var(--quente-fg)}
+.esc-urg.u-media{color:var(--morno-fg)}
+/* O rodape nomeia o que NAO virou coluna e o que o dono ainda nao declarou. Sem
+   ele o grafico contaria 6 frentes onde existem 8, que e mentir por omissao. */
+.esc-graf-pe{margin-top:9px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.esc-graf-vazio{font-size:13px;color:var(--dim);padding:14px 0}
+/* 44px cabe as 6 frentes de hoje num iPhone SE sem rolagem lateral; acima disso
+   o scroll do .esc-cols assume, que e o mesmo comportamento do grafico por mes
+   do painel de vendas com 12 meses. */
+@media (max-width:520px){
+  .esc-graf{--esc-slot:44px;--esc-h:140px}
 }

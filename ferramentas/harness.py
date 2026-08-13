@@ -349,16 +349,42 @@ window.supabase = {
         if (nome === 'criar_acao_escopo')       return Promise.resolve({ data: { ok: true, id: 'ea9', msg: 'Ação criada.' }, error: null });
         if (nome === 'mudar_status_acao_escopo') return Promise.resolve({ data: { ok: true, msg: 'Pronto.' }, error: null });
         if (nome === 'descartar_acao_escopo')    return Promise.resolve({ data: { ok: true, msg: 'Descartada.' }, error: null });
+        // Fatia B: a urgencia. __PRIO_ERRO devolve o contrato de ERRO de
+        // transporte (data null + error), que e o caminho que o app trata em
+        // O() e que nenhuma prova cobria: RPC que falha calada e pior que RPC
+        // que nao existe.
+        if (nome === 'definir_prioridade_acao') {
+          if (window.__PRIO_ERRO) return Promise.resolve({ data: null, error: { message: 'permissao negada (prova)' } });
+          return Promise.resolve({ data: { ok: true, msg: 'Urgência definida.' }, error: null });
+        }
         if (nome === 'escopo_completo') {
-          return Promise.resolve({ data: { ok: true, pode_editar: true, frentes: [
+          // As 5 frentes cobrem os casos do grafico de abandono, e nao a
+          // realidade do banco: 35 dias (satura), 9 (degrau do meio), 3
+          // (recente), uma sem acao nenhuma (nao vira coluna) e o grupo
+          // pendencia (fora do grafico inteiro). pitscare fica PRIMEIRA de
+          // proposito: as assercoes de clique da Fatia 1 pegam sempre o
+          // primeiro controle do DOM, e mover a ordem quebraria as quatro.
+          return Promise.resolve({ data: { ok: true, pode_editar: !window.__ESC_LEITURA, frentes: [
             { codigo:'pitscare', rotulo:'Pitscare', grupo:'frente', icone:'escudo', ordem:60,
               total:2, feitas:1, travadas:1, dias_parada:3, nota:65, faixa:'normal',
-              acoes:[{ id:'ea1', titulo:'Aplicar os 19 scripts', status:'travado', motivo_trava:'capability Update content' },
-                     { id:'ea2', titulo:'Fundir a branch', status:'a_fazer', motivo_trava:null }] },
+              fazendo:0, urgencia:null,
+              acoes:[{ id:'ea1', titulo:'Aplicar os 19 scripts', status:'travado', motivo_trava:'capability Update content', prioridade:null },
+                     { id:'ea2', titulo:'Fundir a branch', status:'a_fazer', motivo_trava:null, prioridade:null }] },
+            { codigo:'colaboradores', rotulo:'Colaboradores', grupo:'frente', icone:'pessoas', ordem:10,
+              total:2, feitas:0, travadas:0, dias_parada:35, nota:40, faixa:'em_baixa',
+              fazendo:1, urgencia:'alta',
+              acoes:[{ id:'ea3', titulo:'Criar drive com imagens', status:'fazendo', motivo_trava:null, prioridade:'alta' },
+                     { id:'ea4', titulo:'Reunião com thiego', status:'a_fazer', motivo_trava:null, prioridade:null }] },
+            { codigo:'calculadoras', rotulo:'Calculadoras', grupo:'frente', icone:'calculadora', ordem:80,
+              total:1, feitas:0, travadas:0, dias_parada:9, nota:55, faixa:'normal',
+              fazendo:0, urgencia:'baixa',
+              acoes:[{ id:'ea5', titulo:'Copiar de A até X aparelho', status:'a_fazer', motivo_trava:null, prioridade:'baixa' }] },
             { codigo:'assistencia', rotulo:'Assistência técnica', grupo:'frente', icone:'chave', ordem:30,
-              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] },
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado',
+              fazendo:0, urgencia:null, acoes:[] },
             { codigo:'pendencias', rotulo:'Pendências', grupo:'pendencia', icone:'alerta', ordem:99,
-              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado', acoes:[] }
+              total:0, feitas:0, travadas:0, dias_parada:null, nota:null, faixa:'sem_dado',
+              fazendo:0, urgencia:null, acoes:[] }
           ] }, error: null });
         }
         if (nome === 'rotina_completa') {
@@ -954,9 +980,14 @@ async function rodar() {
      abaEsc.getAttribute('aria-selected') === 'true', 'aria-selected=' + abaEsc.getAttribute('aria-selected'));
   ok('título virou Escopo', document.getElementById('topoTit').textContent === 'Escopo',
      document.getElementById('topoTit').textContent);
-  ok('o escopo renderizou o placar e ao menos uma ação',
-     !!document.querySelector('#lista .esc-placar') && document.querySelectorAll('#lista .esc-acao').length > 0,
+  // Ate a Fatia B esta assercao exigia .esc-placar no topo. O placar de texto
+  // SAIU por decisao do dono (12/08/2026) e o grafico ocupou o lugar: a
+  // assercao foi reescrita para o desenho novo, nao silenciada.
+  ok('o escopo renderizou o gráfico e ao menos uma ação',
+     !!document.querySelector('#lista .esc-graf') && document.querySelectorAll('#lista .esc-acao').length > 0,
      document.querySelectorAll('#lista .esc-acao').length + ' ações');
+  ok('o placar de texto do topo nao existe mais (virou o gráfico)',
+     !document.querySelector('#lista .esc-placar') && !document.querySelector('#lista .esc-linha'));
   ok('a nota 65 aparece e a frente sem_dado mostra "nenhuma ação registrada"',
      telaTxt().indexOf('65') >= 0 && telaTxt().indexOf('nenhuma ação registrada') >= 0, telaTxt().slice(0, 200));
   ok('o motivo da trava aparece na tela', telaTxt().indexOf('capability Update content') >= 0, telaTxt().slice(0, 200));
@@ -1027,6 +1058,176 @@ async function rodar() {
      !!(rpcs('descartar_acao_escopo').pop().args || {}).p_id);
 
   ok('nenhum TypeError foi lancado ao tocar nos controles do Escopo',
+     window.__erros.length === 0, window.__erros.join(' | '));
+
+  // ============ Fatia B: o grafico de abandono e a urgencia ============
+  // Assercoes 1 a 11 da secao 7 da spec de 12/08/2026. Regra dura herdada do
+  // v46: nenhuma prova de caminho de escrita por SRC.indexOf. Todo caminho de
+  // escrita daqui CLICA (ou dispara change) no controle de verdade.
+  document.getElementById('abaRotina').click();
+  await espera(140);
+  document.getElementById('abaEscopo').click();
+  await espera(240);
+
+  function colDe(cod){ return document.querySelector('#lista .esc-col[data-frente="' + cod + '"]'); }
+
+  var colunas = document.querySelectorAll('#lista .esc-col');
+  // 1. coluna e das frentes COM acao. assistencia (sem acao) e pendencias
+  //    (outro grupo) ficam de fora; a primeira aparece nomeada no rodape.
+  ok('1. o gráfico desenha uma coluna por frente COM ação (3 de 5 do fixture)',
+     colunas.length === 3, colunas.length + ' colunas');
+  ok('1b. frente sem ação nenhuma não vira coluna, e sai nomeada no rodapé',
+     !colDe('assistencia') && !colDe('pendencias') &&
+     telaTxt().indexOf('sem ação nenhuma: Assistência técnica') >= 0);
+  // ordem: do mais parado para o menos. O crime fica no canto que se le primeiro.
+  ok('1c. as colunas vêm ordenadas do mais parado para o menos',
+     [].map.call(colunas, function (b) { return b.getAttribute('data-dias'); }).join(',') === '35,9,3',
+     [].map.call(colunas, function (b) { return b.getAttribute('data-dias'); }).join(','));
+
+  // 2. altura = dias_parada na escala fixa 0-30, medida no PIXEL renderizado,
+  //    nao na string do style: propriedade computada ja mentiu antes (v52).
+  function alturaRel(cod){
+    var b = colDe(cod).querySelector('.esc-barra'), t = colDe(cod).querySelector('.esc-tubo');
+    var hb = b.getBoundingClientRect().height, ht = t.getBoundingClientRect().height - 2; // 2 = as duas bordas
+    return hb / ht;
+  }
+  ok('2. a coluna de 9 dias ocupa 9/30 da altura útil',
+     Math.abs(alturaRel('calculadoras') - 9 / 30) < 0.02, alturaRel('calculadoras').toFixed(3));
+  ok('2b. a coluna de 3 dias ocupa 3/30',
+     Math.abs(alturaRel('pitscare') - 3 / 30) < 0.02, alturaRel('pitscare').toFixed(3));
+
+  // 3. acima de 30 satura E DIZ que saturou. Saturar calado e mentir por omissao.
+  ok('3. a frente de 35 dias satura em 100% da altura',
+     Math.abs(alturaRel('colaboradores') - 1) < 0.02, alturaRel('colaboradores').toFixed(3));
+  ok('3b. a coluna saturada leva a marca 30+',
+     colDe('colaboradores').querySelector('.esc-col-sat').textContent.trim() === '30+' &&
+     colDe('calculadoras').querySelector('.esc-col-sat').textContent.trim() === '');
+
+  // 4. em andamento e o SEGUNDO CANAL, nunca a cor.
+  var barFaz = colDe('colaboradores').querySelector('.esc-barra');
+  var barPar = colDe('calculadoras').querySelector('.esc-barra');
+  ok('4. frente com ação em andamento desenha a coluna SÓLIDA',
+     barFaz.className.indexOf('fazendo') >= 0 &&
+     getComputedStyle(barFaz).backgroundImage === 'none', getComputedStyle(barFaz).backgroundImage);
+  ok('4b. frente sem ação em andamento vem HACHURADA (segundo canal, não enfeite)',
+     getComputedStyle(barPar).backgroundImage.indexOf('repeating-linear-gradient') >= 0,
+     getComputedStyle(barPar).backgroundImage.slice(0, 60));
+  ok('4c. só a frente em andamento ganha o ponto',
+     !!colDe('colaboradores').querySelector('.esc-ponto') &&
+     !colDe('calculadoras').querySelector('.esc-ponto'));
+  // a cor carrega SO abandono: os tres degraus, tres cores distintas
+  var cores = ['colaboradores', 'calculadoras', 'pitscare'].map(function (k) {
+    return getComputedStyle(colDe(k).querySelector('.esc-barra')).backgroundColor; });
+  ok('4d. os três degraus de abandono pintam com três cores distintas',
+     cores[0] !== cores[1] && cores[1] !== cores[2] && cores[0] !== cores[2], cores.join(' | '));
+
+  // a linha de corte de 7d tem que cair no ponto GEOMETRICO de 23/30 do tubo.
+  // Numero solto no CSS ja desalinhou grafico neste projeto; aqui se mede.
+  var pistaTubo = colDe('colaboradores').querySelector('.esc-tubo').getBoundingClientRect();
+  var corte = document.querySelector('#lista .esc-corte.c-ok').getBoundingClientRect();
+  var esperado = pistaTubo.top + 1 + (pistaTubo.height - 2) * (1 - 7 / 30);
+  ok('4e. a linha de corte de 7d cai no ponto geométrico da escala',
+     Math.abs(corte.top - esperado) < 1.5, 'corte=' + corte.top.toFixed(1) + ' esperado=' + esperado.toFixed(1));
+
+  // 11. urgencia: !! para alta, nada para baixa. Marca em tudo e marca em nada.
+  ok('11. urgência alta mostra a marca !!',
+     !!colDe('colaboradores').querySelector('.esc-urg.u-alta') &&
+     colDe('colaboradores').querySelector('.esc-urg').textContent === '!!');
+  ok('11b. urgência baixa NÃO mostra marca nenhuma',
+     !colDe('calculadoras').querySelector('.esc-urg'));
+  ok('11c. o rodapé cobra as frentes sem urgência declarada',
+     telaTxt().indexOf('sem urgência declarada: 2 de 4 frentes') >= 0);
+  ok('o cabeçalho declara o recorte (frentes, ações vivas e a data)',
+     /5 ações vivas/.test(telaTxt()) && /4 frentes ·/.test(telaTxt()));
+
+  // 10. a nota nao sumiu com o placar: migrou para o cabecalho da frente.
+  var cabCol = document.querySelector('#lista #escFrente_colaboradores .esc-frente-cab');
+  ok('10. nota, faixa e as três parcelas continuam legíveis no cabeçalho da frente',
+     cabCol.querySelector('.esc-nota').textContent === '40' &&
+     cabCol.querySelector('.esc-faixa').textContent === 'em baixa' &&
+     cabCol.querySelector('.esc-parcelas').textContent === '0/2 feitas · 0 travadas · 35d',
+     cabCol.textContent);
+  ok('10b. a frente sem dado mostra "--" e a faixa sem dado, sem inventar nota',
+     document.querySelector('#lista #escFrente_assistencia .esc-nota').textContent === '--' &&
+     document.querySelector('#lista #escFrente_assistencia .esc-parcelas').textContent === 'nenhuma ação registrada');
+
+  // tocar a coluna leva ao bloco da frente: grafico que nao leva a lugar nenhum
+  // e so desenho.
+  var alvoRolagem = null;
+  document.getElementById('escFrente_calculadoras').scrollIntoView = function () { alvoRolagem = 'calculadoras'; };
+  colDe('calculadoras').click();
+  await espera(120);
+  ok('tocar na coluna rola até o bloco daquela frente', alvoRolagem === 'calculadoras', String(alvoRolagem));
+
+  // ---- 5 a 8: o caminho de ESCRITA da urgencia, sempre pelo controle real
+  function prioDe(id){ return document.querySelector('#lista .esc-prio[data-id="' + id + '"]'); }
+  var nPrio = rpcs('definir_prioridade_acao').length;
+  var selPrio = prioDe('ea4');
+  selPrio.value = 'media';
+  selPrio.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(200);
+  var ultP = rpcs('definir_prioridade_acao').pop();
+  ok('5. escolher a urgência CHAMA definir_prioridade_acao com id e valor',
+     rpcs('definir_prioridade_acao').length === nPrio + 1 &&
+     ultP.args.p_id === 'ea4' && ultP.args.p_prioridade === 'media',
+     JSON.stringify(ultP && ultP.args));
+
+  // 6. "cancelar": escolher o valor que ja estava (e o que o seletor nativo do
+  //    celular entrega ao cancelar) nao pode escrever nada.
+  var nCanc = rpcs('definir_prioridade_acao').length;
+  var selJa = prioDe('ea3');
+  selJa.value = 'alta';
+  selJa.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(160);
+  ok('6. escolher o mesmo valor (cancelar) NÃO chama a RPC',
+     rpcs('definir_prioridade_acao').length === nCanc, 'atual=' + selJa.getAttribute('data-atual'));
+
+  // 17 (do lado do banco, espelhado aqui): limpar manda "" e vira null na RPC
+  var nLimpa = rpcs('definir_prioridade_acao').length;
+  selJa.value = '';
+  selJa.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(200);
+  var ultL = rpcs('definir_prioridade_acao').pop();
+  ok('limpar a urgência manda p_prioridade null (o vazio LIMPA, não vira texto)',
+     rpcs('definir_prioridade_acao').length === nLimpa + 1 && ultL.args.p_prioridade === null,
+     JSON.stringify(ultL && ultL.args));
+
+  // 7. erro de transporte tem que APARECER. Falha calada foi o defeito da v46.
+  window.__PRIO_ERRO = true;
+  var selErro = prioDe('ea5');
+  selErro.value = 'alta';
+  selErro.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(240);
+  var toast = document.getElementById('toast');
+  ok('7. erro da RPC de urgência aparece na tela, não em silêncio',
+     toast.className.indexOf('visivel') >= 0 && toast.className.indexOf('erro') >= 0 &&
+     toast.textContent.indexOf('permissao negada (prova)') >= 0,
+     toast.className + ' | ' + toast.textContent);
+  window.__PRIO_ERRO = false;
+
+  // 8. quem nao pode editar nao recebe controle nenhum: controle que existe e
+  //    nao escreve e pior que controle ausente.
+  window.__ESC_LEITURA = true;
+  document.getElementById('abaRotina').click();
+  await espera(140);
+  document.getElementById('abaEscopo').click();
+  await espera(240);
+  ok('8. com pode_editar=false o seletor de urgência não existe no DOM',
+     document.querySelectorAll('#lista .esc-prio').length === 0 &&
+     document.querySelectorAll('#lista .esc-acao').length > 0,
+     document.querySelectorAll('#lista .esc-prio').length + ' seletores');
+  ok('8b. em leitura a urgência declarada continua visível como texto',
+     !!document.querySelector('#lista .esc-prio-txt.u-alta'));
+  ok('8c. em leitura o gráfico continua desenhado (ele é leitura, não escrita)',
+     document.querySelectorAll('#lista .esc-col').length === 3);
+  window.__ESC_LEITURA = false;
+  document.getElementById('abaRotina').click();
+  await espera(140);
+  document.getElementById('abaEscopo').click();
+  await espera(240);
+
+  // 9. nenhum TypeError em nenhum dos caminhos acima.
+  ok('9. nenhum TypeError foi lançado nos caminhos da Fatia B',
      window.__erros.length === 0, window.__erros.join(' | '));
 
   // ================= aba Clientes: leads que compraram (perfil=comprou) =================

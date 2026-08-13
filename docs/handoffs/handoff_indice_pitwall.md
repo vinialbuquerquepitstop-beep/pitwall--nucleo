@@ -7,7 +7,35 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v54.md` (12/08/2026, **o card de Insights ganhou
+- topo: `handoff_migracao_pitwall_v55.md` (13/08/2026, **a Fatia B do Escopo
+  estava construida e NAO PROVADA**. O grafico vertical de abandono mais o seletor
+  de urgencia ja estavam escritos nos quatro arquivos, sem commit, e **nenhuma das
+  24 assercoes do criterio de aceite tinha sido rodada**. Esta sessao nao construiu
+  funcionalidade: rodou o criterio inteiro e achou duas coisas erradas. **(1)
+  Regressao de mobile**: `.esc-acao` e flex SEM `flex-wrap`, e o `<select>` de
+  urgencia (min-width 104px) empurrou o botao `×` de descartar 13px para fora da
+  tela em 360px, ou seja **inalcancavel no celular**. Provado com `git worktree` do
+  HEAD limpo (HEAD EXIT 0, copia de trabalho EXIT 1), nao deduzido. Corrigido com
+  uma propriedade, no padrao que `.esc-form` ja usava. **(2) A cor NAO separa os
+  dois degraus de cima**: `prova_grafico.py` nao tinha UMA linha sobre abandono
+  (grep devolvia 0), e os tres tokens tinham sido escolhidos no olho. Medido com
+  `validate_palette.js` da skill dataviz: morno x quente da **ΔE 10,6 em visao
+  normal** (piso 15), **ΔE 2,1 em deutan** e **1,01 de luminancia** — a mesma cor.
+  Tokens NAO trocados (sao identidade calibrada do projeto; trocar e decisao do
+  dono); o que sustenta a leitura e a ALTURA, e na fronteira 29 x 30 dias quem
+  separa e SO a marca `30+` e a linha de corte. As duas viraram **alivio exigido em
+  codigo**, e a prova foi **mutada em copia** para provar que morde (EXIT 1 com as
+  duas mensagens). Tambem corrigi um erro meu de diagnostico: **o `app.js` tem DUAS
+  regioes minificadas**, o nucleo IIFE na linha 1 (24.625 chars) e o roteador `A()`
+  na 2058 (22.729) — procurar `data-acao` na linha 1 conclui errado que o patch nao
+  foi aplicado. Provas: **harness 394/0**, validar, trilho, grafico, `node --check`,
+  **diag_mobile EXIT 0 nos cinco tamanhos**, e a prova SQL rodada pela primeira vez
+  com **34 ok, 0 falhas** (inclusive a assercao 18, que sustenta o eixo: prioridade
+  gera 0 evento e nao move `dias_parada`, com o contraste de que status ainda grava
+  1). Integridade do minificado byte a byte contra o baseline. Pendencias: a cor
+  dos degraus e decisao do dono; **CRLF pela QUARTA sessao seguida** e o
+  `.gitattributes` segue sem existir; `diag_mobile` nao esta na suite padrao)
+- anterior: `handoff_migracao_pitwall_v54.md` (12/08/2026, **o card de Insights ganhou
   memoria de tempo**. Pergunta do dono: "como fazer esse card seguir dando
   insights". A resposta nao era empilhar regra: as quatro do v53 olham so a janela
   atual e **se autodestroem** quando o dono age. Entraram **5 regras que comparam
