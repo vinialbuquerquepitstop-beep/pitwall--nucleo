@@ -7,7 +7,30 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v56.md` (13/08/2026, **a atmosfera da aba
+- topo: `handoff_migracao_pitwall_v57.md` (14/08/2026, **a grade do molde parou
+  de so descrever e passou a COBRAR**. Fatia 2 da spec de 13/08. O pedido chegou
+  como frontend e nao era: medido pelo MCP antes de escrever linha, a
+  `molde_semana()` devolvia so o molde, e os campos `existe`, `no_ar` e
+  `fora_do_molde` desenhados na secao 3.4 da spec **nunca tinham sido
+  implementados** — a grade nao tinha de onde tirar cobranca nenhuma. RPC
+  recriada devolvendo FATO (o veredito e derivado no cliente por `moldeEstado`,
+  com `l()`, no precedente de `nivelPeca`); `story` NUNCA entra no
+  `fora_do_molde`, senao os 7 stories que o molde manda existir viram violacao.
+  Na tela, `.mol-plan` e `.mol-exec` sao elementos DISTINTOS: um chip so diria
+  "Reels 3 de 3" numa semana em que zero Reel foi ao ar. Dia futuro nao cobra, e
+  peca a mais e divergencia (`--dim`), nao urgencia. **Dois achados**: (1) o
+  cartao de hoje e `--accent-tint`, um TERCEIRO chao que existia desde a Fatia 1
+  e que nenhuma prova media — agora medido composto (`#F1F3FC`), pior caso 4.60
+  contra alvo 4.5; (2) o fixture do harness fixava a semana em 10 a 16/08 e
+  **apodreceria na segunda 17/08**, quando todo dia sem card viraria FALTA com a
+  suite verde: virou relativo, com cenas deterministicas de semana -4 e +4.
+  Uma prova minha reprovou por estar errada: cobrava 1.5 de contraste entre
+  `--quente-fg` e `--dim` e mediu 1.12, mas contraste mede LUMINANCIA, nao matiz
+  — invertida para exigir o icone que compensa a colisao. 443 assercoes / 0
+  falhas, `prova_molde.sql` 24 ok / 0 falhas, 4 mutacoes com EXIT 1. Aberto: a
+  Fatia 3 do molde (tetos, proibicoes, garantia, caixinha), e as tres pendencias
+  herdadas do v56.)
+- anterior: `handoff_migracao_pitwall_v56.md` (13/08/2026, **a atmosfera da aba
   Conteudo estava pronta, verde e INVISIVEL para a suite**. Bandeja tingida,
   cartao branco com sombra e azul nos rotulos de grupo estavam na copia de
   trabalho sem commit, com as seis suites em EXIT 0 — e elas dariam EXIT 0 com a

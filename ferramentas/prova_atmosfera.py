@@ -143,6 +143,77 @@ print('  --line %s sobre o chao %.2f' % (LINE, rl))
 if rl <= 1.02:
     falhas.append('--line sumiu no chao novo (%.2f): a bandeja fica sem borda' % rl)
 
+# ---- 5. Os chips da cobranca (Fatia 2) e o TERCEIRO chao --------------------
+# Achado de 14/08/2026: o cartao de HOJE nao e --panel, e --accent-tint
+# (app.css, .mol-dia.hoje). Ele existe desde a Fatia 1 e NENHUMA prova o media,
+# porque ate entao so havia texto neutro ali dentro. A Fatia 2 poe chip colorido
+# dentro dele, entao o terceiro chao passa a valer tanto quanto os outros dois.
+#
+# token() so casa hex, e --accent-tint e rgba: ele e COMPOSTO sobre o cartao,
+# que e o que o navegador realmente pinta.
+def compor(nome, base):
+    m = re.search(re.escape(nome) + r'\s*:\s*rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)', css)
+    if not m:
+        print('REPROVOU:\n  - token %s sumiu ou deixou de ser rgba' % nome); sys.exit(1)
+    r, g, b, a = int(m.group(1)), int(m.group(2)), int(m.group(3)), float(m.group(4))
+    bs = [int(base[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#%02X%02X%02X' % tuple(round(bs[i] * (1 - a) + (r, g, b)[i] * a) for i in range(3))
+
+HOJE = compor('--accent-tint', PANEL)
+CHIPS = ('--ok-fg', '--quente-fg', '--morno-fg', '--frio-fg', '--dim')
+print('\n== chips da cobranca nos TRES chaos, alvo 4.5:1 (sao texto) ==')
+print('  o cartao de hoje e --accent-tint sobre o cartao = %s' % HOJE)
+for nome in CHIPS:
+    cor = token(nome)
+    medidas = [('cartao', PANEL), ('bandeja', SURFACE), ('hoje', HOJE)]
+    linha = '  %-12s %s' % (nome, cor)
+    for rot, chao in medidas:
+        r = ratio(cor, chao)
+        linha += '  %s %5.2f' % (rot, r)
+        if r < 4.5:
+            falhas.append('%s tem %.2f sobre o chao "%s", alvo 4.5: a cobranca fica '
+                          'ilegivel justamente no dia que mais importa' % (nome, r, rot))
+    print(linha)
+
+# E a contraprova do canal, na mesma forma da secao 3: a medida nao serve para
+# aprovar a cor, serve para dizer se o ICONE e enfeite ou estrutura.
+#
+# Corrigido em 14/08/2026, do limiar que estava aqui primeiro: a versao anterior
+# reprovava quando --quente-fg e --dim mediam menos de 1.5, como se contraste
+# baixo entre eles fosse defeito. Contraste mede LUMINANCIA, nao matiz: laranja
+# queimado e cinza azulado sao obviamente diferentes aos olhos e quase iguais em
+# brilho. O 1.12 medido nao condena a cor, ele repete a licao dos 7 trilhos
+# (colisoes de 1.14 a 1.44): matiz sozinho nao separa, entao o icone carrega a
+# distincao. A checagem certa nao e no numero, e na existencia do icone.
+sep = ratio(token('--quente-fg'), token('--dim'))
+print('\n== urgencia x divergencia: o icone e enfeite ou estrutura? ==')
+print('  --quente-fg contra --dim = %.2f (1.00 = indistinguivel em brilho)' % sep)
+if sep >= 3.0:
+    falhas.append('urgencia e divergencia ja separam sozinhas (%.2f): o icone deixou '
+                  'de ser estrutural, reveja a regra antes de mante-la' % sep)
+else:
+    print('  -> matiz sozinho nao separa: o ICONE e estrutural, nao enfeite.')
+    js = (RAIZ / 'public' / 'app.js').read_text(encoding='utf-8')
+    # SO o bloco MOL_ICONE. Varrer o arquivo inteiro pegava o ICONE_MAPA das 7
+    # categorias junto e imprimia 20 onde existem 6: numero inflado numa prova e
+    # pior do que numero nenhum, porque ele parece medido.
+    blk = re.search(r'var MOL_ICONE\s*=\s*\{(.*?)\};', js, re.S)
+    if not blk:
+        print('REPROVOU:\n  - MOL_ICONE sumiu do app.js'); sys.exit(1)
+    icones = dict(re.findall(r"[\"']?([a-z-]+)[\"']?:('<(?:path|circle)[^']*')", blk.group(1)))
+    for cod in ('existe', 'no-ar', 'falta', 'atrasado', 'espera', 'fora'):
+        if cod not in icones:
+            falhas.append('o chip "%s" perdeu o desenho em MOL_ICONE: sem icone a '
+                          'palavra fica sozinha carregando o significado' % cod)
+    if 'atrasado' in icones and 'fora' in icones and icones['atrasado'] == icones['fora']:
+        falhas.append('atrasado e fora do molde desenham o MESMO icone: com %.2f de '
+                      'separacao em brilho, os dois passam a ser a mesma coisa' % sep)
+    if not re.search(r'\.mol-ico\s*\{', css):
+        falhas.append('.mol-ico ficou sem regra no CSS: o svg entra na tela sem '
+                      'tamanho nem stroke, ou seja, invisivel')
+    else:
+        print('  -> %d icones nomeados, todos com regra em .mol-ico  [OK]' % len(icones))
+
 print()
 if falhas:
     print('REPROVOU:'); [print('  - ' + f) for f in falhas]; sys.exit(1)

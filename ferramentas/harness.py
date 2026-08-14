@@ -127,29 +127,53 @@ var ROT_TAREFAS = [
 var DIA = [{ id: 'dt1', categoria: 'fila_follow_up', titulo: 'Rodar a Fila do dia até zerar', origem: 'molde', concluida: false, removida: false }];
 var DIA_NOTA = ''; var LEMB = [];
 var SYNC = { ok: true, quando: '2026-07-17T05:30:00Z', msg: null, horas: 3 };
-// ---- Molde de conteudo (Fatia 1, 13/08/2026) ----
+// ---- Molde de conteudo (Fatia 1, 13/08/2026; cruzamento na Fatia 2, 14/08) ----
 // O fixture NAO foi inventado: e o retorno real de molde_semana() medido contra
-// o banco em 13/08/2026, depois de a Edge Function ler o bloco JSON da pagina
-// Central de Conteudo. Molde v3: segunda reel_topo, terca carrossel, quarta
-// reel, quinta nada, sexta reel, sabado nada, domingo nada. Se o molde do
+// o banco em 13 e 14/08/2026, depois de a Edge Function ler o bloco JSON da
+// pagina Central de Conteudo. Molde v3: segunda reel_topo, terca carrossel,
+// quarta reel, quinta nada, sexta reel, sabado nada, domingo nada. Se o molde do
 // Notion mudar, este fixture fica velho de proposito: ele prova a TELA, nao o
 // molde, e a prova do molde vivo e prova_molde.sql.
-var MOLDE_V3 = {
-  ok: true, tem_molde: true, version: 3, vigente_desde: '2026-08-13',
-  lido_em: '2026-08-13T12:00:00Z', idade_horas: 0.4, stale_horas: 24, stale: false,
-  semana_ini: '2026-08-10', semana_fim: '2026-08-16',
-  metas: { reels_semana: 3, carrossel_semana: 1, stories_semana: 49 },
-  avisos: [],
-  dias: [
-    { dia: 'segunda', data: '2026-08-10', motor: 'iphone_volume',         feed_previsto: 'reel_topo', horario: '10h-11h' },
-    { dia: 'terca',   data: '2026-08-11', motor: 'macbook',               feed_previsto: 'carrossel', horario: '10h-11h' },
-    { dia: 'quarta',  data: '2026-08-12', motor: 'autoridade_apple',      feed_previsto: 'reel',      horario: '10h-11h' },
-    { dia: 'quinta',  data: '2026-08-13', motor: 'caixinha_e_oferta',     feed_previsto: null,        horario: null },
-    { dia: 'sexta',   data: '2026-08-14', motor: 'seguranca_procedencia', feed_previsto: 'reel',      horario: '10h-11h' },
-    { dia: 'sabado',  data: '2026-08-15', motor: 'ecossistema',           feed_previsto: null,        horario: null },
-    { dia: 'domingo', data: '2026-08-16', motor: 'indicacao_posvenda',    feed_previsto: null,        horario: null }
-  ]
-};
+//
+// AS DATAS SAO RELATIVAS A SEMANA CORRENTE, e isso nao e detalhe de estilo. Ate
+// a Fatia 1 a semana fixa de 10 a 16/08 era inofensiva, porque a grade so
+// DESCREVIA. A Fatia 2 deriva atraso a partir de hoje: com data fixa, na segunda
+// 17/08 os sete dias virariam passado, todo dia sem card viraria FALTA, e a
+// suite seguiria verde provando outra coisa. E o mesmo motivo pelo qual o CONT
+// abaixo ja usa _dISO(off).
+// Sem operador de resto de proposito: este JS mora dentro de uma string com
+// formatacao por porcento do Python, e um sinal solto ali quebra o arquivo
+// inteiro antes de o navegador abrir.
+function _segISO(off, semanas) {
+  var d = new Date(), dow = d.getDay();          // 0 = domingo
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1) + (semanas || 0) * 7 + off);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function _ddmm(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
+// O cruzamento e o da semana real de 10 a 16/08/2026, medido pela RPC: segunda,
+// quarta e sexta com peca criada; terca SEM o carrossel que o molde pede;
+// sabado com um carrossel que o molde nao pede. Sexta vai publicada de
+// proposito, para o canal de EXECUCAO ter um caso vivo em vez de so ausencias.
+function _molde(semanas) {
+  return {
+    ok: true, tem_molde: true, version: 3, vigente_desde: '2026-08-13',
+    lido_em: '2026-08-13T12:00:00Z', idade_horas: 0.4, stale_horas: 24, stale: false,
+    semana_ini: _segISO(0, semanas), semana_fim: _segISO(6, semanas),
+    metas: { reels_semana: 3, carrossel_semana: 1, stories_semana: 49 },
+    stories: { previstos: 49, existentes: 8, no_ar: 1 },
+    avisos: [],
+    dias: [
+      { dia: 'segunda', data: _segISO(0, semanas), motor: 'iphone_volume',         feed_previsto: 'reel_topo', horario: '10h-11h', existe: true,  no_ar: false, fora_do_molde: [] },
+      { dia: 'terca',   data: _segISO(1, semanas), motor: 'macbook',               feed_previsto: 'carrossel', horario: '10h-11h', existe: false, no_ar: false, fora_do_molde: [] },
+      { dia: 'quarta',  data: _segISO(2, semanas), motor: 'autoridade_apple',      feed_previsto: 'reel',      horario: '10h-11h', existe: true,  no_ar: false, fora_do_molde: [] },
+      { dia: 'quinta',  data: _segISO(3, semanas), motor: 'caixinha_e_oferta',     feed_previsto: null,        horario: null,      existe: false, no_ar: false, fora_do_molde: [] },
+      { dia: 'sexta',   data: _segISO(4, semanas), motor: 'seguranca_procedencia', feed_previsto: 'reel',      horario: '10h-11h', existe: true,  no_ar: true,  fora_do_molde: [] },
+      { dia: 'sabado',  data: _segISO(5, semanas), motor: 'ecossistema',           feed_previsto: null,        horario: null,      existe: false, no_ar: false, fora_do_molde: ['carrossel'] },
+      { dia: 'domingo', data: _segISO(6, semanas), motor: 'indicacao_posvenda',    feed_previsto: null,        horario: null,      existe: false, no_ar: false, fora_do_molde: [] }
+    ]
+  };
+}
+var MOLDE_V3 = _molde(0);
 window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
 // Datas RELATIVAS a hoje: com data fixa as assercoes de nivel apodreceriam
 // amanha. Os cinco status_codigo reais do banco: a_produzir, em_producao,
@@ -885,7 +909,8 @@ async function rodar() {
      document.querySelector('#lista .mol-ver').textContent.indexOf('v3') >= 0,
      document.querySelector('#lista .mol-ver').textContent);
   ok('a semana esta DECLARADA (tela que omite recorte mente)',
-     document.querySelector('#lista .mol-janela').textContent.trim() === '10/08 a 16/08',
+     document.querySelector('#lista .mol-janela').textContent.trim() ===
+       _ddmm(_segISO(0, 0)) + ' a ' + _ddmm(_segISO(6, 0)),
      document.querySelector('#lista .mol-janela').textContent);
   ok('as metas do molde aparecem, e vem do molde',
      /3 reels/.test(document.querySelector('#lista .mol-metas').textContent) &&
@@ -896,6 +921,54 @@ async function rodar() {
      'n=' + document.querySelectorAll('#lista .mol-dia.folga').length);
   ok('molde fresco NAO mostra aviso de staleness',
      document.querySelectorAll('#lista .mol-aviso.stale').length === 0);
+
+  // ---- Fatia 2 (14/08/2026): a grade COBRA -------------------------------
+  // O que se prova aqui e ESTRUTURA, que nao depende de que dia da semana o
+  // teste roda. O comportamento que depende de hoje (FALTA, atrasado) tem cena
+  // propria mais abaixo, com a semana inteira no passado e no futuro.
+  function molSel(s) { return [].slice.call(document.querySelectorAll('#lista ' + s)); }
+  // Planejamento (a peca foi criada) e execucao (ela foi ao ar) sao dois
+  // elementos SEPARADOS. Um chip so respondendo as duas perguntas diria
+  // "Reels 3 de 3" numa semana em que zero Reel foi ao ar: e o colapso que os
+  // invariantes 2 e 3 proibem em toque x respondido.
+  ok('so dia com peca prevista ganha leitura de planejamento',
+     molSel('.mol-plan').length === 4, 'n=' + molSel('.mol-plan').length);
+  ok('planejamento e execucao sao elementos DISTINTOS, nunca um chip so',
+     molSel('.mol-plan').length > 0 && molSel('.mol-exec').length > 0 &&
+     molSel('.mol-plan.mol-exec').length === 0,
+     'plan=' + molSel('.mol-plan').length + ' exec=' + molSel('.mol-exec').length +
+     ' fundidos=' + molSel('.mol-plan.mol-exec').length);
+  ok('dia de folga NAO ganha chip de cobranca (folga e pausa, nao falha)',
+     molSel('.mol-dia.folga .mol-plan').length === 0 &&
+     molSel('.mol-dia.folga .mol-exec').length === 0);
+  // O icone carrega a distincao, nao e enfeite: as colisoes de luminancia entre
+  // os tokens semanticos ficam entre 1.14 e 1.44, entao matiz sozinho nao
+  // separa. Mesma regra que prova_trilho.py cobra dos 7 trilhos.
+  var chips = molSel('.mol-plan').concat(molSel('.mol-exec'), molSel('.mol-fora'), molSel('.mol-cob'));
+  ok('todo chip de cobranca carrega ICONE (matiz sozinho nao distingue)',
+     chips.length > 0 && chips.every(function (x) { return !!x.querySelector('svg.mol-ico'); }),
+     'chips=' + chips.length + ' sem icone=' +
+     chips.filter(function (x) { return !x.querySelector('svg.mol-ico'); }).length);
+  // Peca a mais nao e falha, e divergencia: ela nao pode usar a cor de
+  // urgencia, senao dois significados disputam o mesmo canal.
+  var fora = document.querySelector('#lista .mol-fora');
+  ok('a peca que o molde nao pede aparece como fora do molde',
+     molSel('.mol-fora').length === 1 && /carrossel/.test(fora.textContent),
+     fora ? fora.textContent.trim() : 'sem fora do molde');
+  ok('e ela e NEUTRA, nao laranja (divergencia nao e urgencia)',
+     !!fora && getComputedStyle(fora).color === 'rgb(92, 102, 117)',
+     fora ? getComputedStyle(fora).color : 'sem fora do molde');
+  // O rodape le a MESMA lista de dias que a grade desenha: duas contagens
+  // seriam duas verdades. E planejado x no ar aparecem lado a lado, nunca
+  // somados num numero so.
+  var res = document.querySelector('#lista .mol-resumo');
+  ok('o rodape declara planejado e no ar SEPARADOS, e os stories',
+     !!res && /planejado 3 de 4/.test(res.textContent) &&
+     /no ar 1 de 4/.test(res.textContent) && /stories 8 de 49/.test(res.textContent),
+     res ? res.textContent.trim() : 'sem resumo');
+  ok('meta declarada e semana medida sao duas linhas, nao uma',
+     !!document.querySelector('#lista .mol-metas') && !!res &&
+     document.querySelector('#lista .mol-metas') !== res);
 
   // ---- ATMOSFERA da aba Conteudo (13/08/2026) ------------------------------
   // Por que estas existem: prova_atmosfera.py le o TEXTO do app.css e prova os
@@ -1030,6 +1103,60 @@ async function rodar() {
      telaTxt().indexOf('carrossel_duplo') >= 0 &&
      document.querySelectorAll('#lista .mol-aviso').length >= 1);
   ok('o dia desconhecido NAO some da grade', molDias().length === 7, 'n=' + molDias().length);
+
+  // ---- Fatia 2, cena PASSADO: a semana inteira ja aconteceu ---------------
+  // Quatro semanas atras, entao nenhum dia depende de qual dia da semana o
+  // teste roda. Aqui a cobranca tem que morder: terca sem carrossel e FALTA,
+  // segunda e quarta existem e nao foram ao ar, sexta foi.
+  window.__MOLDE = _molde(-4);
+  await reabrirConteudo();
+  ok('PASSADO: o dia sem a peca do molde marca FALTA',
+     molSel('.mol-plan.n-quente').length === 1 &&
+     /FALTA/.test(document.querySelector('#lista .mol-plan.n-quente').textContent),
+     'n=' + molSel('.mol-plan.n-quente').length);
+  ok('PASSADO: peca criada que nao foi ao ar marca ATRASADO',
+     molSel('.mol-exec.n-quente').length === 2, 'n=' + molSel('.mol-exec.n-quente').length);
+  ok('PASSADO: a peca publicada marca NO AR, e nao atrasado',
+     molSel('.mol-exec.n-ok').length === 1 &&
+     /no ar/.test(document.querySelector('#lista .mol-exec.n-ok').textContent),
+     'n=' + molSel('.mol-exec.n-ok').length);
+  // FALTA e atraso sao coisas diferentes: quem nao existe nao pode estar
+  // atrasado, senao a mesma ausencia seria cobrada duas vezes.
+  ok('PASSADO: o dia que marca FALTA nao marca atrasado tambem',
+     molSel('.mol-dia').filter(function (d) {
+       return d.querySelector('.mol-plan.n-quente') && d.querySelector('.mol-exec');
+     }).length === 0);
+  var cob = document.querySelector('#lista .mol-cobranca');
+  ok('PASSADO: o rodape NOMEIA o que falta e o que atrasou',
+     !!cob && /falta: carrossel de ter/.test(cob.textContent) &&
+     /atrasado: reel topo seg, reel qua/.test(cob.textContent),
+     cob ? cob.textContent.trim() : 'sem cobranca');
+
+  // ---- Fatia 2, cena FUTURO: a semana ainda nao aconteceu -----------------
+  // A regra que impede a tela de mentir: sexta que ainda nao chegou nao esta
+  // em falta nem atrasada. Sem esta cena, tirar a comparacao com hoje passaria
+  // batido e o app cobraria o dono por dias que nem existiram.
+  window.__MOLDE = _molde(4);
+  await reabrirConteudo();
+  ok('FUTURO: dia que ainda nao chegou NAO marca FALTA nem atrasado',
+     molSel('.mol-plan.n-quente').length === 0 &&
+     molSel('.mol-exec.n-quente').length === 0,
+     'plan=' + molSel('.mol-plan.n-quente').length +
+     ' exec=' + molSel('.mol-exec.n-quente').length);
+  ok('FUTURO: a palavra FALTA nao aparece em lugar nenhum da grade',
+     document.querySelector('#lista .mol-grade').textContent.indexOf('FALTA') === -1);
+  ok('FUTURO: o rodape nao cobra falta nem atraso',
+     !document.querySelector('#lista .mol-cobranca') ||
+     (document.querySelector('#lista .mol-cobranca').textContent.indexOf('falta:') === -1 &&
+      document.querySelector('#lista .mol-cobranca').textContent.indexOf('atrasado:') === -1),
+     document.querySelector('#lista .mol-cobranca')
+       ? document.querySelector('#lista .mol-cobranca').textContent.trim() : '(sem cobranca)');
+  // Fora do molde nao e urgencia: ele independe de o dia ter passado.
+  ok('FUTURO: fora do molde continua nomeado (divergencia nao e urgencia)',
+     molSel('.mol-fora').length === 1);
+
+  window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
+  await reabrirConteudo();
 
   // ---- RPC que falha nao pode derrubar a aba ------------------------------
   window.__MOLDE = { ok: false, msg: 'Sem tenant no contexto.' };

@@ -1,5 +1,6 @@
--- Prova de banco do molde de conteudo (Fatia 1, 13/08/2026).
--- Itens 1 a 10 da secao 6 da spec
+-- Prova de banco do molde de conteudo (Fatias 1 e 2, 13-14/08/2026).
+-- Itens 1 a 10 da secao 6 da spec (Fatia 1: cache, recusa, RLS, privilegio) e
+-- 11 a 20 (Fatia 2: o cruzamento com o calendario), da spec
 -- docs/superpowers/specs/2026-08-13-molde-conteudo-notion-design.md
 --
 -- Roda, escreve, assere e termina em `raise exception`: o bloco inteiro e uma
@@ -17,6 +18,11 @@ declare
   rel text := ''; nok int := 0; nfa int := 0;
   bom jsonb; r jsonb; n int; h1 text; h2 text; t1 timestamptz; t2 timestamptz;
   pay jsonb; logs int; sofreu boolean;
+  -- Fatia 2: a semana de 05 a 11/01/2026 foi escolhida VAZIA (medido: 0 cards)
+  -- para o cruzamento se provar contra o dado que esta prova mesma cria, nunca
+  -- contra o calendario real, que muda a cada sincronizacao.
+  ref date := date '2026-01-08';   -- quinta da semana 05 a 11/01/2026
+  dia jsonb;
 begin
   insert into public.tenant(id, nome) values (ten2, 'Tenant vizinho (prova molde)');
   insert into public.app_usuario(id, tenant_id, nome, papel, ativo)
@@ -157,5 +163,101 @@ begin
   if n=0 then nok:=nok+1; rel:=rel||E'\n  ok  10c. as tres funcoes sao SECURITY INVOKER (a RLS vale)';
   else nfa:=nfa+1; rel:=rel||format(E'\nFALHOU 10c. %s funcao(oes) viraram SECURITY DEFINER', n); end if;
 
-  raise exception E'PROVA MOLDE DE CONTEUDO (FATIA 1) -- % ok, % falhas%', nok, nfa, rel;
+  --====================================================================
+  -- FATIA 2: o CRUZAMENTO. A grade deixa de so descrever e passa a cobrar.
+  -- Aqui se prova o que a tela vai DIZER, nao o que ela pinta: planejamento e
+  -- execucao como canais separados, e a fronteira do `fora do molde`.
+  --====================================================================
+
+  ------------------------------- 11. semana vazia nao inventa peca nenhuma
+  r := public.molde_semana(ref);
+  dia := r->'dias'->0;   -- segunda, o dia que o molde de prova pede reel_topo
+  if (dia->>'existe')='false' and (dia->>'no_ar')='false'
+     and jsonb_array_length(dia->'fora_do_molde')=0
+     and (r->'stories'->>'existentes')='0' and (r->'stories'->>'previstos')='49'
+  then nok:=nok+1; rel:=rel||E'\n  ok  11. semana sem card nenhum: existe=false, no ar=false, nada fora do molde';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 11. semana vazia devolveu '||coalesce(dia::text,'(null)'); end if;
+
+  ------------------- 12. peca criada acende PLANEJAMENTO, e so ele
+  -- O molde de prova pede reel_topo na segunda; a ponte diz que isso e o tipo
+  -- `reels` do Calendario. Se a ponte quebrar, este item cai.
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-seg','Reel de prova (segunda)',ref-3,'reels','a_produzir');
+  dia := public.molde_semana(ref)->'dias'->0;
+  if (dia->>'existe')='true' and (dia->>'no_ar')='false'
+  then nok:=nok+1; rel:=rel||E'\n  ok  12. card criado marca existe SEM marcar no ar (os dois canais nao se somam)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 12. '||coalesce(dia::text,'(null)'); end if;
+
+  --------------------------------- 13. publicar acende EXECUCAO
+  update public.conteudo set status_codigo='publicado' where notion_page_id='pg-prova-seg';
+  dia := public.molde_semana(ref)->'dias'->0;
+  if (dia->>'existe')='true' and (dia->>'no_ar')='true'
+  then nok:=nok+1; rel:=rel||E'\n  ok  13. publicar acende no ar, e existe continua aceso';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 13. '||coalesce(dia::text,'(null)'); end if;
+
+  ------------------------------- 14. card DESCARTADO nao e peca que existe
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-qua','Reel descartado (quarta)',ref-1,'reels','descartado');
+  dia := public.molde_semana(ref)->'dias'->2;   -- quarta
+  if (dia->>'existe')='false' and jsonb_array_length(dia->'fora_do_molde')=0
+  then nok:=nok+1; rel:=rel||E'\n  ok  14. card descartado nao conta como existe nem como fora do molde';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 14. '||coalesce(dia::text,'(null)'); end if;
+
+  --------- 15. A ARMADILHA: story em dia de folga NUNCA e fora do molde
+  -- Story tem regua propria (os 7 slots). Se ele entrasse no cruzamento, os 7
+  -- stories que o proprio molde manda existir apareceriam como violacao.
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-sab-story','Story de sabado',ref+2,'story','a_produzir');
+  dia := public.molde_semana(ref)->'dias'->5;   -- sabado, dia sem peca no molde
+  if jsonb_array_length(dia->'fora_do_molde')=0
+  then nok:=nok+1; rel:=rel||E'\n  ok  15. story em dia de folga NAO e fora do molde (a armadilha dos 7 falsos positivos)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 15. story virou violacao: '||coalesce(dia::text,'(null)'); end if;
+
+  ------------- 16. peca de feed em dia que o molde nao pede: fora do molde
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-sab-carr','Carrossel de sabado',ref+2,'carrossel','a_produzir');
+  dia := public.molde_semana(ref)->'dias'->5;
+  if dia->'fora_do_molde' = '["carrossel"]'::jsonb
+  then nok:=nok+1; rel:=rel||E'\n  ok  16. carrossel em dia de folga aparece como fora do molde';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 16. '||coalesce((dia->'fora_do_molde')::text,'(null)'); end if;
+
+  --------- 17. tipo DIFERENTE do pedido no mesmo dia: fora do molde tambem
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-seg-carr','Carrossel na segunda',ref-3,'carrossel','a_produzir');
+  dia := public.molde_semana(ref)->'dias'->0;
+  if dia->'fora_do_molde' = '["carrossel"]'::jsonb and (dia->>'existe')='true'
+  then nok:=nok+1; rel:=rel||E'\n  ok  17. peca de tipo errado no dia certo e fora do molde, e nao apaga o existe';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 17. '||coalesce(dia::text,'(null)'); end if;
+
+  ------------------------------- 18. story se conta no agregado da semana
+  insert into public.conteudo(tenant_id,fonte,notion_page_id,titulo,data,tipo_codigo,status_codigo)
+  values (ten1,'calendario','pg-prova-st2','Story 2',ref-2,'story','publicado'),
+         (ten1,'calendario','pg-prova-st3','Story 3',ref-1,'story','a_produzir'),
+         (ten1,'calendario','pg-prova-st4','Story descartado',ref,'story','descartado');
+  r := public.molde_semana(ref);
+  if (r->'stories'->>'existentes')='3' and (r->'stories'->>'no_ar')='1'
+     and (r->'stories'->>'previstos')='49'
+  then nok:=nok+1; rel:=rel||E'\n  ok  18. stories 3 de 49, 1 no ar, e o descartado nao conta';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 18. stories='||coalesce((r->'stories')::text,'(null)'); end if;
+
+  ---------------- 19. sem molde nao existe grade, nem depois da Fatia 2
+  -- O tenant vizinho nunca teve molde: a resposta nao pode nem CARREGAR a
+  -- chave `dias`, senao a tela ganha de onde desenhar uma grade que nao existe.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', alheio, 'role','authenticated')::text, true);
+  r := public.molde_semana(ref);
+  if (r->>'tem_molde')='false' and not (r ? 'dias') and not (r ? 'stories')
+  then nok:=nok+1; rel:=rel||E'\n  ok  19. tenant sem molde nao recebe dias nem stories (a regra de ouro sobreviveu a Fatia 2)';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 19. '||coalesce(r::text,'(null)'); end if;
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', dono, 'role','authenticated')::text, true);
+
+  ------------------------- 20. o REPLACE da Fatia 2 nao afrouxou a ACL
+  -- CREATE OR REPLACE FUNCTION reseta ACL em silencio: aqui se cobra o REVOKE.
+  if has_function_privilege('authenticated','public.molde_semana(date)','EXECUTE')
+     and not has_function_privilege('anon','public.molde_semana(date)','EXECUTE')
+  then nok:=nok+1; rel:=rel||E'\n  ok  20. depois do REPLACE: authenticated executa, anon nao';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 20. ACL de molde_semana afrouxou no REPLACE'; end if;
+
+  raise exception E'PROVA MOLDE DE CONTEUDO (FATIAS 1 e 2) -- % ok, % falhas%', nok, nfa, rel;
 end $$;

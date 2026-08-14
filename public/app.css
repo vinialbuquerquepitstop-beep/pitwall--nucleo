@@ -2441,9 +2441,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    reusar a classe, no mesmo precedente ja escrito na linha 1670. Sao duas
    grades de 7 colunas com anatomias diferentes: a da Rotina empilha tarefas,
    esta descreve um dia so.
-   ZERO token de cor novo. O molde nao carrega urgencia: ele diz o que estava
-   combinado. Urgencia e da Fatia 2, e vai usar --quente/--morno/--frio ja
-   calibrados, com icone e palavra carregando a distincao. */
+   ZERO token de cor novo. Ate 13/08 o molde so dizia o que estava combinado e
+   nao cobrava nada; a urgencia chegou na Fatia 2 (14/08), com --quente/--morno/
+   --frio ja calibrados e com icone e palavra carregando a distincao. O bloco
+   "Fatia 2: a cobranca", mais abaixo, e onde ela mora. */
 /* A BANDEJA. O azul entra aqui, como chao, nao como tinta: --surface e o
    neutro azulado que o :root ja declara ("nao cinza puro"). O cartao branco
    flutua sobre ele. Medido: cartao x bandeja = 1.07, ou seja, a cor sozinha
@@ -2487,8 +2488,39 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    codigo continua legivel. */
 .mol-peca.desconhecida{color:var(--erro-fg);font-family:var(--mono);font-size:11px}
 .mol-hora{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
-.mol-motor{font-size:11px;line-height:1.3;color:var(--dim);margin-top:auto;overflow-wrap:anywhere}
+/* ---------- Fatia 2: a cobranca ----------
+   PLANEJAMENTO (a peca foi criada) e EXECUCAO (ela foi ao ar) sao dois
+   elementos separados de proposito. Um chip so respondendo as duas perguntas
+   diria "Reels 3 de 3" numa semana em que zero Reel foi ao ar, que e o mesmo
+   colapso que os invariantes 2 e 3 proibem em toque x respondido.
+   ZERO token de cor novo: --quente-fg, --morno-fg, --frio-fg e --ok-fg ja
+   estao calibrados para fundo claro. Medidos nos TRES chaos desta aba (cartao,
+   bandeja e o cartao de hoje, que e --accent-tint) por prova_atmosfera.py. */
+.mol-plan,.mol-exec,.mol-fora{display:flex;align-items:center;gap:5px;min-width:0;font-family:var(--mono);font-size:10px;letter-spacing:.05em;line-height:1.25}
+.mol-plan{margin-top:2px}
+.mol-plan span,.mol-exec span,.mol-fora span{overflow-wrap:anywhere}
+/* O icone carrega a distincao, nao e enfeite: as colisoes de luminancia entre
+   os tokens semanticos ficam entre 1.14 e 1.44, entao matiz sozinho nao
+   separa. Chip sem icone e regressao, e o harness assere isso. */
+.mol-ico{width:12px;height:12px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.8}
+/* Compostas de proposito: `.n-morno` e `.n-frio` ja existem na Fila (927-932)
+   e nunca vivem soltas. Cor de nivel nao pode virar classe global. */
+.mol-plan.n-ok,.mol-exec.n-ok{color:var(--ok-fg)}
+.mol-plan.n-quente,.mol-exec.n-quente{color:var(--quente-fg)}
+.mol-plan.n-morno,.mol-exec.n-morno{color:var(--morno-fg)}
+.mol-plan.n-frio,.mol-exec.n-frio{color:var(--frio-fg)}
+/* Peca a mais NAO e falha, e divergencia. Fica em --dim: pintar de laranja
+   poria urgencia e divergencia disputando o mesmo canal. */
+.mol-fora{color:var(--dim)}
+.mol-motor{font-size:11px;line-height:1.3;color:var(--dim);margin-top:auto;padding-top:6px;overflow-wrap:anywhere}
+/* Duas vozes que nao se fundem: a meta e o que o molde DECLARA, o resumo e o
+   que a semana REALMENTE tem. */
 .mol-metas{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--dim);margin:9px 0 0}
+.mol-resumo{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--text);margin:5px 0 0;font-variant-numeric:tabular-nums}
+.mol-cobranca{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0}
+.mol-cob{display:flex;align-items:center;gap:5px;font-size:11.5px;line-height:1.35;min-width:0;overflow-wrap:anywhere}
+.mol-cob.n-quente{color:var(--quente-fg)}
+.mol-cob.n-neutro{color:var(--dim)}
 /* 7 -> 4 -> 2 em vez de 7 -> 1: a semana perde o sentido virando lista, mas
    sete colunas em 360px estouram. Medido com diag_mobile.py nos cinco tamanhos. */
 @media (max-width:900px){

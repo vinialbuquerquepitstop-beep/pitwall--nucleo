@@ -168,15 +168,81 @@ var n=Number(h||0);
 if(n<1)return"menos de 1h";
 if(n<48)return Math.round(n)+"h";
 return Math.round(n/24)+" dias"}
+// ---- Fatia 2 (14/08/2026): a grade deixa de so descrever e passa a COBRAR ----
+// O icone NAO e enfeite. As colisoes de luminancia entre os tokens semanticos
+// ficam entre 1.14 e 1.44: matiz sozinho nao separa, entao icone e palavra
+// carregam a distincao. Chip sem icone e regressao, e o harness assere isso.
+var MOL_ICONE={
+existe:'<path d="M4 12.5l5 5L20 6.5" stroke-linecap="round" stroke-linejoin="round"/>',
+"no-ar":'<path d="M12 12h.01" stroke-linecap="round"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7" stroke-linecap="round"/>',
+falta:'<path d="M12 3.5L21.5 20H2.5L12 3.5z" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke-linecap="round"/>',
+atrasado:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/>',
+espera:'<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/>',
+fora:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke-linecap="round"/>'};
+function iconeMol(cod){
+return'<svg class="mol-ico" viewBox="0 0 24 24" aria-hidden="true">'+(MOL_ICONE[cod]||MOL_ICONE.espera)+"</svg>"}
+// O estado e DERIVADO na leitura (invariante 4), a partir do fuso do Brasil
+// (l(), nunca new Date() cru: invariante 10). A RPC devolve FATO (existe, no
+// ar, fora do molde); a palavra e a cor nascem aqui, como em nivelPeca.
+//
+// Planejamento (a peca foi criada) e execucao (ela foi ao ar) sao DOIS canais,
+// nunca somados: colapsar diria "Reels 3 de 3" numa semana em que zero Reel foi
+// ao ar. E a mesma disciplina dos invariantes 2 e 3.
+//
+// Dia FUTURO sem card nao cobra: sexta ainda nao aconteceu, e marcar FALTA nela
+// seria a tela mentindo sobre o que ja deu errado.
+function moldeEstado(d,hoje){
+var pc=d.feed_previsto,passou=String(d.data)<hoje,eHoje=d.data===hoje,
+e={plan:null,exec:null,fora:d.fora_do_molde||[]};
+if(!pc)return e;
+e.plan=d.existe?{cod:"existe",rot:"existe",niv:"ok"}
+:passou?{cod:"falta",rot:"FALTA",niv:"quente"}
+:{cod:"espera",rot:"a criar",niv:eHoje?"morno":"frio"};
+if(d.no_ar)e.exec={cod:"no-ar",rot:"no ar",niv:"ok"};
+else if(d.existe&&passou)e.exec={cod:"atrasado",rot:"atrasado",niv:"quente"};
+else if(d.existe)e.exec={cod:"espera",rot:eHoje?"publicar hoje":"programado",niv:eHoje?"morno":"frio"};
+return e}
+function molChip(canal,st){
+return st?'<div class="mol-'+canal+' n-'+st.niv+'">'+iconeMol(st.cod)+"<span>"+c(st.rot)+"</span></div>":""}
 function moldeDia(d,hoje){
 var pc=d.feed_previsto,conhecida=!!MOLDE_PECA[pc||""],
 rot=pc?(conhecida?MOLDE_PECA[pc]:pc):"—",
-mot=String(d.motor||"").replace(/_/g," ");
+mot=String(d.motor||"").replace(/_/g," "),
+e=moldeEstado(d,hoje);
 return'<div class="mol-dia'+(d.data===hoje?" hoje":"")+(pc?"":" folga")+'">'+
 '<div class="mol-dia-cab"><span class="mol-dia-rot">'+c(MOLDE_DIA_ROT[d.dia]||d.dia)+'</span><span class="mol-dia-data">'+c(fmtDiaCurto(d.data))+"</span></div>"+
 '<div class="mol-peca'+(pc&&!conhecida?" desconhecida":"")+'">'+c(rot)+"</div>"+
 (d.horario?'<div class="mol-hora">'+c(d.horario)+"</div>":"")+
+molChip("plan",e.plan)+molChip("exec",e.exec)+
+// Peca a mais NAO e falha, e divergencia: publicar alem do molde nao merece a
+// cor de urgencia, senao dois significados disputam o mesmo canal.
+(e.fora.length?'<div class="mol-fora">'+iconeMol("fora")+"<span>fora do molde: "+c(e.fora.join(", "))+"</span></div>":"")+
 '<div class="mol-motor">'+c(mot)+"</div></div>"}
+// O rodape le a MESMA lista de dias que a grade desenha, para nao existirem
+// duas contagens que possam divergir. Os stories vem da RPC porque o cliente
+// nao tem esse dado: eles tem regua propria (os 7 slots) e nunca entram na
+// grade de pecas.
+function moldeResumo(m,hoje){
+var ds=m.dias||[],prev=0,tem=0,noar=0,falta=[],atras=[],fora=[],st=m.stories||{},lin=[],pe=[];
+ds.forEach(function(d){
+var e=moldeEstado(d,hoje),
+np=MOLDE_PECA[d.feed_previsto||""]||d.feed_previsto,
+nd=MOLDE_DIA_ROT[d.dia]||d.dia;
+if(d.feed_previsto){prev++;if(d.existe)tem++;if(d.no_ar)noar++}
+if(e.plan&&"falta"===e.plan.cod)falta.push(np+" de "+nd);
+if(e.exec&&"atrasado"===e.exec.cod)atras.push(np+" "+nd);
+(e.fora||[]).forEach(function(t){fora.push(t+" "+nd)})});
+// Planejado e no ar sao lidos LADO A LADO e nunca somados num numero so.
+if(prev)lin.push("planejado "+tem+" de "+prev+" peças");
+if(prev)lin.push("no ar "+noar+" de "+prev);
+if(null!=st.previstos)lin.push("stories "+(st.existentes||0)+" de "+st.previstos+(st.no_ar?" · "+st.no_ar+" no ar":""));
+// Cada balde leva a propria cor: falta e atraso sao urgencia, fora do molde e
+// divergencia. Um paragrafo laranja inteiro poria as duas coisas no mesmo canal.
+if(falta.length)pe.push('<span class="mol-cob n-quente">'+iconeMol("falta")+"falta: "+c(falta.join(", "))+"</span>");
+if(atras.length)pe.push('<span class="mol-cob n-quente">'+iconeMol("atrasado")+"atrasado: "+c(atras.join(", "))+"</span>");
+if(fora.length)pe.push('<span class="mol-cob n-neutro">'+iconeMol("fora")+"fora do molde: "+c(fora.join(", "))+"</span>");
+return(lin.length?'<div class="mol-resumo">esta semana: '+c(lin.join(" · "))+"</div>":"")+
+(pe.length?'<div class="mol-cobranca">'+pe.join("")+"</div>":"")}
 function moldeAvisos(m){
 var p=[];
 // Staleness NUNCA e silencioso: a grade continua na tela, e a idade dela vai
@@ -200,7 +266,10 @@ return'<section class="mol"><div class="mol-cab">'+
 '<span class="mol-lido'+(m.stale?" alerta":"")+'">lido do Notion há '+c(moldeIdade(m.idade_horas))+"</span></div>"+
 moldeAvisos(m)+
 '<div class="mol-grade">'+(m.dias||[]).map(function(d){return moldeDia(d,hoje)}).join("")+"</div>"+
+// Duas vozes distintas: a meta e o que o molde DECLARA, o resumo e o que a
+// semana REALMENTE tem. Fundir as duas apagaria a pergunta.
 (pe.length?'<div class="mol-metas">meta da semana: '+pe.join(" · ")+"</div>":"")+
+moldeResumo(m,hoje)+
 "</section>"}
 async function renderConteudo(silencioso){
 var e=E("lista");
