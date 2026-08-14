@@ -7,7 +7,23 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v58.md` (14/08/2026, **as regras do molde
+- topo: `handoff_migracao_pitwall_v59.md` (14/08/2026, **as tres pendencias
+  herdadas fecharam, e a que mais assustava era a menor**. Sem tela nova.
+  (1) A referencia orfa da `prova_atmosfera.py` ("Secao 5 do plano", plano que
+  nunca existiu em disco) virou ponteiro para o v56 secao 2 e para o plano da
+  Fatia 2. (2) O CSS morto de `.cont-card::before` foi apagado, mas so depois de
+  a prova ser REFORCADA: o harness media a barra do primeiro cartao e passou a
+  medir a de todos, e a delecao foi comparada contra o HEAD em copia temporaria,
+  devolvendo as mesmas 3 cores em 7 cartoes. (3) **O `.gitattributes`, adiado
+  seis vezes por causa de uma previsao que ninguem mediu.** Contando bytes no
+  index: o repo JA estava em LF, e um unico arquivo tinha CRLF
+  (`public/calc/index.html`, 1443 linhas, gravado em 03/08 de outra maquina). O
+  "diff gigante" de seis handoffs era um arquivo. Coda: a minha primeira
+  medicao usou `grep -c $'\r'` e devolveu 2243 e 2728, numeros que confirmavam a
+  expectativa e estavam errados; a contagem de bytes devolve 0. 459 assercoes /
+  0 falhas, rodadas depois da renormalizacao. Banco nao encostado. Aberto: as
+  pendencias herdadas do v55, que merecem a mesma varredura medida.)
+- anterior: `handoff_migracao_pitwall_v58.md` (14/08/2026, **as regras do molde
   sairam do payload, e uma delas NAO PODE ser cobrada**. Fatia 3, a ultima da
   spec de 13/08: `story_slots`, `tetos`, `proibicoes`, `garantia` e `caixinha`
   viviam guardados desde a Fatia 1 e nunca chegavam na tela. O achado que
