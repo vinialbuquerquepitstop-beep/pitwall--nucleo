@@ -2579,3 +2579,51 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 @media (max-width:560px){
   .mol-grade{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 }
+
+/* ==========================================================================
+   POS-VENDA DENTRO DA ABA FILA
+   A fila de venda filtra por status === 'pendente'. Quem compra vira
+   'convertido' e sai dela, mas a cadencia do perfil `comprou` continua viva:
+   6 passos (P1 D1 ate P6 D365) e 18 scripts no banco. Ate 14/08/2026 esse
+   fluxo nao tinha superficie nenhuma: o botao "Toque enviado" existe uma vez
+   so no app e so dentro do card em modo fila. Cinco clientes estavam com o
+   passo vencido, o mais antigo ha 28 dias, sem onde clicar.
+   Bloco separado, e nao um afrouxamento do filtro da fila, por um motivo
+   concreto: em modo fila o card ESCONDE o chip de status, entao um cliente
+   jogado na fila de venda apareceria identico a um lead novo.
+   Nenhum token de cor novo entra aqui. O azul da marca aparece so no
+   contador, que e um dos quatro usos permitidos pela referencia visual v3
+   (item ativo, contador da fila, acao primaria, chip de indicacao).
+   ========================================================================== */
+.pos-cab{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:20px 0 -2px;padding-top:15px;border-top:1px solid var(--line);
+}
+.pos-ico{
+  width:15px;height:15px;flex:0 0 auto;
+  stroke:currentColor;fill:none;stroke-width:1.6;color:var(--dim);
+}
+.pos-tit{
+  font-family:var(--display);font-weight:600;font-size:14.5px;
+  letter-spacing:-.015em;color:var(--text);
+}
+/* Contador NEUTRO de proposito. O gemeo dele, .nav-badge, e azul solido, e a
+   referencia visual v3 lista "contador da fila" como um dos quatro usos
+   permitidos do azul da marca. Mesmo assim este fica cinza: gastar um dos
+   quatro papeis do azul e decisao do dono, nao minha, e a regra 11.1 do
+   validar.py reprovou o uso novo (correta em reprovar). Se o dono quiser o
+   azul aqui, o caminho e abrir excecao NOMEADA em validar.py, nao repontar
+   baseline. */
+.pos-cont{
+  font-family:var(--mono);font-size:11px;font-weight:500;line-height:1;
+  font-variant-numeric:tabular-nums;
+  padding:3px 7px;border-radius:999px;
+  color:var(--text);background:var(--surface);border:1px solid var(--line-forte);
+}
+/* A janela e DECLARADA, nao subentendida: sem ela o bloco mostra 5 e o dono
+   nao sabe se sao todos os clientes ou so os que venceram (v33: tela que
+   omite recorte mente por omissao). */
+.pos-jan{font-size:11.5px;color:var(--dim);min-width:0}
+/* O rotulo do passo e DADO, nao palavra: vai em mono, igual ao R3 · D14 da
+   referencia visual. */
+.chip.cad-mono{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em}
