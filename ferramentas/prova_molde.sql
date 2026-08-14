@@ -33,6 +33,12 @@ begin
     'molde','pitstop-grade-conteudo','version',99,'vigente_desde','2026-08-13',
     'story_slots', jsonb_build_array(jsonb_build_object('slot',1,'janela','07h-08h')),
     'metas', jsonb_build_object('reels_semana',3,'carrossel_semana',1,'stories_semana',49),
+    -- Fatia 3. humor_mes vai 3 de proposito, contra os 2 do molde v3 real: se a
+    -- RPC estivesse lendo o molde vivo em vez do desta prova, o item 21 cairia.
+    'tetos', jsonb_build_object('humor_mes',3,'humor_intervalo_dias',7),
+    'proibicoes', jsonb_build_array('preco_em_feed','palavra_revenda'),
+    'garantia', jsonb_build_object('seminovo','3 meses'),
+    'caixinha', jsonb_build_object('abre','sabado_slot5'),
     'semana', jsonb_build_array(
       jsonb_build_object('dia','segunda','motor','iphone_volume','feed','reel_topo'),
       jsonb_build_object('dia','terca','motor','macbook','feed','carrossel'),
@@ -247,7 +253,8 @@ begin
     json_build_object('sub', alheio, 'role','authenticated')::text, true);
   r := public.molde_semana(ref);
   if (r->>'tem_molde')='false' and not (r ? 'dias') and not (r ? 'stories')
-  then nok:=nok+1; rel:=rel||E'\n  ok  19. tenant sem molde nao recebe dias nem stories (a regra de ouro sobreviveu a Fatia 2)';
+     and not (r ? 'regras')
+  then nok:=nok+1; rel:=rel||E'\n  ok  19. tenant sem molde nao recebe dias, stories nem regras (a regra de ouro sobreviveu as Fatias 2 e 3)';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU 19. '||coalesce(r::text,'(null)'); end if;
   perform set_config('request.jwt.claims',
     json_build_object('sub', dono, 'role','authenticated')::text, true);
@@ -259,5 +266,32 @@ begin
   then nok:=nok+1; rel:=rel||E'\n  ok  20. depois do REPLACE: authenticated executa, anon nao';
   else nfa:=nfa+1; rel:=rel||E'\nFALHOU 20. ACL de molde_semana afrouxou no REPLACE'; end if;
 
-  raise exception E'PROVA MOLDE DE CONTEUDO (FATIAS 1 e 2) -- % ok, % falhas%', nok, nfa, rel;
+  --====================================================================
+  -- FATIA 3: as regras. Elas saem do payload SEM interpretacao, e a RPC nao
+  -- mede nenhuma delas. O que se prova aqui e que chegam inteiras e que a
+  -- ausencia continua sendo ausencia.
+  --====================================================================
+
+  ------------------------- 21. as cinco regras chegam, e chegam inteiras
+  r := public.molde_semana(ref);
+  if (r->'regras' ? 'story_slots') and (r->'regras' ? 'tetos')
+     and (r->'regras' ? 'proibicoes') and (r->'regras' ? 'garantia')
+     and (r->'regras' ? 'caixinha')
+     and jsonb_array_length(r->'regras'->'story_slots')=1
+     and (r->'regras'->'tetos'->>'humor_mes')='3'
+  then nok:=nok+1; rel:=rel||E'\n  ok  21. as cinco regras chegam do payload, sem interpretacao';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 21. regras='||coalesce((r->'regras')::text,'(null)'); end if;
+
+  -------------- 22. chave ausente no Notion SOME, nao vira null na tela
+  -- jsonb_strip_nulls: se o dono apagar o bloco `garantia` da pagina, a tela
+  -- deixa de desenhar a secao. Sem isso ela desenharia um cartao vazio, que e
+  -- pior do que nao desenhar: parece que a garantia acabou.
+  r := public.sincronizar_molde(ten1, jsonb_set(bom,'{version}','100') - 'garantia',
+                                'bloco-prova','cron',12);
+  r := public.molde_semana(ref);
+  if not (r->'regras' ? 'garantia') and (r->'regras' ? 'tetos')
+  then nok:=nok+1; rel:=rel||E'\n  ok  22. bloco apagado no Notion SOME da resposta, nao vira null';
+  else nfa:=nfa+1; rel:=rel||E'\nFALHOU 22. regras='||coalesce((r->'regras')::text,'(null)'); end if;
+
+  raise exception E'PROVA MOLDE DE CONTEUDO (FATIAS 1, 2 e 3) -- % ok, % falhas%', nok, nfa, rel;
 end $$;

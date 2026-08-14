@@ -7,7 +7,30 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v57.md` (14/08/2026, **a grade do molde parou
+- topo: `handoff_migracao_pitwall_v58.md` (14/08/2026, **as regras do molde
+  sairam do payload, e uma delas NAO PODE ser cobrada**. Fatia 3, a ultima da
+  spec de 13/08: `story_slots`, `tetos`, `proibicoes`, `garantia` e `caixinha`
+  viviam guardados desde a Fatia 1 e nunca chegavam na tela. O achado que
+  definiu o desenho: **`tetos` nao e verificavel**, porque nao existe codigo de
+  humor em `public.conteudo` (so a palavra em 3 titulos, e titulo e rotulo, nao
+  chave: invariante 12). Contar por titulo daria um numero errado com cara de
+  medido. Entao a fatia e consulta DECLARADA, nao cobranca, com a ressalva
+  colada no teto e a limitacao escrita no topo da gaveta; as 8 proibicoes ficam
+  neutras, porque em vermelho leriam como 8 violacoes que o app nunca mediu.
+  **O defeito que a prova pegou**: `.mol-regras-corpo{display:grid}` e regra de
+  autor e vence o `display:none` do `<details>` fechado, entao a gaveta nascia
+  aberta por cima do kanban — e a minha assercao passava, porque conferia a
+  PROPRIEDADE `reg.open` em vez do display COMPUTADO. Quem achou foi o
+  `diag_mobile` com 30 sobreposicoes em 360px. Corrigido nos dois lados, e a
+  ferramenta passou a **abrir todo `<details>` antes de medir** (antes, gaveta
+  nenhuma era medida: provado com 900px injetado dentro dela, 7 estouros).
+  Terceiro erro meu, no codigo de teste: a mutacao da ressalva reprovava por
+  crash e derrubava as 458 assercoes seguintes; separada com guarda de nulo.
+  459 assercoes / 0 falhas, `prova_molde.sql` 26 ok / 0 falhas, 4 mutacoes com
+  EXIT 1. A spec de 13/08 esta inteira executada. Aberto: se o dono quiser o
+  teto de humor COBRADO, o caminho e o Notion ganhar campo proprio, nunca o app
+  adivinhar pelo titulo.)
+- anterior: `handoff_migracao_pitwall_v57.md` (14/08/2026, **a grade do molde parou
   de so descrever e passou a COBRAR**. Fatia 2 da spec de 13/08. O pedido chegou
   como frontend e nao era: medido pelo MCP antes de escrever linha, a
   `molde_semana()` devolvia so o molde, e os campos `existe`, `no_ar` e

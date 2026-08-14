@@ -243,6 +243,52 @@ if(atras.length)pe.push('<span class="mol-cob n-quente">'+iconeMol("atrasado")+"
 if(fora.length)pe.push('<span class="mol-cob n-neutro">'+iconeMol("fora")+"fora do molde: "+c(fora.join(", "))+"</span>");
 return(lin.length?'<div class="mol-resumo">esta semana: '+c(lin.join(" · "))+"</div>":"")+
 (pe.length?'<div class="mol-cobranca">'+pe.join("")+"</div>":"")}
+// ---- Fatia 3 (14/08/2026): as regras que estavam guardadas e invisiveis ----
+// story_slots, tetos, proibicoes, garantia e caixinha viviam no payload desde a
+// Fatia 1 e nunca chegaram na tela.
+//
+// Elas NAO sao cobranca, e a diferenca nao e de estilo. O Pit Wall nao tem como
+// conferir nenhuma das cinco, e o `tetos` em especial NAO TEM COMO ser
+// conferido: nao existe codigo de humor em public.conteudo (so a palavra no
+// titulo, que e rotulo e nao chave, invariante 12). Contar pelo titulo seria
+// inventar um numero com cara de medido. Por isso o bloco vem fechado, em
+// cinza, com a limitacao ESCRITA na tela e nao so neste comentario: tela que
+// omite recorte mente.
+//
+// <details> nativo de proposito: o handler de clique delegado vive na linha
+// minificada, e abrir uma gaveta nao vale reescrever aquilo.
+function rotCod(s){return String(s||"").replace(/_/g," ")}
+// "sabado_slot5" e "quinta_slots2a5" sao CODIGOS, e viram frase legivel. O que
+// nao casar aparece CRU e marcado, nunca vira vazio: e o mesmo tratamento que
+// .mol-peca.desconhecida ja da ao tipo que a ponte nao conhece.
+function molSlotRef(v){
+var m=/^([a-z]+)_slots?(\d+)(?:a(\d+))?$/.exec(String(v||""));
+if(!m)return'<span class="mol-reg-cru">'+c(String(v||"—"))+"</span>";
+var dia=MOLDE_DIA_ROT[m[1]]||m[1];
+return c(dia+", slot"+(m[3]?"s "+m[2]+" a "+m[3]:" "+m[2]))}
+function molPares(o,fn){
+var ks=Object.keys(o||{});
+// Chave nova vinda do Notion aparece sozinha em vez de sumir: ausencia
+// silenciosa aqui repetiria o bug do titulo nulo com ok:true.
+return ks.length?'<dl class="mol-reg-pares">'+ks.map(function(k){
+return"<dt>"+c(rotCod(k))+"</dt><dd>"+(fn?fn(o[k]):c(String(o[k])))+"</dd>"}).join("")+"</dl>":""}
+function moldeRegras(m){
+var g=m.regras||{},bl=[],sl=g.story_slots||[];
+if(sl.length)bl.push('<section class="mol-reg"><h3 class="mol-reg-tit">Rotina de stories</h3><ol class="mol-slots">'+
+sl.map(function(s){
+return'<li class="mol-slot"><span class="mol-slot-n">'+c(String(s.slot))+'</span><span class="mol-slot-jan">'+c(String(s.janela||"—"))+'</span><span class="mol-slot-fn">'+c(rotCod(s.funcao))+"</span>"+
+(s.oferta_permitida?'<span class="mol-slot-obs">oferta só '+c(rotCod(s.oferta_permitida))+"</span>":"")+"</li>"}).join("")+"</ol></section>");
+if(g.caixinha)bl.push('<section class="mol-reg"><h3 class="mol-reg-tit">Caixinha de perguntas</h3>'+molPares(g.caixinha,molSlotRef)+"</section>");
+// O teto e o unico que PARECE mensuravel, entao ele carrega a ressalva colada.
+if(g.tetos)bl.push('<section class="mol-reg"><h3 class="mol-reg-tit">Tetos</h3>'+molPares(g.tetos)+
+'<p class="mol-reg-nota">Não conferido: o calendário não tem código de humor, só a palavra no título. Contar por título daria um número errado com cara de medido.</p></section>');
+if((g.proibicoes||[]).length)bl.push('<section class="mol-reg"><h3 class="mol-reg-tit">Nunca fazer</h3><ul class="mol-proib">'+
+g.proibicoes.map(function(p){return"<li>"+c(rotCod(p))+"</li>"}).join("")+"</ul></section>");
+if(g.garantia)bl.push('<section class="mol-reg"><h3 class="mol-reg-tit">Garantia</h3>'+molPares(g.garantia)+"</section>");
+if(!bl.length)return"";
+return'<details class="mol-regras"><summary class="mol-regras-cab">Regras do molde <span class="mol-regras-n">'+bl.length+"</span></summary>"+
+'<p class="mol-regras-nota">Vêm do Notion e ficam aqui para consulta. O Pit Wall <strong>não confere</strong> nenhuma delas: quem cobra a semana é a grade acima.</p>'+
+'<div class="mol-regras-corpo">'+bl.join("")+"</div></details>"}
 function moldeAvisos(m){
 var p=[];
 // Staleness NUNCA e silencioso: a grade continua na tela, e a idade dela vai
@@ -270,6 +316,9 @@ moldeAvisos(m)+
 // semana REALMENTE tem. Fundir as duas apagaria a pergunta.
 (pe.length?'<div class="mol-metas">meta da semana: '+pe.join(" · ")+"</div>":"")+
 moldeResumo(m,hoje)+
+// As regras entram DEPOIS da cobranca e fechadas: material de consulta nao
+// pode competir por atencao com o que a semana esta devendo.
+moldeRegras(m)+
 "</section>"}
 async function renderConteudo(silencioso){
 var e=E("lista");

@@ -2521,6 +2521,51 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .mol-cob{display:flex;align-items:center;gap:5px;font-size:11.5px;line-height:1.35;min-width:0;overflow-wrap:anywhere}
 .mol-cob.n-quente{color:var(--quente-fg)}
 .mol-cob.n-neutro{color:var(--dim)}
+
+/* ---------- Fatia 3: as regras do molde ----------
+   Consulta, nao cobranca. O Pit Wall nao confere nenhuma das cinco, e o `tetos`
+   nao TEM COMO ser conferido (nao existe codigo de humor no calendario, so a
+   palavra no titulo, que e rotulo e nao chave: invariante 12).
+   Por isso tudo aqui e NEUTRO. Oito proibicoes em vermelho leriam como oito
+   violacoes, e a tela estaria acusando o dono de algo que ela nao mediu.
+   Fechado por padrao, e depois do rodape: o que a semana esta devendo ganha a
+   atencao primeiro. <details> nativo, sem data-acao novo. */
+.mol-regras{margin:12px 0 0;border-top:1px solid var(--line);padding-top:10px}
+.mol-regras-cab{cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);list-style:none}
+.mol-regras-cab::-webkit-details-marker{display:none}
+/* O triangulo e o unico sinal de que a gaveta abre: sem ele o cabecalho le como
+   rotulo morto. Gira ao abrir, que e a convencao que o usuario ja tem. */
+.mol-regras-cab::before{content:"";width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .12s}
+.mol-regras[open] .mol-regras-cab::before{transform:rotate(90deg)}
+.mol-regras-cab:hover{color:var(--text)}
+.mol-regras-n{font-variant-numeric:tabular-nums;color:var(--text)}
+/* O fechamento e EXPLICITO, e nao herdado do navegador. Regra de autor vence a
+   folha do agente: o `display:grid` do corpo sobrescrevia o `display:none` que
+   o Chrome aplica ao conteudo de um <details> fechado, e a gaveta ficava
+   permanentemente aberta por cima do kanban. Quem pegou foi o diag_mobile em
+   360/390/414px, com 30 sobreposicoes; a assercao que eu tinha escrito olhava
+   a PROPRIEDADE `open` e passava feliz. Por isso as duas regras abaixo existem
+   em par, e o harness agora assere o `display` COMPUTADO. */
+.mol-regras-nota,.mol-regras-corpo{display:none}
+.mol-regras[open] .mol-regras-nota{display:block;font-size:11.5px;line-height:1.45;color:var(--dim);margin:9px 0 0;max-width:70ch}
+.mol-regras[open] .mol-regras-corpo{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:10px}
+.mol-reg{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-p);padding:9px 10px;min-width:0}
+.mol-reg-tit{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:500;margin:0 0 7px}
+.mol-slots{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.mol-slot{display:flex;align-items:baseline;gap:7px;font-size:12px;line-height:1.3;min-width:0;flex-wrap:wrap}
+.mol-slot-n{font-family:var(--mono);font-size:10px;color:var(--dim);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.mol-slot-jan{font-family:var(--mono);font-size:10.5px;color:var(--text);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.mol-slot-fn{color:var(--dim);overflow-wrap:anywhere}
+.mol-slot-obs{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--morno-fg)}
+.mol-reg-pares{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;align-items:baseline}
+.mol-reg-pares dt{font-size:11.5px;color:var(--dim);overflow-wrap:anywhere}
+.mol-reg-pares dd{margin:0;font-size:12px;color:var(--text);overflow-wrap:anywhere}
+/* Codigo que a leitura de slot nao entendeu aparece CRU e marcado, nunca some:
+   mesmo tratamento de .mol-peca.desconhecida. */
+.mol-reg-cru{font-family:var(--mono);font-size:11px;color:var(--erro-fg)}
+.mol-reg-nota{font-size:11px;line-height:1.4;color:var(--dim);margin:8px 0 0;border-left:2px solid var(--line-forte);padding-left:7px}
+.mol-proib{margin:0;padding:0 0 0 15px;display:flex;flex-direction:column;gap:3px}
+.mol-proib li{font-size:12px;line-height:1.3;color:var(--text);overflow-wrap:anywhere}
 /* 7 -> 4 -> 2 em vez de 7 -> 1: a semana perde o sentido virando lista, mas
    sete colunas em 360px estouram. Medido com diag_mobile.py nos cinco tamanhos. */
 @media (max-width:900px){

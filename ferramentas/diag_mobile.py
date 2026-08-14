@@ -194,6 +194,12 @@ async function rodar(){
     if (!el) { window.__saida.erros.push('sem ' + abasIds[k]); continue; }
     el.click();
     await espera(430);
+    // Gaveta FECHADA nunca estoura: o que pode estourar e o conteudo dela.
+    // Sem abrir, todo <details> passa por este diagnostico sem ser medido, e o
+    // celular so descobre o problema com o dono tocando no cabecalho.
+    var gav = D.querySelectorAll('details:not([open])');
+    for (var g = 0; g < gav.length; g++) gav[g].open = true;
+    if (gav.length) await espera(140);
     medir(abasIds[k]);
     if (abasIds[k] === 'abaVendas') window.__saida.painelVendas = medirPainelVendas();
   }

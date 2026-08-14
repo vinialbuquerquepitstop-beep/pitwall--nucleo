@@ -161,6 +161,25 @@ function _molde(semanas) {
     semana_ini: _segISO(0, semanas), semana_fim: _segISO(6, semanas),
     metas: { reels_semana: 3, carrossel_semana: 1, stories_semana: 49 },
     stories: { previstos: 49, existentes: 8, no_ar: 1 },
+    // Fatia 3: as cinco regras, como a RPC devolve, copiadas do payload real do
+    // molde v3. Nenhuma delas e conferida contra nada: sao consulta.
+    regras: {
+      story_slots: [
+        { slot: 1, funcao: 'bom_dia',           janela: '07h-08h' },
+        { slot: 2, funcao: 'abertura_motor',    janela: '10h-11h' },
+        { slot: 3, funcao: 'desenvolvimento',   janela: '12h-13h' },
+        { slot: 4, funcao: 'produto_real',      janela: '15h-16h' },
+        { slot: 5, funcao: 'interacao',         janela: '17h-18h' },
+        { slot: 6, funcao: 'cta',               janela: '18h-19h', oferta_permitida: 'quinta' },
+        { slot: 7, funcao: 'fechamento_humano', janela: '20h-21h' }
+      ],
+      tetos: { humor_mes: 2, humor_substitui: 'reel_sexta', humor_intervalo_dias: 7 },
+      proibicoes: ['preco_em_feed', 'preco_em_reel', 'seta_fora_de_carrossel',
+                   'palavra_revenda', 'autorizada_apple', 'auto_publicar_oferta',
+                   'agendar_alcance_fim_de_semana', 'criativo_renderizado'],
+      garantia: { seminovo: '3 meses', lacrado: '1 ano', macbook: '1 ano', ipad: '1 ano' },
+      caixinha: { abre: 'sabado_slot5', responde: 'quinta_slots2a5', reabre: 'quarta_slot5' }
+    },
     avisos: [],
     dias: [
       { dia: 'segunda', data: _segISO(0, semanas), motor: 'iphone_volume',         feed_previsto: 'reel_topo', horario: '10h-11h', existe: true,  no_ar: false, fora_do_molde: [] },
@@ -970,6 +989,98 @@ async function rodar() {
      !!document.querySelector('#lista .mol-metas') && !!res &&
      document.querySelector('#lista .mol-metas') !== res);
 
+  // ---- Fatia 3 (14/08/2026): as regras, que sao CONSULTA e nao cobranca ----
+  // O Pit Wall nao confere nenhuma das cinco. O risco desta fatia nao e visual,
+  // e semantico: oito proibicoes em vermelho leriam como oito violacoes, e a
+  // tela estaria acusando o dono de algo que ela nunca mediu.
+  var reg = document.querySelector('#lista .mol-regras');
+  ok('o bloco de regras existe', !!reg);
+  // A propriedade `open` NAO prova que a gaveta esta fechada: regra de autor
+  // vence a folha do agente, e um display:grid solto no corpo deixava o bloco
+  // permanentemente aberto por cima do kanban com `open === false`. Quem pegou
+  // foi o diag_mobile, com 30 sobreposicoes em 360px. Aqui se mede o display
+  // COMPUTADO, que e o que a tela realmente faz.
+  // Sem o !! aqui, apagar a nota fazia o getComputedStyle estourar e derrubar
+  // as 458 assercoes seguintes: o guard-rail reprovava por ACIDENTE, com uma
+  // mensagem que nao explicava nada. Prova que morde tem que morder no lugar
+  // certo, senao ela so faz barulho.
+  var regCorpo = document.querySelector('#lista .mol-regras-corpo');
+  ok('e vem FECHADO DE VERDADE (display computado, nao a propriedade open)',
+     !!reg && reg.open === false && !!regCorpo &&
+     getComputedStyle(regCorpo).display === 'none',
+     reg ? 'open=' + reg.open + ' corpo=' +
+       (regCorpo ? getComputedStyle(regCorpo).display : 'sem corpo') : 'sem bloco');
+  ok('as regras vem DEPOIS da cobranca, nunca antes',
+     !!reg && !!res && (res.compareDocumentPosition(reg) & 4) === 4);
+  // A ressalva nao pode viver so no comentario do codigo: tela que omite
+  // recorte mente, e esta e a unica frase que impede o bloco de parecer aferido.
+  var regNota = document.querySelector('#lista .mol-regras-nota');
+  ok('a tela DECLARA que nao confere nenhuma delas',
+     !!regNota && /não confere/.test(regNota.textContent),
+     regNota ? regNota.textContent.slice(0, 60) : 'sem nota');
+  ok('e a ressalva tambem nasce escondida, junto com o resto da gaveta',
+     !!regNota && getComputedStyle(regNota).display === 'none',
+     regNota ? getComputedStyle(regNota).display : 'sem nota');
+
+  reg.open = true;
+  await espera(60);
+  ok('abrindo, os 5 blocos aparecem E SAO VISIVEIS', molSel('.mol-reg').length === 5 &&
+     getComputedStyle(regCorpo).display === 'grid',
+     'n=' + molSel('.mol-reg').length + ' display=' + getComputedStyle(regCorpo).display);
+  ok('a rotina de stories mostra os 7 slots com janela e funcao',
+     molSel('.mol-slot').length === 7 &&
+     /07h-08h/.test(molSel('.mol-slot')[0].textContent) &&
+     /bom dia/.test(molSel('.mol-slot')[0].textContent),
+     'n=' + molSel('.mol-slot').length);
+  ok('o slot com oferta permitida diz em qual dia',
+     molSel('.mol-slot-obs').length === 1 &&
+     /quinta/.test(molSel('.mol-slot-obs')[0].textContent),
+     'n=' + molSel('.mol-slot-obs').length);
+  // sabado_slot5 e CODIGO. Ele vira frase legivel, e nada aparece cru aqui.
+  ok('a caixinha traduz o codigo do slot em frase',
+     /sáb, slot 5/.test(reg.textContent) && /qui, slots 2 a 5/.test(reg.textContent) &&
+     molSel('.mol-reg-cru').length === 0,
+     'crus=' + molSel('.mol-reg-cru').length);
+  ok('as 8 proibicoes aparecem, e sem underline de codigo',
+     molSel('.mol-proib li').length === 8 &&
+     reg.textContent.indexOf('preco_em_feed') === -1 &&
+     /preco em feed/.test(reg.textContent),
+     'n=' + molSel('.mol-proib li').length);
+  // A assercao que segura o significado: proibicao NAO e violacao.
+  ok('e elas NAO usam cor de urgencia (regra nao e acusacao)',
+     getComputedStyle(molSel('.mol-proib li')[0]).color !== 'rgb(188, 71, 21)',
+     getComputedStyle(molSel('.mol-proib li')[0]).color);
+  ok('o teto carrega a ressalva colada, nao solta no rodape',
+     molSel('.mol-reg-nota').length === 1 &&
+     /código de humor/.test(molSel('.mol-reg-nota')[0].textContent),
+     molSel('.mol-reg-nota').length ? molSel('.mol-reg-nota')[0].textContent.slice(0, 50) : 'sem ressalva');
+  ok('a garantia do seminovo aparece com o prazo',
+     /seminovo/.test(reg.textContent) && /3 meses/.test(reg.textContent));
+
+  // Codigo de slot que a leitura nao entende aparece CRU e marcado, nunca some.
+  window.__MOLDE = _molde(0);
+  window.__MOLDE.regras.caixinha.abre = 'lua_cheia_slot_zero';
+  await reabrirConteudo();
+  document.querySelector('#lista .mol-regras').open = true;
+  await espera(60);
+  ok('codigo de slot desconhecido aparece CRU e marcado, nao vira vazio',
+     molSel('.mol-reg-cru').length === 1 &&
+     /lua_cheia_slot_zero/.test(molSel('.mol-reg-cru')[0].textContent),
+     'n=' + molSel('.mol-reg-cru').length);
+
+  // Chave nova vinda do Notion nao pode sumir por eu nao conhecer o nome dela.
+  window.__MOLDE = _molde(0);
+  window.__MOLDE.regras.garantia.airpods = '6 meses';
+  await reabrirConteudo();
+  document.querySelector('#lista .mol-regras').open = true;
+  await espera(60);
+  ok('chave nova do Notion aparece sozinha, sem eu mapear nome por nome',
+     /airpods/.test(document.querySelector('#lista .mol-regras').textContent) &&
+     /6 meses/.test(document.querySelector('#lista .mol-regras').textContent));
+
+  window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
+  await reabrirConteudo();
+
   // ---- ATMOSFERA da aba Conteudo (13/08/2026) ------------------------------
   // Por que estas existem: prova_atmosfera.py le o TEXTO do app.css e prova os
   // numeros de contraste. Ela nao prova que a regra CASA com o elemento. Foi
@@ -1070,6 +1181,8 @@ async function rodar() {
      telaTxt().indexOf('reel topo') === -1 && telaTxt().indexOf('carrossel') === -1,
      'reel topo=' + (telaTxt().indexOf('reel topo') >= 0) +
      ' carrossel=' + (telaTxt().indexOf('carrossel') >= 0));
+  ok('SEM CACHE nao ha bloco de regras (nem consulta o app inventa)',
+     document.querySelectorAll('#lista .mol-regras').length === 0);
   ok('SEM CACHE o kanban continua vivo (molde nao derruba a aba)',
      document.querySelectorAll('#lista .cont-col').length === 4,
      'n=' + document.querySelectorAll('#lista .cont-col').length);

@@ -10,7 +10,7 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v57.md`. Conferir a pasta em vez de confiar nesta
+   `handoff_migracao_pitwall_v58.md`. Conferir a pasta em vez de confiar nesta
    linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026,
    no v35 ate 23/07/2026, no v37 ate 28/07/2026, no v43 ate 08/08/2026 e no v48
    ate 14/08/2026).
@@ -255,7 +255,7 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
-  cor computada. Estado atual medido em 14/08/2026: **443 assercoes, 0 falhas**, e
+  cor computada. Estado atual medido em 14/08/2026: **459 assercoes, 0 falhas**, e
   EXIT 0 nas cinco larguras. O numero 133 que estava aqui era de antes da v33.
   **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
   quem nao rodar as cinco nao esta olhando para o celular.
