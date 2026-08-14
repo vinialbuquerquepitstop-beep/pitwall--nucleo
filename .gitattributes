@@ -1,0 +1,31 @@
+# Fim da dependencia do core.autocrlf de cada maquina.
+#
+# MEDIDO em 14/08/2026, contando bytes no INDEX (nao no diretorio de trabalho),
+# arquivo por arquivo, com os .gpg de fora:
+#
+#   arquivos de texto com CRLF no index: 1
+#     public/calc/index.html   1443
+#
+# Ou seja: o core.autocrlf=true desta maquina vinha normalizando tudo, e o repo
+# ja estava em LF. UM arquivo escapou, gravado em 03/08 a partir de outra
+# maquina (o dono roda o Claude em mais de uma), e ficou divergente do resto.
+#
+# A previsao que cinco handoffs repetiram, de que este arquivo produziria um
+# "diff gigante" renormalizando o repo inteiro, NAO se confirmou: e um arquivo
+# e 1443 linhas. A previsao nunca tinha sido medida, so repetida.
+#
+# O valor real disto aqui nao e limpar bagunca, e parar de depender de config
+# de maquina: com `text=auto eol=lf` o fim de linha passa a ser propriedade do
+# REPOSITORIO. Num repo onde o app.js tem o nucleo numa linha so, um arquivo
+# reescrito inteiro por diferenca de config nao e inconveniencia, e a perda da
+# unica forma de enxergar o que mudou.
+#
+# Python, node e o Chrome headless leem LF no Windows sem reclamar: as seis
+# provas rodam verdes depois desta mudanca.
+* text=auto eol=lf
+
+# Binario NUNCA passa por conversao de fim de linha. Os .gpg sao os dumps
+# criptografados do Postgres gravados por .github/workflows/backup_git.yml, e
+# eles carregam PII de cliente: um \r injetado no meio corrompe o arquivo, e o
+# restore_drill.yml so descobriria isso na hora de restaurar de verdade.
+*.gpg binary
