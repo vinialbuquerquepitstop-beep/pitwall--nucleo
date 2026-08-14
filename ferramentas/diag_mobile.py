@@ -36,6 +36,32 @@ var D = null;   // document do iframe
 
 function espera(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function W(){ return D.defaultView; }
+// Injeta UM cliente de pos-venda com o passo vencido no fixture do app, dentro
+// do iframe. Alimentar so por _setLeads nao basta: trocar de aba faz o app
+// reler v_lead do Supabase falso, e a releitura sobrescreve o setter. Quem
+// manda e o array LEADS, que e a fonte do stub.
+function injetarPosVenda(){
+  var w = W();
+  if (!w || !w.LEADS || !w.LEADS.length || !w.PitWall || injetarPosVenda.feito) return;
+  var hj = w.PitWall.hojeLocalISO();
+  var b = JSON.parse(JSON.stringify(w.LEADS[0]));
+  b.id = 'pos-diag'; b.lead_code = 'LEAD-9100';
+  // Nome e produto calibrados no PIOR CASO QUE EXISTE no banco (medido em
+  // 14/08/2026): produto mais longo = 'iPhone 13 512GB e 14 512GB' (26 chars),
+  // nome mais longo = 'Lucas da silva dos santos' (25). Um fixture mais
+  // comprido do que o dado real produz alarme que ninguem pode consertar,
+  // porque o caso nao acontece; um mais curto nao mede nada.
+  b.nome = 'Lucas da silva dos santos';
+  b.produto = 'iPhone 13 512GB e 14 512GB';
+  b.status = 'convertido'; b.perfil = 'comprou';
+  b.cadencia_passo = 1; b.cadencia_rotulo = 'P1 · D1 pos-venda';
+  b.cadencia_encerrada = false; b.cadencia_vence_em = hj;
+  b.proximo_contato = hj; b.ultimo_toque_em = null; b.respondido_em = null;
+  b.arquivado_em = null; b.consentimento = true;
+  w.LEADS.push(b);
+  w.PitWall._setLeads(w.LEADS);
+  injetarPosVenda.feito = true;
+}
 function vis(el){
   var s = W().getComputedStyle(el);
   if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) return false;
@@ -187,11 +213,19 @@ async function rodar(){
   if (bm) { bm.click(); await espera(160); }
   window.__saida.nav = { fechado: fechado, aberto: aberto };
 
+  injetarPosVenda.feito = false;
   var abasIds = ['abaHoje','abaFila','abaTodos','abaVendas','abaConteudo',
                  'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs','abaEscopo'];
   for (var k = 0; k < abasIds.length; k++){
     var el = D.getElementById(abasIds[k]);
     if (!el) { window.__saida.erros.push('sem ' + abasIds[k]); continue; }
+    // O bloco de pos-venda da Fila so nasce quando existe CLIENTE com passo
+    // vencido, e os 3 leads do fixture sao todos 'pendente'. Sem esta injecao a
+    // secao construida em 14/08/2026 nunca entrava na medicao de celular: o
+    // diagnostico passaria verde em 360px sem nunca ter desenhado a coisa nova.
+    // O nome longo e de proposito, para o cabecalho e o card serem medidos no
+    // pior caso de quebra, nao no mais gentil.
+    if (abasIds[k] === 'abaFila') injetarPosVenda();
     el.click();
     await espera(430);
     // Gaveta FECHADA nunca estoura: o que pode estourar e o conteudo dela.
@@ -200,6 +234,12 @@ async function rodar(){
     var gav = D.querySelectorAll('details:not([open])');
     for (var g = 0; g < gav.length; g++) gav[g].open = true;
     if (gav.length) await espera(140);
+    // Injecao que nao rende elemento na tela e pior do que injecao nenhuma: o
+    // diagnostico passaria verde jurando ter medido o bloco novo. Se o
+    // cabecalho nao esta no DOM na hora da medida, isto REPROVA.
+    if (abasIds[k] === 'abaFila' && !D.querySelector('#lista .pos-cab'))
+      window.__saida.erros.push('pos-venda nao entrou na medicao: #lista .pos-cab '
+        + 'ausente na Fila, entao a secao nova NAO foi medida nesta largura');
     medir(abasIds[k]);
     if (abasIds[k] === 'abaVendas') window.__saida.painelVendas = medirPainelVendas();
   }

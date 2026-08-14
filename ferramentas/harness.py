@@ -2673,6 +2673,111 @@ async function rodar() {
   ok('todo insight tem titulo e corpo, nunca bolinha solta',
      lst.length > 0 && lst.every(function (x) { return x.tit.length > 0 && x.txt.length > 0; }));
 
+  // ---- POS-VENDA DENTRO DA FILA (14/08/2026) --------------------------------
+  // Por que este bloco existe: a fila filtra status === 'pendente', entao quem
+  // compra SAI dela. So que a cadencia do perfil `comprou` continua viva (6
+  // passos, P1 D1 ate P6 D365, 18 scripts no banco) e a regua conta esses leads
+  // como atrasados todo dia as 8h. O botao "Toque enviado" nasce UMA vez so no
+  // app inteiro, e so dentro do card em modo fila. Medido em 14/08/2026: 5
+  // clientes reais com o passo vencido, o mais antigo ha 28 dias, e nenhum
+  // caminho na tela para registrar o toque. Sem estas assercoes, a proxima
+  // sessao apaga este bloco como CSS morto, que foi exatamente o que quase
+  // aconteceu com .cont-card::before na v59.
+  //
+  // O fixture nasce CLONANDO um lead real ja carregado e virando so o que a
+  // regra le. Objeto inventado do zero casaria com a regra por construcao e
+  // provaria a si mesmo.
+  var hjP = window.PitWall.hojeLocalISO();
+  function clonePos(mut) {
+    var b = JSON.parse(JSON.stringify(LEADS[0]));
+    b.id = 'pos-' + Math.random().toString(36).slice(2);
+    b.status = 'convertido'; b.perfil = 'comprou';
+    b.cadencia_passo = 1; b.cadencia_rotulo = 'P1 · D1 pos-venda';
+    b.cadencia_encerrada = false; b.cadencia_vence_em = hjP;
+    b.proximo_contato = hjP; b.ultimo_toque_em = null; b.respondido_em = null;
+    b.arquivado_em = null; b.consentimento = true;
+    if (mut) mut(b);
+    return b;
+  }
+  var pvOk = clonePos(function (b) { b.nome = 'Cliente Pos-venda'; b.lead_code = 'LEAD-9100'; });
+
+  ok('pos-venda: cliente com passo vencido ENTRA no bloco',
+     window.PitWall.entraNoPosVenda(pvOk, hjP) === true);
+  // Cada recusa abaixo corresponde a um jeito real de o bloco mentir:
+  ok('pos-venda: lead pendente NAO entra (senao aparece nas duas filas)',
+     window.PitWall.entraNoPosVenda(LEADS[0], hjP) === false);
+  ok('pos-venda: cadencia encerrada NAO entra',
+     window.PitWall.entraNoPosVenda(clonePos(function (b) { b.cadencia_encerrada = true; }), hjP) === false);
+  // Este e o caso que o COALESCE(ce.encerrada,false) da v_lead mascara: um
+  // convertido SEM linha de cadencia tambem chega aqui com encerrada = false.
+  ok('pos-venda: convertido SEM passo de cadencia NAO entra',
+     window.PitWall.entraNoPosVenda(clonePos(function (b) { b.cadencia_passo = null; }), hjP) === false);
+  ok('pos-venda: passo que so vence amanha NAO entra',
+     window.PitWall.entraNoPosVenda(clonePos(function (b) { b.proximo_contato = window.PitWall.diaMaisISO(hjP, 1); }), hjP) === false);
+  ok('pos-venda: ja tocado hoje SAI do bloco',
+     window.PitWall.entraNoPosVenda(clonePos(function (b) { b.ultimo_toque_em = new Date().toISOString(); }), hjP) === false);
+  ok('pos-venda: arquivado NAO entra',
+     window.PitWall.entraNoPosVenda(clonePos(function (b) { b.arquivado_em = new Date().toISOString(); }), hjP) === false);
+
+  // A invariante das DUAS filas: ninguem pode cair nas duas, senao o mesmo card
+  // aparece duas vezes na mesma tela.
+  var pv2 = clonePos(function (b) { b.lead_code = 'LEAD-9101'; });
+  var todosP = LEADS.concat([pvOk, pv2]);
+  var dobrados = todosP.filter(function (a) {
+    return window.PitWall.entraNaFila(a, hjP) && window.PitWall.entraNoPosVenda(a, hjP);
+  });
+  ok('pos-venda: nenhum lead cai na fila de venda E no pos-venda tambem',
+     dobrados.length === 0, 'dobrados=' + dobrados.length);
+
+  // ---- e agora a TELA, que e o que o dono abre e clica ----------------------
+  // Alimentar por _setLeads() NAO basta: trocar de aba faz o app reler v_lead do
+  // Supabase falso, e a releitura sobrescreve o que o setter tinha posto. Quem
+  // manda e o array LEADS, que e a fonte do stub. Custou duas assercoes
+  // vermelhas para aparecer, e fica escrito aqui para nao custar de novo.
+  LEADS.push(pvOk, pv2);
+  window.PitWall._setLeads(LEADS);
+  document.getElementById('abaFila').click();
+  await espera(300);
+
+  var cabP = document.querySelector('#lista .pos-cab');
+  ok('pos-venda: o bloco aparece na aba Fila', !!cabP);
+  if (cabP) {
+    ok('pos-venda: a secao tem icone, nunca so a palavra', !!cabP.querySelector('svg.pos-ico'));
+    ok('pos-venda: a secao tem contador',
+       (cabP.querySelector('.pos-cont') || {}).textContent === '2',
+       'contador=' + ((cabP.querySelector('.pos-cont') || {}).textContent));
+    // v33: tela que omite recorte mente. O bloco mostra 2 de N clientes, entao
+    // ele PRECISA declarar qual e o recorte.
+    ok('pos-venda: a janela do recorte esta declarada',
+       ((cabP.querySelector('.pos-jan') || {}).textContent || '').indexOf('vencendo') >= 0,
+       (cabP.querySelector('.pos-jan') || {}).textContent);
+    // O CSS tem que estar VIVO, nao so escrito. O defeito de 06 a 08/08/2026
+    // foram 16 regras penduradas num seletor que nunca casava.
+    ok('pos-venda: o filete que separa da fila de venda existe de fato',
+       getComputedStyle(cabP).borderTopWidth === '1px', getComputedStyle(cabP).borderTopWidth);
+  }
+  var cardP = null, cardsP = document.querySelectorAll('#lista .card');
+  for (var iP = 0; iP < cardsP.length; iP++) {
+    if (cardsP[iP].getAttribute('data-lead') === 'LEAD-9100') cardP = cardsP[iP];
+  }
+  ok('pos-venda: o card do cliente foi renderizado', !!cardP);
+  if (cardP) {
+    // Em modo fila o card ESCONDE o chip de status. Sem estes dois chips o
+    // cliente aparece identico a um lead novo, e o operador manda script de
+    // venda para quem ja comprou.
+    ok('pos-venda: o card diz que essa pessoa JA COMPROU',
+       !!cardP.querySelector('.chip.st-convertido'));
+    var cadC = cardP.querySelector('.chip.cad-mono');
+    ok('pos-venda: o card mostra em que passo da cadencia ele esta',
+       !!cadC && cadC.textContent.indexOf('P1') >= 0, cadC ? cadC.textContent : 'sem chip');
+    ok('pos-venda: o passo vai em fonte de DADO, nao de palavra',
+       !!cadC && getComputedStyle(cadC).fontFamily.toLowerCase().indexOf('geist mono') >= 0,
+       cadC ? getComputedStyle(cadC).fontFamily : '');
+    // A razao de a fatia inteira existir:
+    ok('pos-venda: o botao Toque enviado existe no card do cliente',
+       !!cardP.querySelector('[data-acao="toque"]'));
+  }
+
   fim();
 
 }
