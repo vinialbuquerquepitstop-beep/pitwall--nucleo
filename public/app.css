@@ -1157,12 +1157,15 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    rgb(91, 75, 168), que e --tp-reels.
    Prova: python ferramentas/prova_atmosfera.py + harness.py */
 .cont-card{position:relative;padding:9px 9px 9px 12px;margin-bottom:6px;border-radius:var(--radius-p);background:var(--panel);border:1px solid var(--line);box-shadow:0 1px 2px rgba(15,21,35,.06)}
-.cont-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px;background:var(--frio)}
-.cont-card.nivel-vencido::before,.cont-card.nivel-quente::before{background:var(--quente)}
-.cont-card.nivel-morno::before{background:var(--morno)}
-.cont-card.nivel-frio::before{background:var(--frio)}
-.cont-card.nivel-ok::before{background:var(--ok)}
-.cont-card.nivel-nulo::before{background:var(--line-forte)}
+/* Só a GEOMETRIA da barra mora aqui. A cor vem do bloco "a barra diz o TIPO",
+   mais abaixo, junto da razao de ela ser o tipo e nao a urgencia.
+   Ate 14/08/2026 existiam seis regras de nivel logo abaixo desta (quente,
+   morno, frio, ok, nulo e o --frio de base). As seis eram INALCANCAVEIS: o
+   bloco do tipo vem depois no arquivo e ganha sempre. Elas nao mudavam um pixel
+   e enganavam quem lesse o arquivo de cima para baixo, que foi exatamente o que
+   aconteceu com a justificativa medida do v56. Apagadas com a prova reforcada
+   antes: o harness assere a barra de TODOS os cartoes, nao so a do primeiro. */
+.cont-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px 0 0 2px}
 .cont-data-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--dim);margin-bottom:4px}
 .cont-card.nivel-vencido .cont-data-chip,.cont-card.nivel-quente .cont-data-chip{color:var(--quente-fg)}
 .cont-card.nivel-morno .cont-data-chip{color:var(--morno-fg)}
@@ -1276,11 +1279,12 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .dia-cat-rot::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:3px;border-radius:2px;background:var(--tr)}
 .dia-cat-rot .tr-ico{width:13px;height:13px;flex:none;stroke:var(--tr);fill:none;stroke-width:1.7}
 
-/* ---------- Conteudo: a barra diz o TIPO; a urgencia fica na data ---------- */
+/* ---------- Conteudo: a barra diz o TIPO; a urgencia fica na data ----------
+   Dois canais, duas perguntas, no mesmo espirito dos invariantes 2 e 3.
+   As tres linhas de override por nivel que existiam aqui sairam em 14/08/2026
+   junto com as regras que elas anulavam: sem aquelas, estas nao anulavam nada.
+   Esta e a UNICA regra que pinta a barra do cartao do kanban. */
 .cont-card::before{background:var(--tp)}
-.cont-card.nivel-vencido::before,.cont-card.nivel-quente::before,
-.cont-card.nivel-morno::before,.cont-card.nivel-frio::before,
-.cont-card.nivel-ok::before,.cont-card.nivel-nulo::before{background:var(--tp)}
 /* a vencida e a UNICA que exige acao, entao ganha fundo tingido: sinal mais
    forte que a barra que ela deixou de ter */
 .cont-card.nivel-vencido{background:var(--quente-bg);border-color:var(--quente-linha)}

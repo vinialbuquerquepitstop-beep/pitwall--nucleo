@@ -1,7 +1,18 @@
-# Prova da atmosfera azul da aba Conteudo (13/08/2026).
-# Secao 5 do plano: trocar o chao de branco para o neutro azulado muda TODO
+# Prova da atmosfera azul da aba Conteudo (13/08/2026, ampliada em 14/08).
+#
+# Por que ela existe: trocar o chao de branco para o neutro azulado muda TODO
 # contraste da aba, e isso se mede, nao se presume. Foi exatamente o erro da
 # secao 4 do handoff v55: tres tokens escolhidos no olho, dois indistinguiveis.
+#
+# Ate 14/08/2026 esta linha dizia "Secao 5 do plano". AQUELE PLANO NUNCA EXISTIU
+# EM DISCO: ele so vivia no contexto da sessao que escreveu este arquivo, e quem
+# viesse procurar nao acharia nada. O registro de verdade sao:
+#   docs/handoffs/handoff_migracao_pitwall_v56.md   secao 2 (a atmosfera, e a
+#                                                   justificativa que apontava
+#                                                   para o elemento errado)
+#   docs/superpowers/plans/2026-08-14-molde-fatia2.md  secao 4 (o terceiro chao)
+# Referencia que aponta para lugar nenhum e pior que referencia nenhuma: ela
+# promete um documento e faz o leitor duvidar do que esta lendo.
 #
 # Roda da raiz: python ferramentas/prova_atmosfera.py
 # O que vale e o EXIT CODE, nunca o texto verde.

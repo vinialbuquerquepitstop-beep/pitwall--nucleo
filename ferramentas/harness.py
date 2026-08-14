@@ -1162,9 +1162,23 @@ async function rodar() {
   // a barra em silencio e os dois canais voltariam a disputar o mesmo pixel.
   var TP = ['rgb(46, 125, 91)', 'rgb(47, 125, 168)', 'rgb(91, 75, 168)', 'rgb(168, 73, 126)'];
   var NIVEL = ['rgb(242, 107, 49)', 'rgb(196, 136, 8)', 'rgb(131, 149, 175)'];
-  var barra = card0 ? getComputedStyle(card0, '::before').backgroundColor : '';
-  ok('e a barra dele diz o TIPO, nao a urgencia (urgencia mora na data)',
-     TP.indexOf(barra) >= 0 && NIVEL.indexOf(barra) < 0, barra || 'sem cartao');
+  // Reforcada em 14/08/2026 para medir TODOS os cartoes, e nao so o primeiro.
+  // Ela e a rede que permitiu apagar as seis regras de nivel na barra: se um
+  // dia --tp faltar num cartao, ou alguem devolver uma regra de urgencia
+  // depois desta, a barra deixa de ser do tipo e isto reprova nomeando a cor.
+  var barras = [].map.call(document.querySelectorAll('#lista .cont-card'), function (x) {
+    return getComputedStyle(x, '::before').backgroundColor;
+  });
+  ok('e a barra de TODO cartao diz o TIPO, nao a urgencia (urgencia mora na data)',
+     barras.length > 0 &&
+     barras.every(function (b) { return TP.indexOf(b) >= 0; }) &&
+     !barras.some(function (b) { return NIVEL.indexOf(b) >= 0; }),
+     // A mensagem lista as cores distintas de proposito: foi comparando esta
+     // linha antes e depois que a remocao das seis regras mortas se provou
+     // inofensiva, byte a byte, em vez de so "a suite continua verde".
+     'n=' + barras.length + ' cores=' + barras.filter(function (b, i) {
+       return barras.indexOf(b) === i;
+     }).sort().join(' '));
 
   // ---- A prova central: cache vazio nao pode virar grade -------------------
   window.__MOLDE = { ok: true, tem_molde: false, semana_ini: '2026-08-10',
