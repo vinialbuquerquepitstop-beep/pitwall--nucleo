@@ -471,7 +471,11 @@ let BAT=[],TELA=[],P=[];
 const TQL={jk:'JK/Vivid Incell',ba:'Basic Incell',pr:'Premium',or:'Original Retirada'};
 // ── UTILS ──
 let CFG={d:300,s300:false,scusto:true,iav:550,ipc:650,mav:1200,mpc:1300};
-function mg(c){return c==='MacBook'?{av:CFG.mav,pc:CFG.mpc}:{av:CFG.iav,pc:CFG.ipc}}
+// Classes de custo puro (dono, 15/08/2026): entram na tabela pelo custo e NAO
+// recebem margem. Sem isso caem no else do mg() e ganham margem de iPhone.
+const SEMMARGEM=new Set(['1ª Linha','Garmin','Moto Elétrica']);
+function semMargem(c){return SEMMARGEM.has(c)}
+function mg(c){if(SEMMARGEM.has(c))return{av:0,pc:0};return c==='MacBook'?{av:CFG.mav,pc:CFG.mpc}:{av:CFG.iav,pc:CFG.ipc}}
 function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fpt(v){return v.toFixed(1)+'%'}
 function r2(v){return Math.round(v*100)/100}
@@ -557,7 +561,7 @@ function vSel(idx){
   document.getElementById('vchint').textContent='Editável — '+p.n;
   document.getElementById('vmi').style.display='flex';
   const mg2=mg(p.c);
-  document.getElementById('vmit').innerHTML=`Cat <strong>${p.c}</strong> → à vista +<strong>R$${mg2.av}</strong> / parc +<strong>R$${mg2.pc}</strong>`;
+  document.getElementById('vmit').innerHTML=semMargem(p.c)?`Cat <strong>${p.c}</strong> → <strong>só custo</strong>, sem preço de venda calculado`:`Cat <strong>${p.c}</strong> → à vista +<strong>R$${mg2.av}</strong> / parc +<strong>R$${mg2.pc}</strong>`;
   vRSeg(VS.idx);vCalc();
 }
 function vCC(btn,n,v){document.querySelectorAll('#vcl .corb').forEach(b=>b.className='corb');btn.className='corb ag';VS.cor=n;document.getElementById('vcusto').value=v;document.getElementById('vcst').textContent=fmt(v);vCalc();}
@@ -600,6 +604,9 @@ function vCalc(){
   if(!cu){document.getElementById('ves').style.display='block';document.getElementById('vres').style.display='none';document.getElementById('val').className='al';document.getElementById('vabres').style.display='none';return;}
   document.getElementById('ves').style.display='none';document.getElementById('vres').style.display='block';
   const cat=VS.cat||'iPhone';if(!VS.cat){document.getElementById('vmi').style.display='flex';const mg2=mg(cat);document.getElementById('vmit').innerHTML=`Cat <strong>${cat}</strong> → +<strong>R$${mg2.av}</strong> av / +<strong>R$${mg2.pc}</strong> parc`;}
+  // Classe de custo puro: nao existe preco de venda aqui. Esconder o bloco inteiro
+  // em vez de exibir margem 0%, que acenderia o alerta vermelho de margem baixa.
+  if(semMargem(cat)){document.getElementById('vres').style.display='none';document.getElementById('vabres').style.display='none';const alc=document.getElementById('val');alc.className='al on ay';alc.textContent='📦 '+cat+' — só custo. Esta categoria não tem preço de venda calculado.';return;}
   const m=mg(cat);
   const cl=cu+fa;const avsf=cl+m.av;const av=avsf+fc;const pc=cl+m.pc+fc;
   const lav=m.av-fa;const lpc=m.pc-fa;const mav=(lav/av)*100;const mpc=(lpc/pc)*100;
@@ -1189,7 +1196,7 @@ function oRender(){
   const f=OF.piso/100;
   // agrupa por modelo+tipo; acessório nunca entra no scanner
   const grp={};
-  P.forEach(p=>{if(p.c==='Acessório')return;const cst=cm(p);if(cst<=0)return;const k=p.n+'|'+p.t;(grp[k]=grp[k]||[]).push({p,cst});});
+  P.forEach(p=>{if(p.c==='Acessório'||semMargem(p.c))return;const cst=cm(p);if(cst<=0)return;const k=p.n+'|'+p.t;(grp[k]=grp[k]||[]).push({p,cst});});
   const rank={hot:3,hist:2,comp:1};
   const rows=[];
   Object.values(grp).forEach(list=>{
