@@ -7,7 +7,27 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v59.md` (14/08/2026, **as tres pendencias
+- topo: `handoff_migracao_pitwall_v60.md` (15/08/2026, **o consultor estava
+  parado ha 5 dias e ninguem sabia**. O dono perguntou o caminho para atualizar a
+  calculadora; a resposta util foi medir antes de falar: `config.validade` em
+  10/08, vencida, com as quatro funcoes de copiar pedido travadas desde 11/08.
+  Segunda vez em tres semanas (a primeira foram 9 dias em 27/07): nao e descuido
+  de sessao, e um prazo que expira sem alerta. Carga de 17 fornecedores (2 novos,
+  All imports e João Telles): 841 -> **1.043 precos**, 411 -> 501 produtos, zero
+  variacao acima de 15%, CPO em 120 (nao zerou). Tres classes de **custo puro** a
+  pedido do dono (`1ª Linha`, `Garmin`, `Moto Elétrica`), que exigiram CODIGO e
+  nao so dado: `mg()` mandava toda categoria != MacBook para o `else` e dava
+  margem de iPhone, entao a moto eletrica apareceria com preco de venda. **O erro
+  que quase custou caro nao foi de preco, foi de git**: o clone estava 25 commits
+  atras e um dos commits faltantes renormalizou o `index.html` de CRLF para LF, o
+  que faria um rebase conflitar linha a linha; resolvido com reset na base certa e
+  reaplicacao das 4 edicoes, diff final de 92 linhas. Corrigido de fato: **o push
+  sai daqui pelo remote `github`**; o morto e o `origin`, e cinco versoes de skill
+  cobraram do dono um passo que a maquina dava. Provas: `prova_sem_margem.js` 22/22
+  (nova), `prova_cpo.js` 39/39, `validar.py`, `node --check`, exit 0 em todas, mais
+  checksum do blob e da derivacao batendo contra o BANCO. Aberto: `Acessório` ainda
+  ganha margem, linha orfa no tenant `...0004`, validade ainda sem alerta.)
+- anterior: `handoff_migracao_pitwall_v59.md` (14/08/2026, **as tres pendencias
   herdadas fecharam, e a que mais assustava era a menor**. Sem tela nova.
   (1) A referencia orfa da `prova_atmosfera.py` ("Secao 5 do plano", plano que
   nunca existiu em disco) virou ponteiro para o v56 secao 2 e para o plano da

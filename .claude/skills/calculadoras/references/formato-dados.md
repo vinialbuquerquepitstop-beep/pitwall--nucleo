@@ -115,8 +115,43 @@ normalizacao acontece no parse, nunca no arquivo final.
 
 ### Categorias e condicoes
 
-- `c`: `iPhone`, `iPad`, `MacBook`, `Apple Watch`, `Acessório` (com acento, exato).
+- `c`: `iPhone`, `iPad`, `MacBook`, `Apple Watch`, `Acessório` (com acento, exato),
+  mais as tres **classes de custo puro** que entraram em 15/08/2026: `1ª Linha`,
+  `Garmin`, `Moto Elétrica`.
 - `t`: `Lacrado`, `Seminovo`, `CPO`. Nada alem disso.
+
+**Classes de custo puro (dono, 15/08/2026).** Entram na tabela pelo CUSTO e nao
+recebem margem nenhuma: "sobre valores de lucro, nenhum. apenas o custo". Elas
+existem porque o dono passou a comprar Garmin, moto eletrica e fone paralelo, e
+quer o custo a mao sem que a calc finja um preco de venda.
+
+Isso NAO era so carga de dado: `mg()` em `public/calc/index.html` mandava toda
+categoria diferente de `MacBook` para o `else` e devolvia a margem de iPhone
+(550/650). Sem tocar no codigo, uma moto eletrica apareceria com preco de venda.
+O que existe hoje no arquivo:
+
+- `SEMMARGEM` (um `Set`) e `semMargem(c)`, logo acima de `mg()`;
+- `mg()` devolve `{av:0,pc:0}` para essas classes, e a margem das outras segue
+  saindo do `config`, nunca fixa no codigo;
+- `vCalc()` **esconde** o painel de preco de venda para elas. Exibir margem 0%
+  acenderia o alerta vermelho de "margem baixa" numa moto, que e ruido, nao aviso;
+- o scanner de oportunidades as ignora, como ja fazia com `Acessório`, porque
+  ranqueia por margem;
+- na derivacao do consultor elas ficam de fora, junto com `Acessório`.
+
+Prova: `node ferramentas/prova_sem_margem.js`, 22 assercoes, exit 0. Ela le
+`SEMMARGEM`, `semMargem` e `mg` do arquivo real, nao copia a logica.
+
+**Nome de produto paralelo carrega a classe no nome.** Os AirPods de 1ª linha
+entram como `AirPods Pro 1ª linha` e `AirPods Max 1ª linha`, nunca `AirPods Pro`.
+A calc trata produtos de mesmo `n` + `t` como opcoes do MESMO aparelho
+(`index.html`, funcao de troca de opcao): com o nome curto, um paralelo de
+R$69,99 apareceria como "opcao mais barata" do AirPods Pro original de R$1.500.
+
+**`Acessório` continua ganhando margem de iPhone**, e isso NAO foi mexido em
+15/08 porque o dono nao pediu. Efeito medido: AirPods Pro original de R$1.500
+aparece com venda de R$2.050. Se a regra "so custo" valer para acessorio, e
+acrescentar a categoria ao `SEMMARGEM`. Pendencia do dono.
 
   `CPO` entrou em 03/08/2026 a pedido do dono. E o refurbished certificado pela Apple:
   vem lacrado, em caixa branca, com **1 ano de garantia Apple**. Nao e lacrado comum nem
@@ -154,6 +189,24 @@ Entrou em 03/08/2026, marcado pelo proprio dono como "Novo fornecedor":
 | Fornecedor (`f`) | Praca (`l`) | Como se identifica na lista |
 |---|---|---|
 | BR10 | Irajá — RJ | `Br 10, iraja`, `ATACADO BR10 - dd/mm/aa`, retirada Iraja |
+
+Entraram em 15/08/2026, os dois marcados pelo dono no proprio chat:
+
+| Fornecedor (`f`) | Praca (`l`) | Como se identifica na lista |
+|---|---|---|
+| All imports | São João de Meriti — RJ | `All imports, fornecedor novo`; retirada em `shopping grande rio`, `shopping nova América`, `villar dos Teles` |
+| João Telles | Bangu — RJ | `Lista nova, fornecedor João Telles, Retirada em bangu` |
+
+A praca da **All imports foi DEDUZIDA**, nao declarada: a lista so cita os tres
+pontos de retirada. Bangu ja era a praca do Davi/Fábio, entao Bangu com dois
+fornecedores e correto, nao duplicata.
+
+**Fornecedor total em 15/08/2026: 17.** Eram 15 no blob anterior.
+
+**Rafael e DG Jacarepaguá mandam a MESMA lista**, preco a preco, mudando so a
+retirada (Barra da Tijuca contra Taquara). Medido em 15/08/2026: 21 itens
+identicos. Seguem como dois fornecedores porque a retirada e diferente, mas na
+pratica sao a mesma fonte, e o menor custo nunca vai distinguir os dois.
 
 Duas listas chegam SEM nome no cabecalho, so com `🚨SWAP GRADE A / IPHONE STOCK (VITRINE)`
 e `🚨IPHONE NEW LACRADO NA CAIXA`. Sao da **FMATA**: as duas trazem o mesmo link de grupo
@@ -211,6 +264,28 @@ AirPods 4 · AirPods 4 ANC · AirPods Pro 2 · AirPods Pro 3 · AirPods Max 2 ·
 USB-C · AirTag Pack 4 · Apple Pencil 2 · Apple Pencil Pro · Apple Pencil USB-C · Cabo
 Tipo-C Apple · Fonte Turbo Apple
 
+### Nomes que ENTRARAM em 15/08/2026
+
+Nao reescrevi as listas acima: estes sao os nomes que a carga de 15/08 trouxe e
+que nao existiam no blob anterior. Todos foram aprovados pelo dono em bloco.
+
+- **iPhone**: `iPhone 14 512GB` · `iPhone 16 Plus 256GB` · `iPhone 17e 512GB`
+  (o `iPhone 14 Pro 1TB` e o `iPhone 17 Pro Max 2TB` ja estavam no catalogo, so
+  nao tinham preco).
+- **iPad**: `iPad Air M2 11" 128GB` · `iPad Air M4 11" 256GB` · `iPad Pro M4 13" 256GB`.
+- **MacBook**: `MacBook Neo 13" 8/512GB` · `MacBook Air M4 13" 16/512GB` ·
+  `MacBook Air M5 15" 24/1TB` · `MacBook Pro M5 14" 16/512GB` ·
+  `MacBook Pro M5 14" 24/1TB` · `MacBook Pro M5 Pro 14" 24/2TB`.
+- **Apple Watch**: `Apple Watch SE 2 40mm`.
+- **1ª Linha**: `AirPods Pro 1ª linha` · `AirPods Max 1ª linha`.
+- **Garmin**: `Garmin Forerunner 55` · `Garmin Forerunner 165` ·
+  `Garmin Forerunner 165 Music` · `Garmin Vivoactive 5` · `Garmin Vivoactive 6` ·
+  `Garmin Fênix 8 47mm`.
+- **Moto Elétrica**: `Moto Elétrica Fine 500W`.
+
+`Series 2` e `Series 3` do BR10 seguem sendo `SE 2` e `SE 3` (decisao de 03/08).
+Foi assim que o `Apple Watch SE 2 40mm` apareceu.
+
 ### Cores e hex (38 nomes em uso)
 
 Amarelo `#f5e050` · Azul `#2c4f8c` · Black `#1c1c1e` · Black Ocean Band `#1c1c1e` · Black
@@ -243,6 +318,23 @@ As variantes `Anatel` seguem SEPARADAS da cor base: e produto homologado, com pr
 proprio (FMATA, 03/08: `Orange` 6.400 e `Orange Anatel` 7.000 no mesmo 17 Pro 256GB).
 
 Cor nova entra com hex plausivel e e conferida com o dono.
+
+**Entraram em 15/08/2026, as duas com hex proposto por mim e aprovadas em bloco:**
+`Cítrus` `#d9e04a` (colorway do MacBook Neo, aparece no Cristiano e no BR10) e
+`Azul Profundo` `#1b3a6b` (cor da moto eletrica da Quality, separada de `Azul`
+porque a lista traz as duas na mesma linha). Total em uso: **32 nomes**.
+
+Mapeamentos que esta carga exigiu e que valem para as proximas:
+- MacBook Neo: `Azul` da Five Cell e o `Índigo` do Cristiano e do BR10; `Rosa` da
+  Five Cell e `Rosa Blush`. Sem isso o mesmo Neo aparece com duas cores e dois precos.
+- iPhone 14 e 14 Plus: roxo se escreve **`Lilás`** (forma dominante entre Júnior,
+  LBR, Revel e Davi/Fábio). Do 14 **Pro** para cima e `Roxo`. O Davi/Fábio escreve
+  `PURPLE` e `LILÁS` para o mesmo emoji, o que confirma a leitura.
+- `ULTRAMARINE` (16 Plus) e `PACIFIC BLUE` (12 Pro) sao `Azul`.
+- `MIDNIGHT` continua NAO unificando com `Preto`, pela regra de 03/08. Efeito
+  visivel: o 14 128GB tem `Midnight` a 2.049 (Davi/Fábio) e `Preto` a 2.100
+  (Júnior) como linhas separadas. Custa 51 reais de confusao e foi mantido de
+  proposito, porque Midnight e nome de cor da Apple, nao traducao.
 
 ---
 

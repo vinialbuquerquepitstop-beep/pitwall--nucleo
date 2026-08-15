@@ -10,7 +10,7 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v59.md`. Conferir a pasta em vez de confiar nesta
+   `handoff_migracao_pitwall_v60.md`. Conferir a pasta em vez de confiar nesta
    linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026,
    no v35 ate 23/07/2026, no v37 ate 28/07/2026, no v43 ate 08/08/2026 e no v48
    ate 14/08/2026).

@@ -5,6 +5,76 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 15/08/2026 (carga) — O clone atrasado quase custou 25 commits
+
+Rodada de 17 fornecedores (2 novos), **1.043 precos** no blob (era 841), 501 produtos
+(era 411). Cobertura: as 501 linhas de produto entraram, com 12 descartes por regra e 7
+decisoes levadas ao dono. Zero variacao acima de 15%; o maior movimento real foi +11,3%
+(Quality, 14 Pro Max 128GB Roxo seminovo, 3.099 -> 3.450).
+
+**O erro mais caro que quase aconteceu nao foi de preco, foi de git.** O clone local
+estava **25 commits atras** do GitHub, e eu commitei em cima de `266f614`, base de tres
+dias antes. Um `git push --force` teria apagado o painel de Performance de Vendas, a
+Fatia 2 do Escopo, o molde de conteudo e o bloco de Pos-Venda. Pior: um dos 25 commits
+(`e95edf4`) renormalizou `public/calc/index.html` de CRLF para LF, 1.443 linhas, junto
+com um `.gitattributes` novo, entao um rebase conflitaria no arquivo inteiro.
+
+O que funcionou: branch de seguranca, `git reset --hard github/main`, **reaplicar as
+quatro edicoes** sobre o arquivo em LF e regerar o `dados.js`. Resultado identico (134
+produtos, 405 precos) e diff final de 3 arquivos e 92 linhas, em vez da reescrita
+gigante. Regra: `git fetch github main && git rev-list --left-right --count
+github/main...HEAD` ANTES de commitar, nao depois.
+
+**O push sai daqui, pelo remote `github`.** A skill afirmava desde 27/07 que `git push`
+sempre falhava e que o dono precisava do prefixo `!`. Isso era verdade so para o
+`origin` (proxy morto em `127.0.0.1:41729`). O remote `github` aponta para a URL real e
+faz fetch E push normalmente. Corrigido em `mapa-calculadoras.md`.
+
+**Postgres dobra `1/0` em tempo de planejamento.** Montei a trava da gravacao como
+`case when contagem_ok then true else (select 1/0)::boolean end`. Estourou `division by
+zero` ANTES de olhar o dado, entao a trava reprovava uma carga correta. Guard-rail se
+escreve em bloco `DO ... raise exception`, depois do insert, dentro da transacao: e o
+mesmo padrao ja usado para provar RPC sem sujar producao.
+
+**Payload grande vai para staging ANTES de transformar.** Quando a trava furada
+derrubou a transacao, o payload de 35 KB foi junto e teria que ser reenviado inteiro a
+cada tentativa. Passei a gravar em `privado.carga_DDMM` primeiro; dai a transformacao
+vira retentavel de graca. Procedimento em `mapa-calculadoras.md`.
+
+**Provar dado que atravessa por CHECKSUM dos dois lados.** Contagem, soma e casos
+invalidos calculados no Node e no Postgres: 501 produtos, 1.043 precos, soma
+4.176.656,24, iguais. O mesmo para a derivacao do consultor, comparada contra o BANCO e
+nao contra o meu proprio calculo: 405 precos, soma pv 1.819.793,99 e pp 1.860.293,99.
+Sem isso, "transcrevi certo" e afirmacao, nao prova.
+
+**Categoria nova sem margem exige CODIGO, nao so dado.** O dono mandou passar a incluir
+Garmin, moto eletrica e fone paralelo, "sobre valores de lucro, nenhum. apenas o custo".
+So carregar no banco nao bastava: `mg()` mandava toda categoria != MacBook para o
+`else` e devolvia a margem de iPhone, entao a moto apareceria com preco de venda.
+Detalhe completo em `formato-dados.md`.
+
+**`/calc/index.html` mente.** O worker roda com fallback de SPA: essa URL devolve outra
+pagina sem erro, e me fez achar por um minuto que o deploy nao tinha subido. Provar em
+`/calc/`.
+
+**A regex da prova nao casava por causa de CRLF.** `/function mg\(c\)\{.*?\}\n/` falhava
+porque o arquivo tinha `\r\n`. Custou uma rodada. Hoje o `.gitattributes` fixou LF no
+repositorio, mas a licao vale: em prova que le arquivo por regex, usar `\r?\n`.
+
+**Duas listas iguais no mesmo minuto: usar a segunda.** Real Comércio mandou duas
+versoes com precos diferentes (iPad 2.629,45 contra 2.619,45; Watch 1.780 contra 1.778)
+e a FMATA repetiu a dela com o 17 Pro 256 Laranja indo de 6.550 para 6.650. Regra
+adotada e aprovada: a ultima mensagem vence, e item que so existe na primeira entra
+tambem, declarado no diff.
+
+**A validade venceu de novo, e de novo ninguem viu.** Estava em 10/08, vencida havia 5
+dias, com as quatro funcoes de copiar pedido travadas: o consultor nao cotava desde
+11/08. E a segunda vez (a primeira foi em 27/07, nove dias). Isso nao e descuido de uma
+sessao, e um prazo que expira sozinho sem nada avisar. **Enquanto nao existir alerta, a
+primeira coisa a medir em toda sessao e a validade.**
+
+---
+
 ## 03/08/2026 (carga) — Cinco armadilhas de leitura, todas com preco em cima
 
 Rodada de 17 listas, 12 fornecedores, **841 precos** no blob (era 615). Cobertura 730 de

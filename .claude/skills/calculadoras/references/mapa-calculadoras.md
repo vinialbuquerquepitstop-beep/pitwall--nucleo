@@ -1,7 +1,12 @@
 # Mapa: onde cada calculadora vive
 
-Medido em 27/07/2026. Atualizar este arquivo sempre que URL, arquivo, guard, RLS ou
-deploy mudarem.
+Medido em 27/07/2026, revisto em 15/08/2026. Atualizar este arquivo sempre que URL,
+arquivo, guard, RLS ou deploy mudarem.
+
+**A URL do arquivo da calc do dono e `/calc/`, nao `/calc/index.html`.** O worker roda
+com `not_found_handling: single-page-application`: pedir `/calc/index.html` cai no
+fallback e devolve OUTRA pagina, sem erro nenhum. Medido em 15/08/2026, quando um
+`curl` nessa URL fez parecer que o deploy nao tinha subido. Provar sempre por `/calc/`.
 
 ---
 
@@ -30,6 +35,27 @@ deploy mudarem.
 - `authenticated` tem **so SELECT**, com `using (tenant_id = privado.fn_tenant_atual())`.
 - Escrita e por service role (Dashboard/MCP). Nao existe caminho de escrita pela pagina.
 - `CREATE OR REPLACE` em funcao/view reseta ACL: se mexer, refazer REVOKE/GRANT.
+
+**A tabela tem DUAS linhas, e uma e orfa.** Medido em 15/08/2026: o tenant do dono
+(`...0001`) e uma linha do tenant `...0004` com o blob de 27/07 (341 produtos). A RLS
+filtra, entao a tela do dono le a certa. O risco esta no `.single()` do
+`public/calc/index.html` (`sb.from('calc_dados').select('dados').single()`): se alguem
+logar num tenant que enxergue as duas, o `.single()` quebra a pagina inteira. Limpar a
+linha orfa segue pendente, e nao foi feito por nao ter sido pedido.
+
+### Como gravar uma carga grande (aprendido em 15/08/2026)
+
+Nao mandar o blob inteiro num `apply_migration` de uma vez. O caminho que funcionou:
+
+1. **Staging primeiro**: `create table privado.carga_DDMM (ord bigint, l text)` e carregar
+   o texto compacto (`n|c|t|f|cor:v,cor:v`) por `regexp_split_to_table`. Assim o payload
+   fica no banco e a transformacao vira retentavel sem reenviar nada.
+2. **Diagnosticar por SELECT** antes de escrever: contagem, soma, cor sem hex,
+   fornecedor sem praca, preco invalido.
+3. **Montar e gravar** lendo do staging, e so entao dropar a tabela.
+
+A forma compacta cabe em ~35 KB contra ~91 KB do JSON. E o `privado` e o schema certo
+porque e invisivel ao PostgREST.
 
 ---
 
@@ -97,8 +123,23 @@ na v39: nao recriar sem o dono pedir.
 ## Deploy e prova
 
 - Git e a fonte da verdade; a Cloudflare publica no push. O `name` no `wrangler.jsonc`
-  (`flat-resonance-09ba`) tem que bater com o Worker no painel.
-- O `origin` do clone local aponta para um proxy morto (`127.0.0.1:41729`): `git push`
-  daqui falha. O dono empurra com o prefixo `!` no prompt.
+  (`flat-resonance-09ba`) tem que bater com o Worker no painel. Medido em 15/08/2026:
+  do push ate o worker servir o arquivo novo, **~30 segundos**.
+- **Existem DOIS remotes, e so um presta.** Corrigido em 15/08/2026:
+
+  | remote | URL | serve? |
+  |---|---|---|
+  | `origin` | `http://local_proxy@127.0.0.1:41729/...` | nao, proxy morto |
+  | `github` | `https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo.git` | **sim, fetch e push** |
+
+  `git push github HEAD:main` **sai daqui direto**, sem precisar do prefixo `!`. Ate a
+  v52 a skill afirmava que o push sempre falhava; era verdade so para o `origin`.
+- **Conferir se o clone esta atrasado ANTES de commitar.** Em 15/08/2026 o clone local
+  estava **25 commits atras** do GitHub, com a base em `266f614` de tres dias antes. Um
+  `--force` teria apagado o painel de Performance de Vendas, a Fatia 2 do Escopo, o
+  molde de conteudo e o bloco de Pos-Venda. O comando:
+  ```
+  git fetch github main && git rev-list --left-right --count github/main...HEAD
+  ```
 - "Nao esta no ar" quase sempre e cache do navegador. Provar com `curl` no worker, nao
-  com F5.
+  com F5, e **em `/calc/`**, nunca em `/calc/index.html` (cai no fallback de SPA).

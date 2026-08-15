@@ -39,8 +39,11 @@ some no meio de 690 precos e volta como margem negativa. Por isso:
 2. **Nunca gravar sem diff aprovado.** Sempre mostrar o resumo de variacao antes de
    escrever em `calc_dados`, e esperar o "pode gravar".
 3. **Nunca inflar cobertura.** Se casou 71% das linhas, dizer 71%, nao "quase tudo".
-4. **Nunca empurrar sozinho.** O commit e da skill; o `git push` e do dono (proxy morto,
-   ver `references/procedimento-alimentacao.md`).
+4. **Nunca empurrar sem provar, e nunca sobre base velha.** O push sai da skill, por
+   `git push github HEAD:main` (corrigido em 15/08/2026: o remote morto e o `origin`,
+   nao o `github`). Antes de commitar, medir o atraso do clone contra `github/main`:
+   em 15/08 estava 25 commits atras, e um `--force` teria apagado trabalho de tres
+   dias. Ver `references/procedimento-alimentacao.md`.
 
 ---
 
@@ -64,8 +67,10 @@ Resumo do trilho:
 6. **Gerar o `dados.js` do consultor** a partir do MESMO blob, com validade nova.
    A validade e obrigatoria em toda rodada: sem ela a calc do consultor trava.
 7. **Validar** (`node --check` mais a conferencia de contagem e formato de data) e
-   **commitar**. Pedir ao dono o `! git push origin main`.
+   **commitar**, depois de conferir que o clone nao esta atras do `github/main`.
+   Empurrar com `git push github HEAD:main`.
 8. **Provar que subiu** com `curl` no worker, nunca pelo navegador do dono (cache).
+   Para codigo da calc do dono a URL e `/calc/`, nao `/calc/index.html`.
 9. **Atualizar a skill** conforme a secao abaixo.
 
 ---
