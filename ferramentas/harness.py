@@ -50,28 +50,80 @@ var LEADS = %s, ROTULOS = %s, HIST = %s;
 // Em todas, valor - custo - frete - taxas bate com o campo lucro de proposito:
 // a suite compara as DUAS contas, e fixture inconsistente cegaria justamente a
 // assercao que existe para pegar duas definicoes de lucro no sistema.
+// Os campos do bloco de DETALHES (v61) entram aqui pelo mesmo criterio: cada um
+// existe por um caso que a tela possa errar, nao para engordar o fixture.
+//   v1 e a venda COMPLETA -> prova que todo campo gravado chega na tela;
+//   v2 nasce quase vazia   -> prova que o rotulo do campo vazio CONTINUA visivel
+//                             (o travessao), que e a regra do campo vazio;
+//   v5 tem troca de verdade-> prova o grupo Troca aberto, e so ele;
+//   v1/v4 dividem fornecedor e v5 tem outro -> o recorte precisa de mais de um
+//   grupo para provar que agrupa, e de um vazio para provar "sem fornecedor".
+// As ETAPAS (v61) seguem o mesmo criterio, uma por caso que o quadro erraria:
+//   v1 entregue           -> a coluna que enche para sempre, e o recorte dela;
+//   v2 em_maos, 9 dias    -> o chip de parada no vermelho E o botao Relatorio;
+//   v3 CANCELADA          -> nao pode aparecer em coluna nenhuma;
+//   v4 pendente, 4 dias   -> o chip no morno, e a venda que ainda e pre_venda;
+//   v5 a_caminho, 1 dia   -> a etapa onde o Enviar NAO pode mover de novo.
+// `a_retirar` fica VAZIA de proposito: coluna vazia tem que dizer "nenhuma", e
+// sem um caso assim no fixture ninguem provaria isso.
 var VENDAS_STUB = [{ id:'v1', venda_code:'VENDA-0001', modelo_rotulo:'iPhone 13', capacidade:'128GB',
   cor:'Meia-noite', condicao:'seminovo', imei:'355000000000001', cliente_nome:'Diego Souza',
   data_venda:'2026-07-18', valor_venda:3200, lucro:540, status:'concluida', tem_trade_in:false,
   custo_aparelho:2600, despesa_frete:30, despesa_taxas:30,
-  lead_id:'l9', cliente_whatsapp:'5521990000000',
+  lead_id:'l9', cliente_whatsapp:'5521990000000', cliente_code:'CLI-0001',
+  etapa:'entregue', etapa_em:'2026-07-18T13:00:00Z', dias_na_etapa:0,
+  fornecedor_nome:'MP Imports', fornecedor_contato:'21 99999-0000',
   fornecedor_local_retirada:'Campo Grande', endereco_entrega:'Rua das Laranjeiras 100, apto 501',
+  comprador_cpf:'529.982.247-25', comprador_nascimento:'1990-03-12',
+  comprador_instagram:'@diego.souza', observacoes:'Cliente pediu nota no CNPJ',
+  nf_numero:'1234', criado_em:'2026-07-18T13:00:00Z', atualizado_em:'2026-07-19T10:00:00Z',
   valor_a_cobrar:90, forma_pagamento:'pix', motoboy:'Hiago', motoboy_whatsapp:'5521987654321' },
   { id:'v2', venda_code:'VENDA-0002', modelo_rotulo:'iPhone 15', capacidade:'256GB',
   cliente_nome:'Ana Lima', data_venda:'2026-07-19', valor_venda:5000, lucro:800,
   custo_aparelho:4100, despesa_frete:90, despesa_taxas:10,
   status:'concluida', tem_trade_in:false, lead_id:'l8', cliente_whatsapp:'5521990000001',
   endereco_entrega:null, valor_a_cobrar:null, forma_pagamento:null,
+  fornecedor_nome:null, comprador_cpf:null, observacoes:null, condicao:null,
+  etapa:'em_maos', etapa_em:'2026-08-06T13:00:00Z', dias_na_etapa:9,
   motoboy:null, motoboy_whatsapp:null },
   { id:'v3', venda_code:'VENDA-0003', modelo_rotulo:'iPhone 16', cliente_nome:'Fantasma',
   data_venda:'2026-07-20', valor_venda:9999, lucro:9999, status:'cancelada', tem_trade_in:false,
-  custo_aparelho:0, despesa_frete:0, despesa_taxas:0, lead_id:'l7' },
+  custo_aparelho:0, despesa_frete:0, despesa_taxas:0, lead_id:'l7',
+  fornecedor_nome:'Fornecedor da cancelada', condicao:'lacrado', forma_pagamento:'pix',
+  etapa:'pendente', dias_na_etapa:30 },
   { id:'v4', venda_code:'VENDA-0004', modelo_rotulo:'iPhone 14', cliente_nome:'Bruno Reis',
   data_venda:'2026-08-05', valor_venda:2000, lucro:300, status:'pre_venda', tem_trade_in:false,
-  custo_aparelho:1650, despesa_frete:50, despesa_taxas:0, lead_id:'l6' },
+  custo_aparelho:1650, despesa_frete:50, despesa_taxas:0, lead_id:'l6',
+  fornecedor_nome:'MP Imports', condicao:'lacrado', forma_pagamento:'pix',
+  etapa:'pendente', etapa_em:'2026-08-11T13:00:00Z', dias_na_etapa:4 },
   { id:'v5', venda_code:'VENDA-0005', modelo_rotulo:'iPhone 12', cliente_nome:'Carla Nunes',
-  data_venda:'2026-08-06', valor_venda:1000, lucro:-500, status:'concluida', tem_trade_in:false,
+  data_venda:'2026-08-06', valor_venda:1000, lucro:-500, status:'concluida', tem_trade_in:true,
+  entrada_modelo:'iPhone X', entrada_imei:'355000000000099', entrada_valor:600,
+  fornecedor_nome:'BR COSTA', condicao:'vitrine', forma_pagamento:'cartao',
+  etapa:'a_caminho', etapa_em:'2026-08-14T13:00:00Z', dias_na_etapa:1,
   custo_aparelho:1400, despesa_frete:100, despesa_taxas:0, lead_id:'l5' }];
+// Auditoria: a tabela existe desde a Fase 2 e nunca teve tela nenhuma. O fixture
+// espelha o formato REAL (acao + antes/depois em jsonb) e cada linha existe por
+// um caso:
+//   INSERT              -> vira "venda cadastrada", sem diff;
+//   UPDATE com 2 campos -> vira duas mudancas com valor de antes e de depois;
+//   UPDATE so no carimbo -> NAO pode virar linha: "algo mudou" sem dizer o que
+//                           e pior que silencio;
+//   linha de outra tabela -> prova que o .eq('tabela','venda') filtra de fato.
+var AUDITORIA = [
+  { tabela:'venda', registro_id:'v1', acao:'INSERT', antes:null,
+    depois:{ venda_code:'VENDA-0001', valor_venda:3000, condicao:'lacrado' },
+    criado_em:'2026-07-18T13:00:00Z' },
+  { tabela:'venda', registro_id:'v1', acao:'UPDATE',
+    antes:{ valor_venda:3000, condicao:'lacrado', atualizado_em:'2026-07-18T13:00:00Z' },
+    depois:{ valor_venda:3200, condicao:'seminovo', atualizado_em:'2026-07-19T10:00:00Z' },
+    criado_em:'2026-07-19T10:00:00Z' },
+  { tabela:'venda', registro_id:'v1', acao:'UPDATE',
+    antes:{ valor_venda:3200, atualizado_em:'2026-07-19T10:00:00Z' },
+    depois:{ valor_venda:3200, atualizado_em:'2026-07-20T10:00:00Z' },
+    criado_em:'2026-07-20T10:00:00Z' },
+  { tabela:'lead', registro_id:'v1', acao:'UPDATE', antes:{ nome:'antigo' },
+    depois:{ nome:'de outra tabela' }, criado_em:'2026-07-21T10:00:00Z' }];
 // carregarVendasArq() le a TABELA venda com .not('arquivado_em','is',null). O
 // stub trata .not como PASSAGEM, nao como filtro, entao quem carrega o sentido
 // do filtro aqui e o proprio fixture: nesta chave entra so a linha ja
@@ -89,7 +141,7 @@ var MOTOBOYS = [{ id:'mb1', nome:'Hiago', whatsapp:'5521987654321' },
                 { id:'mb2', nome:'Rafa sem numero', whatsapp:null }];
 var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB,
   venda: VENDAS_ARQ_STUB, catalogo_iphone: CATALOGO_STUB,
-  motoboy: MOTOBOYS,
+  motoboy: MOTOBOYS, auditoria: AUDITORIA,
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -275,6 +327,31 @@ window.supabase = {
           if (!args.p_texto || !args.p_texto.trim())
             return Promise.resolve({ data: { ok: false, msg: 'Nota vazia' }, error: null });
           return Promise.resolve({ data: { ok: true, msg: 'Nota registrada' }, error: null });
+        }
+        // ---- Etapa da venda: espelha as recusas REAIS de mover_etapa_venda.
+        // Stub que aceita tudo cegaria justamente as assercoes de recusa, do
+        // mesmo jeito que o .not() ausente cegava a aba Vendas inteira.
+        if (nome === 'mover_etapa_venda') {
+          var vAlvo = VENDAS_STUB.filter(function (x) { return x.id === args.p_id; })[0];
+          var ETS = ['pendente','a_retirar','em_maos','a_caminho','entregue'];
+          if (!vAlvo)
+            return Promise.resolve({ data: { ok: false, erro: 'Venda nao encontrada.' }, error: null });
+          if (ETS.indexOf(args.p_etapa) < 0)
+            return Promise.resolve({ data: { ok: false, erro: 'Etapa invalida: ' + args.p_etapa }, error: null });
+          if (vAlvo.status === 'cancelada')
+            return Promise.resolve({ data: { ok: false, erro: 'Venda cancelada nao anda no fluxo.' }, error: null });
+          if (vAlvo.etapa === args.p_etapa)
+            return Promise.resolve({ data: { ok: false, erro: 'A venda ja esta nesta etapa.' }, error: null });
+          var promov = (args.p_etapa === 'entregue' && vAlvo.status === 'pre_venda');
+          var deEtapa = vAlvo.etapa;
+          // o stub MUTA o fixture: sem isso, repintar depois de mover mostraria
+          // a venda na coluna antiga e a assercao passaria pelo motivo errado.
+          vAlvo.etapa = args.p_etapa;
+          vAlvo.dias_na_etapa = 0;
+          if (promov) vAlvo.status = 'concluida';
+          return Promise.resolve({ data: { ok: true, id: args.p_id, venda_code: vAlvo.venda_code,
+            etapa: args.p_etapa, de: deEtapa, status_promovido: promov,
+            etapa_rotulo: args.p_etapa, msg: vAlvo.venda_code + ' movida' }, error: null });
         }
         // ---- Vendas: espelha a validacao REAL da RPC registrar_venda ----
         if (nome === 'registrar_venda') {
@@ -2034,10 +2111,14 @@ async function rodar() {
   ok('a coluna carrega o resumo do mes no aria-label',
      vgAria(vgJul).indexOf('margem 16,3%') >= 0 && vgAria(vgJul).indexOf('R$ 8.200,00') >= 0,
      vgAria(vgJul));
+  // Escopado em .g-meses: o quadro de etapas (v61) nasceu ACIMA deste grafico na
+  // mesma aba, e um querySelector solto por .vg-tit passou a pegar o titulo do
+  // quadro. A assercao reprovou por isso, e o certo e ela apontar para o
+  // componente que ela testa, nao o quadro mudar de classe para caber nela.
   ok('o grafico explica a propria leitura no titulo',
-     (document.querySelector('#lista .vg-tit') || {}).textContent &&
-     document.querySelector('#lista .vg-tit').textContent.indexOf('altura = faturamento') >= 0,
-     (document.querySelector('#lista .vg-tit') || {}).textContent);
+     (document.querySelector('#lista .g-meses .vg-tit') || {}).textContent &&
+     document.querySelector('#lista .g-meses .vg-tit').textContent.indexOf('altura = faturamento') >= 0,
+     (document.querySelector('#lista .g-meses .vg-tit') || {}).textContent);
   // tabular-nums da largura de zero a todo digito e deixa numero grande frouxo.
   ok('o numero grande usa figuras proporcionais, nao tabular-nums',
      vgEstilo('#lista .vg-val[data-cel="vg-fat"] .vg-num', 'fontVariantNumeric').indexOf('tabular-nums') < 0,
@@ -2137,8 +2218,12 @@ async function rodar() {
   if (vgArqBt) vgArqBt.click();
   await espera(90);
 
-  var btEnt1 = document.querySelector('[data-acao="venda-entrega"][data-id="v1"]');
-  var btEnt2 = document.querySelector('[data-acao="venda-entrega"][data-id="v2"]');
+  // Escopado em .venda-ent: desde o quadro de etapas (v61) o mesmo data-acao
+  // existe em dois lugares — na linha de entrega do card e no card do quadro —
+  // e um seletor solto pegava o do quadro, que nao tem (nem deve ter) a
+  // semantica de "falta endereco".
+  var btEnt1 = document.querySelector('.venda-ent [data-acao="venda-entrega"][data-id="v1"]');
+  var btEnt2 = document.querySelector('.venda-ent [data-acao="venda-entrega"][data-id="v2"]');
   ok('as duas vendas tem o botao Relatorio', !!btEnt1 && !!btEnt2);
   ok('o botao da venda SEM endereco pede acao (ent-pede, semantica de morno)',
      !!btEnt2 && btEnt2.className.indexOf('ent-pede') >= 0, btEnt2 && btEnt2.className);
@@ -2311,6 +2396,276 @@ async function rodar() {
      document.getElementById('painelEntrega').className);
   document.getElementById('abaVendas').click();
   await espera(220);
+
+  // ============ quadro de etapas: ONDE cada venda esta (v61) ============
+  // Antes disto o banco nao guardava nenhum estagio: as 7 vendas reais estavam
+  // todas 'concluida', com endereco e motoboy preenchidos de uma vez. Nao havia
+  // "pendente" nem "a caminho" em lugar nenhum do sistema.
+  var qv = document.querySelector('#lista .qv');
+  ok('o quadro de etapas existe', !!qv);
+  ok('o quadro vem ANTES do painel de dinheiro (o acionavel na frente do lido)',
+     !!qv && !!document.querySelector('#lista .vg') &&
+     (qv.compareDocumentPosition(document.querySelector('#lista .vg'))
+      & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+  ok('as cinco etapas viraram cinco colunas',
+     document.querySelectorAll('#lista .qv-col').length === 5,
+     'n=' + document.querySelectorAll('#lista .qv-col').length);
+  // O rotulo sai do dicionario (invariante 12): o codigo nunca aparece na tela.
+  ok('a coluna mostra o ROTULO, nunca o codigo',
+     qv.textContent.indexOf('A retirar') >= 0 && qv.textContent.indexOf('Em mãos') >= 0 &&
+     qv.textContent.indexOf('a_retirar') < 0 && qv.textContent.indexOf('em_maos') < 0,
+     qv.textContent.slice(0, 120));
+  function qvCol(cod) { return document.querySelector('#lista .qv-col[data-col="' + cod + '"]'); }
+  ok('cada venda caiu na coluna da sua etapa',
+     qvCol('pendente').textContent.indexOf('VENDA-0004') >= 0 &&
+     qvCol('em_maos').textContent.indexOf('VENDA-0002') >= 0 &&
+     qvCol('a_caminho').textContent.indexOf('VENDA-0005') >= 0 &&
+     qvCol('entregue').textContent.indexOf('VENDA-0001') >= 0);
+  // A cancelada e a unica que nao esta em lugar nenhum: ela nao esta parada, esta fora.
+  ok('a venda cancelada NAO aparece em coluna nenhuma do quadro',
+     qv.textContent.indexOf('VENDA-0003') < 0, qv.textContent.slice(0, 200));
+  ok('mas ela continua na lista de baixo (sai do fluxo, nao da tela)',
+     telaTxt().indexOf('VENDA-0003') >= 0);
+  // Coluna vazia DIZ que esta vazia: sumir levaria junto a informacao de que
+  // nao ha nada travado ali.
+  ok('coluna sem venda diz "nenhuma" em vez de sumir',
+     qvCol('a_retirar').textContent.indexOf('nenhuma') >= 0 &&
+     qvCol('a_retirar').querySelector('.qv-col-n').textContent === '0',
+     qvCol('a_retirar').textContent);
+  // ---- o sinal de parada, que e a unica cor do quadro ----
+  ok('venda parada ha 9 dias acende o chip de alerta',
+     !!qvCol('em_maos').querySelector('.qv-dias.alerta') &&
+     qvCol('em_maos').textContent.indexOf('há 9 dias') >= 0,
+     qvCol('em_maos').textContent);
+  ok('parada ha 4 dias fica em atencao, nao em alerta',
+     !!qvCol('pendente').querySelector('.qv-dias.atencao') &&
+     !qvCol('pendente').querySelector('.qv-dias.alerta'));
+  var chipAl = qvCol('em_maos').querySelector('.qv-dias.alerta');
+  ok('o alerta de parada usa a cor de erro medida, nao uma cor solta',
+     getComputedStyle(chipAl).color === 'rgb(176, 18, 53)', getComputedStyle(chipAl).color);
+  ok('a coluna Entregue nao mostra dias parados (ali o tempo parou de correr)',
+     !qvCol('entregue').querySelector('.qv-dias'));
+  ok('a venda que ainda e pre-venda declara isso no card',
+     qvCol('pendente').textContent.indexOf('pré-venda') >= 0);
+  // ---- o botao de cada etapa ----
+  ok('em Em maos o botao e o RELATORIO, e ele abre a entrega em vez de mover',
+     !!qvCol('em_maos').querySelector('[data-acao="venda-entrega"]') &&
+     !qvCol('em_maos').querySelector('[data-acao="venda-etapa"][data-etapa="a_caminho"]'));
+  ok('a coluna Entregue nao oferece proximo passo', !qvCol('entregue').querySelector('.qv-btn'));
+  ok('toda etapa depois da primeira tem caminho de VOLTA',
+     !!qvCol('a_retirar') && !qvCol('pendente').querySelector('.qv-volta') &&
+     !!qvCol('em_maos').querySelector('.qv-volta') &&
+     !!qvCol('a_caminho').querySelector('.qv-volta') &&
+     !!qvCol('entregue').querySelector('.qv-volta'));
+  // ---- mover de verdade ----
+  var redeQ = window.__fromChamadas.length;
+  qvCol('pendente').querySelector('[data-acao="venda-etapa"]').click();
+  await espera(320);
+  var chMv = window.__rpcChamadas.filter(function (x) { return x.nome === 'mover_etapa_venda'; })[0];
+  ok('o botao chamou mover_etapa_venda', !!chMv);
+  // O destino sai do ATRIBUTO do botao, nao de um "proximo" calculado no clique.
+  ok('e mandou a venda e a etapa de destino corretas',
+     !!chMv && chMv.args.p_id === 'v4' && chMv.args.p_etapa === 'a_retirar',
+     chMv ? JSON.stringify(chMv.args) : 'sem chamada');
+  ok('depois de mover, a venda aparece na coluna nova',
+     qvCol('a_retirar').textContent.indexOf('VENDA-0004') >= 0 &&
+     qvCol('pendente').textContent.indexOf('VENDA-0004') < 0,
+     qvCol('a_retirar').textContent.slice(0, 80));
+  ok('mover releu SO as vendas, nao a base inteira',
+     window.__fromChamadas.slice(redeQ).join(',') === 'v_venda',
+     'tabelas=' + window.__fromChamadas.slice(redeQ).join(','));
+  // ---- as recusas chegam na tela ----
+  var nRpc = window.__rpcChamadas.length;
+  var cardMv = qvCol('a_retirar').querySelector('.qv-card');
+  var btVolta = cardMv.querySelector('.qv-volta');
+  ok('o botao de voltar aponta para a etapa anterior, nao para o comeco',
+     btVolta.getAttribute('data-etapa') === 'pendente', btVolta.getAttribute('data-etapa'));
+
+  // ============ detalhes da venda: a superficie de LEITURA (v61) ============
+  // O card mostrava 17 campos e a venda guarda 39. Os 22 que faltavam so
+  // apareciam abrindo o painel EDITAR, ou seja: consultar exigia entrar no unico
+  // modo capaz de corromper a venda. Estas assercoes existem para que a proxima
+  // sessao nao "simplifique" o bloco de volta para dentro do formulario.
+  ok('todo card de venda tem o botao Detalhes',
+     document.querySelectorAll('#lista [data-acao="venda-detalhes"]').length === 5,
+     'n=' + document.querySelectorAll('#lista [data-acao="venda-detalhes"]').length);
+  var btDet = document.querySelector('#lista [data-acao="venda-detalhes"][data-id="v1"]');
+  var cardV1 = btDet && btDet.parentNode && btDet.parentNode.parentNode;
+  ok('o bloco de detalhes nasce FECHADO (o card nao vira parede de texto)',
+     !!cardV1 && cardV1.querySelector('[data-det]').className.indexOf('aberto') < 0 &&
+     btDet.getAttribute('aria-expanded') === 'false');
+  var deRede = window.__fromChamadas.length, deRpc = window.__rpcChamadas.length;
+  btDet.click();
+  await espera(280);
+  var vd = cardV1.querySelector('[data-det]');
+  ok('abrir os detalhes abre o bloco', vd.className.indexOf('aberto') >= 0, vd.className);
+  ok('e o botao declara o estado para quem usa leitor de tela',
+     btDet.getAttribute('aria-expanded') === 'true');
+  // ---- os campos que NAO existiam em tela nenhuma ----
+  var det = vd.textContent;
+  ok('detalhes: a condicao do aparelho aparece', det.indexOf('Seminovo') >= 0, det.slice(0, 90));
+  ok('detalhes: o custo do aparelho aparece', det.indexOf('R$ 2.600,00') >= 0);
+  ok('detalhes: frete e taxas aparecem por venda, nao so somados no topo',
+     det.indexOf('frete / motoboy') >= 0 && det.indexOf('taxas / maquininha') >= 0);
+  // 540 / 3200 = 16,875% -> 16,9% com UMA casa e virgula, igual ao resto do app
+  ok('detalhes: a margem da venda e derivada na leitura', det.indexOf('16,9%') >= 0, det.slice(0, 200));
+  ok('detalhes: o fornecedor aparece inteiro (nome, contato e retirada)',
+     det.indexOf('MP Imports') >= 0 && det.indexOf('21 99999-0000') >= 0 &&
+     det.indexOf('Campo Grande') >= 0);
+  // Rotulo, nunca codigo: `pix` cru na tela seria a mesma regressao que tirou o
+  // emoji do dicionario em 16/07 e deixou o codigo aparecer no lugar do rotulo.
+  ok('detalhes: a forma de pagamento aparece com rotulo, nao com o codigo',
+     det.indexOf('Pix') >= 0 && det.split('pix').length === 1,
+     det.indexOf('Pix') + ' | cru=' + (det.split('pix').length - 1));
+  ok('detalhes: o CPF do comprador aparece (e o que a NF pede)',
+     det.indexOf('529.982.247-25') >= 0);
+  ok('detalhes: a observacao da venda aparece',
+     det.indexOf('Cliente pediu nota no CNPJ') >= 0);
+  ok('detalhes: o rastro diz quando a venda nasceu e quando foi corrigida',
+     det.indexOf('cadastrada em') >= 0 && det.indexOf('última correção') >= 0);
+  // A margem e o lucro tem que sair da MESMA conta do painel de cima. Duas
+  // definicoes de margem no mesmo sistema divergem em semanas.
+  ok('detalhes: o lucro do bloco bate com o lucro do card',
+     det.indexOf('R$ 540,00') >= 0);
+  // ---- leitura, nunca escrita ----
+  ok('o bloco de detalhes NAO tem nenhum campo de formulario (e leitura pura)',
+     vd.querySelectorAll('input, select, textarea').length === 0,
+     'n=' + vd.querySelectorAll('input, select, textarea').length);
+  ok('abrir os detalhes NAO rele a venda: so o historico foi a rede',
+     window.__fromChamadas.length === deRede + 1 &&
+     window.__fromChamadas[window.__fromChamadas.length - 1] === 'auditoria' &&
+     window.__rpcChamadas.length === deRpc,
+     'tabelas=' + window.__fromChamadas.slice(deRede).join(',') +
+     ' rpc=' + (window.__rpcChamadas.length - deRpc));
+  // ---- o campo vazio continua na tela ----
+  var btDet2 = document.querySelector('#lista [data-acao="venda-detalhes"][data-id="v2"]');
+  btDet2.click();
+  await espera(120);
+  var vd2 = btDet2.parentNode.parentNode.querySelector('[data-det]');
+  ok('venda sem fornecedor ainda MOSTRA o rotulo fornecedor (o vazio e informacao)',
+     vd2.textContent.indexOf('fornecedor') >= 0);
+  ok('e o valor ausente vira travessao, nao some nem vira R$ 0,00',
+     vd2.querySelectorAll('.vd-val.vazio').length >= 6 &&
+     vd2.textContent.indexOf('R$ 0,00') < 0,
+     'vazios=' + vd2.querySelectorAll('.vd-val.vazio').length);
+  // ---- troca: grupo aberto so quando existe ----
+  ok('venda SEM troca nao gasta tres linhas vazias com o aparelho de entrada',
+     vd2.textContent.indexOf('modelo do usado') < 0);
+  var btDet5 = document.querySelector('#lista [data-acao="venda-detalhes"][data-id="v5"]');
+  btDet5.click();
+  await espera(120);
+  var vd5 = btDet5.parentNode.parentNode.querySelector('[data-det]');
+  ok('venda COM troca mostra modelo, IMEI e valor do usado',
+     vd5.textContent.indexOf('iPhone X') >= 0 &&
+     vd5.textContent.indexOf('355000000000099') >= 0 &&
+     vd5.textContent.indexOf('R$ 600,00') >= 0, vd5.textContent.slice(0, 140));
+  // margem negativa nao pode pintar de verde
+  var mgNeg = [].filter.call(vd5.querySelectorAll('.vd-lin.neg .vd-val'), function (el) {
+    return el.textContent.indexOf('%') >= 0; })[0];
+  ok('margem negativa sai na cor de erro, nunca na de lucro',
+     !!mgNeg && getComputedStyle(mgNeg).color === 'rgb(176, 18, 53)',
+     mgNeg ? getComputedStyle(mgNeg).color : 'sem linha de margem negativa');
+
+  // ---- historico da venda: a auditoria que existia e nao tinha tela ----
+  var hist = vd.querySelector('[data-vdhist]');
+  ok('o historico da venda foi lido e pintado', !!hist &&
+     hist.textContent.indexOf('Lendo o histórico') < 0, hist ? hist.textContent.slice(0, 60) : 'sem bloco');
+  ok('o historico mostra o nascimento da venda',
+     hist.textContent.indexOf('venda cadastrada') >= 0);
+  ok('a correcao mostra o valor de ANTES e o de DEPOIS',
+     hist.textContent.indexOf('R$ 3.000,00') >= 0 && hist.textContent.indexOf('R$ 3.200,00') >= 0,
+     hist.textContent.slice(0, 200));
+  ok('e diz QUAL campo mudou, com o rotulo em portugues',
+     hist.textContent.indexOf('valor da venda') >= 0 && hist.textContent.indexOf('condição') >= 0);
+  // UMA LINHA POR CAMPO, e nao os campos emendados em texto corrido. A primeira
+  // versao era corrida e o diag_mobile a 360px acusou 3 sobreposicoes reais:
+  // span inline que quebra em duas linhas cobre a largura toda e passa por cima
+  // do vizinho. Esta assercao impede a volta do texto corrido.
+  ok('a correcao de dois campos vira DUAS linhas, nao um paragrafo emendado',
+     hist.querySelectorAll('.vd-hist-ev .vd-hist-mud').length === 2,
+     'n=' + hist.querySelectorAll('.vd-hist-ev .vd-hist-mud').length);
+  // Esta e a que impede o historico de virar ruido: UPDATE que so mexeu no
+  // carimbo de hora nao vira linha, e atualizado_em nunca aparece como campo.
+  ok('UPDATE que so mexeu no carimbo de hora NAO vira linha no historico',
+     hist.querySelectorAll('.vd-hist-ev').length === 2 &&
+     hist.textContent.indexOf('atualizado_em') < 0,
+     'eventos=' + hist.querySelectorAll('.vd-hist-ev').length);
+  ok('a auditoria de OUTRA tabela nao vaza para o historico da venda',
+     hist.textContent.indexOf('de outra tabela') < 0);
+  // invariante 6: auditoria e append-only e newest-first onde exibida
+  var evs = hist.querySelectorAll('.vd-hist-ev');
+  ok('o historico e newest-first (invariante 6)',
+     evs.length === 2 && evs[0].textContent.indexOf('19/07/2026') >= 0 &&
+     evs[1].textContent.indexOf('cadastrada') >= 0,
+     evs.length ? evs[0].textContent.slice(0, 50) : 'vazio');
+  // ---- fechar volta ao estado inicial ----
+  btDet.click();
+  await espera(80);
+  ok('fechar os detalhes esvazia o bloco e devolve o rotulo do botao',
+     vd.className.indexOf('aberto') < 0 && vd.innerHTML === '' &&
+     btDet.textContent === 'Detalhes' && btDet.getAttribute('aria-expanded') === 'false',
+     vd.className + ' | ' + btDet.textContent);
+
+  // ============ recorte: de ONDE vem o faturamento (v61) ============
+  // O painel respondia "quanto" e "quando" e nunca "de onde", com fornecedor,
+  // modelo, pagamento e condicao gravados em toda venda.
+  var corte = document.querySelector('#lista .vg-corte');
+  ok('o recorte existe no painel de vendas', !!corte);
+  ok('o recorte comeca por fornecedor',
+     !!document.querySelector('#lista [data-acao="vg-corte"][data-id="fornecedor"][aria-pressed="true"]'));
+  ok('as quatro dimensoes estao oferecidas',
+     document.querySelectorAll('#lista [data-acao="vg-corte"]').length === 4);
+  // Janela "Tudo" ja foi fixada mais acima nesta rodada, entao os numeros abaixo
+  // sao os do fixture inteiro e nao dependem do calendario.
+  var linsC = corte.querySelectorAll('.vg-corte-lin');
+  ok('agrupa as vendas por fornecedor: MP Imports, BR COSTA e o vazio',
+     linsC.length === 3, 'n=' + linsC.length + ' | ' + corte.textContent.slice(0, 120));
+  // v1 (3200) + v4 (2000) = 5200. A cancelada v3 tem fornecedor no fixture DE
+  // PROPOSITO: se ela entrasse, apareceria uma quarta linha de 9.999.
+  ok('o maior grupo soma as duas vendas do mesmo fornecedor',
+     corte.textContent.indexOf('MP Imports') >= 0 &&
+     corte.textContent.indexOf('R$ 5.200,00') >= 0 &&
+     corte.textContent.indexOf('2 vendas') >= 0, corte.textContent.slice(0, 200));
+  ok('a venda cancelada fica FORA do recorte, igual ao painel de cima',
+     corte.textContent.indexOf('Fornecedor da cancelada') < 0 &&
+     corte.textContent.indexOf('9.999') < 0);
+  ok('venda sem fornecedor vira um grupo declarado, nunca some do total',
+     corte.textContent.indexOf('sem fornecedor') >= 0);
+  ok('o rodape declara que agrupa pelo texto exato gravado',
+     corte.textContent.indexOf('texto exato') >= 0);
+  // A barra do maior grupo e a referencia de escala: sem os 100% nada e
+  // comparavel com nada.
+  var fitas = corte.querySelectorAll('.vg-corte-fita');
+  ok('a barra do maior grupo ocupa a largura toda e as outras sao proporcionais',
+     fitas[0].style.width === '100%' &&
+     parseFloat(fitas[1].style.width) < 100 && parseFloat(fitas[1].style.width) > 0,
+     fitas[0].style.width + ' / ' + fitas[1].style.width);
+  // Mesma paleta das duas barras que ja existiam: custo --dim, vazamento
+  // --morno, lucro --ok-fg. Cor nova aqui seria um terceiro vocabulario para o
+  // mesmo dado.
+  var segCusto = corte.querySelector('.vg-vaza-seg.s-custo');
+  ok('as fatias reusam a paleta das barras que ja existiam (custo em --dim)',
+     !!segCusto && getComputedStyle(segCusto).backgroundColor === 'rgb(92, 102, 117)',
+     segCusto ? getComputedStyle(segCusto).backgroundColor : 'sem fatia de custo');
+  // ---- trocar de dimensao ----
+  var redeC = window.__fromChamadas.length;
+  document.querySelector('#lista [data-acao="vg-corte"][data-id="condicao"]').click();
+  await espera(120);
+  var corte2 = document.querySelector('#lista .vg-corte');
+  ok('trocar o recorte para Condicao reagrupa a tela',
+     corte2.textContent.indexOf('Seminovo') >= 0 && corte2.textContent.indexOf('Vitrine') >= 0,
+     corte2.textContent.slice(0, 140));
+  ok('trocar o recorte NAO vai a rede: o dado ja estava em memoria',
+     window.__fromChamadas.length === redeC,
+     'chamadas=' + (window.__fromChamadas.length - redeC));
+  // Esta e a razao de o recorte trocar SO a secao em vez de repintar a lista.
+  ok('e NAO fecha o bloco de detalhes que estava aberto em outro card',
+     document.querySelector('#lista [data-det].aberto') !== null);
+  document.querySelector('#lista [data-acao="vg-corte"][data-id="fornecedor"]').click();
+  await espera(120);
+
+  ok('nenhum TypeError em todo o caminho dos detalhes e do recorte',
+     window.__erroJs.length === 0, window.__erroJs.join(' | '));
 
   // ---- fluidez: painel aberto NAO pode sobreviver a troca de aba (sem sobreposicao)
   document.querySelector('[data-acao="nova-venda"]').click();

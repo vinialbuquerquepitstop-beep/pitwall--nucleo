@@ -265,7 +265,12 @@
       <div class="campo"><label for="fvEntValor">Valor dado na troca (R$)</label><input id="fvEntValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
 
       <p class="cad-grupo">Entrega</p>
-      <div class="campo"><label for="fvStatus">Situação</label><select id="fvStatus"><option value="concluida">Concluída</option><option value="pre_venda">Pré-venda</option><option value="cancelada">Cancelada</option></select></div>
+      <div class="campo"><label for="fvStatus">Situação</label><select id="fvStatus"><option value="concluida">Concluída</option><option value="pre_venda">Pré-venda</option><option value="cancelada">Cancelada</option></select><span class="campo-nota">Se a venda vale dinheiro. É o que entra no faturamento.</span></div>
+      <!-- Etapa é OUTRA pergunta: onde a venda está no fluxo, não se ela vale.
+           Vem pré-selecionada pela situação (Concluída → Entregue, Pré-venda →
+           Pendente) porque o hábito da casa é cadastrar a venda depois do fato;
+           quem passar a cadastrar no fechamento troca aqui e vê no quadro. -->
+      <div class="campo"><label for="fvEtapa">Etapa</label><select id="fvEtapa"><option value="pendente">Pendente</option><option value="a_retirar">A retirar</option><option value="em_maos">Em mãos</option><option value="a_caminho">A caminho</option><option value="entregue">Entregue</option></select><span class="campo-nota">Onde ela está agora. Aparece no quadro do topo da aba Vendas.</span></div>
       <div class="campo"><label for="fvEndereco">Endereço de entrega</label><input id="fvEndereco" type="text" autocomplete="off"></div>
       <div class="campo"><label for="fvCobrar">Valor a cobrar na entrega (R$)</label><input id="fvCobrar" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="campo"><label for="fvMotoboy">Motoboy</label><input id="fvMotoboy" type="text" autocomplete="off"></div>

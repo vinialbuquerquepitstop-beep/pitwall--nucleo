@@ -809,8 +809,22 @@ valor_a_cobrar:entVal("peValor"),forma_pagamento:entVal("pePgto"),
 motoboy:entVal("peMotoboy"),motoboy_whatsapp:entVal("peMotoWhats")};
 var r=await t.rpc("editar_venda",{payload:pe});
 var d=r&&r.data;
-if(d&&d.ok)return{ok:!0};
+if(d&&d.ok)return{ok:!0,mv:await entMoverSeSaiu(v)};
 return{ok:!1,erro:(d&&d.erro)||(r&&r.error&&r.error.message)||"Falha ao salvar a entrega"}}
+// Despachar o motoboy JA E o ato de por a venda a caminho. Exigir um segundo
+// toque para confirmar o que acabou de acontecer e como a tela comeca a divergir
+// da rua, e foi a decisao do dono em 15/08/2026.
+// Vale para o Enviar E para o Copiar: nos dois o relatorio saiu da tela para o
+// motoboy, e a venda andou de verdade.
+// Nao mexe em quem ja esta a caminho ou entregue: reabrir o relatorio de uma
+// venda entregue nao pode puxa-la de volta para tras no quadro.
+// Falha no movimento NAO derruba o envio: o relatorio ja foi, e a etapa continua
+// com o botao manual do quadro. Por isso devolve texto para o toast, nao erro.
+async function entMoverSeSaiu(v){
+if(!v||"a_caminho"===v.etapa||"entregue"===v.etapa)return"";
+var r=await t.rpc("mover_etapa_venda",{p_id:v.id,p_etapa:"a_caminho"});
+var d=r&&r.data;
+return d&&d.ok?" · a venda foi para A caminho":""}
 // A janela abre no CLIQUE (sincrona) e so depois recebe a URL: aberta depois
 // do await, o navegador bloqueia como pop-up. Mesmo padrao do abrirArquivoNf.
 // Ordem: salva primeiro, envia depois. Mensagem enviada com o dado nao salvo
@@ -831,7 +845,7 @@ if(btn)btn.disabled=!1;
 if(!r.ok){if(w)w.close();if(E("peErro"))E("peErro").textContent=r.erro;return void I(r.erro,!0)}
 var u="https://wa.me/"+wa+"?text="+encodeURIComponent(txt);
 if(w)w.location.href=u;else I("Libere o pop-up para abrir o WhatsApp",!0);
-I("Entrega salva e enviada para "+(entVal("peMotoboy")||"o motoboy"));
+I("Entrega salva e enviada para "+(entVal("peMotoboy")||"o motoboy")+(r.mv||""));
 fecharPainelEntrega();n="vendas";B(!0)}
 // Copia PRIMEIRO, ainda dentro do gesto do clique: depois do await o
 // navegador considera a ativacao gasta e o clipboard falha calado.
@@ -843,8 +857,24 @@ else copiarFallback(txt,"Relatório copiado");
 if(btn)btn.disabled=!0;
 salvarEntrega().then(function(r){
 if(btn)btn.disabled=!1;
-if(r.ok){n="vendas";B(!0)}
+if(r.ok){if(r.mv)I("Relatório copiado"+r.mv);n="vendas";B(!0)}
 else{if(E("peErro"))E("peErro").textContent=r.erro;I(r.erro,!0)}})}
+// Mover pelo quadro. Rele SO as vendas e repinta a aba: mover etapa nao mexe em
+// lead, conteudo nem rotina, e o B() completo seria a carga inteira por um
+// toque, que e o defeito que o v51 tirou do resto do app.
+async function moverEtapa(id,etapa,btn){
+if(!id||!etapa)return;
+if(btn)btn.disabled=!0;
+var r=await t.rpc("mover_etapa_venda",{p_id:id,p_etapa:etapa});
+if(btn)btn.disabled=!1;
+if(r&&r.error){
+if(await pwSemSessao())return pwSessaoCaiu();
+return void I("Falha ao mover: "+r.error.message,!0)}
+var d=r&&r.data;
+if(!d||!1===d.ok)return void I((d&&d.erro)||"Não foi possível mover a venda",!0);
+I(d.msg||"Etapa atualizada");
+var rv=await carregarVendas();
+if(rv.ok)pintarVendas()}
 // A linha existe SEMPRE, com endereco ou sem. Venda sem destino se esconderia
 // justamente de quem tem que despachar, e o vazio vira o proprio convite.
 function entLinhaVenda(v){
@@ -853,12 +883,326 @@ var rot=dest?'<span class="venda-ent-val">'+c(dest)+(moto?" · "+c(moto):"")+"</
 :'<span class="venda-ent-falta">sem endereço de entrega</span>';
 return'<div class="venda-ent"><span class="venda-ent-rot">entrega</span>'+rot+
 '<button class="btn-acao'+(dest?"":" ent-pede")+'" data-acao="venda-entrega" data-id="'+c(v.id)+'">Relatório</button></div>'}
+// ---- Detalhes da venda (v61, 15/08/2026) ------------------------------------
+// Medido antes de escrever: o card exibia 17 campos e a venda guarda 39. Os
+// outros 22 (condicao, custo, frete, taxas, margem, fornecedor inteiro, troca,
+// dados do comprador, rastro) so apareciam abrindo o painel EDITAR. Ou seja:
+// para CONSULTAR um dado o dono tinha que entrar no unico modo capaz de
+// corromper a venda. O bloco abaixo e a superficie de LEITURA que faltava.
+// Mora DENTRO do card, no mesmo padrao do Historico do lead (data-hist), e nao
+// num painel proprio: consultar uma venda nao pode custar sair da lista, e em
+// 360px um painel com 30 campos vira rolagem cega do mesmo jeito.
+// NENHUM caminho de escrita entra aqui. Corrigir continua sendo o Editar, que
+// passa pela RPC editar_venda: uma segunda porta de escrita seria a segunda
+// regra de validacao que envelhece sozinha.
+var VD_PGTO={pix:"Pix",dinheiro:"Dinheiro",cartao:"Cartão",misto:"Misto"};
+function vdPgto(cod){return VD_PGTO[String(cod||"")]||s("forma_pagamento",cod)}
+// Dinheiro nao informado NAO e zero: brlV(null) devolveria "R$ 0,00" e a tela
+// afirmaria um custo que ninguem digitou. Vazio devolve vazio, e quem pinta o
+// travessao e a vdLin.
+function vdBrl(n){return null==n||""===n?"":brlV(n)}
+function vdData(iso){return iso?vgDataBr(String(iso).slice(0,10)):""}
+// Mesmo fuso explicito do nfQuando (invariante 10): timestamp do servidor nunca
+// vira dia de negocio pelo relogio de quem abre a tela.
+function vdQuando(ts){
+var d=ts?new Date(ts):null;
+if(!d||isNaN(d.getTime()))return"";
+return d.toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})+" "+
+d.toLocaleTimeString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit"})}
+// O ROTULO APARECE SEMPRE, cheio ou vazio, e o vazio vira travessao. So
+// renderizar campo que tem dado e o que faz a tela sumir na base zerada, e aqui
+// o vazio e informacao de primeira classe: e ele que diz que falta CPF para a
+// nota, ou que a venda foi fechada sem forma de pagamento declarada.
+function vdLin(rot,val,cls){
+return'<div class="vd-lin'+(cls?" "+cls:"")+'"><span class="vd-rot">'+c(rot)+
+'</span><span class="vd-val'+(val?'">'+c(val):' vazio">—')+"</span></div>"}
+function vdGrupo(tit,linhas){
+return'<div class="vd-grupo"><p class="vd-tit">'+c(tit)+"</p>"+linhas.join("")+"</div>"}
+function vdBloco(v){
+var fat=Number(v.valor_venda)||0,luc=Number(v.lucro)||0;
+var nfs=nfsDaVenda(v.id);
+// Troca aberta so quando existe: tres linhas vazias em toda venda seria ruido
+// permanente. O rotulo do grupo continua aparecendo, entao a ausencia e visivel
+// sem ocupar o espaco de tres campos que ninguem preencheu.
+var temTroca=!0===v.tem_trade_in||!!String(v.entrada_modelo||"").trim()||Number(v.entrada_valor)>0;
+var troca=temTroca
+?[vdLin("modelo do usado",v.entrada_modelo||""),
+  vdLin("IMEI do usado",v.entrada_imei||"","mono"),
+  vdLin("valor dado na troca",vdBrl(v.entrada_valor))]
+:[vdLin("aparelho de entrada","")];
+return'<div class="vd-corpo">'+
+vdGrupo("Aparelho",[
+vdLin("modelo",v.modelo_rotulo||v.modelo_texto||""),
+vdLin("armazenamento",v.capacidade||""),
+vdLin("cor",v.cor||""),
+vdLin("condição",v.condicao?s("condicao",v.condicao):""),
+vdLin("IMEI",v.imei||"","mono")])+
+vdGrupo("Dinheiro",[
+vdLin("valor da venda",vdBrl(v.valor_venda)),
+vdLin("custo do aparelho",vdBrl(v.custo_aparelho)),
+vdLin("frete / motoboy",vdBrl(v.despesa_frete)),
+vdLin("taxas / maquininha",vdBrl(v.despesa_taxas)),
+vdLin("lucro",vdBrl(v.lucro),luc<0?"neg":"ok"),
+// A margem e DERIVADA na leitura, do mesmo par (lucro, faturamento) que o
+// painel do topo soma. Nao vira coluna e nao ganha segunda formula: duas
+// definicoes de margem no mesmo sistema divergem em semanas.
+vdLin("margem",fat>0?vgPct1(luc,fat):"",luc<0?"neg":"")])+
+vdGrupo("Fornecedor",[
+vdLin("fornecedor",v.fornecedor_nome||""),
+vdLin("contato",v.fornecedor_contato||""),
+vdLin("local de retirada",v.fornecedor_local_retirada||"")])+
+vdGrupo("Troca",troca)+
+vdGrupo("Fechamento",[
+// As duas linhas juntas e de proposito: e aqui que fica visivel que `situação`
+// e `etapa` respondem perguntas diferentes (vale dinheiro? / onde esta?).
+vdLin("situação",rotStatusVenda(v.status)),
+vdLin("etapa",v.etapa?qvRot(v.etapa)+(Number(v.dias_na_etapa)>0?" · há "+v.dias_na_etapa+(1===Number(v.dias_na_etapa)?" dia":" dias"):""):""),
+vdLin("data da venda",vdData(v.data_venda)),
+vdLin("forma de pagamento",v.forma_pagamento?vdPgto(v.forma_pagamento):""),
+vdLin("a cobrar na entrega",vdBrl(v.valor_a_cobrar)),
+vdLin("número da NF",v.nf_numero||""),
+vdLin("arquivos de NF",nfs.length?nfs.length+(1===nfs.length?" anexo":" anexos"):"")])+
+vdGrupo("Comprador",[
+vdLin("cliente",v.cliente_code||""),
+vdLin("nome",v.cliente_nome||v.comprador_nome||""),
+vdLin("WhatsApp",v.comprador_whatsapp?f(v.comprador_whatsapp):(v.cliente_whatsapp?f(v.cliente_whatsapp):"")),
+vdLin("CPF",v.comprador_cpf||"","mono"),
+vdLin("aniversário",vdData(v.comprador_nascimento)),
+vdLin("Instagram",v.comprador_instagram||"")])+
+vdGrupo("Entrega",[
+vdLin("endereço",v.endereco_entrega||""),
+vdLin("motoboy",v.motoboy||""),
+vdLin("WhatsApp do motoboy",v.motoboy_whatsapp?f(v.motoboy_whatsapp):"")])+
+vdGrupo("Observação",[vdLin("anotado na venda",v.observacoes||"")])+
+vdGrupo("Rastro",[
+vdLin("cadastrada em",vdQuando(v.criado_em)),
+vdLin("última correção",vdQuando(v.atualizado_em))])+
+"</div>"+
+'<div class="vd-hist" data-vdhist><p class="vd-tit">Histórico</p>'+
+'<div class="vd-hist-vazio">Lendo o histórico…</div></div>'}
+// ---- Historico da venda: le a auditoria, que ja existia e nunca teve tela ----
+// Zero migration e zero RPC nova: `authenticated` ja tem SELECT em public.auditoria
+// e a policy p_auditoria_select isola por tenant E exige papel dono. A tabela ja
+// guardava 10 INSERTs e 7 UPDATEs de venda com `antes` e `depois` completos.
+// Ate aqui, uma venda corrigida por engano nao deixava rastro NENHUM na tela.
+var VD_ROT_CAMPO={valor_venda:"valor da venda",custo_aparelho:"custo",
+despesa_frete:"frete",despesa_taxas:"taxas",modelo_texto:"modelo",
+capacidade:"armazenamento",cor:"cor",condicao:"condição",imei:"IMEI",
+fornecedor_nome:"fornecedor",fornecedor_contato:"contato do fornecedor",
+fornecedor_local_retirada:"local de retirada",fornecedor_pix_url:"pix do fornecedor",
+status:"situação",data_venda:"data da venda",forma_pagamento:"forma de pagamento",
+endereco_entrega:"endereço de entrega",valor_a_cobrar:"a cobrar na entrega",
+motoboy:"motoboy",motoboy_whatsapp:"WhatsApp do motoboy",nf_numero:"número da NF",
+nf_url:"arquivo da NF",observacoes:"observação",comprador_nome:"nome do comprador",
+comprador_whatsapp:"WhatsApp do comprador",comprador_cpf:"CPF",
+comprador_nascimento:"aniversário",comprador_instagram:"Instagram",
+tem_trade_in:"troca",entrada_modelo:"modelo do usado",entrada_imei:"IMEI do usado",
+entrada_valor:"valor da troca",arquivado_em:"arquivamento",
+lead_id:"cliente vinculado",modelo_id:"modelo do catálogo",etapa:"etapa"};
+// Campo de dominio: o historico mostra o ROTULO, nunca o codigo cru. Sem isto,
+// mover a venda escreveria "etapa a_retirar → em_maos" no rastro, que e o codigo
+// vazando para a tela (invariante 12 lido ao contrario).
+var VD_DOM={etapa:"etapa_venda",condicao:"condicao"};
+var VD_DINHEIRO={valor_venda:1,custo_aparelho:1,despesa_frete:1,despesa_taxas:1,
+valor_a_cobrar:1,entrada_valor:1};
+// `atualizado_em` muda em TODA correcao e nao e noticia: se entrasse no diff,
+// cada linha do historico anunciaria que o carimbo de hora mudou e enterraria o
+// campo que de fato mudou. `venda_code` e `criado_por` sao imutaveis por regra.
+// `etapa_em` entra na lista pelo MESMO motivo do atualizado_em: ele muda junto
+// com toda troca de etapa, e sem isso cada movimento no quadro escreveria duas
+// linhas no rastro, uma delas so repetindo em carimbo o que a outra ja disse.
+var VD_HIST_IGNORA={id:1,tenant_id:1,atualizado_em:1,criado_em:1,criado_por:1,
+venda_code:1,etapa_em:1};
+function vdValTxt(campo,val){
+if(null==val||""===val)return"vazio";
+if(!0===val)return"sim";
+if(!1===val)return"não";
+if(VD_DINHEIRO[campo])return brlV(val);
+if(VD_DOM[campo])return s(VD_DOM[campo],val);
+if("status"===campo)return rotStatusVenda(val);
+return String(val)}
+// Compara por STRING de proposito: numeric do Postgres volta como "3200" ou
+// 3200 conforme o caminho, e comparar tipo a tipo inventaria mudanca onde nao
+// houve. O que importa aqui e se o valor exibido mudou.
+function vdDiff(a,d){
+var out=[],k;
+a=a||{};d=d||{};
+for(k in d){
+if(!Object.prototype.hasOwnProperty.call(d,k))continue;
+if(VD_HIST_IGNORA[k])continue;
+if(String(null==a[k]?"":a[k])===String(null==d[k]?"":d[k]))continue;
+out.push({campo:k,de:a[k],para:d[k]})}
+return out}
+function vdHistLin(x){
+var q=vdQuando(x.criado_em),ds;
+if("INSERT"===x.acao)
+return'<div class="vd-hist-ev nasceu"><span class="vd-hist-quando">'+c(q)+
+'</span><span class="vd-hist-txt">venda cadastrada</span></div>';
+if("DELETE"===x.acao)
+return'<div class="vd-hist-ev"><span class="vd-hist-quando">'+c(q)+
+'</span><span class="vd-hist-txt">registro apagado</span></div>';
+ds=vdDiff(x.antes,x.depois);
+// UPDATE que so mexeu no que a VD_HIST_IGNORA descarta nao vira linha: "algo
+// mudou" sem dizer o que e pior que silencio.
+if(!ds.length)return"";
+// UMA LINHA POR CAMPO, nunca os campos emendados em texto corrido separados por
+// ponto. A primeira versao era corrida e o diag_mobile a 360px acusou 3
+// sobreposicoes: um `span` inline que quebra em duas linhas ocupa a largura
+// toda e passa por cima do vizinho. O detector estava certo, e o defeito nao era
+// de geometria: "valor da venda R$ 3.000,00 → R$ 3.200,00 · condição lacrado →
+// seminovo" quebrando no meio dos numeros e ilegivel no celular.
+return'<div class="vd-hist-ev"><span class="vd-hist-quando">'+c(q)+'</span><span class="vd-hist-txt">'+
+ds.map(function(y){
+return'<span class="vd-hist-mud"><span class="vd-hist-campo">'+c(VD_ROT_CAMPO[y.campo]||y.campo)+
+'</span><span class="vd-hist-par"><em>'+c(vdValTxt(y.campo,y.de))+
+'</em><i aria-hidden="true">→</i><b>'+c(vdValTxt(y.campo,y.para))+"</b></span></span>"}).join("")+
+"</span></div>"}
+async function vdHistorico(id,cx){
+var r=await ler(t.from("auditoria").select("acao,antes,depois,criado_em")
+.eq("tabela","venda").eq("registro_id",id).order("criado_em",{ascending:!1}),"o histórico da venda");
+if(!cx||!cx.parentNode)return;
+if(!r.ok){
+if(!1===r.sessao)return;
+cx.innerHTML='<p class="vd-tit">Histórico</p><div class="vd-hist-vazio">Não deu para ler o histórico: '+c(r.erro)+"</div>";
+return}
+// Newest-first e CONTRATO (invariante 6), nao cortesia do servidor: a query ja
+// pede desc, e a ordenacao aqui garante que a ordem sobreviva a qualquer troca
+// de caminho de leitura. Duas linhas, e o que impede o historico de exibir a
+// correcao mais nova por ultimo.
+var evs=(r.dados||[]).slice().sort(function(x,y){
+return String(y.criado_em||"").localeCompare(String(x.criado_em||""))});
+var l=evs.map(vdHistLin).filter(function(x){return!!x});
+// Lista vazia NAO quer dizer "nunca mudou": a p_auditoria_select exige papel
+// dono, e para qualquer outro perfil a leitura volta com zero linha e SEM erro.
+// Por isso o vazio declara a condicao em vez de afirmar que nada aconteceu.
+cx.innerHTML='<p class="vd-tit">Histórico</p>'+(l.length
+?'<div class="vd-hist-lista">'+l.join("")+"</div>"
+:'<div class="vd-hist-vazio">Nenhuma alteração registrada para esta venda. O rastro completo é visível apenas para o dono.</div>')}
+function vdCardDe(el){
+var p=el;
+while(p&&p.className!==undefined&&String(p.className).split(" ").indexOf("card")<0)p=p.parentNode;
+return p&&p.className!==undefined?p:null}
+function alternarDetalhes(id,btn){
+var card=vdCardDe(btn),cx=card?card.querySelector("[data-det]"):null;
+if(!cx)return;
+if(cx.className.indexOf("aberto")>=0){
+cx.className="vd";cx.innerHTML="";
+btn.className="btn-acao";
+btn.setAttribute("aria-expanded","false");
+btn.textContent="Detalhes";
+return}
+var v=(vendasData||[]).filter(function(x){return String(x.id)===String(id)})[0];
+if(!v)return void I("Venda não encontrada",!0);
+cx.className="vd aberto";
+cx.innerHTML=vdBloco(v);
+btn.className="btn-acao ligado";
+btn.setAttribute("aria-expanded","true");
+btn.textContent="Fechar detalhes";
+vdHistorico(id,cx.querySelector("[data-vdhist]"))}
+function vdBotao(v){
+return'<div class="vd-acao"><button class="btn-acao" data-acao="venda-detalhes" data-id="'+c(v.id)+
+'" aria-expanded="false">Detalhes</button></div>'}
 function cardVenda(v){
-return '<div class="card"><div class="card-top"><span class="card-code">'+c(v.venda_code||"")+'</span><span class="card-prod">'+c(v.modelo_rotulo||"")+(v.capacidade?" "+c(v.capacidade):"")+(v.cor?" "+c(v.cor):"")+'</span></div><div class="card-sub">'+c(v.cliente_nome||"sem cliente")+(v.data_venda?" · "+c(v.data_venda):"")+(v.imei?" · IMEI "+c(v.imei):"")+"</div>"+fxVenda(v)+vendaCliLinha(v)+entLinhaVenda(v)+nfLinhaVenda(v)+"</div>"}
+return '<div class="card"><div class="card-top"><span class="card-code">'+c(v.venda_code||"")+'</span><span class="card-prod">'+c(v.modelo_rotulo||"")+(v.capacidade?" "+c(v.capacidade):"")+(v.cor?" "+c(v.cor):"")+'</span></div><div class="card-sub">'+c(v.cliente_nome||"sem cliente")+(v.data_venda?" · "+c(v.data_venda):"")+(v.imei?" · IMEI "+c(v.imei):"")+"</div>"+fxVenda(v)+vendaCliLinha(v)+entLinhaVenda(v)+nfLinhaVenda(v)+vdBotao(v)+'<div class="vd" data-det></div></div>'}
 function filtVendaBusca(lista,termo){
 var q=String(termo||"").trim().toLowerCase();
 if(!q)return lista;
 return lista.filter(function(v){return [v.venda_code,v.modelo_rotulo,v.cliente_nome,v.imei].join(" ").toLowerCase().indexOf(q)>=0})}
+
+// ---- Quadro de etapas (v61): ONDE cada venda esta, do fechamento a entrega --
+// Decisao do dono em 15/08/2026: cinco etapas, com o fornecedor no meio, quadro
+// no topo da aba Vendas, e o envio do relatorio movendo a venda sozinho.
+//
+// ETAPA NAO E STATUS. `status` responde "essa venda vale dinheiro?" e e o
+// criterio de faturamento; `etapa` responde "onde ela esta?" e nao entra em soma
+// nenhuma. Mesma disciplina do invariante 3 (nivel x status), que existe porque
+// colapsar as duas coisas ja custou caro neste projeto.
+//
+// Sem cor de identidade por etapa, de proposito: cinco matizes novos exigiriam
+// cinco medicoes de contraste e disputariam com a cor semantica que ja carrega
+// urgencia. A coluna e neutra; quem ganha cor e o SINAL (dias parados).
+var QV_ETAPAS=[
+{cod:"pendente" ,acao:"Comprei o aparelho",prox:"a_retirar"},
+{cod:"a_retirar",acao:"Retirei"           ,prox:"em_maos"},
+// Aqui o botao NAO move a venda: abre o relatorio de entrega. Quem move e o
+// ENVIO, dentro de enviarEntrega. Despachar o motoboy JA e o ato de por a venda
+// a caminho, e exigir um segundo toque para confirmar o que acabou de acontecer
+// e como a tela comeca a divergir da rua.
+{cod:"em_maos"  ,acao:"Relatório"         ,prox:"a_caminho",viaEnt:!0},
+{cod:"a_caminho",acao:"Entregue"          ,prox:"entregue"},
+{cod:"entregue" ,acao:""                  ,prox:""}];
+// Cortes do sinal de parada, nomeados como os do Escopo (ESC_CORTE/ESC_TETO).
+// Nao vao para tabela de config porque nao sao numero de cadencia: sao a regua
+// de leitura desta tela, e a regra 11 fala da fn_regua_varredura.
+var QV_CORTE=3,QV_TETO=7;
+// A coluna Entregue cresce para sempre. Mostrar tudo transformaria o quadro num
+// arquivo morto de tres telas de altura; mostrar um pedaco SEM DIZER quantos
+// ficaram de fora seria a tela mentindo por omissao, que e o defeito que a aba
+// Conteudo veio consertar na v33.
+var QV_ENTREGUE_MAX=4;
+function qvEtapaDe(cod){
+for(var i=0;i<QV_ETAPAS.length;i++)if(QV_ETAPAS[i].cod===cod)return QV_ETAPAS[i];
+return null}
+function qvRot(cod){return s("etapa_venda",cod)}
+// Venda parada e a unica coisa que este quadro tem de util: sem o contador de
+// dias ele seria so uma lista em cinco pedacos. Entregue nao mostra parada,
+// porque ali o tempo parou de correr.
+function qvDias(v){
+if("entregue"===v.etapa)return"";
+var d=Number(v.dias_na_etapa)||0;
+if(d<1)return'<span class="qv-dias">hoje</span>';
+var cls=d>=QV_TETO?" alerta":d>=QV_CORTE?" atencao":"";
+return'<span class="qv-dias'+cls+'">há '+d+(1===d?" dia":" dias")+"</span>"}
+function qvCard(v,et){
+var ant=null,i;
+for(i=0;i<QV_ETAPAS.length;i++)if(QV_ETAPAS[i].prox===v.etapa)ant=QV_ETAPAS[i];
+// Voltar existe porque toque errado acontece, e sem caminho de volta o operador
+// aprende a nao tocar. Fica discreto: e conserto, nao fluxo.
+var volta=ant?'<button class="qv-volta" data-acao="venda-etapa" data-id="'+c(v.id)+
+'" data-etapa="'+c(ant.cod)+'" title="Voltar para '+c(qvRot(ant.cod))+
+'" aria-label="Voltar para '+c(qvRot(ant.cod))+'">←</button>':"";
+var acao=et&&et.acao
+?'<button class="qv-btn'+(et.viaEnt?" ent":"")+'" data-acao="'+(et.viaEnt?"venda-entrega":"venda-etapa")+
+'" data-id="'+c(v.id)+'"'+(et.viaEnt?"":' data-etapa="'+c(et.prox)+'"')+">"+c(et.acao)+"</button>":"";
+return'<div class="qv-card" data-venda="'+c(v.id)+'">'+
+'<div class="qv-card-top"><span class="qv-code">'+c(v.venda_code||"")+"</span>"+qvDias(v)+"</div>"+
+'<div class="qv-quem">'+c(v.cliente_nome||"sem cliente")+"</div>"+
+'<div class="qv-que">'+c(v.modelo_rotulo||v.modelo_texto||"")+(v.capacidade?" "+c(v.capacidade):"")+"</div>"+
+'<div class="qv-vals"><span class="qv-brl">'+brlV(v.valor_venda)+"</span>"+
+("pre_venda"===v.status?'<span class="qv-pre">pré-venda</span>':"")+"</div>"+
+(acao||volta?'<div class="qv-acoes">'+volta+acao+"</div>":"")+"</div>"}
+function qvColuna(et,linhas){
+var lista=linhas,recorte="";
+if("entregue"===et.cod&&linhas.length>QV_ENTREGUE_MAX){
+lista=linhas.slice(0,QV_ENTREGUE_MAX);
+recorte='<div class="qv-recorte">as '+QV_ENTREGUE_MAX+' mais recentes de '+linhas.length+'</div>'}
+return'<div class="qv-col" data-col="'+c(et.cod)+'">'+
+'<div class="qv-col-cab"><span class="qv-col-rot">'+c(qvRot(et.cod))+"</span>"+
+'<span class="qv-col-n">'+linhas.length+"</span></div>"+
+(lista.length?lista.map(function(v){return qvCard(v,et)}).join("")
+:'<div class="qv-col-vazio">nenhuma</div>')+recorte+"</div>"}
+function qvQuadro(){
+var linhas=(vendasData||[]).filter(function(v){return "cancelada"!==v.status});
+var mapa={},i,v,abertas=0;
+for(i=0;i<QV_ETAPAS.length;i++)mapa[QV_ETAPAS[i].cod]=[];
+for(i=0;i<linhas.length;i++){
+v=linhas[i];
+// Etapa fora do dominio conhecido NAO some: cai em Pendente e continua visivel.
+// Venda que desaparece do quadro por causa de um codigo novo e pior que venda
+// na coluna errada, porque ninguem procura o que nao sabe que sumiu.
+(mapa[v.etapa]||mapa.pendente).push(v);
+if("entregue"!==v.etapa)abertas++}
+// Mais parada primeiro: a coluna existe para o que travou vir para cima.
+for(i=0;i<QV_ETAPAS.length;i++)mapa[QV_ETAPAS[i].cod].sort(function(a,b){
+var da=Number(a.dias_na_etapa)||0,db=Number(b.dias_na_etapa)||0;
+return db!==da?db-da:String(a.venda_code||"").localeCompare(String(b.venda_code||""))});
+var cols="";
+for(i=0;i<QV_ETAPAS.length;i++)cols+=qvColuna(QV_ETAPAS[i],mapa[QV_ETAPAS[i].cod]);
+var resumo=abertas?abertas+(1===abertas?" venda em aberto":" vendas em aberto")
+:"nenhuma venda em aberto";
+return'<section class="qv" aria-label="Acompanhamento das vendas">'+
+'<div class="qv-cab"><p class="qv-tit">Onde está cada venda <span>'+c(resumo)+'</span></p></div>'+
+'<div class="qv-grade">'+cols+"</div></section>"}
 
 // ---- Painel de Vendas (v52): o dinheiro da operacao somado no topo da aba ----
 // Agrega o que a tela JA carregou (vendasData, vinda da v_venda), nunca um
@@ -1186,6 +1530,90 @@ lst.addEventListener("mouseover",abre);
 lst.addEventListener("mouseout",fecha);
 lst.addEventListener("focusin",abre);
 lst.addEventListener("focusout",fecha)}
+// ---- Recorte: de ONDE o faturamento veio (v61) ------------------------------
+// O painel respondia "quanto" e "quando", nunca "de onde". Fornecedor, modelo,
+// forma de pagamento e condicao estavam gravados em toda venda e nao existiam em
+// nenhuma soma da tela.
+// Mesma janela e MESMO criterio de faturamento do painel de cima (cancelada
+// fora, pre-venda dentro, arquivada ja filtrada pela v_venda): um segundo
+// criterio de faturamento e como um sistema passa a discordar de si mesmo.
+// Mesma paleta das barras que ja existem (custo --dim, vazamento --morno, lucro
+// --ok-fg): uma legenda serve os tres graficos. Zero token novo, zero RPC.
+var vgCorteDim="fornecedor";
+var VG_CORTES=[["fornecedor","Fornecedor"],["modelo","Modelo"],
+["pagamento","Pagamento"],["condicao","Condição"]];
+// A chave e o texto EXATO gravado na venda, sem normalizar. Unificar "MP " com
+// "MP Imports" no JS esconderia um defeito de cadastro que so o dono pode
+// resolver, e o rodape do bloco declara essa escolha em vez de deixar o numero
+// mentir baixinho.
+function vgCorteChave(v,dim){
+if("fornecedor"===dim)return String(v.fornecedor_nome||"").trim()||"sem fornecedor";
+if("modelo"===dim)return String(v.modelo_rotulo||v.modelo_texto||"").trim()||"sem modelo";
+if("pagamento"===dim)return v.forma_pagamento?vdPgto(v.forma_pagamento):"sem forma declarada";
+return v.condicao?s("condicao",v.condicao):"sem condição"}
+function vgCortar(linhas,lim,dim){
+var mapa={},out=[],i,v,d,k,g;
+for(i=0;i<linhas.length;i++){
+v=linhas[i];
+if("cancelada"===v.status)continue;
+d=vgDataDe(v);
+if(!d||d<lim.ini||d>lim.fim)continue;
+k=vgCorteChave(v,dim);
+g=mapa[k];
+if(!g){g={rot:k,n:0,fat:0,luc:0,custo:0,vaza:0};mapa[k]=g;out.push(g)}
+g.n++;
+g.fat+=Number(v.valor_venda)||0;
+g.luc+=Number(v.lucro)||0;
+g.custo+=Number(v.custo_aparelho)||0;
+g.vaza+=(Number(v.despesa_frete)||0)+(Number(v.despesa_taxas)||0)}
+out.sort(function(a,b){return b.fat-a.fat});
+return out}
+// A composicao se divide sobre custo+vazamento+lucro POSITIVO, nunca sobre o
+// faturamento: no grupo que deu prejuizo o custo sozinho ja passa de 100% e os
+// segmentos vazariam para fora do tubo. Prejuizo aparece na margem em vermelho e
+// na fita sem fatia de lucro, que e como o grafico por mes ja resolve o mesmo caso.
+function vgCorteSeg(cls,val,base){
+var p=base>0?100*val/base:0;
+if(!(p>0))return"";
+if(p<1.2)p=1.2;
+return'<span class="vg-vaza-seg s-'+cls+'" style="width:'+(Math.round(100*p)/100)+'%"></span>'}
+function vgCorteLinha(g,mx){
+var larg=mx>0?Math.round(1e3*g.fat/mx)/10:0,base=g.custo+g.vaza+(g.luc>0?g.luc:0);
+// grupo que faturou nao pode virar fita invisivel: piso de 4% de largura.
+if(g.fat>0&&larg<4)larg=4;
+return'<div class="vg-corte-lin">'+
+'<div class="vg-corte-cab"><span class="vg-corte-rot">'+c(g.rot)+'</span>'+
+'<span class="vg-corte-num">'+c(brlV(g.fat))+" · "+g.n+(1===g.n?" venda":" vendas")+
+' · margem <b'+(g.luc<0?' class="neg"':"")+">"+c(vgPct1(g.luc,g.fat))+"</b></span></div>"+
+'<div class="vg-corte-tubo"><div class="vg-corte-fita" style="width:'+larg+'%">'+
+vgCorteSeg("custo",g.custo,base)+vgCorteSeg("vaza",g.vaza,base)+
+vgCorteSeg("luc",g.luc>0?g.luc:0,base)+"</div></div></div>"}
+function vgCorteBloco(linhas,lim){
+var gs=vgCortar(linhas,lim,vgCorteDim),i,mx=0,op="",corpo="",resto;
+for(i=0;i<VG_CORTES.length;i++)
+op+='<button class="met-faixa" data-acao="vg-corte" data-id="'+VG_CORTES[i][0]+
+'" aria-pressed="'+(vgCorteDim===VG_CORTES[i][0]?"true":"false")+'">'+c(VG_CORTES[i][1])+"</button>";
+// Acima de 8 barras o grafico vira lista e para de comparar. O excedente vai
+// para uma linha unica que CONTINUA somando, em vez de sumir da tela: recorte
+// que descarta a cauda mente sobre o total.
+if(gs.length>8){
+resto={rot:(gs.length-7)+" outros",n:0,fat:0,luc:0,custo:0,vaza:0};
+for(i=7;i<gs.length;i++){
+resto.n+=gs[i].n;resto.fat+=gs[i].fat;resto.luc+=gs[i].luc;
+resto.custo+=gs[i].custo;resto.vaza+=gs[i].vaza}
+gs=gs.slice(0,7);gs.push(resto)}
+for(i=0;i<gs.length;i++)if(gs[i].fat>mx)mx=gs[i].fat;
+corpo=gs.length?gs.map(function(g){return vgCorteLinha(g,mx)}).join("")
+:'<div class="vg-corte-vazio">Nenhuma venda nesta janela para recortar.</div>';
+return'<section class="vg-corte" aria-label="Faturamento por '+c(vgCorteDim)+'">'+
+'<div class="vg-corte-topo"><p class="vg-tit">De onde vem <span>mesma janela do painel</span></p>'+
+'<div class="met-faixas">'+op+"</div></div>"+corpo+
+'<p class="vg-corte-pe">Barra = faturamento do grupo · fatias = custo, vazamento e lucro. '+
+'Agrupa pelo texto exato gravado na venda: duas grafias do mesmo fornecedor viram duas linhas.</p>'+
+"</section>"}
+function vgCorteHtml(){
+var linhas=vendasData||[];
+return vgCorteBloco(linhas,vgLimites(linhas))}
 function vgPainel(){
 var linhas=vendasData||[],lim=vgLimites(linhas),a=vgAgregar(linhas,lim);
 VG_MESES_CACHE=a.meses;
@@ -1194,7 +1622,7 @@ return'<section class="vg" aria-label="Painel de vendas">'+vgCab(a,lim)+
 '<div class="vg-graf g-meses">'+(a.n?vgMeses(a):vgVazio())+"</div>"+
 '<div class="vg-graf g-vaza">'+(a.n?vgVazamento(a):"")+"</div>"+
 '<div class="vg-tip" id="vgTip" role="status" hidden></div>'+
-"</div></section>"}
+"</div>"+(a.n?vgCorteBloco(linhas,lim):"")+"</section>"}
 // ---- Dashboard de Performance de Vendas (aba Dashboard) ---------------------
 // Formato aprovado pelo dono em 12/08/2026, a partir de uma referencia externa.
 // DECISAO CONSCIENTE DELE, CONTRA A RECOMENDACAO: a paleta da referencia entra
@@ -1729,7 +2157,10 @@ if(!e)return;
 var lista=filtVendaBusca(vendasData,E("inputBusca")?E("inputBusca").value:"");
 var arq=vendasArq.length?' · <button class="venda-arq-btn" data-acao="venda-arq-alternar" aria-expanded="'+(vendasArqAberto?"true":"false")+'">'+vendasArq.length+" arquivada"+(1===vendasArq.length?"":"s")+"</button>":"";
 var topo='<div class="venda-topo"><button class="btn-cad" data-acao="nova-venda">+ Nova venda</button><span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
-e.innerHTML=vgPainel()+topo+(lista.length?lista.map(cardVenda).join(""):'<div class="estado"><strong>Nenhuma venda ainda.</strong><br>Toque em Nova venda pra registrar a primeira.</div>')+
+// O quadro vem ANTES do painel de dinheiro: o que esta em aberto e acionavel
+// hoje, e o faturamento e leitura. Quem abre a aba precisa ver primeiro o que
+// exige um toque seu.
+e.innerHTML=qvQuadro()+vgPainel()+topo+(lista.length?lista.map(cardVenda).join(""):'<div class="estado"><strong>Nenhuma venda ainda.</strong><br>Toque em Nova venda pra registrar a primeira.</div>')+
 (vendasArqAberto&&vendasArq.length?'<p class="venda-arq-tit">Arquivadas · não contam no faturamento</p>'+vendasArq.map(cardVendaArq).join(""):"");
 // o balao morreu junto com o innerHTML antigo, entao o estado preso morre junto
 VG_TIP_ABERTO="";
@@ -1758,8 +2189,19 @@ var FV_CAMPOS=[["fvModelo","modelo_texto"],["fvCapacidade","capacidade"],["fvCor
 ["fvInsta","comprador_instagram"],["fvNasc","comprador_nascimento"],["fvFornNome","fornecedor_nome"],
 ["fvFornContato","fornecedor_contato"],["fvFornLocal","fornecedor_local_retirada"],
 ["fvEntModelo","entrada_modelo"],["fvEntImei","entrada_imei"],["fvEntValor","entrada_valor"],
-["fvStatus","status"],["fvEndereco","endereco_entrega"],["fvCobrar","valor_a_cobrar"],
+["fvStatus","status"],["fvEtapa","etapa"],["fvEndereco","endereco_entrega"],["fvCobrar","valor_a_cobrar"],
 ["fvMotoboy","motoboy"],["fvPgto","forma_pagamento"],["fvNfNum","nf_numero"],["fvObs","observacoes"]];
+// A etapa segue a situacao ENQUANTO o operador nao encostar nela. O habito da
+// casa e cadastrar a venda depois de tudo pronto (as 7 primeiras nasceram
+// assim), e com default fixo em Pendente o quadro encheria de venda falsa no
+// primeiro dia. Quem passar a cadastrar no fechamento escolhe Pré-venda e a
+// etapa acompanha para Pendente, sem precisar saber que existe uma regra.
+// Uma vez tocada, a etapa para de seguir: escolha explicita ganha de derivacao.
+var FV_ETAPA_TOCADA=!1;
+function fvEtapaSegueStatus(){
+if(FV_ETAPA_TOCADA||!E("fvEtapa")||!E("fvStatus"))return;
+var st=E("fvStatus").value;
+E("fvEtapa").value="concluida"===st?"entregue":"pendente"}
 function fvSet(id,val){if(E(id))E(id).value=null==val?"":String(val)}
 // O painel nao se limpava sozinho: so fvModelo e fvNfArq eram zerados, e o
 // resto ficava do cadastro anterior. Com correcao no mesmo formulario isso
@@ -1768,9 +2210,17 @@ function limparPainelVenda(){
 FV_CAMPOS.forEach(function(p){fvSet(p[0],"")});
 fvSet("fvWhats","");fvSet("fvCpf","");fvSet("fvData","");fvSet("fvTradeIn","");fvSet("fvMotoboyWhats","");
 if(E("fvStatus"))E("fvStatus").value="concluida";
+// Venda nova: a derivacao volta a valer, senao a escolha da venda ANTERIOR
+// ficaria grudada no formulario da proxima.
+FV_ETAPA_TOCADA=!1;
+fvEtapaSegueStatus();
 if(E("fvNfArq"))E("fvNfArq").value=""}
 function preencherPainelVenda(v){
 FV_CAMPOS.forEach(function(p){fvSet(p[0],v[p[1]])});
+// Em CORRECAO a etapa e a que a venda tem, e nao se deriva de nada: derivar
+// aqui mandaria uma venda concluida de volta para Entregue toda vez que o dono
+// abrisse o formulario para corrigir o IMEI.
+FV_ETAPA_TOCADA=!0;
 if(!v.modelo_texto)fvSet("fvModelo",v.modelo_rotulo||"");
 fvSet("fvWhats",v.comprador_whatsapp?f(v.comprador_whatsapp):"");fvSet("fvMotoboyWhats",v.motoboy_whatsapp?f(v.motoboy_whatsapp):"");
 fvSet("fvCpf",v.comprador_cpf?cliFmtCpf(v.comprador_cpf):"");
@@ -1811,7 +2261,7 @@ if(E("fvNasc")&&!E("fvNasc").value&&L.data_nascimento)E("fvNasc").value=L.data_n
 if(E("fvEndereco")&&!E("fvEndereco").value)E("fvEndereco").value=cliEndereco(L);
 if(E("fvClienteResultados"))E("fvClienteResultados").innerHTML="";if(E("fvClienteBusca"))E("fvClienteBusca").value="";var st=E("fvLeadStatus");if(st)st.innerHTML='Vinculado a '+c(L.nome||L.lead_code||"lead")+(L.lead_code?' · '+c(L.lead_code):"")+(L.cpf?"":' <span class="fv-cli-falta">sem CPF no cadastro</span>')+' <button type="button" class="fv-cli-desfazer" data-acao="fv-cli-limpar">desfazer</button>'}function limparClienteVenda(){fvLeadSel=null;if(E("fvClienteBusca"))E("fvClienteBusca").value="";if(E("fvClienteResultados"))E("fvClienteResultados").innerHTML="";if(E("fvLeadStatus"))E("fvLeadStatus").innerHTML=""}function fvCliClick(ev){var el=ev.target&&ev.target.closest?ev.target.closest("[data-acao]"):null;if(!el)return;var o=el.getAttribute("data-acao");if("fv-cli-pick"===o)preencherClienteVenda(el.getAttribute("data-id"));else if("fv-cli-limpar"===o)limparClienteVenda();else if("venda-arquivar"===o)arquivarVendaUI()}async function salvarVenda(){
 var val=function(id){return E(id)?E(id).value:""};
-var payload={valor_venda:val("fvValor"),modelo_texto:val("fvModelo"),lead_id:(fvLeadSel?fvLeadSel.id:""),capacidade:val("fvCapacidade"),cor:val("fvCor"),condicao:val("fvCondicao"),imei:val("fvImei"),comprador_nome:val("fvNome"),comprador_whatsapp:val("fvWhats"),comprador_cpf:val("fvCpf"),comprador_nascimento:val("fvNasc"),comprador_instagram:val("fvInsta"),fornecedor_nome:val("fvFornNome"),fornecedor_contato:val("fvFornContato"),fornecedor_local_retirada:val("fvFornLocal"),custo_aparelho:val("fvCusto"),despesa_frete:val("fvFrete"),despesa_taxas:val("fvTaxas"),tem_trade_in:"sim"===val("fvTradeIn"),entrada_modelo:val("fvEntModelo"),entrada_imei:val("fvEntImei"),entrada_valor:val("fvEntValor"),status:val("fvStatus"),endereco_entrega:val("fvEndereco"),valor_a_cobrar:val("fvCobrar"),motoboy:val("fvMotoboy"),motoboy_whatsapp:val("fvMotoboyWhats"),forma_pagamento:val("fvPgto"),data_venda:val("fvData"),nf_numero:val("fvNfNum"),observacoes:val("fvObs")};
+var payload={valor_venda:val("fvValor"),modelo_texto:val("fvModelo"),lead_id:(fvLeadSel?fvLeadSel.id:""),capacidade:val("fvCapacidade"),cor:val("fvCor"),condicao:val("fvCondicao"),imei:val("fvImei"),comprador_nome:val("fvNome"),comprador_whatsapp:val("fvWhats"),comprador_cpf:val("fvCpf"),comprador_nascimento:val("fvNasc"),comprador_instagram:val("fvInsta"),fornecedor_nome:val("fvFornNome"),fornecedor_contato:val("fvFornContato"),fornecedor_local_retirada:val("fvFornLocal"),custo_aparelho:val("fvCusto"),despesa_frete:val("fvFrete"),despesa_taxas:val("fvTaxas"),tem_trade_in:"sim"===val("fvTradeIn"),entrada_modelo:val("fvEntModelo"),entrada_imei:val("fvEntImei"),entrada_valor:val("fvEntValor"),status:val("fvStatus"),etapa:val("fvEtapa"),endereco_entrega:val("fvEndereco"),valor_a_cobrar:val("fvCobrar"),motoboy:val("fvMotoboy"),motoboy_whatsapp:val("fvMotoboyWhats"),forma_pagamento:val("fvPgto"),data_venda:val("fvData"),nf_numero:val("fvNfNum"),observacoes:val("fvObs")};
 if(!(parseFloat(payload.valor_venda)>0)){if(E("fvErro"))E("fvErro").textContent="Informe o valor da venda.";return}
 if(!String(payload.modelo_texto||"").trim()){if(E("fvErro"))E("fvErro").textContent="Informe o modelo.";return}
 // Cliente obrigatorio. A RPC recusa do mesmo jeito, mas errar aqui poupa a ida
@@ -1883,6 +2333,26 @@ var v=(vendasData||[]).filter(function(x){return String(x.id)===String(id)})[0];
 if(v)abrirPainelVenda(null,v);
 return!0}
 if("venda-entrega"===o){abrirPainelEntrega(id);return!0}if("venda-desarquivar"===o){desarquivarVenda(id);return!0}
+// Abrir os detalhes NAO rele a venda: o dado ja veio inteiro na v_venda e esta
+// em vendasData. So o historico vai a rede, porque a auditoria nunca foi
+// carregada com a lista (uma venda tem 1 a 5 eventos; 40 vendas x 5 eventos por
+// pintura seria pagar pelo que quase nunca se abre).
+if("venda-detalhes"===o){alternarDetalhes(id,el);return!0}
+// A etapa de destino vem do PROPRIO botao, nunca de um "proximo" calculado na
+// hora do clique: com o destino no atributo, o que a tela mostra e o que ela
+// manda, e um quadro desatualizado na aba nao move a venda para o lugar errado.
+if("venda-etapa"===o){moverEtapa(id,el.getAttribute("data-etapa"),el);return!0}
+// Trocar o recorte substitui SO a secao, como o dv-janela ja faz. Repintar a
+// lista inteira fecharia todo bloco de detalhes aberto, que e justamente o que o
+// dono estaria comparando com o recorte.
+if("vg-corte"===o){
+vgCorteDim=id||"fornecedor";
+var sec=E("lista")?E("lista").querySelector(".vg-corte"):null;
+if(sec&&sec.parentNode){
+var nvc=document.createElement("div");
+nvc.innerHTML=vgCorteHtml();
+sec.parentNode.replaceChild(nvc.firstChild,sec)}
+return!0}
 // Os dois so repintam: nao ha nada de novo no servidor para buscar, e ate a v51
 // este alternar refazia as 3 leituras e apagava a lista a cada toque.
 if("venda-arq-alternar"===o){vendasArqAberto=!vendasArqAberto;pintarVendas();return!0}
@@ -2240,4 +2710,4 @@ else{
 var lc=filtNfBusca(nfsData,termo);
 corpo=lc.length?lc.map(cardNf).join(""):'<div class="estado"><strong>Nenhuma NF anexada ainda.</strong><br>Na aba Vendas, toque em <strong>Anexar NF</strong> no card da venda.</div>'}
 e.innerHTML=topo+corpo}
-function G(x){M();R();fecharPainelVenda();fecharPainelEntrega();fecharPainelNf();fecharPainelCliente();if(window.scrollTo)window.scrollTo(0,0);n=x;k(),("fila"===x||"todos"===x||"indicacoes"===x)&&B(!0)}var CONT_DRAG=null,CONT_DRAG_COL=null;async function moverConteudo(id,para){var card=E("lista").querySelector('.cont-card[data-id="'+id+'"]'),col=E("lista").querySelector('.cont-col[data-col="'+para+'"]');if(card&&col){card.classList.add("movendo");var vz=col.querySelector(".cont-col-vazio");if(vz)vz.parentNode.removeChild(vz);col.appendChild(card)}var r=await t.functions.invoke("mover-conteudo",{body:{id:id,para:para}});if(r.error){I("Falha ao mover: "+(r.error.message||"erro de rede"),!0);if("conteudo"===n)renderConteudo(!0);return}var d=r.data;if(d&&!1!==d.ok){if(d.aviso)I(d.aviso);if("conteudo"===n)renderConteudo(!0)}else{I(d&&d.msg||"Nao consegui mover",!0);if("conteudo"===n)renderConteudo(!0)}}function contLimparAlvo(){[].forEach.call(E("lista").querySelectorAll(".cont-col.alvo"),function(c){c.classList.remove("alvo")})}function contDragStart(e){var card=e.target&&e.target.closest?e.target.closest(".cont-card[draggable]"):null;if(!card)return;CONT_DRAG=card.getAttribute("data-id");CONT_DRAG_COL=card.getAttribute("data-col");card.classList.add("arrastando");if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",CONT_DRAG)}catch(x){}}}function contDragOver(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="move";if(!col.classList.contains("alvo")){contLimparAlvo();col.classList.add("alvo")}}function contDrop(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();var id=CONT_DRAG,para=col.getAttribute("data-col"),origem=CONT_DRAG_COL;CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();if(para&&para!==origem)moverConteudo(id,para)}function contDragEnd(){CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();[].forEach.call(E("lista").querySelectorAll(".cont-card.arrastando"),function(c){c.classList.remove("arrastando")})}var scriptsData={};async function sugerirMensagem(id,btn,card){var cont=card.querySelector("[data-scripts]");if(!cont)return;if(cont.className.indexOf("aberto")>=0){cont.className="scripts";cont.innerHTML="";return}cont.className="scripts aberto";cont.innerHTML='<div class="script-meta">Buscando script...</div>';if(btn)btn.disabled=!0;var res=await t.rpc("sugerir_mensagem",{p_lead_id:id});if(btn)btn.disabled=!1;if(res.error){cont.innerHTML='<div class="script-meta">Falha: '+c(res.error.message)+"</div>";return}var d=res.data;if(!d||!1===d.ok){cont.innerHTML='<div class="script-meta">'+c(d&&d.msg||"Sem script disponivel")+"</div>";return}var ops=d.opcoes||[];if(!ops.length){cont.innerHTML='<div class="script-meta">Sem opcoes para este passo.</div>';return}var lead=null,j;for(j=0;j<i.length;j++)if(i[j].id===id){lead=i[j];break}scriptsData[id]={whatsapp:d.whatsapp,consent:!(!lead||!0!==lead.consentimento),opcoes:ops};var chips=ops.map(function(o,idx){return'<button class="var-chip" data-acao="variante" data-id="'+c(id)+'" data-idx="'+idx+'" aria-selected="'+(0===idx?"true":"false")+'">'+c(o.rotulo_variante||"Opcao "+(idx+1))+"</button>"}).join("");var rot=d.passo_rotulo?'<div class="script-meta">'+c(d.passo_rotulo)+"</div>":"";cont.innerHTML=rot+'<div class="scripts-vars">'+chips+'</div><div class="script-texto" data-preview></div><div class="script-acoes" data-scriptacoes></div>';pintarVariante(id,card,0)}function pintarVariante(id,card,idx){var data=scriptsData[id];if(!data)return;var op=data.opcoes[idx];if(!op)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var chips=cont.querySelectorAll(".var-chip"),j;for(j=0;j<chips.length;j++)chips[j].setAttribute("aria-selected",chips[j].getAttribute("data-idx")===String(idx)?"true":"false");var prev=cont.querySelector("[data-preview]");if(prev)prev.textContent=op.texto||"";var acoes=cont.querySelector("[data-scriptacoes]");if(!acoes)return;var dig=String(data.whatsapp||"").replace(/\D/g,"");var wa=dig&&data.consent?'<a class="btn-wa" target="_blank" rel="noopener" href="https://wa.me/'+c(dig)+"?text="+encodeURIComponent(op.texto||"")+'">Enviar no WhatsApp</a>':dig?'<div class="sem-tel">Sem consentimento</div>':'<div class="sem-tel">Sem telefone</div>';acoes.innerHTML=wa+'<button class="btn-copiar" data-acao="copiar-script" data-id="'+c(id)+'">Copiar</button>'}function copiarScript(id,btn){var card=btn&&btn.closest?btn.closest(".card"):null;if(!card)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var prev=cont.querySelector("[data-preview]"),txt=prev?prev.textContent:"";if(!txt){I("Nada para copiar",!0);return}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){I("Script copiado")},function(){copiarFallback(txt)});else copiarFallback(txt)}function copiarFallback(txt,rot){try{var ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("readonly","");ta.style.position="absolute";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);I(rot||"Script copiado")}catch(e){I("Nao consegui copiar",!0)}}function A(a){var e=a.target&&a.target.closest?a.target.closest("[data-acao]"):null;if(e){var o=e.getAttribute("data-acao"),t=e.getAttribute("data-id"),n=e.closest(".card");if("cap-registrar"===o)return void registrarCaptacao(e);if("cap-mais"===o)return void alternarCapDet(e);if("cap-parar"===o)return void pararCaptacao(t,e);if("dia-marcar"===o)return void qF("marcar_tarefa",{p_tarefa_id:t,p_concluida:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("dia-remover"===o)return void(window.confirm("Remover esta tarefa do dia? Ela não volta ao puxar o molde de novo.")&&qF("remover_tarefa",{p_tarefa_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("dia-add"===o){var dv=E("diaNovoTit"),dc=E("diaNovaCat");return dv&&String(dv.value).trim()?void qF("adicionar_tarefa",{p_titulo:dv.value,p_categoria:dc?dc.value:""},e,hojeQuieto):void I("Digite o título da tarefa",!0)}if("dia-nota-ok"===o){var dn=E("diaNota");return void qF("salvar_nota",{p_texto:dn?dn.value:""},e,null)}if("dia-puxar"===o)return void qF("puxar_rotina",{},e,hojeQuieto);if("lemb-marcar"===o)return void qF("marcar_lembrete",{p_lembrete_id:t,p_feito:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("lemb-remover"===o)return void(window.confirm("Remover este lembrete?")&&qF("remover_lembrete",{p_lembrete_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("lemb-add"===o){var lv=E("lembNovo"),ld=E("lembData");return lv&&String(lv.value).trim()?void qF("salvar_lembrete",{p_texto:lv.value,p_data:ld&&ld.value?ld.value:null},e,hojeQuieto):void I("Digite o lembrete",!0)}if("lemb-hoje"===o){if(E("lembData"))E("lembData").value=l();return}if("lemb-amanha"===o){if(E("lembData"))E("lembData").value=C(l(),1);return}if("hoje-verfila"===o){if(E("abaFila"))E("abaFila").click();return}if("hoje-sugerir"===o)return void sugerirMensagem(t,e,e.closest(".fila-lin"));if("cont-mover"===o){var mw=e.parentNode,mab="true"===e.getAttribute("aria-expanded");mw.className="cont-mover-wrap"+(mab?"":" aberto");e.setAttribute("aria-expanded",mab?"false":"true");return}if("cont-mover-para"===o)return void moverConteudo(t,e.getAttribute("data-col"));if("cont-aferir"===o){var mb=e.closest(".cont-met");if(mb){var maf=mb.className.indexOf("aberto")>=0;mb.className="cont-met"+(maf?"":" aberto");if(!maf){var mi=mb.querySelector('input[data-af="alcance"]');if(mi)mi.focus()}}return}if("cont-aferir-cancel"===o){var mcx=e.closest(".cont-met");if(mcx)mcx.className="cont-met";return}if("cont-aferir-ok"===o)return void salvarAfericao(t,e);if("cont-publiquei"===o)return void marcarPublicado(t,e);if("met-janela"===o){METRICA_DIAS=parseInt(e.getAttribute("data-dias"),10)||90;renderDash();return}if("cont-descartado"===o){var cd=e.parentNode,ab="true"===e.getAttribute("aria-expanded");cd.className="cont-desc"+(ab?"":" aberto");e.setAttribute("aria-expanded",ab?"false":"true");return}if("respondeu"===o)return void q("registrar_resposta",{p_lead_id:t},e,"Resposta registrada",{lead:t,card:n});if(cliAcao(o,t,e))return;if(vendaAcao(o,t,e))return;if("nova-venda"===o)return void abrirPainelVenda();if("nf-anexar"===o)return void abrirPainelNf(t);if("nf-abrir"===o)return void abrirArquivoNf(t);if("nf-remover"===o)return void removerNf(t);if("nf-seg"===o){nfSeg=e.getAttribute("data-seg")||"com";return void renderNfs(E("lista"),!0)}if("sync-agora"===o)return void sincronizarAgora(e);if("esc-criar"===o){var fcod=e.getAttribute("data-frente"),cx=E("escNovo_"+fcod);if(!cx||!cx.value.trim())return void I("Escreva a ação primeiro.",!0);return void q("criar_acao_escopo",{p_frente:fcod,p_titulo:cx.value},e)}if("esc-status"===o){var st=e.getAttribute("data-st"),prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer";return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:prox,p_motivo:null},e)}if("esc-travar"===o){var sa=e.getAttribute("data-st"),mt=null;if("travado"===sa)return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"fazendo",p_motivo:null},e);if(!(mt=prompt("O que está travando?")))return;return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"travado",p_motivo:mt},e)}if("esc-desc"===o)return void q("descartar_acao_escopo",{p_id:e.getAttribute("data-id")},e);if("esc-ir"===o){var escAlvo=E("escFrente_"+e.getAttribute("data-frente"));return void(escAlvo&&escAlvo.scrollIntoView&&escAlvo.scrollIntoView({behavior:"smooth",block:"start"}))}if("esc-prio"===o){var escPv=e.value||"",escPa=e.getAttribute("data-atual")||"";if(escPv===escPa)return;return void q("definir_prioridade_acao",{p_id:t,p_prioridade:escPv||null},e)}if("rot-dia"===o)return void e.setAttribute("aria-pressed","true"===e.getAttribute("aria-pressed")?"false":"true");if("rot-add-tarefa"===o){var rv=E("rotNovoTit"),rc=E("rotNovaCat");if(!rv||!String(rv.value).trim())return void I("Digite o título da tarefa",!0);var ds=[].map.call(E("lista").querySelectorAll('[data-acao="rot-dia"][aria-pressed="true"]'),function(x){return parseInt(x.getAttribute("data-dia"),10)});return void qF("salvar_rotina_tarefa",{p_titulo:rv.value,p_categoria:rc?rc.value:"",p_dias_semana:ds.length&&ds.length<7?ds:null},e,renderRotina)}if("rot-rm-tarefa"===o)return void(window.confirm("Remover esta tarefa do molde? O que já virou dia fica como está.")&&qF("remover_rotina_tarefa",{p_id:t},e,renderRotina));if("rot-add-cat"===o){var cv=E("rotNovaCatRot");if(!cv||!String(cv.value).trim())return void I("Digite o nome da categoria",!0);var cod=rotSlug(cv.value);return cod?void qF("salvar_rotina_categoria",{p_codigo:cod,p_rotulo:cv.value.trim()},e,renderRotina):void I("Nome inválido",!0)}if(t&&n){if("sugerir"===o)return void sugerirMensagem(t,e,n);if("historico"===o)return void abrirHistorico(t,e,n);if("nota"===o)return void alternarNota(n);if("nota-ok"===o)return void registrarNota(t,e,n);if("variante"===o)return void pintarVariante(t,n,parseInt(e.getAttribute("data-idx"),10)||0);if("copiar-script"===o)return void copiarScript(t,e)}if(t&&n)if("editar"!==o)if("leque"!==o)if("retomar"!==o)if("toque"!==o)if("conversando"!==o)if("fechou"!==o)if("sem-interesse"!==o){if("retomar-ok"===o){var r=n.querySelector(".retomar input"),c=r?r.value:"";return c?void q("reagendar_proximo_contato",{p_lead_id:t,p_data:c},e,"Reagendado",{lead:t,card:n}):void I("Escolha a data de retomada",!0)}}else q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"},e,"Marcado sem interesse",{lead:t,card:n});else fecharComVenda(t);else q("registrar_conversando",{p_lead_id:t},e,"Conversa registrada",{lead:t,card:n});else q("registrar_toque",{p_lead_id:t},e,"Toque registrado",{lead:t,card:n});else{var d=n.querySelector(".retomar");d&&(d.className="retomar"+(d.className.indexOf("aberto")>=0?"":" aberto"))}else{var s=n.querySelector(".desfechos");s&&(s.className="desfechos"+(s.className.indexOf("aberto")>=0?"":" aberto"))}else!function(a){for(var e=null,o=0;o<i.length;o++)if(i[o].id===a){e=i[o];break}if(!e)return void I("Lead nao encontrado na base carregada",!0);H=a,E("edCondicao").innerHTML=T("condicao","Escolha a condicao"),E("edPerfil").innerHTML=T("perfil","Escolha o perfil"),E("edOrigem").innerHTML=T("origem","Escolha a origem"),E("edTitulo").textContent="Editar "+(e.lead_code||"lead"),E("edNome").value=e.nome||"",E("edWhats").value=e.whatsapp_digitos||"",E("edProduto").value=e.produto||"",E("edCondicao").value=e.condicao||"",E("edPerfil").value=e.perfil||"",E("edOrigem").value=e.origem||"",E("edIndicado").value=e.indicado_por||"",E("edNasc").value=e.data_nascimento||"",E("edProx").value=e.proximo_contato||"",E("edValor").value=function(a){if(null==a||""===a)return"";var e=Number(a);return isNaN(e)?"":String(e)}(e.valor_oferta),E("edObs").value=e.observacoes||"",E("edUpgrade").value=!0===e.upgrade_entrada?"sim":!1===e.upgrade_entrada?"nao":"",E("edAparelho").value=e.aparelho_entrada||"",E("edErro").textContent="",J(),M(),E("painelEdicao").className="painel-cadastro",E("painelEdicao").scrollIntoView({behavior:"smooth",block:"start"}),E("edNome").focus()}(t)}}function T(a,e){var t=o[a]||{},i='<option value="">'+c(e)+"</option>";return Object.keys(t).forEach(function(a){i+='<option value="'+c(a)+'">'+c(t[a])+"</option>"}),i}function P(){E("cadCondicao").innerHTML=T("condicao","Escolha a condicao"),E("cadPerfil").innerHTML=T("perfil","Escolha o perfil"),E("cadOrigem").innerHTML=T("origem","Escolha a origem"),["cadNome","cadWhats","cadProduto","cadIndicado","cadObs","cadAparelho"].forEach(function(a){E(a).value=""}),["cadCondicao","cadPerfil","cadOrigem","cadUpgrade"].forEach(function(a){E(a).value=""}),E("cadConsent").value="sim",E("campoIndicado").className="campo oculto",E("cadErro").textContent="",E("cadDup").className="cad-dup",D=null,E("painelCadastro").className="painel-cadastro",E("cadNome").focus()}function M(){E("painelCadastro").className="painel-cadastro oculto"}function y(){var a=E("cadUpgrade").value;return{nome:E("cadNome").value,whatsapp:E("cadWhats").value,produto:E("cadProduto").value,condicao:E("cadCondicao").value,perfil:E("cadPerfil").value,origem:E("cadOrigem").value,indicado_por:E("cadIndicado").value,observacoes:E("cadObs").value,upgrade_entrada:"sim"===a||"nao"!==a&&null,aparelho_entrada:E("cadAparelho").value,consentimento:"nao"!==E("cadConsent").value}}var D=null;async function F(){var a=E("cadErro");a.textContent="",E("cadDup").className="cad-dup",D=null;var e=y(),o=w(e);if(o.ok){var t=E("btnCadastrar"),i=await O("cadastrar_lead",{p_nome:e.nome,p_whatsapp:e.whatsapp,p_produto:e.produto,p_condicao:e.condicao,p_perfil:e.perfil,p_origem:e.origem,p_indicado_por:e.indicado_por||null,p_observacoes:e.observacoes||null,p_upgrade_entrada:e.upgrade_entrada,p_aparelho_entrada:e.aparelho_entrada||null,p_consentimento:e.consentimento},t);if(i)return!1===i.ok&&i.duplicado?(D=i.existente||null,E("cadDupMsg").textContent=i.msg||"Ja existe um lead com esse WhatsApp.",void(E("cadDup").className="cad-dup visivel")):void(!1!==i.ok?(I(i.msg||"Lead cadastrado"),M(),B(!0)):a.textContent=i.msg||"Cadastro recusado")}else a.textContent=o.msg}function W(){M(),n="todos",E("inputBusca").value=D&&D.nome||E("cadWhats").value,k()}function j(){var a="indicacao"===E("cadOrigem").value;E("campoIndicado").className="campo"+(a?"":" oculto")}var H=null;function J(){var a="indicacao"===E("edOrigem").value;E("campoEdIndicado").className="campo"+(a?"":" oculto")}function R(){E("painelEdicao").className="painel-cadastro oculto",H=null}async function z(){var a=E("edErro");if(a.textContent="",H){var e,o,t=(e=E("edUpgrade").value,o=String(E("edValor").value||"").trim(),{nome:E("edNome").value,whatsapp:E("edWhats").value,produto:E("edProduto").value,condicao:E("edCondicao").value,perfil:E("edPerfil").value,origem:E("edOrigem").value,indicado_por:E("edIndicado").value,data_nascimento:E("edNasc").value||null,proximo_contato:E("edProx").value||null,valor_oferta:""===o?null:Number(o),observacoes:E("edObs").value,upgrade_entrada:"sim"===e||"nao"!==e&&null,aparelho_entrada:E("edAparelho").value}),i=S(t);if(i.ok){var n=E("btnSalvarEdicao"),r=await O("editar_lead",{p_lead_id:H,p_nome:t.nome,p_whatsapp:t.whatsapp||null,p_produto:t.produto,p_condicao:t.condicao,p_perfil:t.perfil,p_origem:t.origem,p_indicado_por:t.indicado_por||null,p_observacoes:t.observacoes||null,p_aparelho_entrada:t.aparelho_entrada||null,p_upgrade_entrada:t.upgrade_entrada,p_valor_oferta:t.valor_oferta,p_proximo_contato:t.proximo_contato,p_data_nascimento:t.data_nascimento},n);r&&(!1!==r.ok?(I(r.msg||"Lead atualizado"),R(),B(!0)):a.textContent=r.msg||"Edicao recusada")}else a.textContent=i.msg}else a.textContent="Sem lead selecionado"}async function V(){if(H&&window.confirm("Arquivar este lead? Ele sai da operacao mas o historico fica no banco.")){var a=E("btnArquivar"),e=await O("arquivar_lead",{p_lead_id:H,p_motivo:null},a);e&&(!1!==e.ok?(I(e.msg||"Lead arquivado"),R(),B(!0)):E("edErro").textContent=e.msg||"Arquivamento recusado")}}var dicOk=!1;async function B(sil){if(!sil)E("lista").innerHTML='<div class="estado carregando">Lendo a base…</div>';if(!dicOk){var a=await t.from("dicionario_rotulos").select("dominio,codigo,rotulo");!a.error&&a.data&&(d(a.data),dicOk=!0)}var e=await t.from("v_lead").select("*").order("proximo_contato",{ascending:!0,nullsFirst:!1});if(e.error){if(await pwSemSessao())return pwSessaoCaiu();E("lista").innerHTML='<div class="estado erro">Falha ao ler a base: '+c(e.error.message)+". Toque em Atualizar para tentar de novo.</div>"}else{i=e.data||[];var o=new Date;r=("0"+o.getHours()).slice(-2)+":"+("0"+o.getMinutes()).slice(-2),pb(l()),k()}}function pb(a){a=a||l();var e=i.filter(function(a){return!a.arquivado_em}),o=v(e,a),t=o.filter(function(e){return p(e.proximo_contato,a)>0}),n=e.filter(function(a){return"pendente"===a.status});E("pbFila").textContent=String(o.length),E("badgeFila")&&(E("badgeFila").textContent=o.length?String(o.length):"");var r=E("pbAtraso");r.textContent=String(t.length),r.className="pb-num"+(t.length?" alerta":""),E("pbAtivos").textContent=String(n.length),E("pbTotal").textContent=String(e.length)}function U(a){E("telaLogin").className="login"+(a?" oculto":""),E("telaApp").className="app"+(a?"":" oculto")}var pwSaindo=!1;function pwSessaoCaiu(){i=[],U(!1);var a=E("loginErro");a&&(a.textContent="Sua sessao expirou. Entre de novo.")}async function pwSemSessao(){try{var a=await t.auth.getSession();return!(a&&a.data&&a.data.session)}catch(a){return!1}}async function Z(){var a=E("btnEntrar"),e=E("loginErro");e.textContent="",a.disabled=!0,a.textContent="Entrando…";var o=await t.auth.signInWithPassword({email:E("email").value.trim(),password:E("senha").value});a.disabled=!1,a.textContent="Entrar",o.error?e.textContent="Nao entrou: confira email e senha.":(pwSaindo=!1,U(!0),B())}async function X(){pwSaindo=!0,await t.auth.signOut(),i=[],U(!1)}function Y(a,e,o){var t=E(a);t?t.addEventListener(e,o):window.console&&console.warn("PitWall: elemento #"+a+" ausente; listener ignorado")}return{esc:c,setRotulos:d,rotulo:s,hojeLocalISO:l,dataLocalDe:u,diasAtraso:p,entraNaFila:m,montarFila:v,entraNoPosVenda:mPos,montarPosVenda:vPos,filtrarBusca:g,filtrarIndicacoes:_,fmtTel:f,waHrefFila:b,waHrefLimpo:h,cardHTML:x,renderLista:N,diaMaisISO:C,validarCadastro:w,validarEdicao:S,coletarCadastro:y,abrirCadastro:P,init:function(){t=window.supabase.createClient(a,e),t.auth.onAuthStateChange(function(evt,ses){"SIGNED_IN"===evt&&ses?pwSaindo=!1:"SIGNED_OUT"===evt&&(pwSaindo?pwSaindo=!1:pwSessaoCaiu())}),window.addEventListener("error",function(a){try{I("Erro: "+(a&&a.message?a.message:"falha inesperada"),!0)}catch(a){}}),window.addEventListener("unhandledrejection",function(a){var e=a&&a.reason?a.reason.message||String(a.reason):"promessa rejeitada";try{I("Erro: "+e,!0)}catch(a){}}),Y("btnEntrar","click",Z),Y("senha","keydown",function(a){"Enter"===a.key&&Z()}),Y("btnSair","click",X),Y("btnAtualizar","click",function(){dicOk=!1,B()}),Y("abaFila","click",function(){G("fila")}),Y("abaTodos","click",function(){G("todos")}),Y("abaVendas","click",function(){G("vendas")}),Y("abaNfs","click",function(){G("nfs")}),Y("btnSalvarNf","click",salvarNfPainel),Y("btnFecharNf","click",fecharPainelNf),Y("btnSalvarCliente","click",salvarCliente),Y("btnCancelarCliente","click",fecharPainelCliente),Y("nfLista","click",nfListaClick),Y("btnEnviarEntrega","click",function(){enviarEntrega(E("btnEnviarEntrega"))}),Y("btnCopiarEntrega","click",function(){copiarEntrega(E("btnCopiarEntrega"))}),Y("btnFecharEntrega","click",fecharPainelEntrega),["peRetirada","peEntrega","peValor","pePgto","peMotoboy","peMotoWhats","peRecado"].forEach(function(id){Y(id,"input",entPintar)}),Y("btnSalvarVenda","click",salvarVenda),Y("btnCancelarVenda","click",fecharPainelVenda),Y("fvValor","input",calcLucroVenda),Y("fvCusto","input",calcLucroVenda),Y("fvFrete","input",calcLucroVenda),Y("fvTaxas","input",calcLucroVenda),Y("fvClienteBusca","input",buscaClienteVenda),Y("painelVenda","click",fvCliClick),Y("painelEntrega","click",entPainelClick),Y("abaClientes","click",function(){G("clientes")}),Y("abaIndicacoes","click",function(){G("indicacoes")}),Y("abaDash","click",function(){G("dashboard")}),Y("abaCaptacao","click",function(){G("captacao")}),Y("abaHoje","click",function(){G("hoje")}),Y("abaConteudo","click",function(){G("conteudo")}),Y("abaRotina","click",function(){G("rotina")}),Y("abaEscopo","click",function(){G("escopo")}),Y("abaMais","click",function(){var a=E("abas");if(a){var b=a.className.indexOf("mais-aberto")>=0;a.className="abas"+(b?"":" mais-aberto"),E("abaMais").setAttribute("aria-expanded",b?"false":"true")}}),Y("lista","keydown",capKeydown),Y("inputBusca","input",k),Y("lista","click",A),Y("lista","change",A),Y("lista","dragstart",contDragStart),Y("lista","dragover",contDragOver),Y("lista","drop",contDrop),Y("lista","dragend",contDragEnd),Y("btnNovoLead","click",P),Y("btnCancelarCadastro","click",M),Y("btnCadastrar","click",F),Y("btnAbrirExistente","click",W),Y("cadOrigem","change",j),Y("btnSalvarEdicao","click",z),Y("btnCancelarEdicao","click",R),Y("btnArquivar","click",V),Y("edOrigem","change",J),t.auth.getSession().then(function(a){var e=!(!a.data||!a.data.session);U(e),e&&B()})},_setLeads:function(a){i=a}}}(),window.__PITWALL_SEM_INIT||("loading"===document.readyState?document.addEventListener("DOMContentLoaded",function(){window.PitWall.init()}):window.PitWall.init())
+function G(x){M();R();fecharPainelVenda();fecharPainelEntrega();fecharPainelNf();fecharPainelCliente();if(window.scrollTo)window.scrollTo(0,0);n=x;k(),("fila"===x||"todos"===x||"indicacoes"===x)&&B(!0)}var CONT_DRAG=null,CONT_DRAG_COL=null;async function moverConteudo(id,para){var card=E("lista").querySelector('.cont-card[data-id="'+id+'"]'),col=E("lista").querySelector('.cont-col[data-col="'+para+'"]');if(card&&col){card.classList.add("movendo");var vz=col.querySelector(".cont-col-vazio");if(vz)vz.parentNode.removeChild(vz);col.appendChild(card)}var r=await t.functions.invoke("mover-conteudo",{body:{id:id,para:para}});if(r.error){I("Falha ao mover: "+(r.error.message||"erro de rede"),!0);if("conteudo"===n)renderConteudo(!0);return}var d=r.data;if(d&&!1!==d.ok){if(d.aviso)I(d.aviso);if("conteudo"===n)renderConteudo(!0)}else{I(d&&d.msg||"Nao consegui mover",!0);if("conteudo"===n)renderConteudo(!0)}}function contLimparAlvo(){[].forEach.call(E("lista").querySelectorAll(".cont-col.alvo"),function(c){c.classList.remove("alvo")})}function contDragStart(e){var card=e.target&&e.target.closest?e.target.closest(".cont-card[draggable]"):null;if(!card)return;CONT_DRAG=card.getAttribute("data-id");CONT_DRAG_COL=card.getAttribute("data-col");card.classList.add("arrastando");if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",CONT_DRAG)}catch(x){}}}function contDragOver(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="move";if(!col.classList.contains("alvo")){contLimparAlvo();col.classList.add("alvo")}}function contDrop(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();var id=CONT_DRAG,para=col.getAttribute("data-col"),origem=CONT_DRAG_COL;CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();if(para&&para!==origem)moverConteudo(id,para)}function contDragEnd(){CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();[].forEach.call(E("lista").querySelectorAll(".cont-card.arrastando"),function(c){c.classList.remove("arrastando")})}var scriptsData={};async function sugerirMensagem(id,btn,card){var cont=card.querySelector("[data-scripts]");if(!cont)return;if(cont.className.indexOf("aberto")>=0){cont.className="scripts";cont.innerHTML="";return}cont.className="scripts aberto";cont.innerHTML='<div class="script-meta">Buscando script...</div>';if(btn)btn.disabled=!0;var res=await t.rpc("sugerir_mensagem",{p_lead_id:id});if(btn)btn.disabled=!1;if(res.error){cont.innerHTML='<div class="script-meta">Falha: '+c(res.error.message)+"</div>";return}var d=res.data;if(!d||!1===d.ok){cont.innerHTML='<div class="script-meta">'+c(d&&d.msg||"Sem script disponivel")+"</div>";return}var ops=d.opcoes||[];if(!ops.length){cont.innerHTML='<div class="script-meta">Sem opcoes para este passo.</div>';return}var lead=null,j;for(j=0;j<i.length;j++)if(i[j].id===id){lead=i[j];break}scriptsData[id]={whatsapp:d.whatsapp,consent:!(!lead||!0!==lead.consentimento),opcoes:ops};var chips=ops.map(function(o,idx){return'<button class="var-chip" data-acao="variante" data-id="'+c(id)+'" data-idx="'+idx+'" aria-selected="'+(0===idx?"true":"false")+'">'+c(o.rotulo_variante||"Opcao "+(idx+1))+"</button>"}).join("");var rot=d.passo_rotulo?'<div class="script-meta">'+c(d.passo_rotulo)+"</div>":"";cont.innerHTML=rot+'<div class="scripts-vars">'+chips+'</div><div class="script-texto" data-preview></div><div class="script-acoes" data-scriptacoes></div>';pintarVariante(id,card,0)}function pintarVariante(id,card,idx){var data=scriptsData[id];if(!data)return;var op=data.opcoes[idx];if(!op)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var chips=cont.querySelectorAll(".var-chip"),j;for(j=0;j<chips.length;j++)chips[j].setAttribute("aria-selected",chips[j].getAttribute("data-idx")===String(idx)?"true":"false");var prev=cont.querySelector("[data-preview]");if(prev)prev.textContent=op.texto||"";var acoes=cont.querySelector("[data-scriptacoes]");if(!acoes)return;var dig=String(data.whatsapp||"").replace(/\D/g,"");var wa=dig&&data.consent?'<a class="btn-wa" target="_blank" rel="noopener" href="https://wa.me/'+c(dig)+"?text="+encodeURIComponent(op.texto||"")+'">Enviar no WhatsApp</a>':dig?'<div class="sem-tel">Sem consentimento</div>':'<div class="sem-tel">Sem telefone</div>';acoes.innerHTML=wa+'<button class="btn-copiar" data-acao="copiar-script" data-id="'+c(id)+'">Copiar</button>'}function copiarScript(id,btn){var card=btn&&btn.closest?btn.closest(".card"):null;if(!card)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var prev=cont.querySelector("[data-preview]"),txt=prev?prev.textContent:"";if(!txt){I("Nada para copiar",!0);return}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){I("Script copiado")},function(){copiarFallback(txt)});else copiarFallback(txt)}function copiarFallback(txt,rot){try{var ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("readonly","");ta.style.position="absolute";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);I(rot||"Script copiado")}catch(e){I("Nao consegui copiar",!0)}}function A(a){var e=a.target&&a.target.closest?a.target.closest("[data-acao]"):null;if(e){var o=e.getAttribute("data-acao"),t=e.getAttribute("data-id"),n=e.closest(".card");if("cap-registrar"===o)return void registrarCaptacao(e);if("cap-mais"===o)return void alternarCapDet(e);if("cap-parar"===o)return void pararCaptacao(t,e);if("dia-marcar"===o)return void qF("marcar_tarefa",{p_tarefa_id:t,p_concluida:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("dia-remover"===o)return void(window.confirm("Remover esta tarefa do dia? Ela não volta ao puxar o molde de novo.")&&qF("remover_tarefa",{p_tarefa_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("dia-add"===o){var dv=E("diaNovoTit"),dc=E("diaNovaCat");return dv&&String(dv.value).trim()?void qF("adicionar_tarefa",{p_titulo:dv.value,p_categoria:dc?dc.value:""},e,hojeQuieto):void I("Digite o título da tarefa",!0)}if("dia-nota-ok"===o){var dn=E("diaNota");return void qF("salvar_nota",{p_texto:dn?dn.value:""},e,null)}if("dia-puxar"===o)return void qF("puxar_rotina",{},e,hojeQuieto);if("lemb-marcar"===o)return void qF("marcar_lembrete",{p_lembrete_id:t,p_feito:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("lemb-remover"===o)return void(window.confirm("Remover este lembrete?")&&qF("remover_lembrete",{p_lembrete_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("lemb-add"===o){var lv=E("lembNovo"),ld=E("lembData");return lv&&String(lv.value).trim()?void qF("salvar_lembrete",{p_texto:lv.value,p_data:ld&&ld.value?ld.value:null},e,hojeQuieto):void I("Digite o lembrete",!0)}if("lemb-hoje"===o){if(E("lembData"))E("lembData").value=l();return}if("lemb-amanha"===o){if(E("lembData"))E("lembData").value=C(l(),1);return}if("hoje-verfila"===o){if(E("abaFila"))E("abaFila").click();return}if("hoje-sugerir"===o)return void sugerirMensagem(t,e,e.closest(".fila-lin"));if("cont-mover"===o){var mw=e.parentNode,mab="true"===e.getAttribute("aria-expanded");mw.className="cont-mover-wrap"+(mab?"":" aberto");e.setAttribute("aria-expanded",mab?"false":"true");return}if("cont-mover-para"===o)return void moverConteudo(t,e.getAttribute("data-col"));if("cont-aferir"===o){var mb=e.closest(".cont-met");if(mb){var maf=mb.className.indexOf("aberto")>=0;mb.className="cont-met"+(maf?"":" aberto");if(!maf){var mi=mb.querySelector('input[data-af="alcance"]');if(mi)mi.focus()}}return}if("cont-aferir-cancel"===o){var mcx=e.closest(".cont-met");if(mcx)mcx.className="cont-met";return}if("cont-aferir-ok"===o)return void salvarAfericao(t,e);if("cont-publiquei"===o)return void marcarPublicado(t,e);if("met-janela"===o){METRICA_DIAS=parseInt(e.getAttribute("data-dias"),10)||90;renderDash();return}if("cont-descartado"===o){var cd=e.parentNode,ab="true"===e.getAttribute("aria-expanded");cd.className="cont-desc"+(ab?"":" aberto");e.setAttribute("aria-expanded",ab?"false":"true");return}if("respondeu"===o)return void q("registrar_resposta",{p_lead_id:t},e,"Resposta registrada",{lead:t,card:n});if(cliAcao(o,t,e))return;if(vendaAcao(o,t,e))return;if("nova-venda"===o)return void abrirPainelVenda();if("nf-anexar"===o)return void abrirPainelNf(t);if("nf-abrir"===o)return void abrirArquivoNf(t);if("nf-remover"===o)return void removerNf(t);if("nf-seg"===o){nfSeg=e.getAttribute("data-seg")||"com";return void renderNfs(E("lista"),!0)}if("sync-agora"===o)return void sincronizarAgora(e);if("esc-criar"===o){var fcod=e.getAttribute("data-frente"),cx=E("escNovo_"+fcod);if(!cx||!cx.value.trim())return void I("Escreva a ação primeiro.",!0);return void q("criar_acao_escopo",{p_frente:fcod,p_titulo:cx.value},e)}if("esc-status"===o){var st=e.getAttribute("data-st"),prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer";return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:prox,p_motivo:null},e)}if("esc-travar"===o){var sa=e.getAttribute("data-st"),mt=null;if("travado"===sa)return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"fazendo",p_motivo:null},e);if(!(mt=prompt("O que está travando?")))return;return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"travado",p_motivo:mt},e)}if("esc-desc"===o)return void q("descartar_acao_escopo",{p_id:e.getAttribute("data-id")},e);if("esc-ir"===o){var escAlvo=E("escFrente_"+e.getAttribute("data-frente"));return void(escAlvo&&escAlvo.scrollIntoView&&escAlvo.scrollIntoView({behavior:"smooth",block:"start"}))}if("esc-prio"===o){var escPv=e.value||"",escPa=e.getAttribute("data-atual")||"";if(escPv===escPa)return;return void q("definir_prioridade_acao",{p_id:t,p_prioridade:escPv||null},e)}if("rot-dia"===o)return void e.setAttribute("aria-pressed","true"===e.getAttribute("aria-pressed")?"false":"true");if("rot-add-tarefa"===o){var rv=E("rotNovoTit"),rc=E("rotNovaCat");if(!rv||!String(rv.value).trim())return void I("Digite o título da tarefa",!0);var ds=[].map.call(E("lista").querySelectorAll('[data-acao="rot-dia"][aria-pressed="true"]'),function(x){return parseInt(x.getAttribute("data-dia"),10)});return void qF("salvar_rotina_tarefa",{p_titulo:rv.value,p_categoria:rc?rc.value:"",p_dias_semana:ds.length&&ds.length<7?ds:null},e,renderRotina)}if("rot-rm-tarefa"===o)return void(window.confirm("Remover esta tarefa do molde? O que já virou dia fica como está.")&&qF("remover_rotina_tarefa",{p_id:t},e,renderRotina));if("rot-add-cat"===o){var cv=E("rotNovaCatRot");if(!cv||!String(cv.value).trim())return void I("Digite o nome da categoria",!0);var cod=rotSlug(cv.value);return cod?void qF("salvar_rotina_categoria",{p_codigo:cod,p_rotulo:cv.value.trim()},e,renderRotina):void I("Nome inválido",!0)}if(t&&n){if("sugerir"===o)return void sugerirMensagem(t,e,n);if("historico"===o)return void abrirHistorico(t,e,n);if("nota"===o)return void alternarNota(n);if("nota-ok"===o)return void registrarNota(t,e,n);if("variante"===o)return void pintarVariante(t,n,parseInt(e.getAttribute("data-idx"),10)||0);if("copiar-script"===o)return void copiarScript(t,e)}if(t&&n)if("editar"!==o)if("leque"!==o)if("retomar"!==o)if("toque"!==o)if("conversando"!==o)if("fechou"!==o)if("sem-interesse"!==o){if("retomar-ok"===o){var r=n.querySelector(".retomar input"),c=r?r.value:"";return c?void q("reagendar_proximo_contato",{p_lead_id:t,p_data:c},e,"Reagendado",{lead:t,card:n}):void I("Escolha a data de retomada",!0)}}else q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"},e,"Marcado sem interesse",{lead:t,card:n});else fecharComVenda(t);else q("registrar_conversando",{p_lead_id:t},e,"Conversa registrada",{lead:t,card:n});else q("registrar_toque",{p_lead_id:t},e,"Toque registrado",{lead:t,card:n});else{var d=n.querySelector(".retomar");d&&(d.className="retomar"+(d.className.indexOf("aberto")>=0?"":" aberto"))}else{var s=n.querySelector(".desfechos");s&&(s.className="desfechos"+(s.className.indexOf("aberto")>=0?"":" aberto"))}else!function(a){for(var e=null,o=0;o<i.length;o++)if(i[o].id===a){e=i[o];break}if(!e)return void I("Lead nao encontrado na base carregada",!0);H=a,E("edCondicao").innerHTML=T("condicao","Escolha a condicao"),E("edPerfil").innerHTML=T("perfil","Escolha o perfil"),E("edOrigem").innerHTML=T("origem","Escolha a origem"),E("edTitulo").textContent="Editar "+(e.lead_code||"lead"),E("edNome").value=e.nome||"",E("edWhats").value=e.whatsapp_digitos||"",E("edProduto").value=e.produto||"",E("edCondicao").value=e.condicao||"",E("edPerfil").value=e.perfil||"",E("edOrigem").value=e.origem||"",E("edIndicado").value=e.indicado_por||"",E("edNasc").value=e.data_nascimento||"",E("edProx").value=e.proximo_contato||"",E("edValor").value=function(a){if(null==a||""===a)return"";var e=Number(a);return isNaN(e)?"":String(e)}(e.valor_oferta),E("edObs").value=e.observacoes||"",E("edUpgrade").value=!0===e.upgrade_entrada?"sim":!1===e.upgrade_entrada?"nao":"",E("edAparelho").value=e.aparelho_entrada||"",E("edErro").textContent="",J(),M(),E("painelEdicao").className="painel-cadastro",E("painelEdicao").scrollIntoView({behavior:"smooth",block:"start"}),E("edNome").focus()}(t)}}function T(a,e){var t=o[a]||{},i='<option value="">'+c(e)+"</option>";return Object.keys(t).forEach(function(a){i+='<option value="'+c(a)+'">'+c(t[a])+"</option>"}),i}function P(){E("cadCondicao").innerHTML=T("condicao","Escolha a condicao"),E("cadPerfil").innerHTML=T("perfil","Escolha o perfil"),E("cadOrigem").innerHTML=T("origem","Escolha a origem"),["cadNome","cadWhats","cadProduto","cadIndicado","cadObs","cadAparelho"].forEach(function(a){E(a).value=""}),["cadCondicao","cadPerfil","cadOrigem","cadUpgrade"].forEach(function(a){E(a).value=""}),E("cadConsent").value="sim",E("campoIndicado").className="campo oculto",E("cadErro").textContent="",E("cadDup").className="cad-dup",D=null,E("painelCadastro").className="painel-cadastro",E("cadNome").focus()}function M(){E("painelCadastro").className="painel-cadastro oculto"}function y(){var a=E("cadUpgrade").value;return{nome:E("cadNome").value,whatsapp:E("cadWhats").value,produto:E("cadProduto").value,condicao:E("cadCondicao").value,perfil:E("cadPerfil").value,origem:E("cadOrigem").value,indicado_por:E("cadIndicado").value,observacoes:E("cadObs").value,upgrade_entrada:"sim"===a||"nao"!==a&&null,aparelho_entrada:E("cadAparelho").value,consentimento:"nao"!==E("cadConsent").value}}var D=null;async function F(){var a=E("cadErro");a.textContent="",E("cadDup").className="cad-dup",D=null;var e=y(),o=w(e);if(o.ok){var t=E("btnCadastrar"),i=await O("cadastrar_lead",{p_nome:e.nome,p_whatsapp:e.whatsapp,p_produto:e.produto,p_condicao:e.condicao,p_perfil:e.perfil,p_origem:e.origem,p_indicado_por:e.indicado_por||null,p_observacoes:e.observacoes||null,p_upgrade_entrada:e.upgrade_entrada,p_aparelho_entrada:e.aparelho_entrada||null,p_consentimento:e.consentimento},t);if(i)return!1===i.ok&&i.duplicado?(D=i.existente||null,E("cadDupMsg").textContent=i.msg||"Ja existe um lead com esse WhatsApp.",void(E("cadDup").className="cad-dup visivel")):void(!1!==i.ok?(I(i.msg||"Lead cadastrado"),M(),B(!0)):a.textContent=i.msg||"Cadastro recusado")}else a.textContent=o.msg}function W(){M(),n="todos",E("inputBusca").value=D&&D.nome||E("cadWhats").value,k()}function j(){var a="indicacao"===E("cadOrigem").value;E("campoIndicado").className="campo"+(a?"":" oculto")}var H=null;function J(){var a="indicacao"===E("edOrigem").value;E("campoEdIndicado").className="campo"+(a?"":" oculto")}function R(){E("painelEdicao").className="painel-cadastro oculto",H=null}async function z(){var a=E("edErro");if(a.textContent="",H){var e,o,t=(e=E("edUpgrade").value,o=String(E("edValor").value||"").trim(),{nome:E("edNome").value,whatsapp:E("edWhats").value,produto:E("edProduto").value,condicao:E("edCondicao").value,perfil:E("edPerfil").value,origem:E("edOrigem").value,indicado_por:E("edIndicado").value,data_nascimento:E("edNasc").value||null,proximo_contato:E("edProx").value||null,valor_oferta:""===o?null:Number(o),observacoes:E("edObs").value,upgrade_entrada:"sim"===e||"nao"!==e&&null,aparelho_entrada:E("edAparelho").value}),i=S(t);if(i.ok){var n=E("btnSalvarEdicao"),r=await O("editar_lead",{p_lead_id:H,p_nome:t.nome,p_whatsapp:t.whatsapp||null,p_produto:t.produto,p_condicao:t.condicao,p_perfil:t.perfil,p_origem:t.origem,p_indicado_por:t.indicado_por||null,p_observacoes:t.observacoes||null,p_aparelho_entrada:t.aparelho_entrada||null,p_upgrade_entrada:t.upgrade_entrada,p_valor_oferta:t.valor_oferta,p_proximo_contato:t.proximo_contato,p_data_nascimento:t.data_nascimento},n);r&&(!1!==r.ok?(I(r.msg||"Lead atualizado"),R(),B(!0)):a.textContent=r.msg||"Edicao recusada")}else a.textContent=i.msg}else a.textContent="Sem lead selecionado"}async function V(){if(H&&window.confirm("Arquivar este lead? Ele sai da operacao mas o historico fica no banco.")){var a=E("btnArquivar"),e=await O("arquivar_lead",{p_lead_id:H,p_motivo:null},a);e&&(!1!==e.ok?(I(e.msg||"Lead arquivado"),R(),B(!0)):E("edErro").textContent=e.msg||"Arquivamento recusado")}}var dicOk=!1;async function B(sil){if(!sil)E("lista").innerHTML='<div class="estado carregando">Lendo a base…</div>';if(!dicOk){var a=await t.from("dicionario_rotulos").select("dominio,codigo,rotulo");!a.error&&a.data&&(d(a.data),dicOk=!0)}var e=await t.from("v_lead").select("*").order("proximo_contato",{ascending:!0,nullsFirst:!1});if(e.error){if(await pwSemSessao())return pwSessaoCaiu();E("lista").innerHTML='<div class="estado erro">Falha ao ler a base: '+c(e.error.message)+". Toque em Atualizar para tentar de novo.</div>"}else{i=e.data||[];var o=new Date;r=("0"+o.getHours()).slice(-2)+":"+("0"+o.getMinutes()).slice(-2),pb(l()),k()}}function pb(a){a=a||l();var e=i.filter(function(a){return!a.arquivado_em}),o=v(e,a),t=o.filter(function(e){return p(e.proximo_contato,a)>0}),n=e.filter(function(a){return"pendente"===a.status});E("pbFila").textContent=String(o.length),E("badgeFila")&&(E("badgeFila").textContent=o.length?String(o.length):"");var r=E("pbAtraso");r.textContent=String(t.length),r.className="pb-num"+(t.length?" alerta":""),E("pbAtivos").textContent=String(n.length),E("pbTotal").textContent=String(e.length)}function U(a){E("telaLogin").className="login"+(a?" oculto":""),E("telaApp").className="app"+(a?"":" oculto")}var pwSaindo=!1;function pwSessaoCaiu(){i=[],U(!1);var a=E("loginErro");a&&(a.textContent="Sua sessao expirou. Entre de novo.")}async function pwSemSessao(){try{var a=await t.auth.getSession();return!(a&&a.data&&a.data.session)}catch(a){return!1}}async function Z(){var a=E("btnEntrar"),e=E("loginErro");e.textContent="",a.disabled=!0,a.textContent="Entrando…";var o=await t.auth.signInWithPassword({email:E("email").value.trim(),password:E("senha").value});a.disabled=!1,a.textContent="Entrar",o.error?e.textContent="Nao entrou: confira email e senha.":(pwSaindo=!1,U(!0),B())}async function X(){pwSaindo=!0,await t.auth.signOut(),i=[],U(!1)}function Y(a,e,o){var t=E(a);t?t.addEventListener(e,o):window.console&&console.warn("PitWall: elemento #"+a+" ausente; listener ignorado")}return{esc:c,setRotulos:d,rotulo:s,hojeLocalISO:l,dataLocalDe:u,diasAtraso:p,entraNaFila:m,montarFila:v,entraNoPosVenda:mPos,montarPosVenda:vPos,filtrarBusca:g,filtrarIndicacoes:_,fmtTel:f,waHrefFila:b,waHrefLimpo:h,cardHTML:x,renderLista:N,diaMaisISO:C,validarCadastro:w,validarEdicao:S,coletarCadastro:y,abrirCadastro:P,init:function(){t=window.supabase.createClient(a,e),t.auth.onAuthStateChange(function(evt,ses){"SIGNED_IN"===evt&&ses?pwSaindo=!1:"SIGNED_OUT"===evt&&(pwSaindo?pwSaindo=!1:pwSessaoCaiu())}),window.addEventListener("error",function(a){try{I("Erro: "+(a&&a.message?a.message:"falha inesperada"),!0)}catch(a){}}),window.addEventListener("unhandledrejection",function(a){var e=a&&a.reason?a.reason.message||String(a.reason):"promessa rejeitada";try{I("Erro: "+e,!0)}catch(a){}}),Y("btnEntrar","click",Z),Y("senha","keydown",function(a){"Enter"===a.key&&Z()}),Y("btnSair","click",X),Y("btnAtualizar","click",function(){dicOk=!1,B()}),Y("abaFila","click",function(){G("fila")}),Y("abaTodos","click",function(){G("todos")}),Y("abaVendas","click",function(){G("vendas")}),Y("abaNfs","click",function(){G("nfs")}),Y("btnSalvarNf","click",salvarNfPainel),Y("btnFecharNf","click",fecharPainelNf),Y("btnSalvarCliente","click",salvarCliente),Y("btnCancelarCliente","click",fecharPainelCliente),Y("nfLista","click",nfListaClick),Y("btnEnviarEntrega","click",function(){enviarEntrega(E("btnEnviarEntrega"))}),Y("btnCopiarEntrega","click",function(){copiarEntrega(E("btnCopiarEntrega"))}),Y("btnFecharEntrega","click",fecharPainelEntrega),["peRetirada","peEntrega","peValor","pePgto","peMotoboy","peMotoWhats","peRecado"].forEach(function(id){Y(id,"input",entPintar)}),Y("btnSalvarVenda","click",salvarVenda),Y("btnCancelarVenda","click",fecharPainelVenda),Y("fvValor","input",calcLucroVenda),Y("fvCusto","input",calcLucroVenda),Y("fvFrete","input",calcLucroVenda),Y("fvTaxas","input",calcLucroVenda),Y("fvStatus","change",fvEtapaSegueStatus),Y("fvEtapa","change",function(){FV_ETAPA_TOCADA=!0}),Y("fvClienteBusca","input",buscaClienteVenda),Y("painelVenda","click",fvCliClick),Y("painelEntrega","click",entPainelClick),Y("abaClientes","click",function(){G("clientes")}),Y("abaIndicacoes","click",function(){G("indicacoes")}),Y("abaDash","click",function(){G("dashboard")}),Y("abaCaptacao","click",function(){G("captacao")}),Y("abaHoje","click",function(){G("hoje")}),Y("abaConteudo","click",function(){G("conteudo")}),Y("abaRotina","click",function(){G("rotina")}),Y("abaEscopo","click",function(){G("escopo")}),Y("abaMais","click",function(){var a=E("abas");if(a){var b=a.className.indexOf("mais-aberto")>=0;a.className="abas"+(b?"":" mais-aberto"),E("abaMais").setAttribute("aria-expanded",b?"false":"true")}}),Y("lista","keydown",capKeydown),Y("inputBusca","input",k),Y("lista","click",A),Y("lista","change",A),Y("lista","dragstart",contDragStart),Y("lista","dragover",contDragOver),Y("lista","drop",contDrop),Y("lista","dragend",contDragEnd),Y("btnNovoLead","click",P),Y("btnCancelarCadastro","click",M),Y("btnCadastrar","click",F),Y("btnAbrirExistente","click",W),Y("cadOrigem","change",j),Y("btnSalvarEdicao","click",z),Y("btnCancelarEdicao","click",R),Y("btnArquivar","click",V),Y("edOrigem","change",J),t.auth.getSession().then(function(a){var e=!(!a.data||!a.data.session);U(e),e&&B()})},_setLeads:function(a){i=a}}}(),window.__PITWALL_SEM_INIT||("loading"===document.readyState?document.addEventListener("DOMContentLoaded",function(){window.PitWall.init()}):window.PitWall.init())

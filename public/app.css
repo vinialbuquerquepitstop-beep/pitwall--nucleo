@@ -2627,3 +2627,200 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 /* O rotulo do passo e DADO, nao palavra: vai em mono, igual ao R3 · D14 da
    referencia visual. */
 .chip.cad-mono{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em}
+
+/* ============ Detalhes da venda (v61) ============
+   Bloco de LEITURA dentro do card. Vive do vocabulario que ja existe (mono para
+   dado, --dim para rotulo, --ok-fg/--erro-fg para o sinal do lucro) e nao
+   introduz token nenhum: o :root e o mesmo da baseline. */
+.vd-acao{display:flex;justify-content:flex-end;margin-top:8px}
+.vd{display:none}
+.vd.aberto{
+  display:block;margin-top:10px;padding-top:12px;border-top:1px solid var(--line);
+}
+/* auto-fit e nao repeat(N): a mesma folha serve 360px (1 coluna) e 1440px (3)
+   sem media query por largura, e grupo novo nao exige recontar a grade. */
+.vd-corpo{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:14px 18px}
+.vd-grupo{min-width:0}
+.vd-tit{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 6px;
+}
+.vd-lin{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:3.5px 0;border-bottom:1px solid var(--line);min-width:0;
+}
+.vd-lin:last-child{border-bottom:0}
+.vd-rot{font-size:11.5px;color:var(--dim);flex:none}
+.vd-val{
+  font-size:12.5px;color:var(--text);text-align:right;min-width:0;
+  overflow-wrap:anywhere;font-variant-numeric:tabular-nums;
+}
+/* O vazio nao se esconde: ele fica cinza e menor, mas ocupa a linha. E o unico
+   jeito de a tela dizer "falta CPF" sem que alguem tenha que abrir o Editar. */
+.vd-val.vazio{color:var(--frio-fg);font-family:var(--mono);font-size:11.5px}
+.vd-lin.mono .vd-val{font-family:var(--mono);font-size:11.5px;letter-spacing:-.01em}
+.vd-lin.ok .vd-val{color:var(--ok-fg);font-weight:500}
+.vd-lin.neg .vd-val{color:var(--erro-fg);font-weight:500}
+
+.vd-hist{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.vd-hist-lista{display:flex;flex-direction:column;gap:5px}
+.vd-hist-ev{
+  display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+  background:var(--surface);border-radius:var(--radius-p);padding:6px 9px;
+}
+.vd-hist-ev.nasceu{background:var(--ok-bg)}
+.vd-hist-quando{
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);flex:none;
+  font-variant-numeric:tabular-nums;
+}
+.vd-hist-txt{
+  font-size:12px;color:var(--dim);min-width:0;flex:1 1 190px;
+  display:flex;flex-direction:column;gap:2px;
+}
+/* Uma linha POR CAMPO. Em texto corrido, a 360px, o par "de -> para" quebra no
+   meio do numero e os spans inline passam por cima uns dos outros (3
+   sobreposicoes medidas por diag_mobile.py 360). Bloco nao sobrepoe bloco. */
+.vd-hist-mud{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  flex-wrap:wrap;min-width:0;
+}
+.vd-hist-campo{color:var(--text);font-weight:500;flex:none}
+.vd-hist-par{
+  font-family:var(--mono);font-size:11px;min-width:0;overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums;text-align:right;
+}
+.vd-hist-par em{font-style:normal;color:var(--dim)}
+.vd-hist-par b{color:var(--text);font-weight:500}
+.vd-hist-par i{font-style:normal;color:var(--frio-fg);padding:0 4px}
+.vd-hist-vazio{font-size:12px;color:var(--dim)}
+
+/* ============ Recorte do faturamento (v61) ============
+   Barra horizontal empilhada, nas MESMAS cores das duas que ja existem no
+   painel (.vg-seg e .vg-vaza-seg): custo --dim, vazamento --morno, lucro
+   --ok-fg. Os segmentos reusam .vg-vaza-seg, entao a cor mora num lugar so. */
+.vg-corte{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.vg-corte-topo{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin-bottom:11px;
+}
+.vg-corte-lin{margin-bottom:11px}
+.vg-corte-cab{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin-bottom:4px;
+}
+.vg-corte-rot{font-size:12.5px;font-weight:500;color:var(--text);min-width:0;overflow-wrap:anywhere}
+.vg-corte-num{
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);flex:none;
+  font-variant-numeric:tabular-nums;
+}
+.vg-corte-num b{font-weight:500;color:var(--ok-fg)}
+.vg-corte-num b.neg{color:var(--erro-fg)}
+/* O tubo e a largura TOTAL, e a fita dentro dele e a fracao do maior grupo:
+   sem o tubo, uma barra curta nao teria contra o que ser curta. */
+.vg-corte-tubo{
+  width:100%;height:14px;background:var(--surface);border:1px solid var(--line);
+  border-radius:4px;overflow:hidden;
+}
+.vg-corte-fita{display:flex;height:100%;min-width:2px}
+.vg-corte-pe{font-size:11px;color:var(--dim);margin-top:10px;line-height:1.5}
+.vg-corte-vazio{font-size:12.5px;color:var(--dim)}
+@media (max-width:520px){
+  /* No celular o par rotulo/numero nao cabe na mesma linha sem quebrar o numero
+     no meio: viram duas linhas, e o numero fica alinhado a esquerda com o nome. */
+  .vg-corte-cab{flex-direction:column;gap:2px}
+  .vg-corte-num{align-self:flex-start}
+  .vd-lin{gap:8px}
+}
+
+/* ============ Quadro de etapas da venda (v61) ============
+   Cinco colunas neutras. A COLUNA nao ganha matiz de identidade de proposito:
+   cinco cores novas exigiriam cinco medicoes de contraste e disputariam com a
+   cor semantica, que aqui carrega uma coisa so — ha quantos dias a venda esta
+   parada. Coluna = lugar, chip = urgencia. */
+.qv{margin:0 0 22px}
+.qv-cab{margin-bottom:10px}
+/* Classe PROPRIA, e nao a .vg-tit emprestada do painel de dinheiro: reusar
+   aquela fez um querySelector da suite passar a pegar este titulo em vez do
+   grafico de meses, e a assercao reprovou. Vocabulario de tipografia se reusa;
+   o nome do seletor de outro componente, nao. */
+.qv-tit{
+  font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--dim);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+}
+.qv-tit span{letter-spacing:.02em;text-transform:none;font-size:11.5px;opacity:.85}
+/* Rolagem horizontal PROPRIA: cinco colunas nao cabem em 360px, e o que nao
+   pode acontecer e o documento inteiro rolar para o lado. */
+.qv-grade{
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(168px,1fr);
+  gap:8px;overflow-x:auto;padding-bottom:6px;
+}
+.qv-col{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:8px;min-width:0;
+}
+.qv-col-cab{
+  display:flex;align-items:baseline;justify-content:space-between;gap:6px;
+  margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--line);
+}
+.qv-col-rot{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);min-width:0;overflow-wrap:anywhere;
+}
+.qv-col-n{
+  font-family:var(--mono);font-size:11px;color:var(--text);flex:none;
+  font-variant-numeric:tabular-nums;
+}
+/* Coluna vazia DIZ que esta vazia. Coluna que some do quadro leva junto a
+   informacao de que nao ha nada travado ali. */
+.qv-col-vazio{font-size:11.5px;color:var(--frio-fg);font-family:var(--mono);padding:4px 0}
+.qv-recorte{
+  font-size:10.5px;color:var(--dim);font-family:var(--mono);
+  margin-top:6px;padding-top:6px;border-top:1px dashed var(--line-forte);
+}
+.qv-card{
+  background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-p);
+  padding:8px;margin-bottom:6px;
+}
+.qv-card:last-child{margin-bottom:0}
+.qv-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.qv-code{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:-.01em}
+/* O unico sinal com cor do quadro: ha quantos dias parada. Os cortes (3 e 7)
+   vivem no app.js como QV_CORTE/QV_TETO, igual aos do Escopo. */
+.qv-dias{
+  font-family:var(--mono);font-size:10px;color:var(--frio-fg);
+  background:var(--frio-bg);border-radius:3px;padding:1px 5px;flex:none;
+}
+.qv-dias.atencao{color:var(--morno-fg);background:var(--morno-bg)}
+.qv-dias.alerta{color:var(--erro-fg);background:var(--erro-bg)}
+.qv-quem{font-size:12.5px;font-weight:500;color:var(--text);margin-top:5px;overflow-wrap:anywhere}
+.qv-que{font-size:11.5px;color:var(--dim);margin-top:1px;overflow-wrap:anywhere}
+.qv-vals{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:5px}
+.qv-brl{font-family:var(--mono);font-size:11.5px;color:var(--text);font-variant-numeric:tabular-nums}
+.qv-pre{font-size:10px;color:var(--morno-fg);background:var(--morno-bg);border-radius:3px;padding:1px 5px}
+.qv-acoes{display:flex;align-items:center;gap:5px;margin-top:8px}
+.qv-btn{
+  flex:1 1 auto;background:var(--bg);border:1px solid var(--line-forte);
+  color:var(--text);border-radius:var(--radius-p);padding:6px 8px;
+  font-family:var(--display);font-weight:500;font-size:11.5px;
+  letter-spacing:-.01em;min-width:0;
+}
+.qv-btn:hover{background:var(--surface);border-color:var(--accent);color:var(--accent)}
+/* O botao que despacha o motoboy e o mais pesado do quadro: e o unico que sai
+   da tela e chega em outra pessoa. O destaque e ESTRUTURAL (borda forte, peso,
+   seta), nunca fundo azul: o azul da marca so entra em acao primaria NOMEADA
+   uma a uma no validar.py, e essa e decisao do dono, nao consequencia de um
+   componente novo. A regra 11.1 pegou exatamente isso na 1a passada. */
+.qv-btn.ent{border-color:var(--text);font-weight:600}
+.qv-btn.ent::after{content:" 92"}
+.qv-btn.ent:hover{background:var(--surface)}
+/* Voltar e conserto, nao fluxo: ocupa o minimo e nao disputa com a acao. */
+.qv-volta{
+  flex:none;width:24px;background:transparent;border:1px solid var(--line);
+  color:var(--dim);border-radius:var(--radius-p);padding:5px 0;font-size:12px;line-height:1;
+}
+.qv-volta:hover{background:var(--surface);color:var(--text);border-color:var(--line-forte)}
+@media (max-width:520px){
+  /* No celular a coluna encolhe e o quadro rola de lado, em vez de espremer
+     cinco colunas ilegiveis na largura da tela. */
+  .qv-grade{grid-auto-columns:minmax(152px,78vw)}
+}

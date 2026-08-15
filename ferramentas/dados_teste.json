@@ -181,6 +181,31 @@
    "dominio": "origem",
    "codigo": "indicacao",
    "rotulo": "Indicação"
+  },
+  {
+   "dominio": "etapa_venda",
+   "codigo": "pendente",
+   "rotulo": "Pendente"
+  },
+  {
+   "dominio": "etapa_venda",
+   "codigo": "a_retirar",
+   "rotulo": "A retirar"
+  },
+  {
+   "dominio": "etapa_venda",
+   "codigo": "em_maos",
+   "rotulo": "Em mãos"
+  },
+  {
+   "dominio": "etapa_venda",
+   "codigo": "a_caminho",
+   "rotulo": "A caminho"
+  },
+  {
+   "dominio": "etapa_venda",
+   "codigo": "entregue",
+   "rotulo": "Entregue"
   }
  ],
  "historico": [

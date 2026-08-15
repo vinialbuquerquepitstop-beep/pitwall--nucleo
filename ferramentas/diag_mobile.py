@@ -234,6 +234,20 @@ async function rodar(){
     var gav = D.querySelectorAll('details:not([open])');
     for (var g = 0; g < gav.length; g++) gav[g].open = true;
     if (gav.length) await espera(140);
+    // Mesmo motivo do <details>: o bloco de detalhes da venda (v61) nasce
+    // FECHADO, e bloco fechado nunca estoura. Com ele fechado, este diagnostico
+    // passava verde em 360px sem nunca ter desenhado os 30 campos, o par
+    // rotulo/valor lado a lado, nem o historico. Quem descobriria o estouro
+    // seria o dono, no celular, tocando em Detalhes.
+    if (abasIds[k] === 'abaVendas') {
+      var bdet = D.querySelectorAll('#lista [data-acao="venda-detalhes"]');
+      for (var b = 0; b < bdet.length; b++) bdet[b].click();
+      if (bdet.length) await espera(360);
+      // Injecao que nao rende elemento e pior que injecao nenhuma.
+      if (!D.querySelector('#lista [data-det].aberto'))
+        window.__saida.erros.push('detalhes da venda nao entraram na medicao: '
+          + 'nenhum [data-det].aberto na aba Vendas, entao o bloco novo NAO foi medido');
+    }
     // Injecao que nao rende elemento na tela e pior do que injecao nenhuma: o
     // diagnostico passaria verde jurando ter medido o bloco novo. Se o
     // cabecalho nao esta no DOM na hora da medida, isto REPROVA.
