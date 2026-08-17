@@ -7,7 +7,35 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v61.md` (16-17/08/2026, **a aba mostrava 17
+- topo: `handoff_migracao_pitwall_v62.md` (17/08/2026, **carga de preco que virou
+  correcao de RLS: o buraco anotado ha tres semanas nao era o pior, e o pior
+  ninguem tinha nomeado**. A tabela de 17/08 subiu nas duas calcs (16 fornecedores
+  com lista nova, Raposa preservada, **494 produtos / 1.029 precos**, zero variacao
+  acima de 15%, CPO em 38). Mas ao responder "como resolvo o `dados.js` publico",
+  a medicao mostrou que a policy `calc_dados_sel` filtrava **so por tenant**, com
+  `authenticated` tendo SELECT: a sessao do Brendon (`vendedor`, mesmo tenant)
+  baixava **custo, fornecedor e praca** das 494 linhas pelo PostgREST, que vale
+  mais que a tabela de venda. Fechado com `calc_dados_select_apenas_dono` e provado
+  na hora por `set local role` (dono le 1 de 2 linhas, Brendon le 0, anon leva
+  permission denied). **Nao existia meio-termo**: o blob e UMA linha de jsonb e RLS
+  e por LINHA. Agravante: o commit de vendas de tres dias antes fez o painel ler
+  `calc_dados` direto justificando "Zero migration: ja tem policy para
+  authenticated" — frouxidao de permissao nao envelhece parada, alguem constroi em
+  cima. **A trava de 15% deu zero e ainda havia SETE erros de leitura**, todos
+  achados a mao: ordem do bloco decidindo o que e preco solto (o Davi lista preco
+  por unidade, a MP lista preco antes das cores; tratados igual, o preco de uma cor
+  vazava para a seguinte), `Poco F8 Ultra` casando com Apple Watch Ultra 3, `anc`
+  dentro de "cancelamento", `ª` fora do `sem_acento` (o fone paralelo de R$69,99
+  virando AirPods Pro de verdade), `caixa branco` virando cor, `s11 46` sem "mm", e
+  linha com `*` escapando do detector de produto. Decisoes do dono: numero
+  malformado se corrige por coerencia com tabela explicita token->valor; **preco com
+  condicao pendurada fica de fora** (fecha pendencia de 03/08, e custa o 17 256GB
+  mais barato da rodada); Poco e Xiaomi fora do catalogo. Remote mudou pela segunda
+  vez: hoje e **so `origin`**. Aberto: o `dados.js` publico segue exposto e a saida
+  desenhada e a opcao B, uma RPC com projecao por papel, que so nao comecou porque
+  falta decidir se o painel mostra CUSTO para vendedor.)
+
+- anterior: `handoff_migracao_pitwall_v61.md` (16-17/08/2026, **a aba mostrava 17
   campos e a venda guardava 39**. Os 22 que faltavam so apareciam abrindo o
   painel EDITAR: consultar exigia entrar no unico modo capaz de corromper a
   venda. Entraram cinco coisas encadeadas: bloco de Detalhes (leitura pura, com
@@ -284,7 +312,9 @@ nenhuma das duas batia com o repo.
   suite travou calada por um `\n` mal escapado dentro da string Python do teste;
   nasce o watchdog do harness. **Cuidado ao ler:** ele trata as 8 vermelhas do
   harness como divida herdada, e o v48 provou que eram obra nao terminada)
-- 49 arquivos na pasta. O de maior versao substitui todos os anteriores.
+- 59 arquivos na pasta, 53 deles da linha migracao (contado em 17/08/2026 com
+  `Get-ChildItem docs\handoffs -Filter *.md`). O de maior versao substitui todos os
+  anteriores.
 
 ## Linha seguranca (pit-guard)
 
