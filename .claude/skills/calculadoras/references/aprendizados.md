@@ -5,6 +5,77 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 17/08/2026 (carga) — Sete armadilhas de parser, e o remote trocou de nome
+
+Rodada de 20 listas / 16 fornecedores, todas do proprio dia 17/08. Banco: **494
+produtos, 1.029 precos**, soma 3.948.560,95 (era 501 / 1.043). Consultor: 137
+produtos, 413 precos, validade 24/08/2026. Diff contra a carga de 15/08: 11
+subiram, 22 cairam, 804 iguais, 163 novos, 206 sairam de linha, e **zero
+variacao acima de 15%**.
+
+**O `origin` VOLTOU A SER o remote bom, e o `github` nao existe mais.** Medido em
+17/08/2026: `git remote -v` mostra so `origin`, apontando para
+`https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo.git`, e o push
+sai por `git push origin HEAD:main`. A skill mandava usar `github` desde 15/08.
+Licao que ja aparece pela segunda vez com sinal trocado: **medir o remote na
+hora, nunca confiar no que este arquivo diz.**
+
+**Ordem do bloco decide o significado de preco solto.** O erro mais caro da
+sessao, pego por conferencia manual e nao por trava: o Davi/Fabio lista **um
+preco por unidade** (`AZUL / 2.699 / 2.679 / 2.679`), enquanto a MP lista
+**preco e depois as cores** (`R$4.699,99 / azul / branco`). Tratando os dois
+igual, o ultimo preco do Azul virava o preco do Verde. Regra implantada: o
+PRIMEIRO evento do bloco decide. Comecou com cor -> preco solto e outra unidade
+da MESMA cor, fica o menor. Comecou com preco -> o preco vale para as cores que
+vierem depois. Sem isso, 15 128GB do Davi saia com Azul 2.699 e Verde 2.679,
+os dois errados, cada um para um lado.
+
+**Seis leituras que viravam preco falso, todas achadas por spot-check:**
+1. `Poco F8 Ultra 512GB` casava com **Apple Watch Ultra 3** (R$4.550 de Android
+   virava relogio). `ultra` sozinho nao basta: exigir `ultra 3`.
+2. `anc` sem fronteira de palavra casa dentro de "c**anc**elamento": o AirPods 4
+   SEM cancelamento virava o COM cancelamento, e um dos dois sumia.
+3. `ª` NAO e acento combinante, entao `sem_acento()` nao transformava `1ª linha`
+   em `1a linha`: o fone paralelo de R$69,99 entrava como **AirPods Pro de
+   verdade**, e o Cabo Apple herdava os R$69,99 do fone.
+4. `caixa branco` das linhas de CPO virava **cor Branco fantasma** em todo
+   produto CPO do Cristiano. Remover `caixa \w+` antes de procurar cor.
+5. O Cristiano escreve `s11 46` **sem "mm"**: sem isso os relogios dele todos
+   colavam no bloco do Ultra 3.
+6. A linha comecada por `*` escapava do detector de produto (o teste rodava no
+   texto cru, nao no `limpa()`): `*💻MACBOOK AIR M5 512GB*` nao era produto e os
+   R$7.899,99 dele caiam no MacBook Neo de cima.
+
+**Casar fornecedor pelo CORPO da mensagem e perigoso.** `lacrados` aparece no
+corpo de quase toda lista: a Five Cell inteira virou Junior. Casar so pelo
+CABECALHO (primeira linha), e deixar o corpo como excecao nomeada para a unica
+lista que abre com URL (a segunda da Quality).
+
+**Produto fora do catalogo tem que FECHAR o bloco.** Nao basta ignorar a linha:
+sem o flush, `pack com 1 AirTag` (R$200) e o `poco x8 pro` (R$2.297) jogavam
+preco e cor dentro do AirTag Pack 4, que ficou a R$200 em tres cores.
+
+**Decisoes do dono nesta data:** numero malformado se **corrige por coerencia**
+(`4,850,00`->4.850,00 · `4.3999,99`->4.399,99 · `7.200,00,00`->7.200,00 ·
+`1.1550`->1.550), com tabela explicita token->valor, nunca por regra generica;
+**preco com condicao pendurada fica de fora** (caixa aberta, lacre rompido,
+unidade aberta para midia, `c/caixa`); **Poco e Xiaomi ficam fora** do catalogo;
+entram `iPhone 13 mini 512GB` e `iPhone 16 Pro Max 1TB`; e o `MACBOOK AIR M5
+512GB` da MP **entra sem a RAM no nome**, contra a minha recomendacao de deixar
+fora (custo zero na pratica: a 7.899,99 ele nunca e o menor, o Real Comercio
+esta 7.844,99).
+
+**"Sem selo" nao quer dizer aparelho sem selo.** Eu marquei o iPhone 11 64GB do
+Joao Telles a R$750 como suspeito porque a lista dele abre com `SEM SELO / SEM
+GARANTIA`. O dono explicou: e instrucao para **nao retirar** o selo que vem no
+aparelho, senao a garantia cai. O preco e legitimo e e o menor do 11 64GB.
+
+**A validade nao venceu desta vez.** Estava em 22/08, com 5 dias de folga: a
+primeira rodada em que a primeira medicao do arranque nao achou a calc do
+consultor travada. Repor cedo funciona.
+
+---
+
 ## 15/08/2026 (carga) — O clone atrasado quase custou 25 commits
 
 Rodada de 17 fornecedores (2 novos), **1.043 precos** no blob (era 841), 501 produtos

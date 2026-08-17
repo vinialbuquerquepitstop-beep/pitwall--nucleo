@@ -40,8 +40,9 @@ some no meio de 690 precos e volta como margem negativa. Por isso:
    escrever em `calc_dados`, e esperar o "pode gravar".
 3. **Nunca inflar cobertura.** Se casou 71% das linhas, dizer 71%, nao "quase tudo".
 4. **Nunca empurrar sem provar, e nunca sobre base velha.** O push sai da skill, por
-   `git push github HEAD:main` (corrigido em 15/08/2026: o remote morto e o `origin`,
-   nao o `github`). Antes de commitar, medir o atraso do clone contra `github/main`:
+   `git push <remote> HEAD:main`, **conferindo o remote com `git remote -v` na hora**
+   (era `origin`, virou `github` em 15/08, voltou a ser so `origin` em 17/08 — nao
+   confie nesta linha). Antes de commitar, medir o atraso do clone contra o remote:
    em 15/08 estava 25 commits atras, e um `--force` teria apagado trabalho de tres
    dias. Ver `references/procedimento-alimentacao.md`.
 
@@ -67,8 +68,8 @@ Resumo do trilho:
 6. **Gerar o `dados.js` do consultor** a partir do MESMO blob, com validade nova.
    A validade e obrigatoria em toda rodada: sem ela a calc do consultor trava.
 7. **Validar** (`node --check` mais a conferencia de contagem e formato de data) e
-   **commitar**, depois de conferir que o clone nao esta atras do `github/main`.
-   Empurrar com `git push github HEAD:main`.
+   **commitar so o arquivo da calc**, depois de conferir que o clone nao esta atras
+   do remote. Empurrar com `git push origin HEAD:main` (nome medido em 17/08/2026).
 8. **Provar que subiu** com `curl` no worker, nunca pelo navegador do dono (cache).
    Para codigo da calc do dono a URL e `/calc/`, nao `/calc/index.html`.
 9. **Atualizar a skill** conforme a secao abaixo.

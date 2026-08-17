@@ -125,21 +125,26 @@ na v39: nao recriar sem o dono pedir.
 - Git e a fonte da verdade; a Cloudflare publica no push. O `name` no `wrangler.jsonc`
   (`flat-resonance-09ba`) tem que bater com o Worker no painel. Medido em 15/08/2026:
   do push ate o worker servir o arquivo novo, **~30 segundos**.
-- **Existem DOIS remotes, e so um presta.** Corrigido em 15/08/2026:
+- **O remote mudou de novo. Medir na hora, sempre.** Estado em 17/08/2026, por
+  `git remote -v`: existe **so o `origin`**, e ele aponta para a URL real
+  (`https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo.git`). O remote
+  `github` **nao existe mais**. O push desta carga saiu por:
 
-  | remote | URL | serve? |
-  |---|---|---|
-  | `origin` | `http://local_proxy@127.0.0.1:41729/...` | nao, proxy morto |
-  | `github` | `https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo.git` | **sim, fetch e push** |
+  ```
+  git push origin HEAD:main
+  ```
 
-  `git push github HEAD:main` **sai daqui direto**, sem precisar do prefixo `!`. Ate a
-  v52 a skill afirmava que o push sempre falhava; era verdade so para o `origin`.
+  Historico, para nao virar dogma outra vez: ate a v52 a skill dizia que o push
+  sempre falhava (verdade so enquanto o `origin` era o proxy morto em
+  `127.0.0.1:41729`); em 15/08 passou a mandar usar `github`; em 17/08 o `github`
+  sumiu e o `origin` voltou a prestar. **Rodar `git remote -v` antes de empurrar
+  e mais barato que qualquer uma dessas correcoes.**
 - **Conferir se o clone esta atrasado ANTES de commitar.** Em 15/08/2026 o clone local
   estava **25 commits atras** do GitHub, com a base em `266f614` de tres dias antes. Um
   `--force` teria apagado o painel de Performance de Vendas, a Fatia 2 do Escopo, o
   molde de conteudo e o bloco de Pos-Venda. O comando:
   ```
-  git fetch github main && git rev-list --left-right --count github/main...HEAD
+  git fetch origin main && git rev-list --left-right --count origin/main...HEAD
   ```
 - "Nao esta no ar" quase sempre e cache do navegador. Provar com `curl` no worker, nao
   com F5, e **em `/calc/`**, nunca em `/calc/index.html` (cai no fallback de SPA).

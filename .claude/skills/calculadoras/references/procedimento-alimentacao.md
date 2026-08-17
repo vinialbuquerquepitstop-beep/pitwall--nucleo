@@ -32,11 +32,12 @@ OneDrive. Conferir `git log -1` na hora, nao confiar no arranque.
 commits, e um deles renormalizou o `index.html` inteiro de CRLF para LF):
 
 ```
-git fetch github main && git rev-list --left-right --count github/main...HEAD
+git remote -v
+git fetch origin main && git rev-list --left-right --count origin/main...HEAD
 ```
 
 Saida `25  1` quer dizer 25 atras e 1 a frente. Se estiver atras, **nao rebasear** o
-`index.html`: mover a base com `git reset --hard github/main` e REAPLICAR as edicoes,
+`index.html`: mover a base com `git reset --hard origin/main` e REAPLICAR as edicoes,
 que sao poucas e pontuais. Rebase num arquivo renormalizado conflita linha a linha.
 
 ---
@@ -183,12 +184,17 @@ node -e "const fs=require('fs');const a=fs.readFileSync('/tmp/antes.js','utf8'),
 
 ## Passo 6 — Commit e push
 
-**Corrigido em 15/08/2026: o push sai daqui.** O remote morto e o `origin`; existe um
-remote `github` apontando para a URL real, que faz fetch E push:
+**O push sai daqui, mas CONFIRA o nome do remote antes** (`git remote -v`): ele ja
+mudou duas vezes. Em 17/08/2026 existe so o `origin`, apontando para a URL real, e
+o comando que funcionou foi:
 
 ```
-git push github HEAD:main
+git remote -v && git push origin HEAD:main
 ```
+
+Commitar **so o arquivo da calc**. O working tree costuma ter `public/app.js` e
+`ferramentas/harness.py` modificados por outra frente: `git add` de caminho
+especifico, nunca `git add -A`.
 
 Ate a v52 este passo dizia que o push era do dono, com `! git push origin main`. Era
 verdade so para o `origin`, e cobrava do dono um passo que a skill podia fazer sozinha.
@@ -220,7 +226,8 @@ sem erro nenhum.
 
 - [ ] estado vivo medido antes de mexer (banco, arquivo, git)
 - [ ] **validade do consultor conferida logo no inicio** (ja venceu calado duas vezes)
-- [ ] atraso do clone medido contra `github/main` ANTES de commitar
+- [ ] nome do remote medido com `git remote -v` (ja mudou duas vezes)
+- [ ] atraso do clone medido contra `origin/main` ANTES de commitar
 - [ ] pendencias listadas e resolvidas com o dono, zero chute
 - [ ] diff aprovado antes de gravar
 - [ ] `calc_dados` gravado, `atualizado_em` conferido
@@ -228,7 +235,7 @@ sem erro nenhum.
 - [ ] `dados.js` derivado do MESMO blob
 - [ ] `config.validade` reposta com data futura
 - [ ] `node --check` passou
-- [ ] commit feito e `git push github HEAD:main` executado
+- [ ] commit feito (so o arquivo da calc) e `git push origin HEAD:main` executado
 - [ ] `curl` no worker devolve a validade nova (e `/calc/` para mudanca de codigo)
 - [ ] consultor avisado
 - [ ] references atualizados se o caminho mudou

@@ -286,6 +286,38 @@ que nao existiam no blob anterior. Todos foram aprovados pelo dono em bloco.
 `Series 2` e `Series 3` do BR10 seguem sendo `SE 2` e `SE 3` (decisao de 03/08).
 Foi assim que o `Apple Watch SE 2 40mm` apareceu.
 
+### Nomes que ENTRARAM em 17/08/2026
+
+Aprovados pelo dono, um a um, na carga de 17/08:
+
+- **iPhone**: `iPhone 13 mini 512GB` (Quality, seminovo) · `iPhone 16 Pro Max 1TB`
+  (MP, seminovo).
+- **MacBook**: `MacBook Air M5 13" 512GB` — a MP escreve `MACBOOK AIR M5 512GB`,
+  **sem RAM**. Decisao do dono: o preco entra e a **RAM sai do nome**, mesma regra
+  do MacBook Pro sem polegada (03/08). Consequencia aceita: nao funde com o
+  `MacBook Air M5 13" 16/512GB` dos outros seis fornecedores, e aparece como linha
+  propria. Sem impacto em preco de venda (a 7.899,99 nunca e o menor).
+- **MacBook**: `MacBook Air M4 15" 16/256GB` (Real Comercio, 7.386) entrou na
+  mesma carga; o dono nao se pronunciou sobre este, foi comunicado depois.
+
+**Android nao entra.** Decisao do dono, 17/08/2026: `Poco F8 Pro`, `Poco F8 Ultra`,
+`Poco X8 Pro` e `Xiaomi 15T Pro` aparecem nas listas do Real Comercio, LBR e
+Cristiano (6 precos) e **ficam fora do catalogo**. O parser precisa reconhece-los
+para poder DESCARTAR: sem fechar o bloco, o preco deles cola no produto de cima.
+
+**Preco com condicao pendurada fica de fora** (decisao do dono, 17/08/2026, agora
+fechada): `caixa aberta`, `lacre rompido`, `deslacrado / somente para midia` e
+`c/caixa`. Ate 15/08 `swap` e `caixa aberta` eram "pendencia ate o dono decidir";
+agora sao descarte declarado no diff.
+
+**Numero malformado se corrige por COERENCIA, com tabela explicita.** Decisao do
+dono, 17/08/2026. Nao existe regra generica: cada token entra numa tabela
+`token -> valor` no parser, para ficar auditavel. Os quatro desta carga:
+`4,850,00` -> 4850,00 (virgula de milhar, Quality) · `4.3999,99` -> 4399,99
+(digito a mais, MP) · `7.200,00,00` -> 7200,00 (centavos duplicados, LBR) ·
+`1.1550` -> 1550,00 (ponto fora do lugar, Davi/Fabio). Token que **nao** estiver
+na tabela continua sendo pendencia, nunca preco.
+
 ### Cores e hex (38 nomes em uso)
 
 Amarelo `#f5e050` · Azul `#2c4f8c` · Black `#1c1c1e` · Black Ocean Band `#1c1c1e` · Black
