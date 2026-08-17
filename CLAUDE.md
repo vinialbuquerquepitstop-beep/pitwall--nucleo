@@ -10,10 +10,11 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v60.md`. Conferir a pasta em vez de confiar nesta
+   `handoff_migracao_pitwall_v61.md`. Conferir a pasta em vez de confiar nesta
    linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026,
-   no v35 ate 23/07/2026, no v37 ate 28/07/2026, no v43 ate 08/08/2026 e no v48
-   ate 14/08/2026).
+   no v35 ate 23/07/2026, no v37 ate 28/07/2026, no v43 ate 08/08/2026, no v48
+   ate 14/08/2026 e no v59 ate 17/08/2026, quando o trabalho tinha vindo de outra
+   maquina e so apareceu no `git pull`).
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
    ANTES de escrever CSS. Ela e a referencia de record, aprovada pelo dono.
