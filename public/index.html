@@ -227,15 +227,31 @@
     <div id="painelVenda" class="painel-cadastro oculto">
       <h2 id="pvTitulo">Nova venda</h2>
       <p class="cad-grupo">Aparelho</p>
+      <!-- Busca na calculadora: 501 produtos com fornecedor, praça, cor e custo
+           já cadastrados. Mesmo padrão do buscador de cliente logo abaixo.
+           Preenche aparelho, fornecedor e custo; o preço de venda é decisão do
+           dono e NÃO é tocado aqui.
+           RECOLHIDA por padrão (pedido do dono, 16/08/2026): aberta, ela
+           empurrava o Modelo para baixo e punha um atalho na frente do campo
+           obrigatório. Quem quer o atalho toca; quem digita não tropeça nele. -->
+      <button type="button" id="fvProdAbrir" class="fv-prod-abrir" data-acao="fv-prod-abrir" aria-expanded="false" aria-controls="fvProdBusca">buscar na calculadora</button>
+      <div id="fvProdBusca" class="fv-prod-busca" hidden>
+        <div class="campo"><label for="fvProdutoBusca">Produto</label><input id="fvProdutoBusca" type="search" placeholder="13 pro max, watch s10, macbook air…" autocomplete="off"><span class="campo-nota">Preenche modelo, cor, condição, fornecedor, retirada e custo. O valor da venda continua sendo você quem define.</span></div>
+        <div id="fvProdutoResultados" class="fv-cli-lista"></div>
+      </div>
       <div class="campo"><label for="fvModelo">Modelo *</label><input id="fvModelo" list="fvModeloLista" type="text" placeholder="iPhone 13, iPad 11, MacBook Air…" autocomplete="off"><datalist id="fvModeloLista"></datalist></div>
       <div class="campo"><label for="fvCapacidade">Armazenamento</label><input id="fvCapacidade" list="fvCapacidadeLista" type="text" placeholder="128GB" autocomplete="off"><datalist id="fvCapacidadeLista"></datalist></div>
       <div class="campo"><label for="fvCor">Cor</label><input id="fvCor" type="text" autocomplete="off"></div>
-      <div class="campo"><label for="fvCondicao">Condição</label><select id="fvCondicao"><option value="">—</option><option value="lacrado">Lacrado</option><option value="vitrine">Vitrine</option><option value="seminovo">Seminovo</option></select></div>
+      <div class="campo"><label for="fvCondicao">Condição</label><select id="fvCondicao"><option value="">—</option><option value="lacrado">Lacrado</option><option value="cpo">CPO</option><option value="vitrine">Vitrine</option><option value="seminovo">Seminovo</option></select></div>
       <div class="campo"><label for="fvImei">IMEI</label><input id="fvImei" type="text" inputmode="numeric" autocomplete="off"></div>
 
       <p class="cad-grupo">Valores</p>
       <div class="campo"><label for="fvValor">Valor da venda (R$) *</label><input id="fvValor" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
-      <div class="campo"><label for="fvCusto">Custo do aparelho (R$)</label><input id="fvCusto" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
+      <!-- O custo da calculadora é o de TABELA. O que foi pago pode ser outro:
+           desconto no fechamento, ou o fornecedor cobrando diferente. O campo
+           sempre foi editável; o que faltava era a tela DIZER que o número
+           deixou de ser o da tabela, em vez de deixar os dois indistinguíveis. -->
+      <div class="campo"><label for="fvCusto">Custo do aparelho (R$)</label><input id="fvCusto" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"><span class="campo-nota" id="fvCustoRef"></span></div>
       <div class="campo"><label for="fvFrete">Frete / motoboy (R$)</label><input id="fvFrete" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="campo"><label for="fvTaxas">Taxas / maquininha (R$)</label><input id="fvTaxas" type="number" inputmode="decimal" step="0.01" min="0" autocomplete="off"></div>
       <div class="fv-lucro" id="fvLucro">lucro R$ 0,00</div>
@@ -293,6 +309,26 @@
         <button id="btnArquivarVenda" class="btn-cad perigo" data-acao="venda-arquivar">Arquivar esta venda</button>
       </div>
       <div id="fvErro" class="cad-erro" role="alert"></div>
+    </div>
+
+    <!-- ---------- Detalhamento de pagamento ----------
+         Composição: uma venda pode ter várias formas, e a do cartão de crédito
+         abre as parcelas. A lista é montada pelo JS porque o número de linhas é
+         variável; aqui ficam só a moldura e o rodapé.
+         A REGRA que sustenta o painel: a soma tem que fechar com o valor da
+         venda. Ela é conferida ao vivo no rodapé E de novo no banco, porque
+         validação que só existe na tela não é validação. -->
+    <div id="painelPagamento" class="painel-cadastro oculto">
+      <h2 id="ppTitulo">Pagamento</h2>
+      <p class="cad-nota" id="ppAlvo"></p>
+      <div id="ppLista" class="pp-lista"></div>
+      <button id="ppAdd" class="pp-add" data-acao="pg-add">+ adicionar forma</button>
+      <div id="ppSoma" class="pp-soma" role="status"></div>
+      <div class="cad-acoes">
+        <button id="btnSalvarPgto" class="btn-cad">Salvar pagamento</button>
+        <button id="btnFecharPgto" class="btn-cad secundario">Cancelar</button>
+      </div>
+      <div id="ppErro" class="cad-erro" role="alert"></div>
     </div>
 
     <!-- ---------- Relatório de entrega (o que vai pro motoboy) ----------

@@ -232,6 +232,12 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
 .oofp{font-size:15px;font-weight:600;color:var(--mu)}.oofp strong{color:var(--gr);font-size:18px;font-weight:800}
 .oofb{width:100%;margin-top:10px;background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr);border-radius:var(--rs);padding:9px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;transition:all 0.1s}
 .oofb:active{transform:scale(0.98)}
+
+/* Ponte para o Pit Wall: acao que SAI desta ferramenta e chega em outra.
+   Herda .chg (o mesmo do "trocar modelo") e so ganha peso e borda, sem cor
+   nova: a paleta da calc ja e densa e um quinto tom aqui viraria ruido. */
+.chg.vpw{border:1px solid var(--mu);font-weight:600;margin-top:6px;width:100%}
+.chg.vpw:hover{border-color:var(--tx)}
 </style>
 </head>
 <body>
@@ -261,6 +267,11 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
     <div class="cr"><span class="cl">Categoria</span><span class="cv" id="vcct"></span></div>
     <div class="cw" id="vcw" style="display:none"><span class="cwl">🎨 cor</span><div class="cl2" id="vcl"></div></div>
     <div class="chg" onclick="vClr()">✎ trocar modelo</div>
+    <!-- Leva o APARELHO para o cadastro de venda do Pit Wall (16/08/2026).
+         Nunca cria a venda: toda venda exige cliente, e a calculadora nao
+         conhece cliente nenhum. Abre o formulario preenchido, e o dono
+         completa e salva la. -->
+    <button type="button" class="chg vpw" id="vpw" onclick="vPitWall()">↗ registrar esta venda no Pit Wall</button>
   </div>
   <div class="segw" id="vseg">
     <div class="segh"><span class="segt">💡 segunda opção</span><span style="font-size:11px;color:var(--mu)">toque para comparar</span></div>
@@ -465,7 +476,19 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
 <div class="toast" id="toast"></div>
 <script>
 // ── TAXAS ──
-const TX={2:1.05031,3:1.05698,4:1.06360,5:1.07043,6:1.07726,7:1.07863,8:1.08542,9:1.09217,10:1.09900,11:1.10609,12:1.11284,13:1.14117,14:1.14836,15:1.15568,16:1.16292,17:1.17028,18:1.17758};
+// Os 17 coeficientes NAO moram mais aqui. Ate 16/08/2026 eles viviam nesta
+// linha E em config.taxas do dados.js do consultor, e o acrescimo fixo aparecia
+// como `v+100` logo abaixo E como config.pb la. Duas copias do que o cliente
+// paga: atualizar uma e esquecer a outra muda preco em silencio.
+// A fonte agora e calc_dados.dados.config (taxas + pb), e chega aqui pelo
+// Object.assign(CFG, D.config) do aplicarDados().
+// O NOME `TX` ficou de proposito: as 25 referencias no arquivo continuam
+// valendo, e trocar 25 pontos num arquivo que calcula preco seriam 25 chances
+// de errar. Muda a origem, nao o uso.
+// Sem fallback chumbado: fallback aqui seria a terceira copia com outro nome, e
+// pior, uma que so aparece quando o blob esta errado — exatamente quando nao se
+// pode confiar num preco. validarDados() reprova alto e a tela nao abre.
+let TX={};
 // ── DADOS (carregados de dados.js — NÃO editar aqui) ──
 let BAT=[],TELA=[],P=[];
 const TQL={jk:'JK/Vivid Incell',ba:'Basic Incell',pr:'Premium',or:'Original Retirada'};
@@ -479,7 +502,7 @@ function mg(c){if(SEMMARGEM.has(c))return{av:0,pc:0};return c==='MacBook'?{av:CF
 function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fpt(v){return v.toFixed(1)+'%'}
 function r2(v){return Math.round(v*100)/100}
-function PB(v){return v>0?v+100:v}
+function PB(v){return v>0?v+CFG.pb:v}
 function cm(p){if(!p.cs||!p.cs.length)return p.v||0;return Math.min(...p.cs.map(x=>x.v))}
 function batV(n){for(const b of BAT){if(n.includes(b.k))return b.v;}return null}
 function telaO(n){for(const t of TELA){if(n.includes(t.k))return t;}return null}
@@ -536,6 +559,37 @@ function rCores(p,lid,wid,ac,fn){
   }).join('');
   w.style.display='block';return cs[0].n;
 }
+// ── PONTE PARA O PIT WALL ──
+// Transporte por localStorage, nao por query string nem postMessage:
+//   - query string entra em historico de navegador e em log de acesso do
+//     Cloudflare, e custo de fornecedor e justamente o dado que motivou o gate
+//     de login desta pagina;
+//   - postMessage nao existe aqui: a aba Calc do painel abre com rel="noopener",
+//     entao window.opener e null, e tirar o noopener para viabilizar a mensagem
+//     trocaria uma regressao de seguranca por conveniencia.
+// localStorage funciona porque o mesmo Worker serve `/` e `/calc/`: mesma
+// origem. E sobrevive ao carregamento completo do painel, que sempre acontece.
+//
+// Vai SO o aparelho. Nunca cliente, nunca preco de venda: o preco e decisao do
+// dono no painel, e cliente a calculadora nao conhece.
+const PW_CHAVE='pitwall:venda-da-calc';
+function vPitWall(){
+  const p=(VS.si>=0&&P[VS.si])?P[VS.si]:P[VS.idx];
+  if(!p){toast('Escolha um aparelho primeiro');return;}
+  // O custo sai do CAMPO, nao do dado: o #vcusto e editavel de proposito, e se
+  // o dono corrigiu o numero e o corrigido que vale.
+  const cu=parseFloat(document.getElementById('vcusto').value);
+  const payload={v:1,em:Date.now(),origem:'calc',produto:{
+    nome:p.n,categoria:p.c,condicao:p.t,fornecedor:p.f,local:p.l||'',
+    cor:VS.cor||'',custo:(isFinite(cu)&&cu>0)?cu:null}};
+  try{localStorage.setItem(PW_CHAVE,JSON.stringify(payload));}
+  catch(e){toast('Não deu para enviar: armazenamento bloqueado');return;}
+  // Alvo NOMEADO: a segunda cotacao enviada reusa e foca a mesma aba do painel,
+  // em vez de abrir a terceira janela.
+  window.open('/#venda-da-calc','pitwall');
+  toast('Enviado para o Pit Wall');
+}
+
 // ════════ ABA VENDA ════════
 let VS={idx:-1,si:-1,cat:null,fm:'d',cor:'',av:0,pc:0,avsf:0,nm:''};
 let vTO=null;
@@ -1305,6 +1359,19 @@ document.addEventListener('click',e=>{if(!e.target.closest('.sw')&&!e.target.clo
 function validarDados(D){
   const e=[];
   if(!D||typeof D!=='object'){e.push('DADOS ausente'); return e;}
+  // As taxas viraram DADO em 16/08/2026 (fonte unica). Sem elas, TX[n] e
+  // undefined e todo preco parcelado da tela vira NaN: a ferramenta principal
+  // do dono mentindo calada. Melhor nao abrir do que abrir errado.
+  const cfg=D.config||{};
+  if(!cfg.taxas||typeof cfg.taxas!=='object'){
+    e.push('config.taxas ausente: a tabela de parcelamento vem do banco desde 16/08/2026');
+  }else{
+    for(let n=2;n<=18;n++){
+      const v=cfg.taxas[n]??cfg.taxas[String(n)];
+      if(typeof v!=='number'||!(v>1)) e.push('config.taxas: coeficiente de '+n+'x ausente ou invalido');
+    }
+  }
+  if(typeof cfg.pb!=='number'||cfg.pb<0) e.push('config.pb ausente ou invalido (acrescimo fixo da base parcelada)');
   if(!Array.isArray(D.produtos)||!D.produtos.length){e.push('Lista de produtos vazia ou ausente');}
   else D.produtos.forEach((p,i)=>{
     const id=`Produto #${i+1} "${p&&p.n?p.n:'sem nome'}"${p&&p.f?' / '+p.f:''}`;
@@ -1332,6 +1399,7 @@ function mostrarErro(lista){
 function aplicarDados(D){
   P=D.produtos; BAT=D.bateria; TELA=D.tela;
   if(D.config) Object.assign(CFG,D.config);
+  TX=CFG.taxas||{};   // fonte unica: calc_dados.dados.config.taxas
   const setv=(id,v)=>{const el=document.getElementById(id); if(el&&v!=null) el.value=v;};
   setv('cfd',CFG.d); setv('cfia',CFG.iav); setv('cfip',CFG.ipc); setv('cfma',CFG.mav); setv('cfmp',CFG.mpc);
   rCfgB(); rCfgT();

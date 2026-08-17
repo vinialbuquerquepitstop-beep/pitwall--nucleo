@@ -7,7 +7,24 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v60.md` (15/08/2026, **o consultor estava
+- topo: `handoff_migracao_pitwall_v61.md` (16-17/08/2026, **a aba mostrava 17
+  campos e a venda guardava 39**. Os 22 que faltavam so apareciam abrindo o
+  painel EDITAR: consultar exigia entrar no unico modo capaz de corromper a
+  venda. Entraram cinco coisas encadeadas: bloco de Detalhes (leitura pura, com
+  o historico lido da `auditoria` que existia desde a Fase 2 e nunca teve tela),
+  recorte "De onde vem" (fornecedor/modelo/pagamento/condicao), quadro de etapas
+  (`pendente → a_retirar → em_maos → a_caminho → entregue`, com `dias_na_etapa`
+  derivado na leitura), detalhamento de pagamento (N formas por venda, e **a
+  soma TEM que fechar com o valor**), e a ponte com a calculadora (o catalogo do
+  painel tem 6 itens; a calc tem 501 produtos com fornecedor, praca, cor e
+  custo). **ETAPA NAO E STATUS** e o dominio e `etapa_venda`, nunca `etapa`, que
+  ja e do LEAD. Os 17 coeficientes de parcelamento sairam de dois arquivos e
+  viraram DADO em `calc_dados.config.taxas`, com prova de que o preco nao mudou.
+  CPO entrou no dominio de condicao das DUAS tabelas. Licao: **o defeito mais
+  caro estava na prova que passava** — tres vezes a suite ficou verde pelo motivo
+  errado. 617 assercoes, 0 falhas.)
+
+- anterior: `handoff_migracao_pitwall_v60.md` (15/08/2026, **o consultor estava
   parado ha 5 dias e ninguem sabia**. O dono perguntou o caminho para atualizar a
   calculadora; a resposta util foi medir antes de falar: `config.validade` em
   10/08, vencida, com as quatro funcoes de copiar pedido travadas desde 11/08.
@@ -27,7 +44,7 @@ nenhuma das duas batia com o repo.
   (nova), `prova_cpo.js` 39/39, `validar.py`, `node --check`, exit 0 em todas, mais
   checksum do blob e da derivacao batendo contra o BANCO. Aberto: `Acessório` ainda
   ganha margem, linha orfa no tenant `...0004`, validade ainda sem alerta.)
-- anterior: `handoff_migracao_pitwall_v59.md` (14/08/2026, **as tres pendencias
+- e antes: `handoff_migracao_pitwall_v59.md` (14/08/2026, **as tres pendencias
   herdadas fecharam, e a que mais assustava era a menor**. Sem tela nova.
   (1) A referencia orfa da `prova_atmosfera.py` ("Secao 5 do plano", plano que
   nunca existiu em disco) virou ponteiro para o v56 secao 2 e para o plano da

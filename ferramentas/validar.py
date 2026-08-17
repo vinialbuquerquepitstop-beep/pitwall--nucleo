@@ -299,6 +299,14 @@ ACAO_PRIMARIA = [
 ROTULO_DE_GRUPO = [
     'mol-dia-rot',   # dia da semana, grade do molde
     'cont-col-rot',  # A produzir / Em producao / Pronto / Publicado
+    # Pendente / A retirar / Em maos / A caminho, quadro de etapas da aba
+    # Vendas. Entra em 15/08/2026 pelo mesmo pedido que abriu este papel: o
+    # dono reprovou a 1a versao do quadro dizendo "nao e kanban", e o rotulo
+    # azul e parte da gramatica do kanban que ele aprovou em 13/08. Papel
+    # identico ao do cont-col-rot: nomeia um conjunto de cartoes, vive no
+    # cabecalho da coluna e nunca pinta o dado. Medido igual: --accent sobre a
+    # bandeja --surface da 9.18 (prova_atmosfera.py).
+    'qv-col-rot',
 ]
 def papel_do_azul(sel):
     for rx, nome in PAPEIS_MECANICOS:
@@ -318,6 +326,15 @@ assert papel_do_azul('.cont-col-rot') == 'rotulo de grupo'
 # e o rotulo de grupo NAO pode virar salvo-conduto para pintar o dado:
 assert papel_do_azul('.mol-peca') is None, 'rotulo de grupo vazou para o conteudo do cartao'
 assert papel_do_azul('.cont-card') is None, 'rotulo de grupo vazou para o cartao inteiro'
+# 11.6 A tabela de parcelamento e DADO, nao codigo (16/08/2026). Ela vive em
+# calc_dados.dados.config.taxas e tem TRES consumidores: a calc do dono, o
+# dados.js do consultor (gerado) e o painel. Um coeficiente copiado para o
+# app.js seria a quarta copia — e a unica sem alarme, porque prova_taxas.py
+# compara os outros tres e nao olharia para ca.
+_coef = re.search(r'1\.0(5031|5698|6360|7043|7726|7863|8542|9217|9900)|1\.1(0609|1284|4117|4836|5568|6292|7028|7758)', novo_js)
+ck(not _coef, 'coeficiente da tabela de parcelamento copiado para o app.js '
+              f'(a fonte e calc_dados.config.taxas): {_coef.group(0) if _coef else ""}')
+
 novos_sel = seletores_com_accent(novo_css) - seletores_com_accent(velho_css)
 fora = sorted(s for s in novos_sel if papel_do_azul(s) is None)
 ck(not fora, 'uso NOVO de var(--accent) sem papel aprovado '

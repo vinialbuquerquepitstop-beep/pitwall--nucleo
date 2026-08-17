@@ -206,6 +206,26 @@
    "dominio": "etapa_venda",
    "codigo": "entregue",
    "rotulo": "Entregue"
+  },
+  {
+   "dominio": "forma_pgto_item",
+   "codigo": "pix",
+   "rotulo": "Pix"
+  },
+  {
+   "dominio": "forma_pgto_item",
+   "codigo": "dinheiro",
+   "rotulo": "Dinheiro"
+  },
+  {
+   "dominio": "forma_pgto_item",
+   "codigo": "cartao_credito",
+   "rotulo": "Cartão crédito"
+  },
+  {
+   "dominio": "forma_pgto_item",
+   "codigo": "cartao_debito",
+   "rotulo": "Cartão débito"
   }
  ],
  "historico": [

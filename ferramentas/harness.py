@@ -133,6 +133,47 @@ var AUDITORIA = [
 var VENDAS_ARQ_STUB = [{ id:'v9', venda_code:'VENDA-0009', modelo_texto:'iPhone 11',
   comprador_nome:'Duplicata arquivada', valor_venda:8400, data_venda:'2026-07-16',
   arquivado_em:'2026-07-27T10:00:00Z' }];
+// Pagamentos (v61). A v2 nasce com DUAS formas que somam os R$ 5.000 dela: e o
+// caso que deu origem ao painel — a venda "misto" que nao dizia como tinha sido
+// dividida. A v1 nasce SEM pagamento de proposito, para provar que a linha do
+// card aparece nos dois estados e que o vazio pede acao.
+// valor_parcela vem calculado como a view calcula (5000/5), e nao inventado: se
+// o fixture divergisse da conta real, a assercao passaria pelo motivo errado.
+var PAGAMENTOS_STUB = [
+  { id:'pg1', venda_id:'v2', venda_code:'VENDA-0002', forma:'pix',
+    forma_rotulo:'Pix', valor:1500, parcelas:1, valor_parcela:1500,
+    bandeira:null, taxa:null, taxa_repassada:true, ordem:1 },
+  { id:'pg2', venda_id:'v2', venda_code:'VENDA-0002', forma:'cartao_credito',
+    forma_rotulo:'Cartão crédito', valor:3500, parcelas:5, valor_parcela:700,
+    bandeira:'Visa', taxa:210, taxa_repassada:true, ordem:2 }];
+// Blob da calculadora (v61). Cada produto existe por um caso que o
+// preenchimento pode errar, nao para engordar o fixture:
+//   iPhone 13 Pro Max 128GB -> capacidade NO NOME, duas cores e DOIS
+//     fornecedores com custos diferentes (a linha certa e escolha do dono);
+//   Apple Watch S10 46mm    -> "46mm" NAO pode virar capacidade;
+//   MacBook Air M5 13" 16/512GB -> o nome REAL do blob: aspas no meio e
+//     capacidade RAM/disco. A regex sem (?:/\d+)? nao casa e os 14 MacBooks
+//     ficam sem capacidade — medido nos 501 produtos de producao;
+//   iPhone 15 sem cs nem v  -> produto sem preco NAO pode virar custo 0;
+//   o CPO                   -> so tem para onde ir desde que `cpo` entrou no
+//                              dominio da venda; antes viraria seminovo.
+var CALC_STUB = [{ tenant_id:'t1', dados: {
+  config: { d:300, iav:550, ipc:650, mav:1200, mpc:1300,
+    // a MESMA tabela do banco: o painel e consumidor dela, nunca dono
+    taxas:{"2":1.05031,"3":1.05698,"4":1.0636,"5":1.07043,"6":1.07726,"7":1.07863,
+      "8":1.08542,"9":1.09217,"10":1.099,"11":1.10609,"12":1.11284,"13":1.14117,
+      "14":1.14836,"15":1.15568,"16":1.16292,"17":1.17028,"18":1.17758}, pb:100 },
+  produtos: [
+    { n:'iPhone 13 Pro Max 128GB', c:'iPhone', t:'Seminovo', f:'Júnior',
+      l:'Recreio — RJ', cs:[{h:'#1c1c1e',n:'Grafite',v:2699},{h:'#f0e4d3',n:'Gold',v:2750}] },
+    { n:'iPhone 13 Pro Max 128GB', c:'iPhone', t:'CPO', f:'MP Imports',
+      l:'Campo Grande — RJ', cs:[{h:'#1c1c1e',n:'Grafite',v:2950}] },
+    { n:'Apple Watch S10 46mm', c:'Apple Watch', t:'Lacrado', f:'LBR Importados',
+      l:'Centro — Niterói/RJ', cs:[{h:'#000000',n:'Preto',v:3099}] },
+    { n:'MacBook Air M5 13\" 16/512GB', c:'MacBook', t:'Lacrado', f:'MP Imports',
+      l:'Campo Grande — RJ', cs:[{h:'#c0c0c0',n:'Silver',v:6200}] },
+    { n:'iPhone 15 128GB', c:'iPhone', t:'Lacrado', f:'Sem preço',
+      l:'Bangu — RJ', cs:[] } ] } }];
 var CATALOGO_STUB = [{ id:'m1', rotulo:'iPhone 13' }, { id:'m2', rotulo:'iPhone 15' }];
 // Motoboys cadastrados. O segundo nasce SEM telefone de proposito: a lista tem
 // que dizer "sem WhatsApp" e o botao dele tem que recusar o despacho, em vez de
@@ -141,7 +182,8 @@ var MOTOBOYS = [{ id:'mb1', nome:'Hiago', whatsapp:'5521987654321' },
                 { id:'mb2', nome:'Rafa sem numero', whatsapp:null }];
 var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB,
   venda: VENDAS_ARQ_STUB, catalogo_iphone: CATALOGO_STUB,
-  motoboy: MOTOBOYS, auditoria: AUDITORIA,
+  motoboy: MOTOBOYS, auditoria: AUDITORIA, v_venda_pagamento: PAGAMENTOS_STUB,
+  calc_dados: CALC_STUB,
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -327,6 +369,28 @@ window.supabase = {
           if (!args.p_texto || !args.p_texto.trim())
             return Promise.resolve({ data: { ok: false, msg: 'Nota vazia' }, error: null });
           return Promise.resolve({ data: { ok: true, msg: 'Nota registrada' }, error: null });
+        }
+        // ---- Pagamento: espelha a REGRA real de salvar_pagamentos.
+        // A soma tem que fechar com o valor da venda. Stub que aceita qualquer
+        // soma cegaria justamente a assercao que existe para provar a regra.
+        if (nome === 'salvar_pagamentos') {
+          var pgPay = args.payload || {};
+          var pgV = VENDAS_STUB.filter(function (x) { return x.id === pgPay.venda_id; })[0];
+          var pgIt = pgPay.itens || [];
+          if (!pgV) return Promise.resolve({ data: { ok: false, erro: 'Venda nao encontrada.' }, error: null });
+          var pgSoma = 0;
+          for (var pi = 0; pi < pgIt.length; pi++) {
+            var vi = parseFloat(String(pgIt[pi].valor).replace(',', '.'));
+            if (!(vi > 0)) return Promise.resolve({ data: { ok: false, erro: 'Informe o valor da linha ' + (pi + 1) + '.' }, error: null });
+            var pc = parseInt(pgIt[pi].parcelas, 10) || 1;
+            if (pc > 1 && pgIt[pi].forma !== 'cartao_credito')
+              return Promise.resolve({ data: { ok: false, erro: 'So cartao de credito parcela.' }, error: null });
+            pgSoma += vi;
+          }
+          if (pgIt.length && Math.round(pgSoma * 100) !== Math.round(pgV.valor_venda * 100))
+            return Promise.resolve({ data: { ok: false, erro: 'A soma dos pagamentos nao fecha com o valor da venda.' }, error: null });
+          return Promise.resolve({ data: { ok: true, venda_id: pgPay.venda_id, n: pgIt.length,
+            soma: pgSoma, msg: pgIt.length + ' formas lancadas' }, error: null });
         }
         // ---- Etapa da venda: espelha as recusas REAIS de mover_etapa_venda.
         // Stub que aceita tudo cegaria justamente as assercoes de recusa, do
@@ -1816,6 +1880,23 @@ async function rodar() {
   document.getElementById('fvValor').dispatchEvent(new Event('input'));
   ok('lucro ao vivo calcula 540', document.getElementById('fvLucro').textContent.indexOf('540,00') >= 0,
      document.getElementById('fvLucro').textContent);
+  // Sem preco NAO existe lucro, nem negativo. Com a busca da calculadora o
+  // custo passa a chegar ANTES do preco, e o rodape anunciava "lucro
+  // R$ -2.699,00" em toda venda trazida de la — prejuizo que nao existe.
+  var vlrAntes = document.getElementById('fvValor').value;
+  document.getElementById('fvValor').value = '';
+  document.getElementById('fvValor').dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(120);
+  ok('sem valor da venda, o rodape PEDE o preco em vez de anunciar prejuizo',
+     document.getElementById('fvLucro').textContent.indexOf('informe o valor') >= 0 &&
+     document.getElementById('fvLucro').textContent.indexOf('-') < 0,
+     document.getElementById('fvLucro').textContent);
+  ok('e nao usa a cor de erro para um prejuizo que nao houve',
+     getComputedStyle(document.getElementById('fvLucro')).color !== 'rgb(176, 18, 53)',
+     getComputedStyle(document.getElementById('fvLucro')).color);
+  document.getElementById('fvValor').value = vlrAntes;
+  document.getElementById('fvValor').dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(120);
   // salvar chama a RPC com o payload certo e fecha o painel
   document.getElementById('fvModelo').value = 'iPhone 13 Pro';
   // Cliente obrigatorio desde a v42: sem dono, a venda nao vira NF nem recompra.
@@ -2378,6 +2459,46 @@ async function rodar() {
   if (clipOk) ok('copiar levou o texto do relatorio para a area de transferencia',
      !!window.__copiado && window.__copiado.indexOf('ENTREGA · VENDA-0001') === 0,
      String(window.__copiado).slice(0, 40));
+  // ---- o CONTEUDO do relatorio (v61) --------------------------------------
+  // Conferido em 16/08/2026 contra a VENDA-0008 real, que saiu dizendo so
+  // "Retirar em: Rua renato gabizo 35" tendo "Weslley" gravado como fornecedor.
+  // Cada linha aqui muda o que o motoboy FAZ na rua; o que nao muda a acao dele
+  // fica de fora de proposito, porque relatorio longo no WhatsApp nao se le.
+  if (clipOk) {
+    var rel = String(window.__copiado);
+    // O contato do fornecedor entra pelo MESMO formatador de telefone do resto
+    // do app: no fixture ele esta cru ('21 99999-0000') e tem que sair
+    // '(21) 99999-0000'. Se sair cru, o motoboy recebe um numero num formato e
+    // o cliente noutro na mesma mensagem.
+    ok('o relatorio diz COM QUEM falar na retirada, nao so o endereco',
+       rel.indexOf('Retirar em: Campo Grande · com MP Imports · (21) 99999-0000') >= 0,
+       rel);
+    ok('o relatorio traz o IMEI para conferir o aparelho na retirada',
+       rel.indexOf('IMEI 355000000000001') >= 0, rel);
+    ok('e nao sai com espaco duplo nem sobra no fim (modelo e cor sao digitados)',
+       rel.indexOf('  ') < 0 && rel.split(String.fromCharCode(10)).every(function (l) { return l === l.trim(); }),
+       JSON.stringify(rel.slice(0, 90)));
+    // as linhas que ja existiam continuam
+    ok('o relatorio mantem aparelho, cliente, contato, destino e dinheiro',
+       rel.indexOf('Aparelho:') >= 0 && rel.indexOf('Cliente:') >= 0 &&
+       rel.indexOf('Contato:') >= 0 && rel.indexOf('Entregar em:') >= 0 &&
+       rel.indexOf('Cobrar:') >= 0, rel);
+    // v1 nao tem troca: a linha NAO pode aparecer inventada
+    ok('venda sem troca nao ganha linha de recolher', rel.indexOf('Recolher na troca') < 0);
+  }
+  // ---- a linha que evita o prejuizo: venda COM troca ----------------------
+  // Sem ela o motoboy entrega, vai embora, e o aparelho de entrada fica com o
+  // cliente. Lido da PREVIA, que mostra o texto exato que sai, sem depender do
+  // clipboard (que o headless nem sempre concede).
+  document.querySelector('.venda-ent [data-acao="venda-entrega"][data-id="v5"]').click();
+  await espera(260);
+  var relTroca = document.getElementById('pePrevia').textContent;
+  ok('venda COM troca manda o motoboy RECOLHER o aparelho de entrada',
+     relTroca.indexOf('Recolher na troca: iPhone X') >= 0, relTroca);
+  ok('e leva o IMEI do usado, para ele conferir o que esta recebendo',
+     relTroca.indexOf('IMEI 355000000000099') >= 0, relTroca);
+  document.getElementById('btnFecharEntrega').click();
+  await espera(160);
   ok('copiar tambem grava a correcao na venda', nEd() === edAntes4 + 1,
      'antes=' + edAntes4 + ' depois=' + nEd());
 
@@ -2407,20 +2528,50 @@ async function rodar() {
      !!qv && !!document.querySelector('#lista .vg') &&
      (qv.compareDocumentPosition(document.querySelector('#lista .vg'))
       & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
-  ok('as cinco etapas viraram cinco colunas',
-     document.querySelectorAll('#lista .qv-col').length === 5,
+  // QUATRO colunas, nao cinco: Entregue saiu do quadro em 15/08/2026 a pedido do
+  // dono ("as entregues nao precisam estar em coluna"). Ela so crescia e nunca
+  // pedia acao, espremendo as quatro que pedem.
+  ok('as quatro etapas em aberto viraram quatro colunas',
+     document.querySelectorAll('#lista .qv-col').length === 4,
      'n=' + document.querySelectorAll('#lista .qv-col').length);
+  // Mesma gramatica do kanban de Conteudo, que o dono aprovou em 13/08: grade
+  // que DIVIDE a largura, sem rolagem lateral, e colunas de altura igual.
+  // O headless roda a 800px, ABAIXO do corte de 820: aqui o certo sao DUAS
+  // colunas, e assertar quatro passaria pelo motivo errado (foi o que esta
+  // assercao fez na 1a escrita). As quatro em desktop sao medidas pelo
+  // diag_mobile em 1280 e 1440, que monta o app na largura de verdade.
+  var qvG = getComputedStyle(document.querySelector('#lista .qv-grade'));
+  ok('a 800px o quadro cai para duas colunas, em vez de espremer quatro',
+     qvG.gridTemplateColumns.split(' ').length === 2, qvG.gridTemplateColumns);
+  ok('as colunas tem altura igual e o quadro NAO rola de lado (nao e tira)',
+     qvG.alignItems === 'stretch' && qvG.overflowX !== 'auto' && qvG.overflowX !== 'scroll',
+     'align=' + qvG.alignItems + ' overflowX=' + qvG.overflowX);
+  ok('a coluna do quadro tambem e bandeja, igual a do kanban de Conteudo',
+     getComputedStyle(document.querySelector('#lista .qv-col')).backgroundColor === 'rgb(246, 247, 250)',
+     getComputedStyle(document.querySelector('#lista .qv-col')).backgroundColor);
+  ok('e o rotulo da coluna e azul, o mesmo papel do cont-col-rot',
+     getComputedStyle(document.querySelector('#lista .qv-col-rot')).color === 'rgb(0, 37, 204)',
+     getComputedStyle(document.querySelector('#lista .qv-col-rot')).color);
   // O rotulo sai do dicionario (invariante 12): o codigo nunca aparece na tela.
   ok('a coluna mostra o ROTULO, nunca o codigo',
      qv.textContent.indexOf('A retirar') >= 0 && qv.textContent.indexOf('Em mãos') >= 0 &&
      qv.textContent.indexOf('a_retirar') < 0 && qv.textContent.indexOf('em_maos') < 0,
      qv.textContent.slice(0, 120));
   function qvCol(cod) { return document.querySelector('#lista .qv-col[data-col="' + cod + '"]'); }
-  ok('cada venda caiu na coluna da sua etapa',
-     qvCol('pendente').textContent.indexOf('VENDA-0004') >= 0 &&
-     qvCol('em_maos').textContent.indexOf('VENDA-0002') >= 0 &&
-     qvCol('a_caminho').textContent.indexOf('VENDA-0005') >= 0 &&
-     qvCol('entregue').textContent.indexOf('VENDA-0001') >= 0);
+  ok('cada venda em aberto caiu na coluna da sua etapa',
+     qvCol('pendente').textContent.indexOf('Bruno Reis') >= 0 &&
+     qvCol('em_maos').textContent.indexOf('Ana Lima') >= 0 &&
+     qvCol('a_caminho').textContent.indexOf('Carla Nunes') >= 0);
+  // Tirar da coluna NAO e esconder: o total entregue e declarado no cabecalho,
+  // senao a mudanca viraria omissao, e as vendas seguem inteiras na lista.
+  ok('Entregue nao e coluna', !qvCol('entregue'));
+  ok('mas o total entregue e DECLARADO no cabecalho',
+     !!document.querySelector('#lista .qv-fim') &&
+     document.querySelector('#lista .qv-fim').textContent.indexOf('1 entregue') >= 0,
+     (document.querySelector('#lista .qv-fim') || {}).textContent);
+  ok('e a venda entregue continua na lista de baixo, com os detalhes',
+     telaTxt().indexOf('VENDA-0001') >= 0 &&
+     !!document.querySelector('#lista [data-acao="venda-detalhes"][data-id="v1"]'));
   // A cancelada e a unica que nao esta em lugar nenhum: ela nao esta parada, esta fora.
   ok('a venda cancelada NAO aparece em coluna nenhuma do quadro',
      qv.textContent.indexOf('VENDA-0003') < 0, qv.textContent.slice(0, 200));
@@ -2443,20 +2594,19 @@ async function rodar() {
   var chipAl = qvCol('em_maos').querySelector('.qv-dias.alerta');
   ok('o alerta de parada usa a cor de erro medida, nao uma cor solta',
      getComputedStyle(chipAl).color === 'rgb(176, 18, 53)', getComputedStyle(chipAl).color);
-  ok('a coluna Entregue nao mostra dias parados (ali o tempo parou de correr)',
-     !qvCol('entregue').querySelector('.qv-dias'));
+
   ok('a venda que ainda e pre-venda declara isso no card',
      qvCol('pendente').textContent.indexOf('pré-venda') >= 0);
   // ---- o botao de cada etapa ----
   ok('em Em maos o botao e o RELATORIO, e ele abre a entrega em vez de mover',
      !!qvCol('em_maos').querySelector('[data-acao="venda-entrega"]') &&
      !qvCol('em_maos').querySelector('[data-acao="venda-etapa"][data-etapa="a_caminho"]'));
-  ok('a coluna Entregue nao oferece proximo passo', !qvCol('entregue').querySelector('.qv-btn'));
+  ok('a ultima coluna oferece Entregue como fim do fluxo',
+     !!qvCol('a_caminho').querySelector('[data-acao="venda-etapa"][data-etapa="entregue"]'));
   ok('toda etapa depois da primeira tem caminho de VOLTA',
-     !!qvCol('a_retirar') && !qvCol('pendente').querySelector('.qv-volta') &&
+     !qvCol('pendente').querySelector('.qv-volta') &&
      !!qvCol('em_maos').querySelector('.qv-volta') &&
-     !!qvCol('a_caminho').querySelector('.qv-volta') &&
-     !!qvCol('entregue').querySelector('.qv-volta'));
+     !!qvCol('a_caminho').querySelector('.qv-volta'));
   // ---- mover de verdade ----
   var redeQ = window.__fromChamadas.length;
   qvCol('pendente').querySelector('[data-acao="venda-etapa"]').click();
@@ -2480,6 +2630,379 @@ async function rodar() {
   var btVolta = cardMv.querySelector('.qv-volta');
   ok('o botao de voltar aponta para a etapa anterior, nao para o comeco',
      btVolta.getAttribute('data-etapa') === 'pendente', btVolta.getAttribute('data-etapa'));
+
+  // ============ produto vindo da calculadora (v61) ============
+  // O catalogo do painel tem 6 itens; a calculadora tem 501 produtos com
+  // fornecedor, praca, cor e custo. Redigitar isso e como nasceram o
+  // "13 pro max " com espaco e o fornecedor "MP " da base real.
+  document.querySelector('[data-acao="nova-venda"]').click();
+  await espera(320);
+  ok('o formulario de venda tem a busca da calculadora',
+     !!document.getElementById('fvProdutoBusca'));
+  // Recolhida por padrao (pedido do dono, 16/08/2026): aberta, ela empurrava o
+  // campo Modelo, que e obrigatorio, para baixo do atalho.
+  ok('a busca nasce RECOLHIDA, atras de um link',
+     document.getElementById('fvProdBusca').hidden === true &&
+     document.getElementById('fvProdAbrir').getAttribute('aria-expanded') === 'false',
+     'hidden=' + document.getElementById('fvProdBusca').hidden);
+  // Daqui em diante o teste segue o caminho do operador: abre a busca antes de
+  // digitar. Sem isto as assercoes abaixo passariam com o botao quebrado, porque
+  // dispatchEvent alcanca input oculto — teste passando pelo motivo errado.
+  document.getElementById('fvProdAbrir').click();
+  await espera(160);
+  ok('o link abre a busca e declara o estado',
+     document.getElementById('fvProdBusca').hidden === false &&
+     document.getElementById('fvProdAbrir').getAttribute('aria-expanded') === 'true');
+  var bp = document.getElementById('fvProdutoBusca');
+  bp.value = '13 pro max';
+  bp.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(220);
+  var hits = document.querySelectorAll('#fvProdutoResultados .fv-prod-hit');
+  // 2 cores do Junior + 1 do MP Imports = 3 linhas. O mesmo modelo em
+  // fornecedores diferentes tem custo diferente, e quem escolhe e o dono.
+  ok('a busca lista uma linha por cor E por fornecedor',
+     hits.length === 3, 'n=' + hits.length);
+  var txtHits = document.getElementById('fvProdutoResultados').textContent;
+  ok('cada linha mostra condicao, fornecedor, praca e custo',
+     txtHits.indexOf('Júnior') >= 0 && txtHits.indexOf('MP Imports') >= 0 &&
+     txtHits.indexOf('Recreio — RJ') >= 0 && txtHits.indexOf('R$ 2.699,00') >= 0,
+     txtHits.slice(0, 200));
+  // do mais barato para o mais caro: e o custo que decide a linha
+  ok('as linhas vem da mais barata para a mais cara',
+     txtHits.indexOf('R$ 2.699,00') < txtHits.indexOf('R$ 2.950,00'));
+
+  // ---- o parser de capacidade ----
+  hits[0].click();
+  await espera(200);
+  ok('escolher preenche o modelo SEM a capacidade',
+     document.getElementById('fvModelo').value === 'iPhone 13 Pro Max',
+     document.getElementById('fvModelo').value);
+  ok('e a capacidade vai para o campo proprio',
+     document.getElementById('fvCapacidade').value === '128GB',
+     document.getElementById('fvCapacidade').value);
+  ok('a cor, o fornecedor, a praca e o custo entram juntos',
+     document.getElementById('fvCor').value === 'Grafite' &&
+     document.getElementById('fvFornNome').value === 'Júnior' &&
+     document.getElementById('fvFornLocal').value === 'Recreio — RJ' &&
+     parseFloat(document.getElementById('fvCusto').value) === 2699,
+     [document.getElementById('fvCor').value, document.getElementById('fvFornNome').value,
+      document.getElementById('fvCusto').value].join(' | '));
+  ok('a condicao vira CODIGO, nao o rotulo da calculadora',
+     document.getElementById('fvCondicao').value === 'seminovo',
+     document.getElementById('fvCondicao').value);
+  // O preco e decisao do dono: a calc traz custo, nunca preco de venda.
+  ok('escolher o produto NAO mexe no valor da venda',
+     document.getElementById('fvValor').value === '',
+     document.getElementById('fvValor').value);
+  ok('e a lista some depois da escolha (segundo clique nao sobrescreve)',
+     document.getElementById('fvProdutoResultados').innerHTML === '' &&
+     document.getElementById('fvProdutoBusca').value === '');
+  ok('escolhido o produto, a busca se recolhe sozinha',
+     document.getElementById('fvProdBusca').hidden === true);
+  // ---- custo de TABELA x custo REAL -------------------------------------
+  // O dono fecha com desconto e o fornecedor as vezes cobra outro numero. O
+  // campo sempre foi editavel; o que faltava era a tela dizer que o valor
+  // deixou de ser o da tabela, em vez de deixar os dois indistinguiveis.
+  ok('depois de trazer da calc, a tela declara o custo de TABELA',
+     document.getElementById('fvCustoRef').textContent.indexOf('R$ 2.699,00') >= 0,
+     document.getElementById('fvCustoRef').textContent);
+  var campoCusto = document.getElementById('fvCusto');
+  campoCusto.value = '2550';
+  campoCusto.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(140);
+  ok('alterar o custo mostra tabela, valor lancado e a diferenca',
+     document.getElementById('fvCustoRef').textContent.indexOf('2.699,00') >= 0 &&
+     document.getElementById('fvCustoRef').textContent.indexOf('2.550,00') >= 0 &&
+     document.getElementById('fvCustoRef').textContent.indexOf('149,00') >= 0,
+     document.getElementById('fvCustoRef').textContent);
+  // Pagar diferente do de tabela e operacao normal, nao defeito: morno, nao erro.
+  ok('e o aviso usa a cor de trabalho normal, nao a de erro',
+     getComputedStyle(document.getElementById('fvCustoRef')).color === 'rgb(148, 101, 0)',
+     getComputedStyle(document.getElementById('fvCustoRef')).color);
+  // o valor lancado a mao e o que vale: a calc so sugeriu
+  ok('o custo lancado a mao sobrevive (a calculadora nao reescreve por cima)',
+     document.getElementById('fvCusto').value === '2550');
+  document.getElementById('fvProdAbrir').click();
+  await espera(140);
+
+  // ---- 46mm NAO e capacidade ----
+  bp = document.getElementById('fvProdutoBusca');
+  bp.value = 'watch';
+  bp.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(200);
+  document.querySelector('#fvProdutoResultados .fv-prod-hit').click();
+  await espera(200);
+  ok('produto sem capacidade no nome vai INTEIRO para o modelo',
+     document.getElementById('fvModelo').value === 'Apple Watch S10 46mm',
+     document.getElementById('fvModelo').value);
+  ok('e o 46mm NAO vira capacidade',
+     document.getElementById('fvCapacidade').value === '',
+     document.getElementById('fvCapacidade').value);
+
+  // ---- MacBook: o nome real tem aspas e capacidade RAM/disco ----
+  // Medido nos 501 produtos de producao: a regex sem (?:/\d+)? deixa os 14
+  // MacBooks sem capacidade. O criterio e o ROUND-TRIP: modelo + " " +
+  // capacidade tem que recompor o nome, senao duas SKUs viram a mesma.
+  bp.value = 'macbook';
+  bp.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(200);
+  document.querySelector('#fvProdutoResultados .fv-prod-hit').click();
+  await espera(200);
+  var mbM = document.getElementById('fvModelo').value;
+  var mbC = document.getElementById('fvCapacidade').value;
+  ok('MacBook separa a capacidade RAM/disco inteira',
+     mbC === '16/512GB', mbC);
+  ok('e o modelo mantem as aspas do nome, sem a capacidade grudada',
+     mbM === 'MacBook Air M5 13"', mbM);
+  ok('round-trip: modelo + capacidade recompoe o nome exato',
+     mbM + ' ' + mbC === 'MacBook Air M5 13" 16/512GB', mbM + ' | ' + mbC);
+
+  // ---- produto sem preco nao pode virar custo zero ----
+  // Custo 0 faria o rodape do formulario mostrar o preco inteiro como lucro e
+  // envenenaria o dashboard. Produto sem preco simplesmente nao esta cotado.
+  bp.value = 'iPhone 15';
+  bp.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(200);
+  ok('produto sem preco nao aparece na busca (nao existe custo zero)',
+     document.getElementById('fvProdutoResultados').textContent.indexOf('Sem preço') < 0,
+     document.getElementById('fvProdutoResultados').textContent.slice(0, 120));
+
+  // ---- CPO: so tem para onde ir desde que entrou no dominio ----
+  bp.value = '13 pro max';
+  bp.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(200);
+  var hitsCpo = [].filter.call(document.querySelectorAll('#fvProdutoResultados .fv-prod-hit'),
+    function (h) { return h.textContent.indexOf('CPO') >= 0; });
+  ok('o CPO aparece na busca', hitsCpo.length === 1);
+  hitsCpo[0].click();
+  await espera(200);
+  ok('e chega na venda como cpo, nao como seminovo nem vazio',
+     document.getElementById('fvCondicao').value === 'cpo',
+     document.getElementById('fvCondicao').value);
+  ok('o select de condicao oferece CPO',
+     !![].filter.call(document.getElementById('fvCondicao').options,
+       function (o) { return o.value === 'cpo'; })[0]);
+  document.getElementById('btnCancelarVenda').click();
+  await espera(160);
+
+  // ============ ponte com a calculadora (v61) ============
+  // A calc grava o aparelho no localStorage e abre /#venda-da-calc. Mesma
+  // origem, entao o dado atravessa sem query string (que entraria em historico
+  // e em log de acesso) e sem postMessage (impossivel: a aba Calc abre com
+  // rel="noopener", entao window.opener e null).
+  function planta(prod, quando, versao) {
+    localStorage.setItem('pitwall:venda-da-calc', JSON.stringify({
+      v: versao === undefined ? 1 : versao,
+      em: quando === undefined ? Date.now() : quando,
+      origem: 'calc', produto: prod }));
+  }
+  var PROD_CALC = { nome:'iPhone 13 Pro Max 128GB', categoria:'iPhone', condicao:'CPO',
+                    fornecedor:'MP Imports', local:'Campo Grande — RJ',
+                    cor:'Grafite', custo:2950 };
+  planta(PROD_CALC);
+  await window.PitWall._vendaDaCalc();
+  await espera(320);
+  ok('o rascunho da calculadora abre o formulario de venda',
+     document.getElementById('painelVenda').className.indexOf('oculto') < 0);
+  ok('e preenche pelos MESMOS campos da busca (uma escrita so)',
+     document.getElementById('fvModelo').value === 'iPhone 13 Pro Max' &&
+     document.getElementById('fvCapacidade').value === '128GB' &&
+     document.getElementById('fvCor').value === 'Grafite' &&
+     document.getElementById('fvFornNome').value === 'MP Imports' &&
+     parseFloat(document.getElementById('fvCusto').value) === 2950,
+     [document.getElementById('fvModelo').value,
+      document.getElementById('fvCapacidade').value,
+      document.getElementById('fvCusto').value].join(' | '));
+  ok('inclusive a condicao CPO, que so existe no dominio desde 16/08',
+     document.getElementById('fvCondicao').value === 'cpo',
+     document.getElementById('fvCondicao').value);
+  ok('e o custo de tabela fica declarado, para a alteracao aparecer depois',
+     document.getElementById('fvCustoRef').textContent.indexOf('2.950,00') >= 0,
+     document.getElementById('fvCustoRef').textContent);
+  // CONSUMO UNICO: um formulario que se preenche sozinho do nada, na proxima
+  // visita, e pior que um que nao preenche.
+  ok('a chave e CONSUMIDA (nao repreenche na proxima visita)',
+     localStorage.getItem('pitwall:venda-da-calc') === null);
+  document.getElementById('btnCancelarVenda').click();
+  await espera(140);
+  await window.PitWall._vendaDaCalc();
+  await espera(200);
+  ok('e sem rascunho, nada abre sozinho',
+     document.getElementById('painelVenda').className.indexOf('oculto') >= 0);
+
+  // ---- o que a ponte tem que RECUSAR ----
+  // Cotacao de ontem nao e a venda de hoje.
+  planta(PROD_CALC, Date.now() - 3600000);
+  await window.PitWall._vendaDaCalc();
+  await espera(200);
+  ok('rascunho vencido (1h) e ignorado E removido',
+     document.getElementById('painelVenda').className.indexOf('oculto') >= 0 &&
+     localStorage.getItem('pitwall:venda-da-calc') === null);
+  // versao futura do payload: melhor nao abrir do que abrir errado
+  planta(PROD_CALC, Date.now(), 99);
+  await window.PitWall._vendaDaCalc();
+  await espera(200);
+  ok('payload de versao desconhecida e ignorado E removido',
+     document.getElementById('painelVenda').className.indexOf('oculto') >= 0 &&
+     localStorage.getItem('pitwall:venda-da-calc') === null);
+  localStorage.setItem('pitwall:venda-da-calc', 'isto nao e json');
+  await window.PitWall._vendaDaCalc();
+  await espera(200);
+  ok('lixo no lugar do rascunho nao derruba a tela',
+     document.getElementById('painelVenda').className.indexOf('oculto') >= 0 &&
+     localStorage.getItem('pitwall:venda-da-calc') === null &&
+     window.__erroJs.length === 0, window.__erroJs.join(' | '));
+  // produto sem custo: a calc manda null quando o campo esta vazio
+  planta({ nome:'Apple Watch S10 46mm', categoria:'Apple Watch', condicao:'Lacrado',
+           fornecedor:'LBR', local:'Niterói', cor:'Preto', custo:null });
+  await window.PitWall._vendaDaCalc();
+  await espera(300);
+  ok('produto sem custo preenche o resto e deixa o custo VAZIO',
+     document.getElementById('fvModelo').value === 'Apple Watch S10 46mm' &&
+     document.getElementById('fvCusto').value === '',
+     'custo=[' + document.getElementById('fvCusto').value + ']');
+  document.getElementById('btnCancelarVenda').click();
+  await espera(140);
+
+  // ============ detalhamento de pagamento (v61) ============
+  // A venda tinha UM campo de texto com quatro opcoes, e uma delas era `misto`:
+  // uma promessa que o sistema nao cumpria. A VENDA-0002 real, de R$ 8.400,
+  // dizia "misto" e nao existia em lugar nenhum como tinha sido dividida.
+  ok('toda venda tem a linha de pagamento no card',
+     document.querySelectorAll('#lista .pg-linha').length === 5,
+     'n=' + document.querySelectorAll('#lista .pg-linha').length);
+  // O vazio pede acao com a semantica de MORNO, igual a NF que falta: venda sem
+  // detalhamento e trabalho pendente, nao erro.
+  ok('venda sem detalhamento declara a falta e o botao pede acao',
+     telaTxt().indexOf('pagamento não detalhado') >= 0 ||
+     telaTxt().indexOf('sem detalhamento') >= 0,
+     telaTxt().slice(0, 100));
+  var btPgV1 = document.querySelector('[data-acao="venda-pagamento"][data-id="v1"]');
+  ok('o botao da venda sem detalhamento usa a cor de morno, nao a de erro',
+     !!btPgV1 && getComputedStyle(btPgV1).color === 'rgb(148, 101, 0)',
+     btPgV1 ? getComputedStyle(btPgV1).color : 'sem botao');
+  // A composicao, quando existe, aparece no card: e mais verdadeira que "misto"
+  ok('a venda detalhada mostra a composicao no card, nao a palavra misto',
+     telaTxt().indexOf('Pix R$ 1.500,00') >= 0 &&
+     telaTxt().indexOf('Cartão crédito R$ 3.500,00') >= 0 &&
+     telaTxt().indexOf('5x de R$ 700,00') >= 0, telaTxt().slice(0, 200));
+
+  // ---- o painel ----
+  document.querySelector('[data-acao="venda-pagamento"][data-id="v2"]').click();
+  await espera(300);
+  var pp = document.getElementById('painelPagamento');
+  ok('o painel de pagamento abriu', pp.className.indexOf('oculto') < 0, pp.className);
+  ok('e abriu com o que a venda JA tinha, nao em branco',
+     document.querySelectorAll('#ppLista .pp-item').length === 2,
+     'n=' + document.querySelectorAll('#ppLista .pp-item').length);
+  ok('o cabecalho diz o valor que a soma precisa fechar',
+     document.getElementById('ppAlvo').textContent.indexOf('R$ 5.000,00') >= 0,
+     document.getElementById('ppAlvo').textContent);
+  // 1500 + 3500 = 5000: fecha
+  ok('o rodape diz AO VIVO que a soma fecha com a venda',
+     document.getElementById('ppSoma').textContent.indexOf('fecha com a venda') >= 0,
+     document.getElementById('ppSoma').textContent);
+  // parcelas so no credito: perguntar "quantas vezes" num Pix e oferecer um erro
+  ok('so a linha de credito oferece parcelas e bandeira',
+     document.querySelectorAll('#ppLista [data-pg="parcelas"]').length === 1 &&
+     document.querySelectorAll('#ppLista [data-pg="bandeira"]').length === 1);
+  ok('e a conta da parcela aparece para conferir com a maquininha',
+     document.getElementById('ppLista').textContent.indexOf('5x de R$ 700,00') >= 0,
+     document.getElementById('ppLista').textContent.slice(0, 120));
+
+  // ---- a REGRA: mexer no valor quebra a soma, e a tela diz na hora ----
+  var campoValor = document.querySelectorAll('#ppLista [data-pg="valor"]')[0];
+  campoValor.value = '1000';
+  campoValor.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(120);
+  ok('baixar uma forma faz o rodape acusar o que FALTA, na hora',
+     document.getElementById('ppSoma').textContent.indexOf('falta R$ 500,00') >= 0,
+     document.getElementById('ppSoma').textContent);
+  var nRpcPg = window.__rpcChamadas.length;
+  document.getElementById('btnSalvarPgto').click();
+  await espera(260);
+  ok('e salvar com a soma quebrada nem chega a chamar a RPC',
+     window.__rpcChamadas.length === nRpcPg &&
+     document.getElementById('ppErro').textContent.indexOf('não fecha') >= 0,
+     document.getElementById('ppErro').textContent);
+
+  // ---- adicionar ja sugere o que falta ----
+  document.querySelector('[data-acao="pg-add"]').click();
+  await espera(140);
+  var itens = document.querySelectorAll('#ppLista .pp-item');
+  ok('adicionar forma ja vem com o RESTO preenchido (a 2a forma e o resto)',
+     itens.length === 3 &&
+     parseFloat(document.querySelectorAll('#ppLista [data-pg="valor"]')[2].value) === 500,
+     'n=' + itens.length + ' valor=' + document.querySelectorAll('#ppLista [data-pg="valor"]')[2].value);
+  ok('e com isso a soma volta a fechar',
+     document.getElementById('ppSoma').textContent.indexOf('fecha com a venda') >= 0,
+     document.getElementById('ppSoma').textContent);
+
+  // ---- sugerir a taxa pela tabela do dono (v61) ----
+  // A conta e a INVERSA da aba VENDA da calculadora: o campo `valor` ja e o que
+  // o cliente passa no cartao. liquido = valor/TX[n] - pb; taxa = valor - liquido.
+  // Confundir com a formula direta erra exatamente `pb` por transacao.
+  var linhaCred = document.querySelectorAll('#ppLista .pp-item')[1];
+  var btSug = linhaCred.querySelector('[data-acao="pg-taxa-sug"]');
+  ok('a linha de credito parcelado oferece calcular a taxa pela tabela', !!btSug);
+  // debito e 1x NAO tem coeficiente: oferecer o botao ali seria oferecer um erro
+  ok('a linha de Pix NAO oferece o calculo',
+     !document.querySelectorAll('#ppLista .pp-item')[0].querySelector('[data-acao="pg-taxa-sug"]'));
+  btSug.click();
+  await espera(240);
+  // Valor dourado, conferido fora do navegador: 3500 em 5x com coef 1.07043 e
+  // pb 100 da liquido 3169,714... e taxa 330,29 (arredondada em 2 casas).
+  var taxaCalc = parseFloat(document.querySelectorAll('#ppLista [data-pg="taxa"]')[0].value);
+  ok('o calculo usa a formula inversa (valor/coef - pb), nao a direta',
+     Math.abs(taxaCalc - 330.29) < 0.02, 'taxa=' + taxaCalc);
+  // Prova mais forte que o valor dourado: o ROUND-TRIP. Se a taxa esta certa,
+  // recompor (liquido + pb) * coef tem que devolver o valor cobrado. Isso pega
+  // erro de sinal e a troca da formula direta pela inversa, que difere por
+  // exatamente `pb` e passaria despercebida num numero solto.
+  var liqCalc = 3500 - taxaCalc;
+  ok('e o round-trip fecha: (liquido + pb) * coef volta ao valor cobrado',
+     Math.abs((liqCalc + 100) * 1.07043 - 3500) < 0.05,
+     'volta=' + ((liqCalc + 100) * 1.07043).toFixed(2));
+  // Sugestao, nunca trava: a tabela muda e quem manda e o que foi cobrado.
+  var campoTaxa = document.querySelectorAll('#ppLista [data-pg="taxa"]')[0];
+  campoTaxa.value = '299';
+  campoTaxa.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(140);
+  ok('a taxa calculada continua EDITAVEL por cima',
+     parseFloat(document.querySelectorAll('#ppLista [data-pg="taxa"]')[0].value) === 299);
+
+  // ---- trocar a forma para credito abre as parcelas ----
+  var selForma = document.querySelectorAll('#ppLista [data-pg="forma"]')[2];
+  selForma.value = 'cartao_credito';
+  selForma.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(140);
+  ok('trocar a forma para credito faz aparecer parcelas naquela linha',
+     document.querySelectorAll('#ppLista [data-pg="parcelas"]').length === 2);
+
+  // ---- remover ----
+  document.querySelectorAll('#ppLista [data-acao="pg-rm"]')[2].click();
+  await espera(140);
+  ok('remover tira a linha e o rodape acusa a falta de novo',
+     document.querySelectorAll('#ppLista .pp-item').length === 2 &&
+     document.getElementById('ppSoma').textContent.indexOf('falta') >= 0);
+
+  // ---- salvar de verdade ----
+  campoValor = document.querySelectorAll('#ppLista [data-pg="valor"]')[0];
+  campoValor.value = '1500';
+  campoValor.dispatchEvent(new Event('input', { bubbles: true }));
+  await espera(120);
+  document.getElementById('btnSalvarPgto').click();
+  await espera(400);
+  var chPg = window.__rpcChamadas.filter(function (x) { return x.nome === 'salvar_pagamentos'; })[0];
+  ok('com a soma fechando, salvar chama salvar_pagamentos', !!chPg);
+  ok('e manda a venda e as formas, com as parcelas do credito',
+     !!chPg && chPg.args.payload.venda_id === 'v2' &&
+     chPg.args.payload.itens.length === 2 &&
+     String(chPg.args.payload.itens[1].parcelas) === '5',
+     chPg ? JSON.stringify(chPg.args.payload) : 'sem chamada');
+  ok('o painel fecha depois de salvar',
+     document.getElementById('painelPagamento').className.indexOf('oculto') >= 0);
+  ok('nenhum TypeError no caminho do pagamento', window.__erroJs.length === 0, window.__erroJs.join(' | '));
 
   // ============ detalhes da venda: a superficie de LEITURA (v61) ============
   // O card mostrava 17 campos e a venda guarda 39. Os 22 que faltavam so
@@ -3149,7 +3672,16 @@ setTimeout(function () {
   window.__log.push('FALHOU  a suite TRAVOU: rodar() nao terminou nem estourou. '
     + 'A ultima linha acima e o ultimo ponto que executou.');
   fim();
-}, 30000);
+// 30000 acabou em 16/08/2026, pelo MESMO motivo que o orcamento de 25000 acabou
+// em 08/08: o relogio aqui e VIRTUAL (--virtual-time-budget), entao cada
+// `await espera(...)` consome watchdog mesmo com a suite levando 6,5s reais. As
+// ~15 esperas dos blocos de pagamento e de calculadora passaram de 30s virtuais
+// e a rodada saiu com "a suite TRAVOU" tendo 593 assercoes VERDES — falso
+// negativo, o pior tipo.
+// 50000 mantem 10s de folga abaixo do orcamento de 60000: o watchdog continua
+// disparando ANTES do orcamento acabar, que e a unica coisa que o torna util.
+// Se voltar a estourar, subir os DOIS, nunca so este.
+}, 50000);
 window.addEventListener('error', function (e) { window.__log.push('FALHOU  erro de runtime: ' + e.message); });
 // Se rodar() estourar no meio, o <pre id=RESULTADO> nunca nascia e o lado
 // Python morria com IndexError, sem dizer ONDE parou. Agora o erro vira a
