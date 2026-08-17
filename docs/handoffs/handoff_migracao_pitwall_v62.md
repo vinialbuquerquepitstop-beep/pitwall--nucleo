@@ -212,8 +212,19 @@ e permissao.
    maior que a seguranca: a derivacao pv/pp passa a acontecer no banco, some a
    geracao manual do arquivo e o push a cada carga, trocar a validade deixa de
    exigir deploy, e a divergencia entre as duas calcs deixa de ser possivel por
-   construcao. **Pergunta que dimensiona a obra e segue sem resposta: o painel pode
-   mostrar CUSTO para o vendedor?**
+   construcao.
+
+   **RESPONDIDA em 17/08/2026: o painel NAO pode mostrar custo para o vendedor.**
+   Isso fecha o desenho e diminui a obra, porque passa a existir **uma projecao
+   so** para todo papel que nao seja dono, compartilhada pelo consultor e pelo
+   painel: `n`, `c`, `t`, cor, hex, `pv`, `pp`, mais `validade`, `pb`, `taxas` e
+   `comissao`. Sem `f`, sem `l`, sem `v`, em nenhuma tela.
+
+   Consequencia de tela que precisa entrar no criterio de aceite: o `app.js` tem
+   que **tolerar payload sem `v`**. Hoje ele le o blob inteiro e conta com o custo
+   estar la; com a projecao de vendedor, campo ausente nao pode virar `R$ NaN` nem
+   coluna vazia sem explicacao, tem que simplesmente nao existir na tela daquele
+   papel. Provar como dono e como vendedor, nas duas telas.
 2. **Validade sem alerta.** Nao venceu desta vez (estava em 22/08 com 5 dias de
    folga, a primeira rodada em que o arranque nao achou a calc travada), mas segue
    sendo um prazo que expira sozinho. Ja travou o consultor por 9 dias em 27/07 e
