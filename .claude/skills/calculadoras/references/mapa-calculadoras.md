@@ -32,7 +32,30 @@ fallback e devolve OUTRA pagina, sem erro nenhum. Medido em 15/08/2026, quando u
 
 ### RLS de `calc_dados`
 
-- `authenticated` tem **so SELECT**, com `using (tenant_id = privado.fn_tenant_atual())`.
+- `authenticated` tem **so SELECT**, e desde 17/08/2026 a policy `calc_dados_sel`
+  exige **papel dono**, nao so tenant:
+
+  ```sql
+  using (tenant_id = privado.fn_tenant_atual() and privado.fn_papel_atual() = 'dono')
+  ```
+
+  Ate 17/08 ela filtrava so por tenant, entao **qualquer usuario autenticado do
+  tenant lia o blob inteiro pelo PostgREST**: custo, nome do fornecedor e praca.
+  Com o Brendon (`vendedor`) ativo no mesmo tenant, bastava a sessao dele.
+  Migration `calc_dados_select_apenas_dono`. Prova rodada na hora, com
+  `set local role authenticated` e `request.jwt.claims` de cada uid: tabela tem 2
+  linhas, dono le 1 (isolamento de tenant intacto) e enxerga fornecedor, Brendon
+  le 0, anon leva `permission denied`.
+- **Por que nao teve meio-termo:** o blob e UMA linha de jsonb e RLS e por LINHA.
+  Nao da para esconder `v`, `f` e `l` de dentro da linha com policy. Ou o papel le
+  tudo, ou nao le nada. Projecao por papel exige RPC `SECURITY DEFINER` (opcao B,
+  ainda nao construida).
+- **Consequencia viva:** `public/app.js` (linhas 1151 e 1164) le `calc_dados`
+  direto, com o comentario "Zero migration: calc_dados ja tem policy de SELECT
+  para authenticated". Isso agora so vale para o dono. Se um `vendedor` abrir o
+  painel, a busca de produto e a tabela de parcelamento vem **vazias** (a query
+  volta 0 linhas, nao da erro). Aceito pelo dono em 17/08/2026 porque o Brendon
+  nao usa o painel. Quando usar, e a opcao B que resolve.
 - Escrita e por service role (Dashboard/MCP). Nao existe caminho de escrita pela pagina.
 - `CREATE OR REPLACE` em funcao/view reseta ACL: se mexer, refazer REVOKE/GRANT.
 

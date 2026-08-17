@@ -70,6 +70,25 @@ Joao Telles a R$750 como suspeito porque a lista dele abre com `SEM SELO / SEM
 GARANTIA`. O dono explicou: e instrucao para **nao retirar** o selo que vem no
 aparelho, senao a garantia cai. O preco e legitimo e e o menor do 11 64GB.
 
+**O buraco de seguranca que todo mundo olhava era o menor.** A skill carregava
+desde 27/07 a pendencia do `dados.js` publico (preco de venda e escada de
+comissao sem login). Medindo para responder ao dono, apareceu um maior e que
+ninguem tinha nomeado: a policy de `calc_dados` filtrava **so por tenant**, e
+`authenticated` tinha SELECT. Ou seja, a sessao do Brendon (`vendedor`, mesmo
+tenant) baixava pelo PostgREST **custo, nome do fornecedor e praca** das 494
+linhas, que e o ativo competitivo de verdade. Fechado no mesmo dia pela migration
+`calc_dados_select_apenas_dono`. Licao: pendencia antiga anotada na skill vira
+foco fixo, e o que nao esta escrito ninguem procura. **Antes de responder "como
+resolvo X", medir se X e mesmo o pior.**
+
+**Folga vira dependencia rapido.** O commit de vendas (`10d76b9`, 3 dias antes)
+fez o painel ler `calc_dados` direto, com o comentario "Zero migration:
+`calc_dados` ja tem policy de SELECT para `authenticated`". Uma frouxidao de RLS
+que estava la sem dono virou base de uma feature nova, e apertar a policy passou
+a ter custo de tela. Deu para fechar mesmo assim porque o Brendon nao usa o
+painel, mas a janela era estreita. **Frouxidao de permissao nao envelhece
+parada: alguem constroi em cima.**
+
 **A validade nao venceu desta vez.** Estava em 22/08, com 5 dias de folga: a
 primeira rodada em que a primeira medicao do arranque nao achou a calc do
 consultor travada. Repor cedo funciona.
