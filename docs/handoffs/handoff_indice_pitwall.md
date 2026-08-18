@@ -7,7 +7,26 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v62.md` (17/08/2026, **carga de preco que virou
+- topo: `handoff_migracao_pitwall_v63.md` (18/08/2026, **frontend puro: o numero
+  abriu venda a venda, e a regra de so contar venda concluida enfim chegou ao ar**.
+  Duas ordens do dono no mesmo dia, que sao a mesma ordem. Os cards faturamento e
+  lucro ganharam `detalhar`: a soma abre dentro da propria faixa de valores, com
+  data, modelo, cliente, codigo e a cifra do card aberto (peso no faturamento num
+  modo, margem no outro), e a ultima linha **RESOMA na tela** para o card e o
+  detalhe nunca poderem discordar sem que se veja. Pre-vendas em bloco proprio,
+  declaradas fora da soma com o total em transito. Zero rede, zero migration: sai
+  do `vendasData` que a aba ja carregou, e o filtro e o **mesmo `vgConta`** do
+  placar. Achado da sessao: a working tree suja de 17/08 (`vgConta`, painel de
+  Motoboys) **nunca tinha sido commitada**, entao o app publicado somava pre-venda
+  na aba Vendas enquanto o `painel_metricas` do banco ja nao somava, a mesma
+  palavra dando dois numeros em duas abas. Tres assercoes estavam VERMELHAS antes
+  da sessao, herdadas daquela mudanca: reescritas para o criterio novo com numero
+  medido, nunca silenciadas (faixa negativa 500/1000 = 50%; dois grupos no recorte,
+  MP Imports 4.200). O `diag_mobile.py` passou a ABRIR o bloco antes de medir e
+  reprova se ele nao renderizar. Suite: **664 assercoes, 0 falhas**, EXIT 0 nos
+  seis comandos e nas cinco larguras. Commit `4d010bb` em `origin/main`.)
+
+- anterior: `handoff_migracao_pitwall_v62.md` (17/08/2026, **carga de preco que virou
   correcao de RLS: o buraco anotado ha tres semanas nao era o pior, e o pior
   ninguem tinha nomeado**. A tabela de 17/08 subiu nas duas calcs (16 fornecedores
   com lista nova, Raposa preservada, **494 produtos / 1.029 precos**, zero variacao
