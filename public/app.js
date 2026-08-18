@@ -668,15 +668,28 @@ if(r.ok)motoboysData=r.dados;
 return r}
 // O telefone fica VISIVEL na linha: escolher o motoboy errado custa uma corrida,
 // e dois Hiagos sem numero a vista sao indistinguiveis.
-function motoLinha(m){
-return'<div class="moto-linha"><button type="button" class="moto-chip" data-acao="ent-moto-enviar" data-id="'+c(m.id)+'">'
-+"<strong>"+c(m.nome||"sem nome")+"</strong><span>"+(m.whatsapp?c(f(m.whatsapp)):"sem WhatsApp")+"</span></button>"
+// A MESMA linha serve os dois lugares onde a lista aparece, e o que muda e o
+// papel do chip. No relatorio ele e um BOTAO que despacha; no painel de
+// Motoboys (17/08/2026) nao ha venda aberta, entao despachar nao existe e o
+// chip vira texto. Chip clicavel que nao faz nada e pior que chip parado: o
+// dono toca, nada acontece, e isso e indistinguivel de defeito.
+function motoLinha(m,ger){
+var corpo="<strong>"+c(m.nome||"sem nome")+"</strong><span>"+(m.whatsapp?c(f(m.whatsapp)):"sem WhatsApp")+"</span>";
+return'<div class="moto-linha">'
++(ger?'<div class="moto-chip fixo">'+corpo+"</div>"
+:'<button type="button" class="moto-chip" data-acao="ent-moto-enviar" data-id="'+c(m.id)+'">'+corpo+"</button>")
 +'<button type="button" class="moto-rm" data-acao="ent-moto-rm" data-id="'+c(m.id)+'" aria-label="Tirar da lista">tirar</button></div>'}
-function pintarMotoboys(){
-var cx=E("peMotoLista");
+// Pinta os DOIS containers de uma vez. Uma funcao so porque a lista e uma so:
+// salvar no painel de Motoboys com o relatorio aberto atras tem que atualizar os
+// dois, senao a tela passa a mostrar duas versoes da mesma tabela.
+function motoPintarEm(id,ger){
+var cx=E(id);
 if(!cx)return;
-cx.innerHTML=motoboysData.length?motoboysData.map(motoLinha).join("")
+cx.innerHTML=motoboysData.length?motoboysData.map(function(m){return motoLinha(m,ger)}).join("")
 :'<div class="moto-vazio">Nenhum motoboy na lista. Preencha nome e WhatsApp abaixo e toque em Salvar na lista.</div>'}
+function pintarMotoboys(){
+motoPintarEm("peMotoLista",!1);
+motoPintarEm("pmLista",!0)}
 // Um toque = despacha. Preenche o motoboy da venda com o da lista e segue pelo
 // MESMO enviarEntrega: uma validacao so, um caminho so de escrita. Atalho com
 // caminho proprio seria a segunda regra que envelhece sozinha.
@@ -690,19 +703,29 @@ entPintar();
 await enviarEntrega(btn)}
 // Promove o avulso digitado a linha da lista. Nao inventa telefone: a RPC
 // recusa cadastro sem numero, porque sem numero nao existe botao de enviar.
-async function salvarMotoboyUI(btn){
-var nome=entVal("peMotoboy"),tel=entVal("peMotoWhats");
-if(!nome){if(E("peErro"))E("peErro").textContent="Digite o nome do motoboy antes de salvar na lista.";return}
+// Os ids dos campos entram por parametro porque a MESMA gravacao e disparada de
+// dois lugares (o rodape do relatorio e o painel de Motoboys). Um segundo
+// salvarMotoboy seria a segunda regra que envelhece sozinha: a validacao de nome
+// vazio ja mora aqui, e duplicar isso e como duas telas passam a discordar.
+var MOTO_CX_ENT={nome:"peMotoboy",tel:"peMotoWhats",erro:"peErro",limpa:!1};
+async function salvarMotoboyUI(btn,cx){
+cx=cx||MOTO_CX_ENT;
+var err=function(m){if(E(cx.erro))E(cx.erro).textContent=m};
+var nome=entVal(cx.nome),tel=entVal(cx.tel);
+if(!nome){err("Digite o nome do motoboy antes de salvar na lista.");return}
 if(btn)btn.disabled=!0;
 var r=await t.rpc("salvar_motoboy",{payload:{nome:nome,whatsapp:tel}});
 if(btn)btn.disabled=!1;
 var d=r&&r.data;
 if(d&&d.ok){
 I(d.msg||"Motoboy salvo");
-if(E("peErro"))E("peErro").textContent="";
+err("");
+// So o painel de Motoboys limpa os campos. No relatorio eles sao o motoboy DA
+// CORRIDA: apagar ali tiraria da mensagem quem acabou de ser escolhido.
+if(cx.limpa){if(E(cx.nome))E(cx.nome).value="";if(E(cx.tel))E(cx.tel).value="";if(E(cx.nome))E(cx.nome).focus()}
 await carregarMotoboys();pintarMotoboys()}
 else{var er=(d&&d.erro)||(r&&r.error&&r.error.message)||"Falha ao salvar o motoboy";
-if(E("peErro"))E("peErro").textContent=er;I(er,!0)}}
+err(er);I(er,!0)}}
 // Tirar da lista e soft delete no banco: a entrega de ontem continua legivel
 // com o nome de quem levou. A confirmacao diz isso.
 async function desligarMotoboyUI(mid,btn){
@@ -714,6 +737,33 @@ if(btn)btn.disabled=!1;
 var d=r&&r.data;
 if(d&&d.ok){I(d.msg||"Motoboy removido");await carregarMotoboys();pintarMotoboys()}
 else I((d&&d.erro)||(r&&r.error&&r.error.message)||"Falha ao remover",!0)}
+// ---- Painel de Motoboys, porta propria (17/08/2026) -------------------------
+// Ate aqui a lista so existia dentro do relatorio de entrega, e o dono reportou
+// que "a adicao de motoboy na lista esta perdida, aparece apenas quando clico em
+// relatorio". Era verdade: sem uma venda com entrega aberta nao havia caminho
+// nenhum para ver ou cadastrar motoboy. Mesma tabela, mesmas RPCs, mesma pintura.
+// O painel NAO despacha: despachar exige uma venda para saber o que entregar.
+function abrirPainelMotoboys(){
+if(E("pmErro"))E("pmErro").textContent="";
+if(E("pmNome"))E("pmNome").value="";
+if(E("pmWhats"))E("pmWhats").value="";
+if(E("painelMotoboys"))E("painelMotoboys").className="painel-cadastro";
+// O botao que abre este painel vive no topo da aba, mas a aba rola: sem isto o
+// painel abriria fora da vista e o toque pareceria nao ter feito nada. Mesmo
+// cinto do painel de venda (medido em 15/08: 4.415px de distancia).
+pwRolarPara("painelMotoboys");
+pintarMotoboys();
+carregarMotoboys().then(pintarMotoboys);
+if(E("pmNome"))E("pmNome").focus()}
+function fecharPainelMotoboys(){
+if(E("painelMotoboys"))E("painelMotoboys").className="painel-cadastro oculto"}
+// Delegado proprio: este painel vive fora de #lista, entao nao pega o A().
+function motoPainelClick(ev){
+var el=ev.target&&ev.target.closest?ev.target.closest("[data-acao]"):null;
+if(!el)return;
+var o=el.getAttribute("data-acao");
+if("ent-moto-rm"===o){ev.preventDefault();desligarMotoboyUI(el.getAttribute("data-id"),el);return}
+if("pm-salvar"===o){ev.preventDefault();salvarMotoboyUI(el,{nome:"pmNome",tel:"pmWhats",erro:"pmErro",limpa:!0});return}}
 // Roteador dos cliques do painel, no mesmo padrao do fvCliClick: o delegado A
 // so escuta #lista, e este painel vive fora dela.
 // Mesma delegacao do painel de entrega. `change` alem de `click` porque os
@@ -832,6 +882,11 @@ if(E("peAlvo"))E("peAlvo").textContent=(v.venda_code||"Venda")+" · o que você 
 if(E("peErro"))E("peErro").textContent="";
 entPintar();
 if(E("painelEntrega"))E("painelEntrega").className="painel-cadastro";
+// Mesmo cinto do "+ Nova venda" (v58): o Abrir relatorio mora DENTRO do card da
+// venda, no meio da lista, e o painel nasce no topo da pagina. Sem esta rolagem
+// o dono toca e a tela nao muda, que e indistinguivel de "o botao nao funciona".
+// Foi exatamente assim que ele reportou, nas duas vezes.
+pwRolarPara("painelEntrega");
 pintarMotoboys();carregarMotoboys().then(pintarMotoboys)}
 function fecharPainelEntrega(){
 ENT_EDIT=null;
@@ -1629,13 +1684,31 @@ return'<section class="qv" aria-label="Acompanhamento das vendas">'+
 // nascer um SEGUNDO criterio de faturamento no sistema:
 //   - arquivada nao conta (a v_venda ja filtra arquivado_em is null);
 //   - status cancelada nao conta;
-//   - status pre_venda CONTA e e declarado no cabecalho. Pre-venda entrando
-//     calada e o jeito mais barato de este painel mentir.
+//   - status pre_venda TAMBEM NAO CONTA (dono, 17/08/2026). Ate aqui ela
+//     entrava na soma e era declarada no cabecalho; agora sai de todo numero
+//     de dinheiro e o cabecalho declara o que FICOU DE FORA. Dinheiro que
+//     ainda nao fechou somado ao que fechou nao e faturamento, e previsao.
+// A mesma migration `painel_metricas_so_concluida` levou o criterio novo para
+// a RPC no mesmo dia: mudar so este lado faria a aba Metricas e a aba Vendas
+// darem dois numeros para a mesma palavra.
 // O lucro e SOMADO da coluna lucro da view, nunca recalculado aqui: duas
 // definicoes de lucro divergem com o tempo, e a suite assere que as duas contas
 // batem justamente para pegar isso.
 var vgJanela="trimestre";
 var VG_JANELAS=[["mes","Mês"],["trimestre","Trimestre"],["tudo","Tudo"]];
+// Qual card esta aberto em detalhe: "" (nenhum), "fat" ou "luc". UM por vez, de
+// proposito: dois blocos abertos empurram o grafico para fora da tela no
+// celular, e a pergunta "de quem e esse numero" e sempre sobre UM numero.
+var vgDet="";
+// UMA funcao decide o que vale dinheiro, e os quatro pontos de soma da tela
+// (placar, grafico por mes, recorte de origem e o Dashboard) chamam ela. Antes o
+// criterio era a mesma condicao copiada em quatro `if`: mudar de ideia obrigava
+// a achar as quatro, e esquecer uma so faz dois numeros da mesma tela
+// discordarem sem ninguem notar.
+// E `status`, nunca `etapa`: status responde "vale dinheiro?", etapa responde
+// "onde esta?" (v61). Venda concluida que ainda nao saiu para entrega ja e
+// faturamento; pre-venda entregue ainda nao e.
+function vgConta(v){return "concluida"===v.status}
 // data_venda e digitada a mao e pode faltar; criado_em sempre existe. Mesmo
 // coalesce que painel_metricas usa para o lead. dataLocalDe resolve o fuso
 // (invariante 10): nunca data crua do servidor virando dia de negocio.
@@ -1668,16 +1741,21 @@ else if("trimestre"===jan)ini=vgMesMais(hoje.slice(0,7),-2)+"-01";
 else ini=menor||hoje.slice(0,7)+"-01";
 return{ini:ini,fim:maior}}
 function vgAgregar(linhas,lim){
-var r={n:0,pre:0,fat:0,luc:0,custo:0,frete:0,taxas:0,meses:[]},mapa={},i,v,d,ym,m,fat,luc;
+var r={n:0,pre:0,preFat:0,fat:0,luc:0,custo:0,frete:0,taxas:0,meses:[]},mapa={},i,v,d,ym,m,fat,luc;
 for(i=0;i<linhas.length;i++){
 v=linhas[i];
 if("cancelada"===v.status)continue;
 d=vgDataDe(v);
 if(!d||d<lim.ini||d>lim.fim)continue;
+// A pre-venda sai ANTES de qualquer soma, inclusive de `n`. Tirar do
+// faturamento e deixar no contador seria pior que nao mexer: o ticket medio
+// passaria a dividir o dinheiro de quem fechou pelo numero de quem nao
+// fechou, e o erro ficaria escondido numa celula que ninguem confere.
+// Ela nao some: vira `pre`/`preFat`, que o cabecalho declara em voz alta.
+if(!vgConta(v)){r.pre++;r.preFat+=Number(v.valor_venda)||0;continue}
 fat=Number(v.valor_venda)||0;
 luc=Number(v.lucro)||0;
 r.n++;
-if("pre_venda"===v.status)r.pre++;
 r.fat+=fat;r.luc+=luc;
 r.custo+=Number(v.custo_aparelho)||0;
 r.frete+=Number(v.despesa_frete)||0;
@@ -1767,14 +1845,14 @@ return'<div class="vg-val'+(cls?" "+cls:"")+'" data-cel="'+c(cod)+'">'+
 // v52 os dois dividiam uma caixa porque a coluna tinha 228px; na faixa horizontal
 // isso deixou de ser restricao, e um numero que divide caixa com outro le como
 // rodape do vizinho, que foi exatamente o defeito que a v52 corrigiu na margem.
-function vgValores(a){
+function vgValores(a,det){
 var vaza=a.frete+a.taxas,tr="—";
 var neg=a.n&&a.luc<0?" neg":"";
 var pares=
 '<div class="vg-val" data-cel="vg-luc"><div class="vg-val-topo">'+
 '<div class="pb-rot">lucro</div>'+dvIcone("lucro","verde")+"</div>"+
 '<div class="vg-num'+neg+'">'+c(a.n?brlV(a.luc):tr)+"</div>"+
-'<div class="pb-pe">'+c(a.n?brlV(a.luc/a.n)+" por venda":"nada fechado ainda")+"</div></div>"+
+'<div class="pb-pe">'+c(a.n?brlV(a.luc/a.n)+" por venda":"nada fechado ainda")+"</div>"+vgDetBtn("luc",a)+"</div>"+
 '<div class="vg-val" data-cel="vg-margem"><div class="vg-val-topo">'+
 '<div class="pb-rot">margem</div>'+dvIcone("margem","laranja")+"</div>"+
 '<div class="vg-num'+neg+'">'+c(a.n?vgPct1(a.luc,a.fat):tr)+"</div>"+
@@ -1792,12 +1870,87 @@ var quebra=a.n?'<div class="vg-quebra">'+
 "<span>taxas <b>"+c(brlV(a.taxas))+"</b></span></div>":"";
 return'<div class="vg-valores">'+
 vgVal("vg-fat","faturamento",a.n?brlV(a.fat):tr,a.n+(1===a.n?" venda":" vendas"),
-      "","","dinheiro","azul")+
+      "",vgDetBtn("fat",a),"dinheiro","azul")+
 pares+
 vgVal("vg-vazamento","vazamento",a.n?brlV(vaza):tr,
       a.luc>0?vgPct1(vaza,a.luc)+" do lucro":"frete + taxas","forte",quebra,"vaza","vermelho")+
 vgVal("vg-ticket","ticket médio",a.n?brlV(a.fat/a.n):tr,
       a.n?"lucro médio "+brlV(a.luc/a.n):"por venda","","","ticket","roxo")+
+(det||"")+"</div>"}
+// ---- Detalhe do numero (18/08/2026): de quem e esse faturamento -------------
+// Pedido do dono no mesmo dia em que a pre-venda saiu da soma, e os dois pedidos
+// sao o mesmo pedido: numero somado por criterio que a tela nao mostra e numero
+// em que so se acredita. Aqui a soma se abre venda a venda, e a ultima linha do
+// bloco RESOMA na tela, para o card e o detalhe nunca poderem discordar sem que
+// se veja.
+// Zero rede: sai de vendasData, que a aba ja carregou (regra do v51 secao 4).
+// A MESMA porta de entrada do vgAgregar (mesmo descarte de cancelada, mesma
+// janela, mesmo vgConta). Se o detalhe tivesse condicao propria, ele explicaria
+// um numero que nao e o do card, que e o pior defeito possivel numa superficie
+// de auditoria: parece conferencia e e uma segunda conta.
+// Mais nova primeiro (invariante 6).
+function vgDetSeparar(linhas,lim){
+var ok=[],pre=[],i,v,d,ord=function(x,y){var a=vgDataDe(x),b=vgDataDe(y);return a<b?1:a>b?-1:0};
+for(i=0;i<linhas.length;i++){
+v=linhas[i];
+if("cancelada"===v.status)continue;
+d=vgDataDe(v);
+if(!d||d<lim.ini||d>lim.fim)continue;
+(vgConta(v)?ok:pre).push(v)}
+ok.sort(ord);pre.sort(ord);
+return{ok:ok,pre:pre}}
+function vgDetQuem(v){
+return(v.modelo_rotulo||v.modelo_texto||"sem modelo")+(v.capacidade?" "+v.capacidade:"")}
+// Uma linha = uma venda. O numero da direita e SEMPRE o do card aberto, nunca os
+// dois: coluna que muda de significado conforme a linha e como duas leituras da
+// mesma tela passam a discordar.
+// O modo "pre" existe para a pre-venda nao emprestar o vocabulario de quem
+// fechou: ela mostra o valor previsto e diz, na propria linha, que esta fora.
+function vgDetLin(v,modo,tot){
+var luc="luc"===modo,fat=Number(v.valor_venda)||0;
+var val=luc?Number(v.lucro)||0:fat;
+var pe=luc?"margem "+vgPct1(val,fat)+" \u00b7 venda "+brlV(fat)
+:"pre"===modo?"pr\u00e9-venda, fora da soma"
+:tot>0?vgPct1(val,tot)+" do faturamento":"\u2014";
+return'<div class="vg-det-lin"><div class="vg-det-quem">'+
+'<span class="vg-det-quando">'+c(vgDataBr(vgDataDe(v)))+"</span>"+
+"<strong>"+c(vgDetQuem(v))+"</strong>"+
+'<span class="vg-det-cli">'+c(v.cliente_nome||"sem cliente")+
+(v.venda_code?" \u00b7 "+c(v.venda_code):"")+"</span></div>"+
+'<div class="vg-det-cifra"><div class="vg-det-val'+(val<0?" neg":"")+'">'+c(brlV(val))+"</div>"+
+'<div class="vg-det-pe">'+c(pe)+"</div></div></div>"}
+// O botao so existe quando ha o que abrir. Numa janela sem venda nenhuma ele
+// abriria um bloco vazio, e affordance que nao entrega nada e ruido.
+function vgDetBtn(k,a){
+if(!a.n&&!a.pre)return"";
+var ab=vgDet===k;
+return'<button type="button" class="vg-det-btn" data-acao="vg-detalhe" data-id="'+c(k)+
+'" aria-expanded="'+(ab?"true":"false")+'">'+(ab?"fechar detalhe":"detalhar")+"</button>"}
+// O bloco mora DENTRO da faixa de valores (grid-column 1/-1), colado nos cards,
+// e nao depois dos graficos: no celular a resposta tem que nascer onde a
+// pergunta foi feita, senao ela abre fora da vista e o toque parece nao ter
+// funcionado (mesma licao do pwRolarPara).
+function vgDetBloco(linhas,lim,a){
+var modo="luc"===vgDet?"luc":"fat";
+var s=vgDetSeparar(linhas,lim),i,corpo="",fora="";
+var som="luc"===modo?a.luc:a.fat;
+for(i=0;i<s.ok.length;i++)corpo+=vgDetLin(s.ok[i],modo,a.fat);
+if(s.pre.length){
+fora='<p class="vg-det-fora">'+c(s.pre.length+" pr\u00e9-venda"+(1===s.pre.length?"":"s")+
+" fora da soma ("+brlV(a.preFat)+")")+
+"<span>Dinheiro que ainda nao fechou. Entra na soma quando a venda for concluida.</span></p>";
+for(i=0;i<s.pre.length;i++)fora+=vgDetLin(s.pre[i],"pre",0)}
+return'<div class="vg-det" data-cel="vg-detalhe" data-modo="'+c(modo)+'">'+
+'<div class="vg-det-cab"><div class="vg-det-tit">'+("luc"===modo?"lucro":"faturamento")+
+', venda a venda</div>'+
+'<div class="vg-det-rec">'+c(s.ok.length+(1===s.ok.length?" venda conclu\u00edda":" vendas conclu\u00eddas")+
+" \u00b7 de "+vgDataBr(lim.ini)+" a "+vgDataBr(lim.fim))+"</div>"+
+'<button type="button" class="vg-det-fechar" data-acao="vg-detalhe" data-id="">Fechar</button></div>'+
+(corpo||'<p class="vg-det-vazio">Nenhuma venda conclu\u00edda nesta janela.</p>')+
+(s.ok.length?'<div class="vg-det-soma"><span>soma das linhas</span><b'+(som<0?' class="neg"':"")+
+">"+c(brlV(som))+"</b></div>":"")+
+fora+
+'<p class="vg-det-nota">Cancelada e arquivada n\u00e3o entram aqui, nem na soma.</p>'+
 "</div>"}
 // Coluna EMPILHADA, nao barra simples. A altura do preenchimento continua sendo
 // o faturamento do mes escalado pelo maior mes da janela, mas o preenchimento se
@@ -1875,20 +2028,30 @@ return'<p class="vg-tit">onde o dinheiro foi</p><div class="vg-vaza-bloco"><div 
 // A janela e parte do dado, nao legenda: tela que omite o recorte mente por
 // omissao (reforco do v33). Por isso o "de X a Y" nao e opcional, e a pre-venda
 // e contada em voz alta.
+// Ela mudou de lado em 17/08/2026: dizia "inclui 1 pre-venda" e agora diz
+// quanto ficou DE FORA, com o valor. Numero excluido em silencio e a mesma
+// omissao de antes, so que na direcao contraria: o dono veria R$ 22.120 sem
+// saber que existem R$ 6.340 em transito.
 function vgCab(a,lim){
 var op="",i;
 for(i=0;i<VG_JANELAS.length;i++)
 op+='<button class="met-faixa" data-acao="vg-janela" data-id="'+VG_JANELAS[i][0]+
 '" aria-pressed="'+(vgJanela===VG_JANELAS[i][0]?"true":"false")+'">'+c(VG_JANELAS[i][1])+"</button>";
-var rec="de "+vgDataBr(lim.ini)+" a "+vgDataBr(lim.fim)+" · "+a.n+(1===a.n?" venda":" vendas")+
-(a.pre?" · inclui "+a.pre+" pré-venda"+(1===a.pre?"":"s"):"");
+var rec="de "+vgDataBr(lim.ini)+" a "+vgDataBr(lim.fim)+" · "+a.n+
+(1===a.n?" venda concluída":" vendas concluídas")+
+(a.pre?" · "+a.pre+" pré-venda"+(1===a.pre?"":"s")+" fora da soma ("+brlV(a.preFat)+")":"");
 return'<div class="vg-cab"><span class="vg-recorte">'+c(rec)+'</span><div class="met-faixas">'+op+"</div></div>"}
 // O placar continua na tela mesmo vazio, com os rotulos e o travessao: so
 // renderizar campo que tem dado e o que faz a tela sumir na base zerada. O vazio
 // vira o proprio caminho de saida, com o botao que abre a janela.
-function vgVazio(){
-return'<div class="vg-vazio"><strong>Nenhuma venda nesta janela.</strong> '+
-("tudo"===vgJanela?"A base ainda não tem venda registrada."
+// `a` entrou aqui em 17/08/2026: janela onde SO ha pre-venda tem a.n === 0 e
+// caia neste aviso dizendo "nenhuma venda", com duas vendas na tela logo abaixo.
+// Vazio que contradiz a lista e pior que vazio: o aviso agora nomeia o motivo.
+function vgVazio(a){
+var pre=a&&a.pre?" "+a.pre+" pré-venda"+(1===a.pre?"":"s")+" nesta janela não "+
+(1===a.pre?"entra":"entram")+" na soma ("+brlV(a.preFat)+").":"";
+return'<div class="vg-vazio"><strong>Nenhuma venda concluída nesta janela.</strong>'+c(pre)+' '+
+("tudo"===vgJanela?"A base ainda não tem venda concluída."
 :'<button class="vg-abrir" data-acao="vg-janela" data-id="tudo">Abrir para tudo</button>')+"</div>"}
 // Duas colunas: graficos a esquerda, valores a direita.
 // No DOM os VALORES vem primeiro, e isso e de proposito duas vezes: e a ordem
@@ -1951,9 +2114,10 @@ lst.addEventListener("focusout",fecha)}
 // O painel respondia "quanto" e "quando", nunca "de onde". Fornecedor, modelo,
 // forma de pagamento e condicao estavam gravados em toda venda e nao existiam em
 // nenhuma soma da tela.
-// Mesma janela e MESMO criterio de faturamento do painel de cima (cancelada
-// fora, pre-venda dentro, arquivada ja filtrada pela v_venda): um segundo
+// Mesma janela e MESMO criterio de faturamento do painel de cima (so concluida,
+// cancelada e pre-venda fora, arquivada ja filtrada pela v_venda): um segundo
 // criterio de faturamento e como um sistema passa a discordar de si mesmo.
+// Por isso o filtro aqui e a chamada a vgConta, nao uma copia da condicao.
 // Mesma paleta das barras que ja existem (custo --dim, vazamento --morno, lucro
 // --ok-fg): uma legenda serve os tres graficos. Zero token novo, zero RPC.
 var vgCorteDim="fornecedor";
@@ -1972,7 +2136,7 @@ function vgCortar(linhas,lim,dim){
 var mapa={},out=[],i,v,d,k,g;
 for(i=0;i<linhas.length;i++){
 v=linhas[i];
-if("cancelada"===v.status)continue;
+if(!vgConta(v))continue;
 d=vgDataDe(v);
 if(!d||d<lim.ini||d>lim.fim)continue;
 k=vgCorteChave(v,dim);
@@ -2035,8 +2199,8 @@ function vgPainel(){
 var linhas=vendasData||[],lim=vgLimites(linhas),a=vgAgregar(linhas,lim);
 VG_MESES_CACHE=a.meses;
 return'<section class="vg" aria-label="Painel de vendas">'+vgCab(a,lim)+
-'<div class="vg-corpo">'+vgValores(a)+
-'<div class="vg-graf g-meses">'+(a.n?vgMeses(a):vgVazio())+"</div>"+
+'<div class="vg-corpo">'+vgValores(a,vgDet?vgDetBloco(linhas,lim,a):"")+
+'<div class="vg-graf g-meses">'+(a.n?vgMeses(a):vgVazio(a))+"</div>"+
 '<div class="vg-graf g-vaza">'+(a.n?vgVazamento(a):"")+"</div>"+
 '<div class="vg-tip" id="vgTip" role="status" hidden></div>'+
 "</div>"+(a.n?vgCorteBloco(linhas,lim):"")+"</section>"}
@@ -2079,11 +2243,16 @@ d=u(i[j].criado_em);
 if(!d||d<lim.ini||d>lim.fim)continue;
 out.push(i[j])}
 return out}
+// Mesmo vgConta do painel de Vendas: os cards de dinheiro daqui (faturamento,
+// lucro, margem, ticket, canal, condicao, aparelhos) sao o MESMO conceito da
+// aba ao lado. O card de status e a unica coisa que continua lendo vendasData
+// cru, e tem que continuar: ele existe justamente para contar quantas estao em
+// cada situacao, pre-venda e cancelada incluidas.
 function dvVendasNaJanela(lim){
 var out=[],j,v,d;
 for(j=0;j<(vendasData||[]).length;j++){
 v=vendasData[j];
-if("cancelada"===v.status)continue;
+if(!vgConta(v))continue;
 d=vgDataDe(v);
 if(!d||d<lim.ini||d>lim.fim)continue;
 out.push(v)}
@@ -2573,7 +2742,13 @@ e=e||E("lista");
 if(!e)return;
 var lista=filtVendaBusca(vendasData,E("inputBusca")?E("inputBusca").value:"");
 var arq=vendasArq.length?' · <button class="venda-arq-btn" data-acao="venda-arq-alternar" aria-expanded="'+(vendasArqAberto?"true":"false")+'">'+vendasArq.length+" arquivada"+(1===vendasArq.length?"":"s")+"</button>":"";
-var topo='<div class="venda-topo"><button class="btn-cad" data-acao="nova-venda">+ Nova venda</button><span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
+// O Motoboys entra como acao SECUNDARIA ao lado do Nova venda: e manutencao de
+// cadastro, nao o ato principal da aba. Fica no topo pelo mesmo motivo do Nova
+// venda, que o comentario abaixo mede: botao que abre painel no topo mora no topo.
+var topo='<div class="venda-topo"><span class="venda-topo-acoes">'+
+'<button class="btn-cad" data-acao="nova-venda">+ Nova venda</button>'+
+'<button class="btn-cad secundario" data-acao="venda-motoboys">Motoboys</button></span>'+
+'<span class="venda-cont">'+vendasData.length+(1===vendasData.length?" venda":" vendas")+arq+"</span></div>";
 // ORDEM: acao, quadro, dinheiro, lista.
 // O "+ Nova venda" vem PRIMEIRO porque o painel que ele abre nasce no topo da
 // pagina. Medido em 15/08/2026, com o botao no meio: 4.415px ate o botao, 16px
@@ -2786,7 +2961,8 @@ if("venda-editar"===o){
 var v=(vendasData||[]).filter(function(x){return String(x.id)===String(id)})[0];
 if(v)abrirPainelVenda(null,v);
 return!0}
-if("venda-entrega"===o){abrirPainelEntrega(id);return!0}if("venda-desarquivar"===o){desarquivarVenda(id);return!0}
+if("venda-entrega"===o){abrirPainelEntrega(id);return!0}
+if("venda-motoboys"===o){abrirPainelMotoboys();return!0}if("venda-desarquivar"===o){desarquivarVenda(id);return!0}
 // Abrir os detalhes NAO rele a venda: o dado ja veio inteiro na v_venda e esta
 // em vendasData. So o historico vai a rede, porque a auditoria nunca foi
 // carregada com a lista (uma venda tem 1 a 5 eventos; 40 vendas x 5 eventos por
@@ -2812,6 +2988,10 @@ return!0}
 // este alternar refazia as 3 leituras e apagava a lista a cada toque.
 if("venda-arq-alternar"===o){vendasArqAberto=!vendasArqAberto;pintarVendas();return!0}
 if("vg-janela"===o){vgJanela=id||"trimestre";vgTipEsconder();pintarVendas();return!0}
+// Alternar, nao acumular: tocar no card ja aberto fecha, e o Fechar manda
+// data-id vazio. Repinta a aba pelo mesmo caminho do vg-janela, sem releitura
+// de rede (vendasData nao mudou).
+if("vg-detalhe"===o){vgDet=id&&id!==vgDet?id:"";vgTipEsconder();pintarVendas();return!0}
 // O dashboard entra por AQUI, e nao no despachante A(), porque o A() vive na
 // linha 1 minificada e esta obra nao a toca. vendaAcao ja e chamado antes das
 // acoes de venda e devolve true quando trata, entao e o gancho barato.
@@ -2996,7 +3176,8 @@ pcEndereco:x.endereco||"",pcComplemento:x.complemento||"",pcBairro:x.bairro||"",
 pcCidade:x.cidade||"",pcUf:x.uf||""};
 for(var k2 in campos)if(E(k2))E(k2).value=campos[k2];
 if(E("pcErro"))E("pcErro").textContent="";
-if(E("painelCliente"))E("painelCliente").className="painel-cadastro"}
+if(E("painelCliente"))E("painelCliente").className="painel-cadastro";
+pwRolarPara("painelCliente")}
 function fecharPainelCliente(){CLI_EDIT=null;if(E("painelCliente"))E("painelCliente").className="painel-cadastro oculto"}
 async function salvarCliente(){
 if(!CLI_EDIT)return;
@@ -3105,6 +3286,7 @@ if(E("nfErro"))E("nfErro").textContent="";
 if(E("nfArq"))E("nfArq").value="";
 if(E("nfNum"))E("nfNum").value="";
 if(E("painelNf"))E("painelNf").className="painel-cadastro";
+pwRolarPara("painelNf");
 await carregarNfs();
 pintarPainelNf()}
 function pintarPainelNf(){
@@ -3165,4 +3347,4 @@ else{
 var lc=filtNfBusca(nfsData,termo);
 corpo=lc.length?lc.map(cardNf).join(""):'<div class="estado"><strong>Nenhuma NF anexada ainda.</strong><br>Na aba Vendas, toque em <strong>Anexar NF</strong> no card da venda.</div>'}
 e.innerHTML=topo+corpo}
-function G(x){M();R();fecharPainelVenda();fecharPainelEntrega();fecharPainelNf();fecharPainelCliente();fecharPainelPagamento();if(window.scrollTo)window.scrollTo(0,0);n=x;k(),("fila"===x||"todos"===x||"indicacoes"===x)&&B(!0)}var CONT_DRAG=null,CONT_DRAG_COL=null;async function moverConteudo(id,para){var card=E("lista").querySelector('.cont-card[data-id="'+id+'"]'),col=E("lista").querySelector('.cont-col[data-col="'+para+'"]');if(card&&col){card.classList.add("movendo");var vz=col.querySelector(".cont-col-vazio");if(vz)vz.parentNode.removeChild(vz);col.appendChild(card)}var r=await t.functions.invoke("mover-conteudo",{body:{id:id,para:para}});if(r.error){I("Falha ao mover: "+(r.error.message||"erro de rede"),!0);if("conteudo"===n)renderConteudo(!0);return}var d=r.data;if(d&&!1!==d.ok){if(d.aviso)I(d.aviso);if("conteudo"===n)renderConteudo(!0)}else{I(d&&d.msg||"Nao consegui mover",!0);if("conteudo"===n)renderConteudo(!0)}}function contLimparAlvo(){[].forEach.call(E("lista").querySelectorAll(".cont-col.alvo"),function(c){c.classList.remove("alvo")})}function contDragStart(e){var card=e.target&&e.target.closest?e.target.closest(".cont-card[draggable]"):null;if(!card)return;CONT_DRAG=card.getAttribute("data-id");CONT_DRAG_COL=card.getAttribute("data-col");card.classList.add("arrastando");if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",CONT_DRAG)}catch(x){}}}function contDragOver(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="move";if(!col.classList.contains("alvo")){contLimparAlvo();col.classList.add("alvo")}}function contDrop(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();var id=CONT_DRAG,para=col.getAttribute("data-col"),origem=CONT_DRAG_COL;CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();if(para&&para!==origem)moverConteudo(id,para)}function contDragEnd(){CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();[].forEach.call(E("lista").querySelectorAll(".cont-card.arrastando"),function(c){c.classList.remove("arrastando")})}var scriptsData={};async function sugerirMensagem(id,btn,card){var cont=card.querySelector("[data-scripts]");if(!cont)return;if(cont.className.indexOf("aberto")>=0){cont.className="scripts";cont.innerHTML="";return}cont.className="scripts aberto";cont.innerHTML='<div class="script-meta">Buscando script...</div>';if(btn)btn.disabled=!0;var res=await t.rpc("sugerir_mensagem",{p_lead_id:id});if(btn)btn.disabled=!1;if(res.error){cont.innerHTML='<div class="script-meta">Falha: '+c(res.error.message)+"</div>";return}var d=res.data;if(!d||!1===d.ok){cont.innerHTML='<div class="script-meta">'+c(d&&d.msg||"Sem script disponivel")+"</div>";return}var ops=d.opcoes||[];if(!ops.length){cont.innerHTML='<div class="script-meta">Sem opcoes para este passo.</div>';return}var lead=null,j;for(j=0;j<i.length;j++)if(i[j].id===id){lead=i[j];break}scriptsData[id]={whatsapp:d.whatsapp,consent:!(!lead||!0!==lead.consentimento),opcoes:ops};var chips=ops.map(function(o,idx){return'<button class="var-chip" data-acao="variante" data-id="'+c(id)+'" data-idx="'+idx+'" aria-selected="'+(0===idx?"true":"false")+'">'+c(o.rotulo_variante||"Opcao "+(idx+1))+"</button>"}).join("");var rot=d.passo_rotulo?'<div class="script-meta">'+c(d.passo_rotulo)+"</div>":"";cont.innerHTML=rot+'<div class="scripts-vars">'+chips+'</div><div class="script-texto" data-preview></div><div class="script-acoes" data-scriptacoes></div>';pintarVariante(id,card,0)}function pintarVariante(id,card,idx){var data=scriptsData[id];if(!data)return;var op=data.opcoes[idx];if(!op)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var chips=cont.querySelectorAll(".var-chip"),j;for(j=0;j<chips.length;j++)chips[j].setAttribute("aria-selected",chips[j].getAttribute("data-idx")===String(idx)?"true":"false");var prev=cont.querySelector("[data-preview]");if(prev)prev.textContent=op.texto||"";var acoes=cont.querySelector("[data-scriptacoes]");if(!acoes)return;var dig=String(data.whatsapp||"").replace(/\D/g,"");var wa=dig&&data.consent?'<a class="btn-wa" target="_blank" rel="noopener" href="https://wa.me/'+c(dig)+"?text="+encodeURIComponent(op.texto||"")+'">Enviar no WhatsApp</a>':dig?'<div class="sem-tel">Sem consentimento</div>':'<div class="sem-tel">Sem telefone</div>';acoes.innerHTML=wa+'<button class="btn-copiar" data-acao="copiar-script" data-id="'+c(id)+'">Copiar</button>'}function copiarScript(id,btn){var card=btn&&btn.closest?btn.closest(".card"):null;if(!card)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var prev=cont.querySelector("[data-preview]"),txt=prev?prev.textContent:"";if(!txt){I("Nada para copiar",!0);return}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){I("Script copiado")},function(){copiarFallback(txt)});else copiarFallback(txt)}function copiarFallback(txt,rot){try{var ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("readonly","");ta.style.position="absolute";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);I(rot||"Script copiado")}catch(e){I("Nao consegui copiar",!0)}}function A(a){var e=a.target&&a.target.closest?a.target.closest("[data-acao]"):null;if(e){var o=e.getAttribute("data-acao"),t=e.getAttribute("data-id"),n=e.closest(".card");if("cap-registrar"===o)return void registrarCaptacao(e);if("cap-mais"===o)return void alternarCapDet(e);if("cap-parar"===o)return void pararCaptacao(t,e);if("dia-marcar"===o)return void qF("marcar_tarefa",{p_tarefa_id:t,p_concluida:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("dia-remover"===o)return void(window.confirm("Remover esta tarefa do dia? Ela não volta ao puxar o molde de novo.")&&qF("remover_tarefa",{p_tarefa_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("dia-add"===o){var dv=E("diaNovoTit"),dc=E("diaNovaCat");return dv&&String(dv.value).trim()?void qF("adicionar_tarefa",{p_titulo:dv.value,p_categoria:dc?dc.value:""},e,hojeQuieto):void I("Digite o título da tarefa",!0)}if("dia-nota-ok"===o){var dn=E("diaNota");return void qF("salvar_nota",{p_texto:dn?dn.value:""},e,null)}if("dia-puxar"===o)return void qF("puxar_rotina",{},e,hojeQuieto);if("lemb-marcar"===o)return void qF("marcar_lembrete",{p_lembrete_id:t,p_feito:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("lemb-remover"===o)return void(window.confirm("Remover este lembrete?")&&qF("remover_lembrete",{p_lembrete_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("lemb-add"===o){var lv=E("lembNovo"),ld=E("lembData");return lv&&String(lv.value).trim()?void qF("salvar_lembrete",{p_texto:lv.value,p_data:ld&&ld.value?ld.value:null},e,hojeQuieto):void I("Digite o lembrete",!0)}if("lemb-hoje"===o){if(E("lembData"))E("lembData").value=l();return}if("lemb-amanha"===o){if(E("lembData"))E("lembData").value=C(l(),1);return}if("hoje-verfila"===o){if(E("abaFila"))E("abaFila").click();return}if("hoje-sugerir"===o)return void sugerirMensagem(t,e,e.closest(".fila-lin"));if("cont-mover"===o){var mw=e.parentNode,mab="true"===e.getAttribute("aria-expanded");mw.className="cont-mover-wrap"+(mab?"":" aberto");e.setAttribute("aria-expanded",mab?"false":"true");return}if("cont-mover-para"===o)return void moverConteudo(t,e.getAttribute("data-col"));if("cont-aferir"===o){var mb=e.closest(".cont-met");if(mb){var maf=mb.className.indexOf("aberto")>=0;mb.className="cont-met"+(maf?"":" aberto");if(!maf){var mi=mb.querySelector('input[data-af="alcance"]');if(mi)mi.focus()}}return}if("cont-aferir-cancel"===o){var mcx=e.closest(".cont-met");if(mcx)mcx.className="cont-met";return}if("cont-aferir-ok"===o)return void salvarAfericao(t,e);if("cont-publiquei"===o)return void marcarPublicado(t,e);if("met-janela"===o){METRICA_DIAS=parseInt(e.getAttribute("data-dias"),10)||90;renderDash();return}if("cont-descartado"===o){var cd=e.parentNode,ab="true"===e.getAttribute("aria-expanded");cd.className="cont-desc"+(ab?"":" aberto");e.setAttribute("aria-expanded",ab?"false":"true");return}if("respondeu"===o)return void q("registrar_resposta",{p_lead_id:t},e,"Resposta registrada",{lead:t,card:n});if(cliAcao(o,t,e))return;if(vendaAcao(o,t,e))return;if("nova-venda"===o)return void abrirPainelVenda();if("nf-anexar"===o)return void abrirPainelNf(t);if("nf-abrir"===o)return void abrirArquivoNf(t);if("nf-remover"===o)return void removerNf(t);if("nf-seg"===o){nfSeg=e.getAttribute("data-seg")||"com";return void renderNfs(E("lista"),!0)}if("sync-agora"===o)return void sincronizarAgora(e);if("esc-criar"===o){var fcod=e.getAttribute("data-frente"),cx=E("escNovo_"+fcod);if(!cx||!cx.value.trim())return void I("Escreva a ação primeiro.",!0);return void q("criar_acao_escopo",{p_frente:fcod,p_titulo:cx.value},e)}if("esc-status"===o){var st=e.getAttribute("data-st"),prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer";return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:prox,p_motivo:null},e)}if("esc-travar"===o){var sa=e.getAttribute("data-st"),mt=null;if("travado"===sa)return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"fazendo",p_motivo:null},e);if(!(mt=prompt("O que está travando?")))return;return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"travado",p_motivo:mt},e)}if("esc-desc"===o)return void q("descartar_acao_escopo",{p_id:e.getAttribute("data-id")},e);if("esc-ir"===o){var escAlvo=E("escFrente_"+e.getAttribute("data-frente"));return void(escAlvo&&escAlvo.scrollIntoView&&escAlvo.scrollIntoView({behavior:"smooth",block:"start"}))}if("esc-prio"===o){var escPv=e.value||"",escPa=e.getAttribute("data-atual")||"";if(escPv===escPa)return;return void q("definir_prioridade_acao",{p_id:t,p_prioridade:escPv||null},e)}if("rot-dia"===o)return void e.setAttribute("aria-pressed","true"===e.getAttribute("aria-pressed")?"false":"true");if("rot-add-tarefa"===o){var rv=E("rotNovoTit"),rc=E("rotNovaCat");if(!rv||!String(rv.value).trim())return void I("Digite o título da tarefa",!0);var ds=[].map.call(E("lista").querySelectorAll('[data-acao="rot-dia"][aria-pressed="true"]'),function(x){return parseInt(x.getAttribute("data-dia"),10)});return void qF("salvar_rotina_tarefa",{p_titulo:rv.value,p_categoria:rc?rc.value:"",p_dias_semana:ds.length&&ds.length<7?ds:null},e,renderRotina)}if("rot-rm-tarefa"===o)return void(window.confirm("Remover esta tarefa do molde? O que já virou dia fica como está.")&&qF("remover_rotina_tarefa",{p_id:t},e,renderRotina));if("rot-add-cat"===o){var cv=E("rotNovaCatRot");if(!cv||!String(cv.value).trim())return void I("Digite o nome da categoria",!0);var cod=rotSlug(cv.value);return cod?void qF("salvar_rotina_categoria",{p_codigo:cod,p_rotulo:cv.value.trim()},e,renderRotina):void I("Nome inválido",!0)}if(t&&n){if("sugerir"===o)return void sugerirMensagem(t,e,n);if("historico"===o)return void abrirHistorico(t,e,n);if("nota"===o)return void alternarNota(n);if("nota-ok"===o)return void registrarNota(t,e,n);if("variante"===o)return void pintarVariante(t,n,parseInt(e.getAttribute("data-idx"),10)||0);if("copiar-script"===o)return void copiarScript(t,e)}if(t&&n)if("editar"!==o)if("leque"!==o)if("retomar"!==o)if("toque"!==o)if("conversando"!==o)if("fechou"!==o)if("sem-interesse"!==o){if("retomar-ok"===o){var r=n.querySelector(".retomar input"),c=r?r.value:"";return c?void q("reagendar_proximo_contato",{p_lead_id:t,p_data:c},e,"Reagendado",{lead:t,card:n}):void I("Escolha a data de retomada",!0)}}else q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"},e,"Marcado sem interesse",{lead:t,card:n});else fecharComVenda(t);else q("registrar_conversando",{p_lead_id:t},e,"Conversa registrada",{lead:t,card:n});else q("registrar_toque",{p_lead_id:t},e,"Toque registrado",{lead:t,card:n});else{var d=n.querySelector(".retomar");d&&(d.className="retomar"+(d.className.indexOf("aberto")>=0?"":" aberto"))}else{var s=n.querySelector(".desfechos");s&&(s.className="desfechos"+(s.className.indexOf("aberto")>=0?"":" aberto"))}else!function(a){for(var e=null,o=0;o<i.length;o++)if(i[o].id===a){e=i[o];break}if(!e)return void I("Lead nao encontrado na base carregada",!0);H=a,E("edCondicao").innerHTML=T("condicao","Escolha a condicao"),E("edPerfil").innerHTML=T("perfil","Escolha o perfil"),E("edOrigem").innerHTML=T("origem","Escolha a origem"),E("edTitulo").textContent="Editar "+(e.lead_code||"lead"),E("edNome").value=e.nome||"",E("edWhats").value=e.whatsapp_digitos||"",E("edProduto").value=e.produto||"",E("edCondicao").value=e.condicao||"",E("edPerfil").value=e.perfil||"",E("edOrigem").value=e.origem||"",E("edIndicado").value=e.indicado_por||"",E("edNasc").value=e.data_nascimento||"",E("edProx").value=e.proximo_contato||"",E("edValor").value=function(a){if(null==a||""===a)return"";var e=Number(a);return isNaN(e)?"":String(e)}(e.valor_oferta),E("edObs").value=e.observacoes||"",E("edUpgrade").value=!0===e.upgrade_entrada?"sim":!1===e.upgrade_entrada?"nao":"",E("edAparelho").value=e.aparelho_entrada||"",E("edErro").textContent="",J(),M(),E("painelEdicao").className="painel-cadastro",E("painelEdicao").scrollIntoView({behavior:"smooth",block:"start"}),E("edNome").focus()}(t)}}function T(a,e){var t=o[a]||{},i='<option value="">'+c(e)+"</option>";return Object.keys(t).forEach(function(a){i+='<option value="'+c(a)+'">'+c(t[a])+"</option>"}),i}function P(){E("cadCondicao").innerHTML=T("condicao","Escolha a condicao"),E("cadPerfil").innerHTML=T("perfil","Escolha o perfil"),E("cadOrigem").innerHTML=T("origem","Escolha a origem"),["cadNome","cadWhats","cadProduto","cadIndicado","cadObs","cadAparelho"].forEach(function(a){E(a).value=""}),["cadCondicao","cadPerfil","cadOrigem","cadUpgrade"].forEach(function(a){E(a).value=""}),E("cadConsent").value="sim",E("campoIndicado").className="campo oculto",E("cadErro").textContent="",E("cadDup").className="cad-dup",D=null,E("painelCadastro").className="painel-cadastro",E("cadNome").focus()}function M(){E("painelCadastro").className="painel-cadastro oculto"}function y(){var a=E("cadUpgrade").value;return{nome:E("cadNome").value,whatsapp:E("cadWhats").value,produto:E("cadProduto").value,condicao:E("cadCondicao").value,perfil:E("cadPerfil").value,origem:E("cadOrigem").value,indicado_por:E("cadIndicado").value,observacoes:E("cadObs").value,upgrade_entrada:"sim"===a||"nao"!==a&&null,aparelho_entrada:E("cadAparelho").value,consentimento:"nao"!==E("cadConsent").value}}var D=null;async function F(){var a=E("cadErro");a.textContent="",E("cadDup").className="cad-dup",D=null;var e=y(),o=w(e);if(o.ok){var t=E("btnCadastrar"),i=await O("cadastrar_lead",{p_nome:e.nome,p_whatsapp:e.whatsapp,p_produto:e.produto,p_condicao:e.condicao,p_perfil:e.perfil,p_origem:e.origem,p_indicado_por:e.indicado_por||null,p_observacoes:e.observacoes||null,p_upgrade_entrada:e.upgrade_entrada,p_aparelho_entrada:e.aparelho_entrada||null,p_consentimento:e.consentimento},t);if(i)return!1===i.ok&&i.duplicado?(D=i.existente||null,E("cadDupMsg").textContent=i.msg||"Ja existe um lead com esse WhatsApp.",void(E("cadDup").className="cad-dup visivel")):void(!1!==i.ok?(I(i.msg||"Lead cadastrado"),M(),B(!0)):a.textContent=i.msg||"Cadastro recusado")}else a.textContent=o.msg}function W(){M(),n="todos",E("inputBusca").value=D&&D.nome||E("cadWhats").value,k()}function j(){var a="indicacao"===E("cadOrigem").value;E("campoIndicado").className="campo"+(a?"":" oculto")}var H=null;function J(){var a="indicacao"===E("edOrigem").value;E("campoEdIndicado").className="campo"+(a?"":" oculto")}function R(){E("painelEdicao").className="painel-cadastro oculto",H=null}async function z(){var a=E("edErro");if(a.textContent="",H){var e,o,t=(e=E("edUpgrade").value,o=String(E("edValor").value||"").trim(),{nome:E("edNome").value,whatsapp:E("edWhats").value,produto:E("edProduto").value,condicao:E("edCondicao").value,perfil:E("edPerfil").value,origem:E("edOrigem").value,indicado_por:E("edIndicado").value,data_nascimento:E("edNasc").value||null,proximo_contato:E("edProx").value||null,valor_oferta:""===o?null:Number(o),observacoes:E("edObs").value,upgrade_entrada:"sim"===e||"nao"!==e&&null,aparelho_entrada:E("edAparelho").value}),i=S(t);if(i.ok){var n=E("btnSalvarEdicao"),r=await O("editar_lead",{p_lead_id:H,p_nome:t.nome,p_whatsapp:t.whatsapp||null,p_produto:t.produto,p_condicao:t.condicao,p_perfil:t.perfil,p_origem:t.origem,p_indicado_por:t.indicado_por||null,p_observacoes:t.observacoes||null,p_aparelho_entrada:t.aparelho_entrada||null,p_upgrade_entrada:t.upgrade_entrada,p_valor_oferta:t.valor_oferta,p_proximo_contato:t.proximo_contato,p_data_nascimento:t.data_nascimento},n);r&&(!1!==r.ok?(I(r.msg||"Lead atualizado"),R(),B(!0)):a.textContent=r.msg||"Edicao recusada")}else a.textContent=i.msg}else a.textContent="Sem lead selecionado"}async function V(){if(H&&window.confirm("Arquivar este lead? Ele sai da operacao mas o historico fica no banco.")){var a=E("btnArquivar"),e=await O("arquivar_lead",{p_lead_id:H,p_motivo:null},a);e&&(!1!==e.ok?(I(e.msg||"Lead arquivado"),R(),B(!0)):E("edErro").textContent=e.msg||"Arquivamento recusado")}}var dicOk=!1;async function B(sil){if(!sil)E("lista").innerHTML='<div class="estado carregando">Lendo a base…</div>';if(!dicOk){var a=await t.from("dicionario_rotulos").select("dominio,codigo,rotulo");!a.error&&a.data&&(d(a.data),dicOk=!0)}var e=await t.from("v_lead").select("*").order("proximo_contato",{ascending:!0,nullsFirst:!1});if(e.error){if(await pwSemSessao())return pwSessaoCaiu();E("lista").innerHTML='<div class="estado erro">Falha ao ler a base: '+c(e.error.message)+". Toque em Atualizar para tentar de novo.</div>"}else{i=e.data||[];var o=new Date;r=("0"+o.getHours()).slice(-2)+":"+("0"+o.getMinutes()).slice(-2),pb(l()),k()}}function pb(a){a=a||l();var e=i.filter(function(a){return!a.arquivado_em}),o=v(e,a),t=o.filter(function(e){return p(e.proximo_contato,a)>0}),n=e.filter(function(a){return"pendente"===a.status});E("pbFila").textContent=String(o.length),E("badgeFila")&&(E("badgeFila").textContent=o.length?String(o.length):"");var r=E("pbAtraso");r.textContent=String(t.length),r.className="pb-num"+(t.length?" alerta":""),E("pbAtivos").textContent=String(n.length),E("pbTotal").textContent=String(e.length)}function U(a){E("telaLogin").className="login"+(a?" oculto":""),E("telaApp").className="app"+(a?"":" oculto")}var pwSaindo=!1;function pwSessaoCaiu(){i=[],U(!1);var a=E("loginErro");a&&(a.textContent="Sua sessao expirou. Entre de novo.")}async function pwSemSessao(){try{var a=await t.auth.getSession();return!(a&&a.data&&a.data.session)}catch(a){return!1}}async function Z(){var a=E("btnEntrar"),e=E("loginErro");e.textContent="",a.disabled=!0,a.textContent="Entrando…";var o=await t.auth.signInWithPassword({email:E("email").value.trim(),password:E("senha").value});a.disabled=!1,a.textContent="Entrar",o.error?e.textContent="Nao entrou: confira email e senha.":(pwSaindo=!1,U(!0),B())}async function X(){pwSaindo=!0,await t.auth.signOut(),i=[],U(!1)}function Y(a,e,o){var t=E(a);t?t.addEventListener(e,o):window.console&&console.warn("PitWall: elemento #"+a+" ausente; listener ignorado")}return{esc:c,setRotulos:d,rotulo:s,_vendaDaCalc:pwAbrirVendaDaCalc,_rascunhoLer:pwRascunhoLer,hojeLocalISO:l,dataLocalDe:u,diasAtraso:p,entraNaFila:m,montarFila:v,entraNoPosVenda:mPos,montarPosVenda:vPos,filtrarBusca:g,filtrarIndicacoes:_,fmtTel:f,waHrefFila:b,waHrefLimpo:h,cardHTML:x,renderLista:N,diaMaisISO:C,validarCadastro:w,validarEdicao:S,coletarCadastro:y,abrirCadastro:P,init:function(){t=window.supabase.createClient(a,e),t.auth.onAuthStateChange(function(evt,ses){"SIGNED_IN"===evt&&ses?pwSaindo=!1:"SIGNED_OUT"===evt&&(pwSaindo?pwSaindo=!1:pwSessaoCaiu())}),window.addEventListener("error",function(a){try{I("Erro: "+(a&&a.message?a.message:"falha inesperada"),!0)}catch(a){}}),window.addEventListener("unhandledrejection",function(a){var e=a&&a.reason?a.reason.message||String(a.reason):"promessa rejeitada";try{I("Erro: "+e,!0)}catch(a){}}),Y("btnEntrar","click",Z),Y("senha","keydown",function(a){"Enter"===a.key&&Z()}),Y("btnSair","click",X),Y("btnAtualizar","click",function(){dicOk=!1,B()}),Y("abaFila","click",function(){G("fila")}),Y("abaTodos","click",function(){G("todos")}),Y("abaVendas","click",function(){G("vendas")}),Y("abaNfs","click",function(){G("nfs")}),Y("btnSalvarNf","click",salvarNfPainel),Y("btnFecharNf","click",fecharPainelNf),Y("btnSalvarCliente","click",salvarCliente),Y("btnCancelarCliente","click",fecharPainelCliente),Y("nfLista","click",nfListaClick),Y("btnEnviarEntrega","click",function(){enviarEntrega(E("btnEnviarEntrega"))}),Y("btnCopiarEntrega","click",function(){copiarEntrega(E("btnCopiarEntrega"))}),Y("btnFecharEntrega","click",fecharPainelEntrega),["peRetirada","peEntrega","peValor","pePgto","peMotoboy","peMotoWhats","peRecado"].forEach(function(id){Y(id,"input",entPintar)}),Y("btnSalvarVenda","click",salvarVenda),Y("btnCancelarVenda","click",fecharPainelVenda),Y("fvValor","input",calcLucroVenda),Y("fvCusto","input",function(){calcLucroVenda();calcCustoNota()}),Y("fvFrete","input",calcLucroVenda),Y("fvTaxas","input",calcLucroVenda),Y("fvStatus","change",fvEtapaSegueStatus),Y("fvEtapa","change",function(){FV_ETAPA_TOCADA=!0}),Y("fvClienteBusca","input",buscaClienteVenda),Y("fvProdutoBusca","input",buscaProdutoVenda),Y("painelVenda","click",fvCliClick),Y("painelPagamento","click",pgPainelClick),Y("painelPagamento","change",pgPainelInput),Y("painelPagamento","input",pgPainelInput),Y("btnSalvarPgto","click",function(){salvarPagamentos(E("btnSalvarPgto"))}),Y("btnFecharPgto","click",fecharPainelPagamento),Y("painelEntrega","click",entPainelClick),Y("abaClientes","click",function(){G("clientes")}),Y("abaIndicacoes","click",function(){G("indicacoes")}),Y("abaDash","click",function(){G("dashboard")}),Y("abaCaptacao","click",function(){G("captacao")}),Y("abaHoje","click",function(){G("hoje")}),Y("abaConteudo","click",function(){G("conteudo")}),Y("abaRotina","click",function(){G("rotina")}),Y("abaEscopo","click",function(){G("escopo")}),Y("abaMais","click",function(){var a=E("abas");if(a){var b=a.className.indexOf("mais-aberto")>=0;a.className="abas"+(b?"":" mais-aberto"),E("abaMais").setAttribute("aria-expanded",b?"false":"true")}}),Y("lista","keydown",capKeydown),Y("inputBusca","input",k),Y("lista","click",A),Y("lista","change",A),Y("lista","dragstart",contDragStart),Y("lista","dragover",contDragOver),Y("lista","drop",contDrop),Y("lista","dragend",contDragEnd),Y("btnNovoLead","click",P),Y("btnCancelarCadastro","click",M),Y("btnCadastrar","click",F),Y("btnAbrirExistente","click",W),Y("cadOrigem","change",j),Y("btnSalvarEdicao","click",z),Y("btnCancelarEdicao","click",R),Y("btnArquivar","click",V),Y("edOrigem","change",J),t.auth.getSession().then(function(a){var e=!(!a.data||!a.data.session);U(e),e&&B(),e&&"#venda-da-calc"===location.hash&&pwAbrirVendaDaCalc(),e&&window.addEventListener("hashchange",function(){"#venda-da-calc"===location.hash&&pwAbrirVendaDaCalc()})})},_setLeads:function(a){i=a}}}(),window.__PITWALL_SEM_INIT||("loading"===document.readyState?document.addEventListener("DOMContentLoaded",function(){window.PitWall.init()}):window.PitWall.init())
+function G(x){M();R();fecharPainelVenda();fecharPainelEntrega();fecharPainelNf();fecharPainelCliente();fecharPainelPagamento();fecharPainelMotoboys();if(window.scrollTo)window.scrollTo(0,0);n=x;k(),("fila"===x||"todos"===x||"indicacoes"===x)&&B(!0)}var CONT_DRAG=null,CONT_DRAG_COL=null;async function moverConteudo(id,para){var card=E("lista").querySelector('.cont-card[data-id="'+id+'"]'),col=E("lista").querySelector('.cont-col[data-col="'+para+'"]');if(card&&col){card.classList.add("movendo");var vz=col.querySelector(".cont-col-vazio");if(vz)vz.parentNode.removeChild(vz);col.appendChild(card)}var r=await t.functions.invoke("mover-conteudo",{body:{id:id,para:para}});if(r.error){I("Falha ao mover: "+(r.error.message||"erro de rede"),!0);if("conteudo"===n)renderConteudo(!0);return}var d=r.data;if(d&&!1!==d.ok){if(d.aviso)I(d.aviso);if("conteudo"===n)renderConteudo(!0)}else{I(d&&d.msg||"Nao consegui mover",!0);if("conteudo"===n)renderConteudo(!0)}}function contLimparAlvo(){[].forEach.call(E("lista").querySelectorAll(".cont-col.alvo"),function(c){c.classList.remove("alvo")})}function contDragStart(e){var card=e.target&&e.target.closest?e.target.closest(".cont-card[draggable]"):null;if(!card)return;CONT_DRAG=card.getAttribute("data-id");CONT_DRAG_COL=card.getAttribute("data-col");card.classList.add("arrastando");if(e.dataTransfer){e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",CONT_DRAG)}catch(x){}}}function contDragOver(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="move";if(!col.classList.contains("alvo")){contLimparAlvo();col.classList.add("alvo")}}function contDrop(e){if(!CONT_DRAG)return;var col=e.target&&e.target.closest?e.target.closest(".cont-col"):null;if(!col)return;e.preventDefault();var id=CONT_DRAG,para=col.getAttribute("data-col"),origem=CONT_DRAG_COL;CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();if(para&&para!==origem)moverConteudo(id,para)}function contDragEnd(){CONT_DRAG=null;CONT_DRAG_COL=null;contLimparAlvo();[].forEach.call(E("lista").querySelectorAll(".cont-card.arrastando"),function(c){c.classList.remove("arrastando")})}var scriptsData={};async function sugerirMensagem(id,btn,card){var cont=card.querySelector("[data-scripts]");if(!cont)return;if(cont.className.indexOf("aberto")>=0){cont.className="scripts";cont.innerHTML="";return}cont.className="scripts aberto";cont.innerHTML='<div class="script-meta">Buscando script...</div>';if(btn)btn.disabled=!0;var res=await t.rpc("sugerir_mensagem",{p_lead_id:id});if(btn)btn.disabled=!1;if(res.error){cont.innerHTML='<div class="script-meta">Falha: '+c(res.error.message)+"</div>";return}var d=res.data;if(!d||!1===d.ok){cont.innerHTML='<div class="script-meta">'+c(d&&d.msg||"Sem script disponivel")+"</div>";return}var ops=d.opcoes||[];if(!ops.length){cont.innerHTML='<div class="script-meta">Sem opcoes para este passo.</div>';return}var lead=null,j;for(j=0;j<i.length;j++)if(i[j].id===id){lead=i[j];break}scriptsData[id]={whatsapp:d.whatsapp,consent:!(!lead||!0!==lead.consentimento),opcoes:ops};var chips=ops.map(function(o,idx){return'<button class="var-chip" data-acao="variante" data-id="'+c(id)+'" data-idx="'+idx+'" aria-selected="'+(0===idx?"true":"false")+'">'+c(o.rotulo_variante||"Opcao "+(idx+1))+"</button>"}).join("");var rot=d.passo_rotulo?'<div class="script-meta">'+c(d.passo_rotulo)+"</div>":"";cont.innerHTML=rot+'<div class="scripts-vars">'+chips+'</div><div class="script-texto" data-preview></div><div class="script-acoes" data-scriptacoes></div>';pintarVariante(id,card,0)}function pintarVariante(id,card,idx){var data=scriptsData[id];if(!data)return;var op=data.opcoes[idx];if(!op)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var chips=cont.querySelectorAll(".var-chip"),j;for(j=0;j<chips.length;j++)chips[j].setAttribute("aria-selected",chips[j].getAttribute("data-idx")===String(idx)?"true":"false");var prev=cont.querySelector("[data-preview]");if(prev)prev.textContent=op.texto||"";var acoes=cont.querySelector("[data-scriptacoes]");if(!acoes)return;var dig=String(data.whatsapp||"").replace(/\D/g,"");var wa=dig&&data.consent?'<a class="btn-wa" target="_blank" rel="noopener" href="https://wa.me/'+c(dig)+"?text="+encodeURIComponent(op.texto||"")+'">Enviar no WhatsApp</a>':dig?'<div class="sem-tel">Sem consentimento</div>':'<div class="sem-tel">Sem telefone</div>';acoes.innerHTML=wa+'<button class="btn-copiar" data-acao="copiar-script" data-id="'+c(id)+'">Copiar</button>'}function copiarScript(id,btn){var card=btn&&btn.closest?btn.closest(".card"):null;if(!card)return;var cont=card.querySelector("[data-scripts]");if(!cont)return;var prev=cont.querySelector("[data-preview]"),txt=prev?prev.textContent:"";if(!txt){I("Nada para copiar",!0);return}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(function(){I("Script copiado")},function(){copiarFallback(txt)});else copiarFallback(txt)}function copiarFallback(txt,rot){try{var ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("readonly","");ta.style.position="absolute";ta.style.left="-9999px";document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);I(rot||"Script copiado")}catch(e){I("Nao consegui copiar",!0)}}function A(a){var e=a.target&&a.target.closest?a.target.closest("[data-acao]"):null;if(e){var o=e.getAttribute("data-acao"),t=e.getAttribute("data-id"),n=e.closest(".card");if("cap-registrar"===o)return void registrarCaptacao(e);if("cap-mais"===o)return void alternarCapDet(e);if("cap-parar"===o)return void pararCaptacao(t,e);if("dia-marcar"===o)return void qF("marcar_tarefa",{p_tarefa_id:t,p_concluida:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("dia-remover"===o)return void(window.confirm("Remover esta tarefa do dia? Ela não volta ao puxar o molde de novo.")&&qF("remover_tarefa",{p_tarefa_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("dia-add"===o){var dv=E("diaNovoTit"),dc=E("diaNovaCat");return dv&&String(dv.value).trim()?void qF("adicionar_tarefa",{p_titulo:dv.value,p_categoria:dc?dc.value:""},e,hojeQuieto):void I("Digite o título da tarefa",!0)}if("dia-nota-ok"===o){var dn=E("diaNota");return void qF("salvar_nota",{p_texto:dn?dn.value:""},e,null)}if("dia-puxar"===o)return void qF("puxar_rotina",{},e,hojeQuieto);if("lemb-marcar"===o)return void qF("marcar_lembrete",{p_lembrete_id:t,p_feito:"true"!==e.getAttribute("aria-checked")},e,function(){viraCheck(e),hojePlacarAtualiza()});if("lemb-remover"===o)return void(window.confirm("Remover este lembrete?")&&qF("remover_lembrete",{p_lembrete_id:t},e,function(){tiraLinha(e),hojePlacarAtualiza()}));if("lemb-add"===o){var lv=E("lembNovo"),ld=E("lembData");return lv&&String(lv.value).trim()?void qF("salvar_lembrete",{p_texto:lv.value,p_data:ld&&ld.value?ld.value:null},e,hojeQuieto):void I("Digite o lembrete",!0)}if("lemb-hoje"===o){if(E("lembData"))E("lembData").value=l();return}if("lemb-amanha"===o){if(E("lembData"))E("lembData").value=C(l(),1);return}if("hoje-verfila"===o){if(E("abaFila"))E("abaFila").click();return}if("hoje-sugerir"===o)return void sugerirMensagem(t,e,e.closest(".fila-lin"));if("cont-mover"===o){var mw=e.parentNode,mab="true"===e.getAttribute("aria-expanded");mw.className="cont-mover-wrap"+(mab?"":" aberto");e.setAttribute("aria-expanded",mab?"false":"true");return}if("cont-mover-para"===o)return void moverConteudo(t,e.getAttribute("data-col"));if("cont-aferir"===o){var mb=e.closest(".cont-met");if(mb){var maf=mb.className.indexOf("aberto")>=0;mb.className="cont-met"+(maf?"":" aberto");if(!maf){var mi=mb.querySelector('input[data-af="alcance"]');if(mi)mi.focus()}}return}if("cont-aferir-cancel"===o){var mcx=e.closest(".cont-met");if(mcx)mcx.className="cont-met";return}if("cont-aferir-ok"===o)return void salvarAfericao(t,e);if("cont-publiquei"===o)return void marcarPublicado(t,e);if("met-janela"===o){METRICA_DIAS=parseInt(e.getAttribute("data-dias"),10)||90;renderDash();return}if("cont-descartado"===o){var cd=e.parentNode,ab="true"===e.getAttribute("aria-expanded");cd.className="cont-desc"+(ab?"":" aberto");e.setAttribute("aria-expanded",ab?"false":"true");return}if("respondeu"===o)return void q("registrar_resposta",{p_lead_id:t},e,"Resposta registrada",{lead:t,card:n});if(cliAcao(o,t,e))return;if(vendaAcao(o,t,e))return;if("nova-venda"===o)return void abrirPainelVenda();if("nf-anexar"===o)return void abrirPainelNf(t);if("nf-abrir"===o)return void abrirArquivoNf(t);if("nf-remover"===o)return void removerNf(t);if("nf-seg"===o){nfSeg=e.getAttribute("data-seg")||"com";return void renderNfs(E("lista"),!0)}if("sync-agora"===o)return void sincronizarAgora(e);if("esc-criar"===o){var fcod=e.getAttribute("data-frente"),cx=E("escNovo_"+fcod);if(!cx||!cx.value.trim())return void I("Escreva a ação primeiro.",!0);return void q("criar_acao_escopo",{p_frente:fcod,p_titulo:cx.value},e)}if("esc-status"===o){var st=e.getAttribute("data-st"),prox="a_fazer"===st?"fazendo":"fazendo"===st?"feito":"feito"===st?"a_fazer":"a_fazer";return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:prox,p_motivo:null},e)}if("esc-travar"===o){var sa=e.getAttribute("data-st"),mt=null;if("travado"===sa)return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"fazendo",p_motivo:null},e);if(!(mt=prompt("O que está travando?")))return;return void q("mudar_status_acao_escopo",{p_id:e.getAttribute("data-id"),p_status:"travado",p_motivo:mt},e)}if("esc-desc"===o)return void q("descartar_acao_escopo",{p_id:e.getAttribute("data-id")},e);if("esc-ir"===o){var escAlvo=E("escFrente_"+e.getAttribute("data-frente"));return void(escAlvo&&escAlvo.scrollIntoView&&escAlvo.scrollIntoView({behavior:"smooth",block:"start"}))}if("esc-prio"===o){var escPv=e.value||"",escPa=e.getAttribute("data-atual")||"";if(escPv===escPa)return;return void q("definir_prioridade_acao",{p_id:t,p_prioridade:escPv||null},e)}if("rot-dia"===o)return void e.setAttribute("aria-pressed","true"===e.getAttribute("aria-pressed")?"false":"true");if("rot-add-tarefa"===o){var rv=E("rotNovoTit"),rc=E("rotNovaCat");if(!rv||!String(rv.value).trim())return void I("Digite o título da tarefa",!0);var ds=[].map.call(E("lista").querySelectorAll('[data-acao="rot-dia"][aria-pressed="true"]'),function(x){return parseInt(x.getAttribute("data-dia"),10)});return void qF("salvar_rotina_tarefa",{p_titulo:rv.value,p_categoria:rc?rc.value:"",p_dias_semana:ds.length&&ds.length<7?ds:null},e,renderRotina)}if("rot-rm-tarefa"===o)return void(window.confirm("Remover esta tarefa do molde? O que já virou dia fica como está.")&&qF("remover_rotina_tarefa",{p_id:t},e,renderRotina));if("rot-add-cat"===o){var cv=E("rotNovaCatRot");if(!cv||!String(cv.value).trim())return void I("Digite o nome da categoria",!0);var cod=rotSlug(cv.value);return cod?void qF("salvar_rotina_categoria",{p_codigo:cod,p_rotulo:cv.value.trim()},e,renderRotina):void I("Nome inválido",!0)}if(t&&n){if("sugerir"===o)return void sugerirMensagem(t,e,n);if("historico"===o)return void abrirHistorico(t,e,n);if("nota"===o)return void alternarNota(n);if("nota-ok"===o)return void registrarNota(t,e,n);if("variante"===o)return void pintarVariante(t,n,parseInt(e.getAttribute("data-idx"),10)||0);if("copiar-script"===o)return void copiarScript(t,e)}if(t&&n)if("editar"!==o)if("leque"!==o)if("retomar"!==o)if("toque"!==o)if("conversando"!==o)if("fechou"!==o)if("sem-interesse"!==o){if("retomar-ok"===o){var r=n.querySelector(".retomar input"),c=r?r.value:"";return c?void q("reagendar_proximo_contato",{p_lead_id:t,p_data:c},e,"Reagendado",{lead:t,card:n}):void I("Escolha a data de retomada",!0)}}else q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"},e,"Marcado sem interesse",{lead:t,card:n});else fecharComVenda(t);else q("registrar_conversando",{p_lead_id:t},e,"Conversa registrada",{lead:t,card:n});else q("registrar_toque",{p_lead_id:t},e,"Toque registrado",{lead:t,card:n});else{var d=n.querySelector(".retomar");d&&(d.className="retomar"+(d.className.indexOf("aberto")>=0?"":" aberto"))}else{var s=n.querySelector(".desfechos");s&&(s.className="desfechos"+(s.className.indexOf("aberto")>=0?"":" aberto"))}else!function(a){for(var e=null,o=0;o<i.length;o++)if(i[o].id===a){e=i[o];break}if(!e)return void I("Lead nao encontrado na base carregada",!0);H=a,E("edCondicao").innerHTML=T("condicao","Escolha a condicao"),E("edPerfil").innerHTML=T("perfil","Escolha o perfil"),E("edOrigem").innerHTML=T("origem","Escolha a origem"),E("edTitulo").textContent="Editar "+(e.lead_code||"lead"),E("edNome").value=e.nome||"",E("edWhats").value=e.whatsapp_digitos||"",E("edProduto").value=e.produto||"",E("edCondicao").value=e.condicao||"",E("edPerfil").value=e.perfil||"",E("edOrigem").value=e.origem||"",E("edIndicado").value=e.indicado_por||"",E("edNasc").value=e.data_nascimento||"",E("edProx").value=e.proximo_contato||"",E("edValor").value=function(a){if(null==a||""===a)return"";var e=Number(a);return isNaN(e)?"":String(e)}(e.valor_oferta),E("edObs").value=e.observacoes||"",E("edUpgrade").value=!0===e.upgrade_entrada?"sim":!1===e.upgrade_entrada?"nao":"",E("edAparelho").value=e.aparelho_entrada||"",E("edErro").textContent="",J(),M(),E("painelEdicao").className="painel-cadastro",E("painelEdicao").scrollIntoView({behavior:"smooth",block:"start"}),E("edNome").focus()}(t)}}function T(a,e){var t=o[a]||{},i='<option value="">'+c(e)+"</option>";return Object.keys(t).forEach(function(a){i+='<option value="'+c(a)+'">'+c(t[a])+"</option>"}),i}function P(){E("cadCondicao").innerHTML=T("condicao","Escolha a condicao"),E("cadPerfil").innerHTML=T("perfil","Escolha o perfil"),E("cadOrigem").innerHTML=T("origem","Escolha a origem"),["cadNome","cadWhats","cadProduto","cadIndicado","cadObs","cadAparelho"].forEach(function(a){E(a).value=""}),["cadCondicao","cadPerfil","cadOrigem","cadUpgrade"].forEach(function(a){E(a).value=""}),E("cadConsent").value="sim",E("campoIndicado").className="campo oculto",E("cadErro").textContent="",E("cadDup").className="cad-dup",D=null,E("painelCadastro").className="painel-cadastro",E("cadNome").focus()}function M(){E("painelCadastro").className="painel-cadastro oculto"}function y(){var a=E("cadUpgrade").value;return{nome:E("cadNome").value,whatsapp:E("cadWhats").value,produto:E("cadProduto").value,condicao:E("cadCondicao").value,perfil:E("cadPerfil").value,origem:E("cadOrigem").value,indicado_por:E("cadIndicado").value,observacoes:E("cadObs").value,upgrade_entrada:"sim"===a||"nao"!==a&&null,aparelho_entrada:E("cadAparelho").value,consentimento:"nao"!==E("cadConsent").value}}var D=null;async function F(){var a=E("cadErro");a.textContent="",E("cadDup").className="cad-dup",D=null;var e=y(),o=w(e);if(o.ok){var t=E("btnCadastrar"),i=await O("cadastrar_lead",{p_nome:e.nome,p_whatsapp:e.whatsapp,p_produto:e.produto,p_condicao:e.condicao,p_perfil:e.perfil,p_origem:e.origem,p_indicado_por:e.indicado_por||null,p_observacoes:e.observacoes||null,p_upgrade_entrada:e.upgrade_entrada,p_aparelho_entrada:e.aparelho_entrada||null,p_consentimento:e.consentimento},t);if(i)return!1===i.ok&&i.duplicado?(D=i.existente||null,E("cadDupMsg").textContent=i.msg||"Ja existe um lead com esse WhatsApp.",void(E("cadDup").className="cad-dup visivel")):void(!1!==i.ok?(I(i.msg||"Lead cadastrado"),M(),B(!0)):a.textContent=i.msg||"Cadastro recusado")}else a.textContent=o.msg}function W(){M(),n="todos",E("inputBusca").value=D&&D.nome||E("cadWhats").value,k()}function j(){var a="indicacao"===E("cadOrigem").value;E("campoIndicado").className="campo"+(a?"":" oculto")}var H=null;function J(){var a="indicacao"===E("edOrigem").value;E("campoEdIndicado").className="campo"+(a?"":" oculto")}function R(){E("painelEdicao").className="painel-cadastro oculto",H=null}async function z(){var a=E("edErro");if(a.textContent="",H){var e,o,t=(e=E("edUpgrade").value,o=String(E("edValor").value||"").trim(),{nome:E("edNome").value,whatsapp:E("edWhats").value,produto:E("edProduto").value,condicao:E("edCondicao").value,perfil:E("edPerfil").value,origem:E("edOrigem").value,indicado_por:E("edIndicado").value,data_nascimento:E("edNasc").value||null,proximo_contato:E("edProx").value||null,valor_oferta:""===o?null:Number(o),observacoes:E("edObs").value,upgrade_entrada:"sim"===e||"nao"!==e&&null,aparelho_entrada:E("edAparelho").value}),i=S(t);if(i.ok){var n=E("btnSalvarEdicao"),r=await O("editar_lead",{p_lead_id:H,p_nome:t.nome,p_whatsapp:t.whatsapp||null,p_produto:t.produto,p_condicao:t.condicao,p_perfil:t.perfil,p_origem:t.origem,p_indicado_por:t.indicado_por||null,p_observacoes:t.observacoes||null,p_aparelho_entrada:t.aparelho_entrada||null,p_upgrade_entrada:t.upgrade_entrada,p_valor_oferta:t.valor_oferta,p_proximo_contato:t.proximo_contato,p_data_nascimento:t.data_nascimento},n);r&&(!1!==r.ok?(I(r.msg||"Lead atualizado"),R(),B(!0)):a.textContent=r.msg||"Edicao recusada")}else a.textContent=i.msg}else a.textContent="Sem lead selecionado"}async function V(){if(H&&window.confirm("Arquivar este lead? Ele sai da operacao mas o historico fica no banco.")){var a=E("btnArquivar"),e=await O("arquivar_lead",{p_lead_id:H,p_motivo:null},a);e&&(!1!==e.ok?(I(e.msg||"Lead arquivado"),R(),B(!0)):E("edErro").textContent=e.msg||"Arquivamento recusado")}}var dicOk=!1;async function B(sil){if(!sil)E("lista").innerHTML='<div class="estado carregando">Lendo a base…</div>';if(!dicOk){var a=await t.from("dicionario_rotulos").select("dominio,codigo,rotulo");!a.error&&a.data&&(d(a.data),dicOk=!0)}var e=await t.from("v_lead").select("*").order("proximo_contato",{ascending:!0,nullsFirst:!1});if(e.error){if(await pwSemSessao())return pwSessaoCaiu();E("lista").innerHTML='<div class="estado erro">Falha ao ler a base: '+c(e.error.message)+". Toque em Atualizar para tentar de novo.</div>"}else{i=e.data||[];var o=new Date;r=("0"+o.getHours()).slice(-2)+":"+("0"+o.getMinutes()).slice(-2),pb(l()),k()}}function pb(a){a=a||l();var e=i.filter(function(a){return!a.arquivado_em}),o=v(e,a),t=o.filter(function(e){return p(e.proximo_contato,a)>0}),n=e.filter(function(a){return"pendente"===a.status});E("pbFila").textContent=String(o.length),E("badgeFila")&&(E("badgeFila").textContent=o.length?String(o.length):"");var r=E("pbAtraso");r.textContent=String(t.length),r.className="pb-num"+(t.length?" alerta":""),E("pbAtivos").textContent=String(n.length),E("pbTotal").textContent=String(e.length)}function U(a){E("telaLogin").className="login"+(a?" oculto":""),E("telaApp").className="app"+(a?"":" oculto")}var pwSaindo=!1;function pwSessaoCaiu(){i=[],U(!1);var a=E("loginErro");a&&(a.textContent="Sua sessao expirou. Entre de novo.")}async function pwSemSessao(){try{var a=await t.auth.getSession();return!(a&&a.data&&a.data.session)}catch(a){return!1}}async function Z(){var a=E("btnEntrar"),e=E("loginErro");e.textContent="",a.disabled=!0,a.textContent="Entrando…";var o=await t.auth.signInWithPassword({email:E("email").value.trim(),password:E("senha").value});a.disabled=!1,a.textContent="Entrar",o.error?e.textContent="Nao entrou: confira email e senha.":(pwSaindo=!1,U(!0),B())}async function X(){pwSaindo=!0,await t.auth.signOut(),i=[],U(!1)}function Y(a,e,o){var t=E(a);t?t.addEventListener(e,o):window.console&&console.warn("PitWall: elemento #"+a+" ausente; listener ignorado")}return{esc:c,setRotulos:d,rotulo:s,_vendaDaCalc:pwAbrirVendaDaCalc,_rascunhoLer:pwRascunhoLer,hojeLocalISO:l,dataLocalDe:u,diasAtraso:p,entraNaFila:m,montarFila:v,entraNoPosVenda:mPos,montarPosVenda:vPos,filtrarBusca:g,filtrarIndicacoes:_,fmtTel:f,waHrefFila:b,waHrefLimpo:h,cardHTML:x,renderLista:N,diaMaisISO:C,validarCadastro:w,validarEdicao:S,coletarCadastro:y,abrirCadastro:P,init:function(){t=window.supabase.createClient(a,e),t.auth.onAuthStateChange(function(evt,ses){"SIGNED_IN"===evt&&ses?pwSaindo=!1:"SIGNED_OUT"===evt&&(pwSaindo?pwSaindo=!1:pwSessaoCaiu())}),window.addEventListener("error",function(a){try{I("Erro: "+(a&&a.message?a.message:"falha inesperada"),!0)}catch(a){}}),window.addEventListener("unhandledrejection",function(a){var e=a&&a.reason?a.reason.message||String(a.reason):"promessa rejeitada";try{I("Erro: "+e,!0)}catch(a){}}),Y("btnEntrar","click",Z),Y("senha","keydown",function(a){"Enter"===a.key&&Z()}),Y("btnSair","click",X),Y("btnAtualizar","click",function(){dicOk=!1,B()}),Y("abaFila","click",function(){G("fila")}),Y("abaTodos","click",function(){G("todos")}),Y("abaVendas","click",function(){G("vendas")}),Y("abaNfs","click",function(){G("nfs")}),Y("btnSalvarNf","click",salvarNfPainel),Y("btnFecharNf","click",fecharPainelNf),Y("btnSalvarCliente","click",salvarCliente),Y("btnCancelarCliente","click",fecharPainelCliente),Y("nfLista","click",nfListaClick),Y("btnEnviarEntrega","click",function(){enviarEntrega(E("btnEnviarEntrega"))}),Y("btnCopiarEntrega","click",function(){copiarEntrega(E("btnCopiarEntrega"))}),Y("btnFecharEntrega","click",fecharPainelEntrega),["peRetirada","peEntrega","peValor","pePgto","peMotoboy","peMotoWhats","peRecado"].forEach(function(id){Y(id,"input",entPintar)}),Y("btnSalvarVenda","click",salvarVenda),Y("btnCancelarVenda","click",fecharPainelVenda),Y("fvValor","input",calcLucroVenda),Y("fvCusto","input",function(){calcLucroVenda();calcCustoNota()}),Y("fvFrete","input",calcLucroVenda),Y("fvTaxas","input",calcLucroVenda),Y("fvStatus","change",fvEtapaSegueStatus),Y("fvEtapa","change",function(){FV_ETAPA_TOCADA=!0}),Y("fvClienteBusca","input",buscaClienteVenda),Y("fvProdutoBusca","input",buscaProdutoVenda),Y("painelVenda","click",fvCliClick),Y("painelPagamento","click",pgPainelClick),Y("painelPagamento","change",pgPainelInput),Y("painelPagamento","input",pgPainelInput),Y("btnSalvarPgto","click",function(){salvarPagamentos(E("btnSalvarPgto"))}),Y("btnFecharPgto","click",fecharPainelPagamento),Y("painelEntrega","click",entPainelClick),Y("painelMotoboys","click",motoPainelClick),Y("btnFecharMotoboys","click",fecharPainelMotoboys),Y("abaClientes","click",function(){G("clientes")}),Y("abaIndicacoes","click",function(){G("indicacoes")}),Y("abaDash","click",function(){G("dashboard")}),Y("abaCaptacao","click",function(){G("captacao")}),Y("abaHoje","click",function(){G("hoje")}),Y("abaConteudo","click",function(){G("conteudo")}),Y("abaRotina","click",function(){G("rotina")}),Y("abaEscopo","click",function(){G("escopo")}),Y("abaMais","click",function(){var a=E("abas");if(a){var b=a.className.indexOf("mais-aberto")>=0;a.className="abas"+(b?"":" mais-aberto"),E("abaMais").setAttribute("aria-expanded",b?"false":"true")}}),Y("lista","keydown",capKeydown),Y("inputBusca","input",k),Y("lista","click",A),Y("lista","change",A),Y("lista","dragstart",contDragStart),Y("lista","dragover",contDragOver),Y("lista","drop",contDrop),Y("lista","dragend",contDragEnd),Y("btnNovoLead","click",P),Y("btnCancelarCadastro","click",M),Y("btnCadastrar","click",F),Y("btnAbrirExistente","click",W),Y("cadOrigem","change",j),Y("btnSalvarEdicao","click",z),Y("btnCancelarEdicao","click",R),Y("btnArquivar","click",V),Y("edOrigem","change",J),t.auth.getSession().then(function(a){var e=!(!a.data||!a.data.session);U(e),e&&B(),e&&"#venda-da-calc"===location.hash&&pwAbrirVendaDaCalc(),e&&window.addEventListener("hashchange",function(){"#venda-da-calc"===location.hash&&pwAbrirVendaDaCalc()})})},_setLeads:function(a){i=a}}}(),window.__PITWALL_SEM_INIT||("loading"===document.readyState?document.addEventListener("DOMContentLoaded",function(){window.PitWall.init()}):window.PitWall.init())

@@ -378,6 +378,12 @@ a{color:inherit}
    disputa com o quadro e com o dinheiro. Largura natural, e o contador fica na
    ponta oposta, como ja era antes de o botao subir para o topo. */
 .venda-topo .btn-cad{flex:0 0 auto;padding-left:18px;padding-right:18px}
+/* Duas acoes de topo desde 17/08/2026 (Nova venda e Motoboys). Elas andam
+   juntas num grupo proprio para que o space-between continue empurrando SO o
+   contador para a direita; soltas, o Motoboys iria parar no meio do vazio.
+   Quebram para a linha de baixo em vez de espremer o contador no celular. */
+.venda-topo{flex-wrap:wrap}
+.venda-topo-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .venda-cont{font-family:var(--mono);font-size:11px;color:var(--dim)}
 .fv-lucro{font-family:var(--mono);font-size:14px;color:var(--ok);margin:4px 0 14px;font-variant-numeric:tabular-nums}
 .cad-grupo{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:16px 0 6px;font-weight:600}
@@ -1448,6 +1454,11 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .moto-chip:hover{border-color:var(--accent-linha);background:var(--accent-tint)}
 .moto-chip strong{font-weight:500;overflow-wrap:anywhere}
 .moto-chip span{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+/* No painel de Motoboys nao ha venda aberta, entao nao ha o que despachar: a
+   linha e leitura. Sem isto ela herdaria cursor de mao e hover azul, prometendo
+   uma acao que nao existe. */
+.moto-chip.fixo{cursor:default}
+.moto-chip.fixo:hover{border-color:var(--line);background:var(--surface)}
 .moto-rm{
   flex:0 0 auto;padding:9px 10px;background:none;
   border:1px solid var(--line);border-radius:var(--radius-p);
@@ -2953,3 +2964,43 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   font-weight:500;font-size:11px;
 }
 .pp-sug:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+
+/* ---------- Detalhe do numero (18/08/2026) ---------------------------------
+   Abre a soma venda a venda debaixo dos cards, sem tirar o dono da aba. Mora
+   DENTRO de .vg-valores (grid-column 1/-1) e nao depois dos graficos: no
+   celular a resposta tem que nascer onde a pergunta foi feita.
+   Sem cor nova: o bloco e leitura, nao estado. Quem pinta e o SINAL que ja
+   existe (--erro-fg no numero negativo, --morno-fg no que ficou fora da soma,
+   a mesma familia de "trabalho pendente" do frete e do CPF que falta). Azul nao
+   entra: seria o quinto uso da marca e a regra 11.1 reprova. */
+.vg-det{grid-column:1 / -1;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:12px 13px}
+.vg-det-cab{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;margin-bottom:6px}
+.vg-det-tit{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:600}
+/* o recorte segue junto do titulo pelo mesmo motivo do .vg-recorte: janela
+   omitida e dado omitido. */
+.vg-det-rec{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;margin-right:auto}
+.vg-det-btn,.vg-det-fechar{
+  background:0 0;border:none;padding:0;font-family:var(--mono);font-size:11px;
+  color:var(--frio-fg);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.vg-det-btn{margin-top:9px}
+.vg-det-btn:hover,.vg-det-fechar:hover{color:var(--text)}
+.vg-det-lin{display:flex;align-items:baseline;justify-content:space-between;gap:10px 14px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.vg-det-quem{min-width:0;flex:1 1 200px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.vg-det-quem strong{font-size:13.5px;font-weight:500;overflow-wrap:anywhere}
+.vg-det-quando{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.vg-det-cli{flex:1 1 100%;font-size:11.5px;color:var(--dim);overflow-wrap:anywhere}
+.vg-det-cifra{flex:0 0 auto;text-align:right;margin-left:auto}
+.vg-det-val{font-family:var(--mono);font-size:13.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.vg-det-val.neg{color:var(--erro-fg)}
+.vg-det-pe{font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:2px}
+/* a resoma e a prova na tela: se ela discordar do card, o defeito aparece sem
+   ninguem precisar somar na mao. Por isso ela e o unico numero do bloco com
+   peso de titulo. */
+.vg-det-soma{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:10px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.vg-det-soma b{font-family:var(--mono);font-weight:600;font-size:14px;color:var(--text);letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+.vg-det-soma b.neg{color:var(--erro-fg)}
+.vg-det-fora{margin:12px 0 0;padding-top:10px;border-top:1px solid var(--line-forte);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--morno-fg);font-weight:600}
+.vg-det-fora span{display:block;margin-top:3px;letter-spacing:0;text-transform:none;font-weight:400;color:var(--dim)}
+.vg-det-vazio{margin:0;font-size:12.5px;color:var(--dim)}
+.vg-det-nota{margin:10px 0 0;font-size:11px;color:var(--dim)}

@@ -247,6 +247,15 @@ async function rodar(){
       if (!D.querySelector('#lista [data-det].aberto'))
         window.__saida.erros.push('detalhes da venda nao entraram na medicao: '
           + 'nenhum [data-det].aberto na aba Vendas, entao o bloco novo NAO foi medido');
+      // Detalhe do dinheiro (18/08/2026): linha com data, modelo, cliente e
+      // cifra na mesma faixa. E a linha mais larga que a aba Vendas produz, e
+      // ela nasce fechada: sem abrir aqui, o diagnostico mediria um bloco que
+      // nao esta na tela e passaria verde sem ter olhado.
+      var bmoney = D.querySelector('#lista [data-acao="vg-detalhe"][data-id="fat"]');
+      if (bmoney) { bmoney.click(); await espera(220); }
+      if (!D.querySelector('#lista .vg-det .vg-det-lin'))
+        window.__saida.erros.push('detalhe do faturamento nao entrou na medicao: '
+          + 'nenhuma .vg-det-lin na aba Vendas, entao o bloco novo NAO foi medido');
     }
     // Injecao que nao rende elemento na tela e pior do que injecao nenhuma: o
     // diagnostico passaria verde jurando ter medido o bloco novo. Se o

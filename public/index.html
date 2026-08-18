@@ -373,6 +373,29 @@
       <div id="peErro" class="cad-erro" role="alert"></div>
     </div>
 
+    <!-- ---------- Lista de motoboys (17/08/2026) ----------
+         Até aqui a lista só existia DENTRO do relatório de entrega: sem uma
+         venda com entrega aberta não havia caminho nenhum para ver ou cadastrar
+         motoboy, e o dono reportou exatamente isso ("a adição de motoboy na
+         lista está perdida, aparece apenas quando clico em relatório").
+         Mesma tabela, mesmas RPCs, mesma função de pintura: o que muda é a
+         PORTA, que agora fica no topo da aba Vendas.
+         Este painel NÃO despacha ninguém. Despachar exige uma venda para saber
+         o que entregar e para onde, e isso continua sendo ato do relatório. -->
+    <div id="painelMotoboys" class="painel-cadastro oculto">
+      <h2>Motoboys</h2>
+      <p class="cad-nota">Quem está aqui vira botão de um toque no relatório de entrega. Tirar da lista não apaga entrega antiga: o nome de quem levou continua registrado.</p>
+      <div id="pmLista" class="moto-lista"></div>
+      <p class="cad-grupo">Adicionar</p>
+      <div class="campo"><label for="pmNome">Nome</label><input id="pmNome" type="text" autocomplete="off"></div>
+      <div class="campo"><label for="pmWhats">WhatsApp</label><input id="pmWhats" type="tel" inputmode="tel" placeholder="DDD + número" autocomplete="off"><span class="campo-nota">Sem número não existe botão de enviar, e a RPC recusa o cadastro.</span></div>
+      <div class="cad-acoes">
+        <button class="btn-cad" data-acao="pm-salvar">Salvar na lista</button>
+        <button id="btnFecharMotoboys" class="btn-cad secundario">Fechar</button>
+      </div>
+      <div id="pmErro" class="cad-erro" role="alert"></div>
+    </div>
+
     <!-- ---------- Dados do cliente (identidade: CPF, RG, endereço) ---------- -->
     <div id="painelCliente" class="painel-cadastro oculto">
       <h2 id="pcTitulo">Dados do cliente</h2>

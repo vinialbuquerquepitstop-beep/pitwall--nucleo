@@ -44,7 +44,11 @@ var LEADS = %s, ROTULOS = %s, HIST = %s;
 // v3, v4 e v5 nasceram na v52, para o painel de vendas. Cada uma existe por um
 // motivo que o painel POSSA ERRAR, nao para engordar a lista:
 //   v3 cancelada  -> aparece como card, mas NAO pode entrar no faturamento;
-//   v4 pre_venda  -> entra no faturamento E tem que ser declarada no cabecalho;
+//   v4 pre_venda  -> desde 17/08/2026 tambem fica FORA de toda soma de dinheiro,
+//                    e o cabecalho tem que declarar quanto ficou de fora. Ate
+//                    aquele dia ela era somada, e as assercoes abaixo travavam
+//                    isso: os valores esperados mudaram por decisao do dono, nao
+//                    porque a suite estava incomodando;
 //   v5 prejuizo   -> puxa agosto para lucro negativo, que e o unico jeito de
 //                    provar que a fita muda para a cor de erro.
 // Em todas, valor - custo - frete - taxas bate com o campo lucro de proposito:
@@ -56,8 +60,11 @@ var LEADS = %s, ROTULOS = %s, HIST = %s;
 //   v2 nasce quase vazia   -> prova que o rotulo do campo vazio CONTINUA visivel
 //                             (o travessao), que e a regra do campo vazio;
 //   v5 tem troca de verdade-> prova o grupo Troca aberto, e so ele;
-//   v1/v4 dividem fornecedor e v5 tem outro -> o recorte precisa de mais de um
-//   grupo para provar que agrupa, e de um vazio para provar "sem fornecedor".
+//   v1/v5 dividem fornecedor e v2 nao tem -> o recorte precisa de uma chave com
+//   DUAS vendas para provar que agrupa, e de um vazio para provar "sem
+//   fornecedor". Ate 17/08/2026 o par era v1/v4, mas v4 e pre-venda e saiu do
+//   recorte junto com o resto do dinheiro: o par foi para v1/v5, senao a
+//   assercao de agrupamento ficaria sem caso e viraria enfeite.
 // As ETAPAS (v61) seguem o mesmo criterio, uma por caso que o quadro erraria:
 //   v1 entregue           -> a coluna que enche para sempre, e o recorte dela;
 //   v2 em_maos, 9 dias    -> o chip de parada no vermelho E o botao Relatorio;
@@ -99,7 +106,7 @@ var VENDAS_STUB = [{ id:'v1', venda_code:'VENDA-0001', modelo_rotulo:'iPhone 13'
   { id:'v5', venda_code:'VENDA-0005', modelo_rotulo:'iPhone 12', cliente_nome:'Carla Nunes',
   data_venda:'2026-08-06', valor_venda:1000, lucro:-500, status:'concluida', tem_trade_in:true,
   entrada_modelo:'iPhone X', entrada_imei:'355000000000099', entrada_valor:600,
-  fornecedor_nome:'BR COSTA', condicao:'vitrine', forma_pagamento:'cartao',
+  fornecedor_nome:'MP Imports', condicao:'vitrine', forma_pagamento:'cartao',
   etapa:'a_caminho', etapa_em:'2026-08-14T13:00:00Z', dias_na_etapa:1,
   custo_aparelho:1400, despesa_frete:100, despesa_taxas:0, lead_id:'l5' }];
 // Auditoria: a tabela existe desde a Fase 2 e nunca teve tela nenhuma. O fixture
@@ -642,6 +649,18 @@ TESTE = """
 function telaTxt() { var l = document.getElementById('lista'); return l ? l.textContent : ''; }
 function ok(nome, cond, extra) { window.__log.push((cond ? 'PASSOU  ' : 'FALHOU  ') + nome + (extra ? '  <' + extra + '>' : '')); }
 function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+// Espiao de rolagem, instalado ANTES de tudo e para a suite inteira.
+// Duas razoes, e as duas doem se ele sair daqui:
+//   1. e como se prova que um painel abre onde o dedo esta. Medir scrollTop nao
+//      serve: no headless a pagina nem sempre tem altura para rolar, e a
+//      assercao passaria a medir o tamanho da janela.
+//   2. scrollIntoView({behavior:'smooth'}) DE VERDADE trava o Chrome sob
+//      --virtual-time-budget: medido em 17/08/2026, o processo estourou os 120s
+//      de wall clock e nao entregou DOM nenhum. Com o stub a suite volta a
+//      terminar em segundos.
+// Quem for assertar limpa window.__rolouEm antes do clique.
+window.__rolouEm = [];
+Element.prototype.scrollIntoView = function () { window.__rolouEm.push(this.id || ''); };
 async function rodar() {
   window.PitWall.init();
   await espera(260);
@@ -2047,56 +2066,68 @@ async function rodar() {
 
   vgClica('tudo');
   await espera(90);
-  // Fixture: 3200 + 5000 + 2000 + 1000 = 11200. A cancelada de 9999 fica FORA.
-  ok('faturamento soma so as nao canceladas', vgCel('vg-fat').indexOf('R$ 11.200,00') >= 0, vgCel('vg-fat'));
+  // Fixture, so as CONCLUIDAS: 3200 + 5000 + 1000 = 9200. Ficam de fora a
+  // cancelada de 9999 e a pre-venda de 2000 (criterio novo, 17/08/2026).
+  ok('faturamento soma so as vendas concluidas', vgCel('vg-fat').indexOf('R$ 9.200,00') >= 0, vgCel('vg-fat'));
   // Assercao NEGATIVA exige a celula existir: sem isso ela e vacuamente
   // verdadeira num app que nem tem painel, e guard-rail que nao morde e enfeite.
   ok('a cancelada nao entrou no faturamento',
      !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]') &&
      vgCel('vg-fat').indexOf('9.999') < 0, vgCel('vg-fat'));
+  // 9200 + 2000 = 11200, que era o numero ATE 17/08/2026. Se a pre-venda voltar
+  // a vazar para a soma, o total volta a 11.200 e e exatamente aqui que aparece.
+  ok('a pre-venda nao entrou no faturamento',
+     !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]') &&
+     vgCel('vg-fat').indexOf('R$ 11.200,00') < 0, vgCel('vg-fat'));
   // A arquivada de 8400 vem da tabela venda, nunca da v_venda: se um dia ela
-  // vazar para o faturamento, o total salta para 19.600 e e aqui que aparece.
+  // vazar para o faturamento, o total salta para 17.600 e e aqui que aparece.
   ok('venda arquivada tambem fica fora do faturamento',
      !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]') &&
-     vgCel('vg-fat').indexOf('19.600') < 0 && vgCel('vg-fat').indexOf('R$ 11.200,00') >= 0,
+     vgCel('vg-fat').indexOf('17.600') < 0 && vgCel('vg-fat').indexOf('R$ 9.200,00') >= 0,
      vgCel('vg-fat'));
-  ok('o contador do placar diz 4 vendas, nao 5', vgCel('vg-fat').indexOf('4 vendas') >= 0, vgCel('vg-fat'));
-  // 540 + 800 + 300 - 500 = 1140
+  ok('o contador do placar diz 3 vendas, nao 4 nem 5', vgCel('vg-fat').indexOf('3 vendas') >= 0, vgCel('vg-fat'));
+  // 540 + 800 - 500 = 840. Os 300 da pre-venda saem junto com o faturamento
+  // dela: tirar de um lado e deixar do outro inventaria margem do nada.
   ok('lucro soma a coluna lucro da view, inclusive o negativo',
-     vgCel('vg-luc').indexOf('R$ 1.140,00') >= 0, vgCel('vg-luc'));
+     vgCel('vg-luc').indexOf('R$ 840,00') >= 0, vgCel('vg-luc'));
   // Margem saiu do PE do lucro e virou numero proprio. Era o menor texto do
   // bloco e e ela que diz se a operacao vale a pena.
-  ok('margem e numero proprio, com chave propria (1140/11200)',
-     vgCel('vg-margem').indexOf('10,2%') >= 0, vgCel('vg-margem'));
+  ok('margem e numero proprio, com chave propria (840/9200)',
+     vgCel('vg-margem').indexOf('9,1%') >= 0, vgCel('vg-margem'));
   ok('e nao e mais rodape do lucro', vgCel('vg-luc').indexOf('margem') < 0, vgCel('vg-luc'));
-  ok('ticket medio = faturamento / vendas (11200/4)',
-     vgCel('vg-ticket').indexOf('R$ 2.800,00') >= 0, vgCel('vg-ticket'));
-  ok('e o pe do ticket traz o lucro medio (1140/4)',
-     vgCel('vg-ticket').indexOf('R$ 285,00') >= 0, vgCel('vg-ticket'));
-  // frete 30+90+50+100 = 270; taxas 30+10+0+0 = 40
-  ok('vazamento = frete + taxas (270 + 40)', vgCel('vg-vazamento').indexOf('R$ 310,00') >= 0, vgCel('vg-vazamento'));
-  ok('e diz quanto isso pesa no lucro (310/1140)',
-     vgCel('vg-vazamento').indexOf('27,2% do lucro') >= 0, vgCel('vg-vazamento'));
+  // O caso que motivou tirar a pre-venda do contador tambem: com n=4 e fat=9200
+  // o ticket daria R$ 2.300,00, dividindo o dinheiro de quem fechou pelo numero
+  // de quem nao fechou.
+  ok('ticket medio = faturamento / vendas concluidas (9200/3)',
+     vgCel('vg-ticket').indexOf('R$ 3.066,67') >= 0, vgCel('vg-ticket'));
+  ok('e o ticket NAO divide por quem nao fechou (9200/4 = 2.300)',
+     vgCel('vg-ticket').indexOf('R$ 2.300,00') < 0, vgCel('vg-ticket'));
+  ok('e o pe do ticket traz o lucro medio (840/3)',
+     vgCel('vg-ticket').indexOf('R$ 280,00') >= 0, vgCel('vg-ticket'));
+  // frete 30+90+100 = 220; taxas 30+10+0 = 40. Os 50 de frete da pre-venda saem.
+  ok('vazamento = frete + taxas (220 + 40)', vgCel('vg-vazamento').indexOf('R$ 260,00') >= 0, vgCel('vg-vazamento'));
+  ok('e diz quanto isso pesa no lucro (260/840)',
+     vgCel('vg-vazamento').indexOf('31,0% do lucro') >= 0, vgCel('vg-vazamento'));
   // A legenda passou a falar so em % (a coluna de valores fala em R$), entao a
   // conta e conferida do jeito que importa mais: o GRAFICO e o NUMERO tem que
   // dizer a mesma coisa. Se um dia alguem recalcular lucro no cliente em vez de
   // somar a coluna da view, os dois lados divergem e e aqui que aparece.
   // TRES partes, nao quatro. Frete e taxas viraram uma so porque o par de cores
   // possivel para elas media ΔE 13.0 na visao normal, abaixo do piso de 15.
-  // 9750/11200 = 87,1% · 310/11200 = 2,8% · 1140/11200 = 10,2%
+  // 8100/9200 = 88,0% · 260/9200 = 2,8% · 840/9200 = 9,1%
   ok('a barra de vazamento fecha 100% do faturamento em 3 partes',
-     vgLeg('custo').indexOf('87,1%') >= 0 && vgLeg('vaza').indexOf('2,8%') >= 0 &&
-     vgLeg('luc').indexOf('10,2%') >= 0,
+     vgLeg('custo').indexOf('88,0%') >= 0 && vgLeg('vaza').indexOf('2,8%') >= 0 &&
+     vgLeg('luc').indexOf('9,1%') >= 0,
      vgLeg('custo') + ' | ' + vgLeg('vaza') + ' | ' + vgLeg('luc'));
-  ok('e a fatia de lucro do grafico bate com a margem do numero (10,2% nos dois)',
-     vgLeg('luc').indexOf('10,2%') >= 0 && vgCel('vg-margem').indexOf('10,2%') >= 0,
+  ok('e a fatia de lucro do grafico bate com a margem do numero (9,1% nos dois)',
+     vgLeg('luc').indexOf('9,1%') >= 0 && vgCel('vg-margem').indexOf('9,1%') >= 0,
      'grafico=' + vgLeg('luc') + ' numero=' + vgCel('vg-margem'));
   ok('nao ha mais fatia separada de frete nem de taxas',
      !document.querySelector('#lista [data-vaza="frete"]') &&
      !document.querySelector('#lista [data-vaza="taxas"]'));
   // A quebra frete/taxas nao se perdeu: ela vive em R$ no bloco de vazamento.
   ok('a quebra frete/taxas continua legivel, em R$, no bloco de valores',
-     vgCel('vg-vazamento').indexOf('R$ 270,00') >= 0 && vgCel('vg-vazamento').indexOf('R$ 40,00') >= 0,
+     vgCel('vg-vazamento').indexOf('R$ 220,00') >= 0 && vgCel('vg-vazamento').indexOf('R$ 40,00') >= 0,
      vgCel('vg-vazamento'));
   // A legenda e a chave de cor dos DOIS graficos, entao cada item precisa do
   // quadradinho: sem ele o nome nao amarra em fatia nenhuma.
@@ -2108,8 +2139,12 @@ async function rodar() {
   var vgRec = document.querySelector('#lista .vg-recorte');
   ok('o painel DECLARA a janela (de X a ...)',
      !!vgRec && vgRec.textContent.indexOf('de 18/07/2026 a ') === 0, vgRec && vgRec.textContent);
-  ok('e declara a pre-venda que esta somada dentro',
-     !!vgRec && vgRec.textContent.indexOf('4 vendas · inclui 1 pré-venda') >= 0, vgRec && vgRec.textContent);
+  // Mudou de lado em 17/08/2026: dizia o que estava DENTRO, agora diz o que
+  // ficou de fora, com o valor. Excluir R$ 2.000 em silencio seria a mesma
+  // omissao de antes, na direcao contraria.
+  ok('e declara a pre-venda que ficou de FORA da soma, com o valor',
+     !!vgRec && vgRec.textContent.indexOf('3 vendas concluídas · 1 pré-venda fora da soma (R$ 2.000,00)') >= 0,
+     vgRec && vgRec.textContent);
 
   // ---- as barras por mes ----
   var vgJul = document.querySelector('#lista .vg-mes[data-mes="2026-07"]');
@@ -2122,11 +2157,19 @@ async function rodar() {
   // aria-label, que e por onde teclado e leitor de tela leem.
   ok('a cancelada nao virou coluna propria nem somou em julho',
      vgAria(vgJul).indexOf('2 vendas') >= 0, vgAria(vgJul));
-  // julho 8200 e o maior mes -> 100%; agosto 3000 -> 37%
+  // julho 8200 e o maior mes -> 100%; agosto 1000 -> 12%. Agosto encolheu de
+  // 3000 para 1000 quando a pre-venda de 2000 saiu da soma: o grafico por mes
+  // le o MESMO agregado do placar, entao ele nao pode ficar para tras.
   ok('a fita do maior mes ocupa o tubo inteiro',
      vgAlt(vgJul, '.vg-fat') === '100%', vgAlt(vgJul, '.vg-fat'));
-  ok('e o mes menor e proporcional ao maior (3000/8200)',
-     vgAlt(vgAgo, '.vg-fat') === '37%', vgAlt(vgAgo, '.vg-fat'));
+  ok('e o mes menor e proporcional ao maior (1000/8200)',
+     vgAlt(vgAgo, '.vg-fat') === '12%', vgAlt(vgAgo, '.vg-fat'));
+  // A pre-venda e de agosto: se ela voltasse a somar, agosto valeria 3000 e a
+  // fita subiria para 37%. A assercao negativa trava o caminho de volta.
+  ok('e a pre-venda de agosto nao engordou a coluna do mes',
+     vgAlt(vgAgo, '.vg-fat') !== '37%', vgAlt(vgAgo, '.vg-fat'));
+  ok('e agosto conta 1 venda, nao 2',
+     vgAria(vgAgo).indexOf('1 venda') >= 0 && vgAria(vgAgo).indexOf('2 vendas') < 0, vgAria(vgAgo));
   // A coluna e EMPILHADA: bater o olho tem que dizer de uma vez qual mes foi
   // maior E qual mes guardou mais. A versao anterior, com uma lasca de lucro
   // dentro de um tubo cheio, so respondia a primeira pergunta.
@@ -2161,10 +2204,13 @@ async function rodar() {
   ok('e a fatia da base e quadrada',
      (vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).borderBottomLeftRadius : '?') === '0px',
      vgSub(vgJul, '.s-luc') ? getComputedStyle(vgSub(vgJul, '.s-luc')).borderBottomLeftRadius : '?');
-  // agosto: 300 - 500 = -200. Prejuizo nao tem fatia de lucro para empilhar.
+  // agosto e a v5 SOZINHA desde 17/08/2026: fat 1000, lucro -500. A pre-venda de
+  // 2000 e o lucro de 300 dela sairam da soma junto com o criterio novo, entao o
+  // mes deixou de ser 3000 / -200 e a faixa deixou de medir 7%.
+  // Numero reponta com a ARITMETICA na frente, nunca no olho: |-500| / 1000 = 50%.
   ok('mes no prejuizo nao tem fatia de lucro', !vgSub(vgAgo, '.s-luc'));
-  ok('e ganha a faixa negativa, dimensionada pelo rombo (200/3000)',
-     vgAlt(vgAgo, '.s-neg') === '7%', vgAlt(vgAgo, '.s-neg'));
+  ok('e ganha a faixa negativa, dimensionada pelo rombo (500/1000)',
+     vgAlt(vgAgo, '.s-neg') === '50%', vgAlt(vgAgo, '.s-neg'));
   ok('a faixa negativa usa a cor de erro',
      vgCor(vgAgo, '.s-neg') === 'rgb(176, 18, 53)', vgCor(vgAgo, '.s-neg'));
   // Verde x vermelho no mesmo tom separam 1.32 (prova_grafico.py): matiz sozinho
@@ -2276,8 +2322,90 @@ async function rodar() {
     ok('janela do mes corrente tem venda: o painel mostra as barras',
        !!document.querySelector('#lista .vg-meses') && !document.querySelector('#lista .vg-vazio'));
     ok('e o faturamento do mes nao e o da base inteira',
-       vgCel('vg-fat').indexOf('R$ 11.200,00') < 0, vgCel('vg-fat'));
+       vgCel('vg-fat').indexOf('R$ 9.200,00') < 0, vgCel('vg-fat'));
   }
+
+  // ---- detalhe venda a venda dos cards de dinheiro (18/08/2026) ----
+  // O pedido do dono e de auditoria, entao a prova e de auditoria: nao basta o
+  // bloco abrir, ele tem que RESOMAR o mesmo numero do card e nao deixar entrar
+  // o que a soma exclui. Um detalhe que abre bonito e lista a venda errada e
+  // pior que nenhum detalhe: ele da confianca no numero errado.
+  // Leitores tolerantes a ausencia, pelo mesmo motivo do bloco anterior: rodando
+  // contra um app.js sem o painel, isto reprova, nao derruba a rodada.
+  vgClica('tudo');
+  await espera(90);
+  var vdBt = function (k) { return document.querySelector('#lista [data-acao="vg-detalhe"][data-id="' + k + '"]'); };
+  var vdBloco = function () { return document.querySelector('#lista .vg-det'); };
+  var vdTxt = function () { var b = vdBloco(); return b ? b.textContent : '(sem bloco de detalhe)'; };
+  var vdLinhas = function () { return document.querySelectorAll('#lista .vg-det .vg-det-lin').length; };
+
+  ok('o card de faturamento oferece detalhar', !!vdBt('fat'));
+  ok('o card de lucro tambem oferece detalhar', !!vdBt('luc'));
+  ok('e nada abre antes do toque', !vdBloco());
+
+  var vdFrom = (window.__fromChamadas || []).length;
+  if (vdBt('fat')) vdBt('fat').click();
+  await espera(90);
+  ok('tocar em detalhar abre o bloco no modo faturamento',
+     !!vdBloco() && vdBloco().getAttribute('data-modo') === 'fat',
+     vdBloco() && vdBloco().getAttribute('data-modo'));
+  ok('abrir o detalhe NAO le a base de novo (o dado ja estava na tela)',
+     (window.__fromChamadas || []).length === vdFrom,
+     'antes=' + vdFrom + ' depois=' + (window.__fromChamadas || []).length);
+  // 3 concluidas + 1 pre-venda no bloco de fora. A cancelada nao e linha nenhuma.
+  ok('o bloco lista 3 concluidas mais a pre-venda, e nada mais', vdLinhas() === 4, 'linhas=' + vdLinhas());
+  ok('as tres vendas concluidas aparecem nominalmente',
+     vdTxt().indexOf('VENDA-0001') >= 0 && vdTxt().indexOf('VENDA-0002') >= 0 &&
+     vdTxt().indexOf('VENDA-0005') >= 0, vdTxt().slice(0, 200));
+  ok('a cancelada nao entra no detalhe, como nao entra na soma',
+     !!vdBloco() && vdTxt().indexOf('VENDA-0003') < 0 && vdTxt().indexOf('9.999') < 0);
+  // A resoma e o ponto da tela inteira: se ela divergir do card, o defeito
+  // aparece sem ninguem somar na mao.
+  ok('a soma das linhas RESOMA o mesmo numero do card (R$ 9.200,00)',
+     vdTxt().indexOf('soma das linhas') >= 0 && vdTxt().indexOf('R$ 9.200,00') >= 0 &&
+     vgCel('vg-fat').indexOf('R$ 9.200,00') >= 0, vdTxt().slice(-220));
+  ok('a pre-venda aparece declarada FORA da soma, com o valor',
+     vdTxt().indexOf('fora da soma (R$ 2.000,00)') >= 0, vdTxt().slice(-220));
+  ok('e a linha dela diz na propria linha que esta fora',
+     vdTxt().indexOf('pr\u00e9-venda, fora da soma') >= 0, vdTxt().slice(-220));
+  ok('o botao do card aberto marca aria-expanded, e so ele',
+     document.querySelectorAll('#lista [data-acao="vg-detalhe"][aria-expanded="true"]').length === 1 &&
+     !!vdBt('fat') && vdBt('fat').getAttribute('aria-expanded') === 'true');
+  // Cada linha diz quanto ela pesa no total: 5000 de 9200 = 54,3%.
+  ok('cada linha declara o peso dela no faturamento',
+     vdTxt().indexOf('54,3% do faturamento') >= 0, vdTxt().slice(0, 300));
+
+  // ---- trocar para o lucro troca o SIGNIFICADO da coluna, nao so o titulo ----
+  if (vdBt('luc')) vdBt('luc').click();
+  await espera(90);
+  ok('tocar no lucro troca o modo do bloco, sem abrir um segundo',
+     !!vdBloco() && vdBloco().getAttribute('data-modo') === 'luc' &&
+     document.querySelectorAll('#lista .vg-det').length === 1,
+     vdBloco() && vdBloco().getAttribute('data-modo'));
+  ok('e a resoma passa a ser a do lucro (R$ 840,00)',
+     vdTxt().indexOf('R$ 840,00') >= 0 && vgCel('vg-luc').indexOf('R$ 840,00') >= 0, vdTxt().slice(-220));
+  ok('o faturamento sai da coluna de valor: 9.200 nao e soma de lucro',
+     !!vdBloco() && vdTxt().indexOf('soma das linhas') >= 0 &&
+     vdTxt().indexOf('R$ 9.200,00') < 0, vdTxt().slice(-220));
+  // A venda de prejuizo e o caso que a tela nao pode suavizar.
+  var vdNeg = document.querySelector('#lista .vg-det .vg-det-val.neg');
+  ok('a venda no prejuizo aparece negativa e marcada', !!vdNeg && vdNeg.textContent.indexOf('-500,00') >= 0,
+     vdNeg && vdNeg.textContent);
+  ok('e ela usa a cor de erro, nao a de lucro',
+     !!vdNeg && getComputedStyle(vdNeg).color === 'rgb(176, 18, 53)',
+     vdNeg && getComputedStyle(vdNeg).color);
+  ok('cada linha do modo lucro carrega a margem da propria venda',
+     vdTxt().indexOf('margem 16,0%') >= 0, vdTxt().slice(0, 300));
+
+  // ---- fechar ----
+  var vdFec = document.querySelector('#lista .vg-det-fechar');
+  ok('o bloco tem saida propria', !!vdFec);
+  if (vdFec) vdFec.click();
+  await espera(90);
+  ok('fechar tira o bloco e devolve os botoes ao estado fechado',
+     !vdBloco() && document.querySelectorAll('#lista [data-acao="vg-detalhe"][aria-expanded="true"]').length === 0);
+  ok('e o card continua no lugar, com o numero intacto',
+     vgCel('vg-fat').indexOf('R$ 9.200,00') >= 0, vgCel('vg-fat'));
 
   // ---- abrir as arquivadas tambem parou de reler a base ----
   vgClica('tudo');
@@ -2517,6 +2645,120 @@ async function rodar() {
      document.getElementById('painelEntrega').className);
   document.getElementById('abaVendas').click();
   await espera(220);
+
+  // ============ o painel abre ONDE o dedo esta (17/08/2026) ==================
+  // O dono reportou duas vezes o MESMO defeito, com botoes diferentes: "ao
+  // clicar em abrir relatorio, a secao abre la em cima". O painel nasce no topo
+  // do <main> e o botao que o abre mora dentro do card, no meio da lista. Sem
+  // rolagem o toque nao muda nada na tela, que e indistinguivel de botao morto.
+  // A prova espiona o scrollIntoView em vez de medir scrollTop: no headless a
+  // pagina nem sempre tem altura para rolar, e a assercao passaria a medir o
+  // tamanho da janela em vez do comportamento.
+  var rolouEm = window.__rolouEm;
+
+  rolouEm.length = 0;
+  document.querySelector('[data-acao="venda-entrega"][data-id="v1"]').click();
+  await espera(280);
+  ok('abrir o relatorio de entrega ROLA ate o painel (nao abre la em cima)',
+     rolouEm.indexOf('painelEntrega') >= 0, rolouEm.join(','));
+  document.getElementById('btnFecharEntrega').click();
+  await espera(160);
+
+  rolouEm.length = 0;
+  var btNf = document.querySelector('#lista [data-acao="nf-anexar"]');
+  if (btNf) {
+    btNf.click();
+    await espera(280);
+    ok('anexar NF tambem rola ate o painel', rolouEm.indexOf('painelNf') >= 0, rolouEm.join(','));
+    document.getElementById('btnFecharNf').click();
+    await espera(160);
+  }
+
+  // ============ Motoboys tem porta propria (17/08/2026) ======================
+  // Ate aqui a lista so existia dentro do relatorio: "a adicao de motoboy na
+  // lista esta perdida, aparece apenas quando clico em relatorio". Era verdade.
+  // A porta nova nao pode virar uma SEGUNDA tabela de motoboy: as assercoes
+  // abaixo cobram que ela use a mesma RPC e que as duas listas andem juntas.
+  var btMoto = document.querySelector('#lista [data-acao="venda-motoboys"]');
+  ok('a aba Vendas tem o botao Motoboys no topo, sem precisar de venda aberta',
+     !!btMoto, btMoto && btMoto.textContent);
+  ok('e ele e acao secundaria: o azul da marca continua so no + Nova venda',
+     !!btMoto && btMoto.className.indexOf('secundario') >= 0, btMoto && btMoto.className);
+
+  rolouEm.length = 0;
+  btMoto.click();
+  await espera(320);
+  var pnMoto = document.getElementById('painelMotoboys');
+  ok('o painel de Motoboys ABRIU no clique', pnMoto.className.indexOf('oculto') < 0, pnMoto.className);
+  ok('e rolou ate ele', rolouEm.indexOf('painelMotoboys') >= 0, rolouEm.join(','));
+  ok('a lista veio do MESMO banco que o relatorio usa',
+     document.querySelectorAll('#pmLista .moto-chip').length === 2,
+     'n=' + document.querySelectorAll('#pmLista .moto-chip').length);
+  ok('o telefone continua visivel, e quem nao tem diz o que falta',
+     document.getElementById('pmLista').textContent.indexOf('sem WhatsApp') >= 0,
+     document.getElementById('pmLista').textContent);
+  // sem venda aberta nao existe despacho: chip clicavel que nada faz e pior que
+  // chip parado, porque o dono toca e le o silencio como defeito
+  ok('aqui o chip NAO e botao de despachar (nao ha venda para entregar)',
+     document.querySelectorAll('#pmLista [data-acao="ent-moto-enviar"]').length === 0);
+  ok('mas tirar da lista continua ao alcance',
+     document.querySelectorAll('#pmLista .moto-rm').length === 2);
+
+  // nome vazio nao vai a rede: a validacao mora numa funcao so, compartilhada
+  var nMb = function () {
+    return window.__rpcChamadas.filter(function (x) { return x.nome === 'salvar_motoboy'; }).length; };
+  var mbAntes = nMb();
+  document.getElementById('pmWhats').value = '21933334444';
+  document.querySelector('#painelMotoboys [data-acao="pm-salvar"]').click();
+  await espera(240);
+  ok('sem nome, salvar nao chama RPC nenhuma e explica por que',
+     nMb() === mbAntes && document.getElementById('pmErro').textContent.indexOf('nome') >= 0,
+     document.getElementById('pmErro').textContent);
+
+  document.getElementById('pmNome').value = 'Boy do Painel';
+  document.querySelector('#painelMotoboys [data-acao="pm-salvar"]').click();
+  await espera(340);
+  ok('salvar no painel proprio chamou a MESMA salvar_motoboy', nMb() === mbAntes + 1,
+     'antes=' + mbAntes + ' depois=' + nMb());
+  var chMb2 = window.__rpcChamadas.filter(function (x) { return x.nome === 'salvar_motoboy'; });
+  ok('com nome e WhatsApp no payload',
+     chMb2[chMb2.length - 1].args.payload.nome === 'Boy do Painel'
+     && !!chMb2[chMb2.length - 1].args.payload.whatsapp,
+     JSON.stringify(chMb2[chMb2.length - 1].args.payload));
+  ok('a lista do painel repintou com o motoboy novo',
+     document.querySelectorAll('#pmLista .moto-chip').length === 3,
+     'n=' + document.querySelectorAll('#pmLista .moto-chip').length);
+  // uma tabela, duas telas: se a do relatorio nao acompanhar, o dono cadastra
+  // aqui, abre o relatorio e nao acha quem acabou de salvar
+  ok('e a lista DO RELATORIO acompanhou (uma tabela, nao duas)',
+     document.querySelectorAll('#peMotoLista .moto-chip').length === 3,
+     'n=' + document.querySelectorAll('#peMotoLista .moto-chip').length);
+  ok('os campos ficaram limpos para o proximo cadastro',
+     document.getElementById('pmNome').value === '' && document.getElementById('pmWhats').value === '',
+     document.getElementById('pmNome').value + '|' + document.getElementById('pmWhats').value);
+
+  var nDs = function () {
+    return window.__rpcChamadas.filter(function (x) { return x.nome === 'desligar_motoboy'; }).length; };
+  var dsAntes = nDs();
+  document.querySelectorAll('#pmLista .moto-rm')[2].click();
+  await espera(340);
+  ok('tirar da lista pelo painel proprio chamou desligar_motoboy', nDs() === dsAntes + 1,
+     'antes=' + dsAntes + ' depois=' + nDs());
+  ok('e as duas listas voltaram a dois',
+     document.querySelectorAll('#pmLista .moto-chip').length === 2
+     && document.querySelectorAll('#peMotoLista .moto-chip').length === 2,
+     'pm=' + document.querySelectorAll('#pmLista .moto-chip').length
+     + ' pe=' + document.querySelectorAll('#peMotoLista .moto-chip').length);
+
+  document.getElementById('abaFila').click();
+  await espera(220);
+  ok('trocar de aba fecha o painel de Motoboys (sem sobreposicao)',
+     document.getElementById('painelMotoboys').className.indexOf('oculto') >= 0,
+     document.getElementById('painelMotoboys').className);
+  document.getElementById('abaVendas').click();
+  await espera(240);
+  ok('nenhum TypeError no caminho do painel de Motoboys',
+     window.__erroJs.length === 0, window.__erroJs.join(' | '));
 
   // ============ quadro de etapas: ONDE cada venda esta (v61) ============
   // Antes disto o banco nao guardava nenhum estagio: as 7 vendas reais estavam
@@ -3141,14 +3383,23 @@ async function rodar() {
   // Janela "Tudo" ja foi fixada mais acima nesta rodada, entao os numeros abaixo
   // sao os do fixture inteiro e nao dependem do calendario.
   var linsC = corte.querySelectorAll('.vg-corte-lin');
-  ok('agrupa as vendas por fornecedor: MP Imports, BR COSTA e o vazio',
-     linsC.length === 3, 'n=' + linsC.length + ' | ' + corte.textContent.slice(0, 120));
-  // v1 (3200) + v4 (2000) = 5200. A cancelada v3 tem fornecedor no fixture DE
-  // PROPOSITO: se ela entrasse, apareceria uma quarta linha de 9.999.
-  ok('o maior grupo soma as duas vendas do mesmo fornecedor',
+  // DOIS grupos desde 17/08/2026, nao tres: o recorte chama o mesmo vgConta do
+  // placar, entao a pre-venda v4 saiu daqui junto com a soma la de cima. Grupo
+  // que so existia por causa dela nao pode sobreviver aqui: recorte que soma
+  // por um criterio e placar que soma por outro e a tela discordando de si.
+  ok('agrupa as vendas CONCLUIDAS por fornecedor: MP Imports e o vazio',
+     linsC.length === 2, 'n=' + linsC.length + ' | ' + corte.textContent.slice(0, 120));
+  // v1 (3200) + v5 (1000) = 4200, as duas concluidas do MP Imports. A v4 (2000)
+  // e pre-venda e nao entra. A cancelada v3 tem fornecedor no fixture DE
+  // PROPOSITO: se ela entrasse, apareceria uma terceira linha de 9.999.
+  ok('o grupo do fornecedor soma as duas vendas concluidas dele',
      corte.textContent.indexOf('MP Imports') >= 0 &&
-     corte.textContent.indexOf('R$ 5.200,00') >= 0 &&
+     corte.textContent.indexOf('R$ 4.200,00') >= 0 &&
      corte.textContent.indexOf('2 vendas') >= 0, corte.textContent.slice(0, 200));
+  // Assercao NEGATIVA, o caminho de volta: se a pre-venda voltar a somar, o
+  // grupo pula para 5.200 e isto reprova.
+  ok('e a pre-venda nao engordou o grupo do fornecedor dela',
+     corte.textContent.indexOf('R$ 5.200,00') < 0, corte.textContent.slice(0, 200));
   ok('a venda cancelada fica FORA do recorte, igual ao painel de cima',
      corte.textContent.indexOf('Fornecedor da cancelada') < 0 &&
      corte.textContent.indexOf('9.999') < 0);
