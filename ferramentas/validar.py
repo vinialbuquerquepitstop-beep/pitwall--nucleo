@@ -308,6 +308,27 @@ ROTULO_DE_GRUPO = [
     # bandeja --surface da 9.18 (prova_atmosfera.py).
     'qv-col-rot',
 ]
+# Terceiro papel de produto: SERIE DE GRAFICO e ACAO PRIMARIA DA ABA HOJE.
+# Aberto em 19/08/2026 por ordem do dono, que reprovou a Hoje reconstruida
+# dizendo que a estetica tem que ser "o mais identica possivel" a referencia
+# baixada nesse dia, e a referencia inteira pende do azul.
+#
+# Por que isto NAO derruba a regra: continua NOMEADO um a um, e nenhum destes e
+# barra de progresso. A barra de progresso que a regra existe para pegar diz
+# QUANTO de um total, sozinha, sem numero ao lado -- e por isso o azul dela
+# vira pintura de dado. A linha do grafico distingue DUAS series que dividem o
+# mesmo eixo (sem cor diferente as duas viram uma so), e os dois botoes sao
+# affordance de acao, com o mesmo papel que btn-sync ja tinha.
+#
+# O auto-teste de .met-barra i continua abaixo, intacto: se algum dia ele parar
+# de reprovar, a regra morreu e esta excecao morre junto.
+SERIE_E_ACAO_HOJE = [
+    # a serie de venda saiu do azul em 19/08/2026 (virou --ok, verde): as duas
+    # entradas que viviam aqui foram REMOVIDAS, e a excecao encolheu sozinha.
+    'dia-sec-badge',                        # contador de pendentes da Fila
+    '.dia-add .btn-acao',                   # Adicionar (lembrete e tarefa)
+    '.dia-nota-pe .btn-acao',               # Salvar nota
+]
 def papel_do_azul(sel):
     for rx, nome in PAPEIS_MECANICOS:
         if re.search(rx, sel):
@@ -316,6 +337,8 @@ def papel_do_azul(sel):
         return 'acao primaria'
     if any(a in sel for a in ROTULO_DE_GRUPO):
         return 'rotulo de grupo'
+    if any(a in sel for a in SERIE_E_ACAO_HOJE):
+        return 'serie de grafico ou acao primaria da Hoje'
     return None
 # auto-teste: a regra so vale se ainda REPROVAR o caso que ela existe para pegar.
 assert papel_do_azul('.met-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'

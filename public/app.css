@@ -271,20 +271,28 @@ a{color:inherit}
 .met-rodape{font-size:11.5px;color:var(--dim);line-height:1.45;margin:9px 0 0}
 .met-rodape code{font-family:var(--mono);font-size:10.5px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 4px}
 
-.met-lin{padding:9px 0;border-bottom:1px solid var(--line)}
-.met-lin:last-of-type{border-bottom:0}
-.met-lin-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.met-lin-rot{font-size:13.5px;font-weight:500}
-.met-lin-val{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
-.met-barra{display:block;height:4px;border-radius:2px;background:var(--surface);margin:6px 0 5px;overflow:hidden}
-/* barra de PROPORCAO, nao de marca. Era var(--accent) a .55 (3.23 contra o
-   trilho), ou seja o quinto uso do azul: a mesma barra de progresso que a
-   secao 13 do v29 ja barrou uma vez pelo nome, de volta com outro nome.
-   Quantidade nao e estado, entao vai em neutro. --dim cheio mede 5.43
-   contra var(--surface), alvo 3. */
-.met-barra i{display:block;height:100%;background:var(--dim);border-radius:2px}
-.met-lin-pe{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;gap:9px;flex-wrap:wrap}
-.met-lin-hist{color:var(--dim);opacity:.8}
+/* --- "De onde veio": card de origem do lead (layout do mock de 19/08/2026) ---
+   O numero de destaque e o %, a barra e a mesma proporcao, e o R$ desce pro pe.
+   A barra fica NEUTRA de proposito. No mock ela e azul da marca: e a barra de
+   progresso que a secao 13 do v29 ja barrou pelo nome na Captacao, voltou em
+   03/08/2026 como .met-barra i e foi pega de novo pela regra 11.1. Quantidade
+   nao e estado. --dim cheio mede 5.43 contra var(--surface), alvo 3. */
+.org-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.org-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.org-ico{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:var(--dim);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.org-tit{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.org-janela{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.02em}
+.org-tot{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin:2px 0 0}
+.org-lin{padding:10px 0;border-bottom:1px solid var(--line)}
+.org-lin:last-of-type{border-bottom:0;padding-bottom:2px}
+.org-lin-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.org-rot{font-size:13.5px;font-weight:500}
+.org-pct{font-family:var(--mono);font-size:13.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.org-barra{display:block;height:6px;border-radius:3px;background:var(--line);margin:7px 0 6px;overflow:hidden}
+.org-barra i{display:block;height:100%;background:var(--dim);border-radius:3px}
+.org-pe{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;gap:9px;flex-wrap:wrap;align-items:baseline}
+.org-val{color:var(--text);font-variant-numeric:tabular-nums}
+.org-hist{opacity:.8}
 
 .met-tipos{display:flex;gap:7px;flex-wrap:wrap;margin:2px 0 11px}
 .met-tipo{
@@ -944,7 +952,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-nivel.n-frio{color:var(--frio-fg)}
 .fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fila-atraso{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:999px;padding:1px 7px}
-.fila-sug{margin-left:auto}
+/* .btn-acao nasce com flex:1. Na coluna estreita isso nunca apareceu, mas com
+   a Fila em largura total (19/08/2026) o Sugerir esticou por 600px: botao
+   largo demais deixa de parecer botao e a linha perde o ritmo. */
+.fila-sug{margin-left:auto;flex:0 0 auto}
 .fila-wa{flex:0 0 auto;padding:5px 12px;font-size:12px}
 .fila-vertodos{background:none;border:none;color:var(--dim);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
 .fila-vertodos:hover{color:var(--text)}
@@ -3004,3 +3015,179 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .vg-det-fora span{display:block;margin-top:3px;letter-spacing:0;text-transform:none;font-weight:400;color:var(--dim)}
 .vg-det-vazio{margin:0;font-size:12.5px;color:var(--dim)}
 .vg-det-nota{margin:10px 0 0;font-size:11px;color:var(--dim)}
+
+/* ==========================================================================
+   Aba Hoje no layout da referencia de 19/08/2026: faixa de dinheiro, tres
+   leituras e corpo em duas colunas. Empilha em uma coluna abaixo de 900px, e
+   a ordem empilhada preserva a nota do dia por ULTIMO.
+   Nenhuma cor nova: dinheiro reusa os tokens --d-* do dashboard, temperatura
+   usa as semanticas medidas (--quente/--morno/--frio) porque ali a cor E o
+   estado, e barra de quantidade continua neutra (regra 11.1).
+   ========================================================================== */
+/* Grade de QUATRO unidades por linha, o mesmo vocabulario do Dashboard: peca
+   larga ocupa 2, e nenhuma linha fica com unidade sobrando. Substituiu duas
+   colunas verticais fixas, que so ficavam equilibradas por acaso: medido em
+   19/08/2026, ~990px de altura a esquerda contra ~380px a direita, ou seja
+   ~600px de branco, com o grafico espremido em 1/3 da largura enquanto duas
+   listas curtas ocupavam o mesmo tanto.
+   Escada: 4 unidades no desktop largo, 2 no medio, 1 no celular. */
+.hj-l{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.hj-l>.hj-2{grid-column:span 2}
+@media(max-width:1179px){
+  .hj-l{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:759px){
+  .hj-l{grid-template-columns:minmax(0,1fr)}
+  .hj-l>.hj-2{grid-column:span 1}
+}
+.hj-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 16px;min-width:0}
+.hj-card-cab{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.hj-card-ico{display:flex;color:var(--dim)}
+.hj-card-ico svg{width:15px;height:15px}
+.hj-card-tit{margin:0;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.hj-card-jan{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim);
+  letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hj-card-pe{margin:9px 0 0;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.hj-vazio{font-size:12.5px;color:var(--dim);padding:6px 0}
+
+/* leads novos por dia: mesma gramatica da carga da aba Rotina */
+.hj-barras{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;align-items:end}
+.hj-bar-cel{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.hj-bar-num{font-family:var(--mono);font-size:11px;font-variant-numeric:tabular-nums}
+.hj-bar-num.zero{color:var(--dim);opacity:.55}
+.hj-bar-tubo{width:100%;height:46px;background:var(--surface);border-radius:3px;
+  display:flex;align-items:flex-end;overflow:hidden}
+.hj-bar-fita{width:100%;background:var(--dim);border-radius:3px;min-height:2px}
+.hj-bar-dia{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* Temperatura (19/08/2026, 2a versao). Cada nivel ganha o trio do design
+   system -- faixa, texto e tint -- em celula propria, e a barra virou 12px com
+   as fatias SEPARADAS por 3px.
+   O respiro entre fatias nao e enfeite. Medido:
+     quente x morno 1.01 | morno x frio 1.00 | quente x frio 1.01
+   ou seja as tres semanticas tem a mesma luminancia, e coladas viram uma faixa
+   so para quem nao distingue matiz. A separacao carrega o que a cor nao carrega,
+   mesmo principio do icone obrigatorio nos trilhos.
+   Texto -fg sobre o tint: 4.65 / 4.61 / 4.61 / 5.43 (alvo 4.5).
+   Faixa contra branco: 3.03 / 3.06 / 3.05 (alvo 3). */
+.hj-tp{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.hj-tp-cel{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;
+  background:var(--surface)}
+.hj-tp-cel.n-quente{background:var(--quente-bg);border-color:var(--quente-linha)}
+.hj-tp-cel.n-morno{background:var(--morno-bg);border-color:var(--morno-linha)}
+.hj-tp-cel.n-frio{background:var(--frio-bg);border-color:var(--frio-linha)}
+.hj-tp-num{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;line-height:1.1;color:var(--dim)}
+.hj-tp-cel.n-quente .hj-tp-num{color:var(--quente-fg)}
+.hj-tp-cel.n-morno .hj-tp-num{color:var(--morno-fg)}
+.hj-tp-cel.n-frio .hj-tp-num{color:var(--frio-fg)}
+.hj-tp-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hj-tp-abs{font-family:var(--mono);font-size:11px;color:var(--dim);
+  font-variant-numeric:tabular-nums;margin-top:2px}
+.hj-tp-faixa{display:flex;gap:3px;height:12px;margin-top:12px}
+.hj-tp-faixa i{display:block;height:100%;border-radius:3px;min-width:6px}
+.hj-tp-faixa i.n-quente{background:var(--quente)}
+.hj-tp-faixa i.n-morno{background:var(--morno)}
+.hj-tp-faixa i.n-frio{background:var(--frio)}
+.hj-tp-faixa i.n-sem_contato{background:var(--line-forte)}
+
+/* corpo em duas colunas */
+/* A Fila ocupa a largura inteira, acima das colunas: e a peca que o operador
+   trabalha, e em meia largura o botao Enviar quebrava para a linha de baixo.
+   Abaixo dela, Rotina (alta) de um lado e Conteudo+Lembretes+Nota do outro,
+   que somam altura parecida. */
+#lista[data-aba="hoje"]>.dia-sec{margin-bottom:12px}
+.hj-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media(min-width:900px){.hj-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.hj-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.org-lin-min{padding:7px 0}
+.org-lin-min .org-barra{margin-bottom:0}
+
+/* ---- 19/08/2026, segunda passada: estetica colada na referencia -----------
+   Titulo de secao em Title Case (era versalete cinza), acao primaria em azul,
+   etiqueta de atraso em versalete vermelho sem pilula, grafico de duas series.
+   O azul das DUAS series e excecao NOMEADA na regra 11.1 do validar.py, aberta
+   por ordem do dono nesta data: a referencia inteira pende do azul, e sem ele a
+   comparacao com o mock nao fecha. Medido antes de entrar:
+     --accent      #0025cc sobre #FFFFFF   9.83   (linha de venda)
+     --accent-linha #C2CBF0 sobre #FFFFFF  1.44   (barra de lead, elemento
+       nao-textual e nao-informativo sozinho: o numero vive no rodape e no
+       eixo, entao a barra nao carrega dado que so ela diga)
+   ------------------------------------------------------------------------- */
+#lista[data-aba="hoje"] .dia-sec-tit{
+  font-size:15px;font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--text);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dia-sec-badge.neutro{color:var(--dim);background:var(--surface);border-color:var(--line-forte)}
+.dia-sec-badge{font-family:var(--mono);font-size:10.5px;font-weight:500;
+  color:var(--accent);background:var(--accent-tint);border:1px solid var(--accent-linha);
+  border-radius:999px;padding:1px 8px;letter-spacing:.02em}
+#lista[data-aba="hoje"] .dia-add .btn-acao,
+#lista[data-aba="hoje"] .dia-nota-pe .btn-acao{
+  background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+#lista[data-aba="hoje"] .dia-add .btn-acao:hover,
+#lista[data-aba="hoje"] .dia-nota-pe .btn-acao:hover{background:var(--accent-forte);border-color:var(--accent-forte)}
+#lista[data-aba="hoje"] .lemb-tag.venc{
+  background:none;border:0;color:var(--erro-fg);text-transform:uppercase;
+  font-size:9.5px;letter-spacing:.06em;padding:0}
+.hj-rodape{margin-top:12px}
+
+/* KPI: a variacao e o numero grande, o valor absoluto e o rodape */
+.hj-kpi-num.v-bom{color:var(--d-up)}
+.hj-kpi-num.v-ruim{color:var(--d-down)}
+.hj-kpi-base{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+  font-variant-numeric:tabular-nums}
+
+/* grafico de duas series */
+/* Grafico de leads (19/08/2026, 2a versao). Medido contra #FFFFFF, alvo 3:1:
+     --dim  #5C6675   5.81  barra de lead
+     --ok   #17A06B   3.35  serie de venda
+     --text #0F1523  18.23  barra de HOJE (3.14 contra --dim: destaca sozinha)
+   As duas series separam 1.74 entre si, ou seja matiz nao basta: a FORMA
+   distingue (barra cheia x linha com ponto) e a legenda nomeia, mesmo
+   principio do icone obrigatorio nos trilhos.
+   O verde tambem tira o azul do grafico: venda fechada e resultado, e verde ja
+   e a cor do Enviar em toda a Fila. */
+.hj-graf-leg{display:flex;gap:16px;margin-bottom:8px}
+.hj-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+.hj-leg-barra{width:9px;height:9px;border-radius:2px;background:var(--dim)}
+.hj-leg-linha{width:9px;height:9px;border-radius:999px;background:var(--ok)}
+.hj-graf{min-width:0}
+.hj-graf-svg{display:block;width:100%;height:auto}
+.hj-graf-barra{fill:var(--dim)}
+.hj-graf-barra.hoje{fill:var(--text)}
+.hj-graf-linha{fill:none;stroke:var(--ok);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.hj-graf-ponto{fill:var(--ok);stroke:var(--bg);stroke-width:3}
+.hj-graf-nums,.hj-graf-dias{display:grid;grid-template-columns:repeat(7,1fr);gap:0}
+.hj-graf-nums span{font-family:var(--mono);font-size:12.5px;font-weight:500;
+  font-variant-numeric:tabular-nums;color:var(--text);text-align:center}
+.hj-graf-nums span.zero{color:var(--dim);opacity:.45;font-weight:400}
+.hj-graf-dias{margin-top:4px}
+.hj-graf-dias span{font-family:var(--mono);font-size:10.5px;color:var(--dim);text-align:center}
+.hj-graf-dias span.hoje{color:var(--text);font-weight:500}
+
+/* PENDENCIAS (19/08/2026). Grade que se adensa com a largura: em 360px e uma
+   coluna, no desktop sao tres. O numero vem PRIMEIRO porque a pergunta e
+   "quanto", nao "o que" -- a linha se le de relance da esquerda para a direita.
+   Numero de item atrasado usa o trio --quente (texto 4.65 sobre o tint); item
+   apenas aberto, sem atraso, fica neutro para nao gritar igual. */
+.pend-sec{margin-bottom:12px}
+.pend-sec .dia-sec-cab{margin-bottom:8px}
+.pend-grade{display:grid;grid-template-columns:1fr;gap:6px}
+@media(min-width:600px){.pend-grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1000px){.pend-grade{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.pend-lin{display:flex;align-items:center;gap:8px;min-width:0;
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface)}
+.pend-num{font-family:var(--mono);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;
+  color:var(--dim);background:var(--bg);border:1px solid var(--line-forte);border-radius:6px;
+  padding:1px 8px;flex:0 0 auto}
+.pend-num.urg{color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha)}
+.pend-rot{font-size:12.5px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.pend-ir{margin-left:auto;flex:0 0 auto;background:none;border:none;cursor:pointer;
+  font-family:var(--body);font-size:11.5px;font-weight:600;color:var(--dim);
+  text-decoration:underline;text-underline-offset:2px;padding:2px 4px}
+.pend-ir:hover{color:var(--text)}
+.pend-ir:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}

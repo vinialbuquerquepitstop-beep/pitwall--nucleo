@@ -691,16 +691,55 @@ async function rodar() {
   ok('a secao do Hoje tem sombra',
      getComputedStyle(secs[0]).boxShadow.indexOf('rgba(15, 21, 35, 0.06)') >= 0,
      getComputedStyle(secs[0]).boxShadow);
-  // o placar continua com os QUATRO numeros reais. Os mockups do Stitch pintam
-  // este mesmo lugar com Uptime 99.98% e 70% da Capacidade Total, que nao
-  // existem no banco. Esta assercao existe para que nunca entrem.
-  ok('o placar do Hoje tem 4 celulas',
-     document.querySelectorAll('#lista .pitboard .pb-celula').length === 4,
+  // O placar de 4 celulas SAIU da Hoje em 19/08/2026, por ordem do dono, junto
+  // com a segunda passada de estetica sobre a referencia. O que a assercao
+  // antiga PROTEGIA continua protegido, e e o que importa: os mockups pintam
+  // este lugar com Uptime 99.98% e 70% da Capacidade Total, numeros que nao
+  // existem no banco. Some o placar, nao a guarda contra numero sem lastro.
+  ok('o placar de 4 celulas saiu da Hoje',
+     document.querySelectorAll('#lista .pitboard .pb-celula').length === 0,
      'celulas=' + document.querySelectorAll('#lista .pitboard .pb-celula').length);
-  var rots = Array.prototype.map.call(
-    document.querySelectorAll('#lista .pitboard .pb-rot'),
-    function (x) { return x.textContent.trim(); }).join(',');
-  ok('e sao rotina, conteudo, lembretes e sync', rots.indexOf('sync') >= 0 && rots.indexOf('rotina') >= 0, rots);
+  var txtH = telaTxt();
+  ok('e nenhum numero inventado da referencia entrou no lugar',
+     txtH.indexOf('Uptime') === -1 && txtH.indexOf('Capacidade') === -1 &&
+     txtH.indexOf('Google Ads') === -1);
+  // a regua nao morreu junto: ela e o unico sinal de que o motor esta vivo
+  ok('a regua continua declarada na Hoje', !!document.querySelector('#lista .hj-rodape .sync-lin'));
+  // as duas series do grafico da referencia
+  var gBar = document.querySelector('#lista .hj-graf-barra');
+  var gLin = document.querySelector('#lista .hj-graf-linha');
+  ok('o grafico do Hoje tem barra de lead e linha de venda', !!gBar && !!gLin);
+  // Cor MEDIDA, nao escolhida no olho (19/08/2026): barra --dim 5.81 contra
+  // branco, serie de venda --ok 3.35. As duas separam so 1.74 ENTRE SI, entao
+  // quem distingue e a forma (barra cheia x linha com ponto) mais a legenda.
+  // Se alguem repintar a serie de venda de azul, isto cai e a regra 11.1 volta
+  // a ter um caso para pegar.
+  ok('barra de lead e neutra (--dim)', !!gBar && getComputedStyle(gBar).fill === 'rgb(92, 102, 117)',
+     gBar ? getComputedStyle(gBar).fill : 'sem barra');
+  ok('serie de venda e verde (--ok), nao azul de marca',
+     !!gLin && getComputedStyle(gLin).stroke === 'rgb(23, 160, 107)',
+     gLin ? getComputedStyle(gLin).stroke : 'sem linha');
+  // Temperatura: cada nivel em celula com o tint, e as fatias da barra
+  // SEPARADAS. Medido em 19/08/2026: quente x morno 1.01, morno x frio 1.00,
+  // ou seja as tres semanticas tem a mesma luminancia e coladas viram uma faixa
+  // so para quem nao distingue matiz. Se o gap sumir, isto tem que cair.
+  var tpCel = document.querySelector('#lista .hj-tp-cel.n-quente');
+  ok('nivel quente tem celula com o tint da semantica',
+     !!tpCel && getComputedStyle(tpCel).backgroundColor === 'rgb(253, 240, 233)',
+     tpCel ? getComputedStyle(tpCel).backgroundColor : 'sem celula');
+  var tpFx = document.querySelector('#lista .hj-tp-faixa');
+  ok('as fatias da barra de temperatura sao separadas, nao coladas',
+     !!tpFx && parseFloat(getComputedStyle(tpFx).gap) >= 2,
+     tpFx ? getComputedStyle(tpFx).gap : 'sem faixa');
+
+  // a coluna de HOJE se destaca das outras seis
+  ok('a coluna de hoje esta marcada no eixo', !!document.querySelector('#lista .hj-graf-dias span.hoje'));
+  ok('e o valor de cada dia esta escrito, nao so a altura da barra',
+     document.querySelectorAll('#lista .hj-graf-nums span').length === 7,
+     'n=' + document.querySelectorAll('#lista .hj-graf-nums span').length);
+  // o KPI mostra a VARIACAO, nao o valor absoluto (pedido de 19/08/2026)
+  var kpiH = document.querySelector('#lista .hj-kpi .hj-kpi-num');
+  ok('o KPI de dinheiro mostra porcentagem', !!kpiH && /%|R\$/.test(kpiH.textContent), kpiH ? kpiH.textContent : 'sem kpi');
 
   document.getElementById('abaFila').click();
   await espera(260);
@@ -937,12 +976,15 @@ async function rodar() {
   // a assercao da secao 13: o pitboard de LEAD nao aparece na aba Hoje
   ok('pitboard de LEAD escondido na aba Hoje',
      getComputedStyle(document.getElementById('pitboard')).display === 'none');
+  // Mesma decisao de 19/08/2026: o placar de 4 celulas saiu da Hoje. O que estas
+  // tres asserções liam (rotina em 0%, sync em 3h) continua vindo da mesma RPC
+  // painel_do_dia e continua provado no bloco de cima; aqui so nao ha mais
+  // placar para ler. A guarda que fica e a de que ele nao volte por acidente.
   var cels6 = document.querySelectorAll('#lista .pitboard .pb-celula');
-  ok('placar do dia tem 4 células', cels6.length === 4, 'n=' + cels6.length);
-  ok('rotina começa em 0%', cels6[0].querySelector('.pb-num').textContent === '0%',
-     cels6[0].querySelector('.pb-num').textContent);
-  ok('tile do sync diz 3h', cels6[3].querySelector('.pb-num').textContent === '3h',
-     cels6[3].querySelector('.pb-num').textContent);
+  ok('a Hoje nao tem mais placar de 4 células', cels6.length === 0, 'n=' + cels6.length);
+  ok('e a faixa de dinheiro ocupou o lugar dele',
+     document.querySelectorAll('#lista .hj-kpi').length === 2,
+     'kpis=' + document.querySelectorAll('#lista .hj-kpi').length);
 
   // categoria e GAVETA: rótulo mono em --dim, nunca accent/quente/morno/frio/ok
   var catRot = document.querySelector('#lista .dia-cat-rot');
@@ -956,8 +998,18 @@ async function rodar() {
 
   // ---- ordem da aba Hoje: a nota e o ato de FECHAMENTO, vai por ultimo ----
   var tits = [].map.call(document.querySelectorAll('#lista .dia-sec-tit'), function (e) { return e.textContent; });
-  ok('ordem: Fila, Rotina, Conteúdo, Lembretes, Nota',
-     tits.join(' | ') === 'Fila de hoje | Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+  // Pendencias entrou em 19/08/2026 ACIMA da Fila: e o resumo do que esta
+  // atrasado em todos os trilhos, e resumo depois da lista nao serve.
+  ok('ordem: Pendencias, Fila, Rotina, Conteúdo, Lembretes, Nota',
+     tits.join(' | ') === 'Pendências | Fila de hoje | Rotina do dia | Conteúdo de hoje | Lembretes | Nota do dia', tits.join(' | '));
+  // e ela CONTA, nao repete a lista: cada linha e um numero com destino
+  var pend = document.querySelectorAll('#lista .pend-lin');
+  ok('Pendencias mostra linhas contadas', pend.length > 0, 'n=' + pend.length);
+  ok('cada pendencia comeca pelo numero',
+     !!document.querySelector('#lista .pend-lin .pend-num'));
+  ok('nao se digita nada em Pendencias (Rotina e Lembretes ja fazem isso)',
+     !document.querySelector('#lista .pend-sec input') &&
+     !document.querySelector('#lista .pend-sec textarea'));
 
   // ---- Fila embutida no Hoje (Peca A): preview read-only, so acao Sugerir ----
   var filaLins = document.querySelectorAll('#lista .fila-lin');
@@ -999,8 +1051,12 @@ async function rodar() {
   ok('concluída risca (line-through)', deco.indexOf('line-through') >= 0, deco);
   var corChk = getComputedStyle(tarefa.querySelector('.dia-check')).backgroundColor;
   ok('check NEUTRO: fundo --dim, não verde nem azul', corChk === 'rgb(92, 102, 117)', corChk);
-  ok('o placar foi a 100%', document.querySelector('#lista .pb-num').textContent === '100%',
-     document.querySelector('#lista .pb-num').textContent);
+  // O placar saiu da Hoje em 19/08/2026 e o progresso do dia passou a viver no
+  // cabecalho da propria Rotina. A prova e a mesma: marcar tarefa move o
+  // contador. So mudou onde ele e lido.
+  var badgeRot = document.querySelector('#lista .dia-sec-badge.neutro');
+  ok('o progresso da rotina foi a 1 de 1', !!badgeRot && badgeRot.textContent === '1 de 1 feitas',
+     badgeRot ? badgeRot.textContent : 'sem contador');
 
   // tarefa manual entra
   document.getElementById('diaNovoTit').value = 'Ligar para o fornecedor';
@@ -3645,16 +3701,19 @@ async function rodar() {
   // ---- Hoje: marcar tarefa mexe na linha, nao no dia inteiro ----
   document.getElementById('abaHoje').click();
   await espera(320);
-  var celRot = document.querySelector('#lista .pb-celula[data-cel="rotina"]');
-  ok('a celula do placar tem chave por CODIGO (data-cel), nao pelo rotulo exibido',
-     !!celRot);
+  // O placar saiu da Hoje em 19/08/2026; o progresso do dia vive no cabecalho
+  // da Rotina. A chave por codigo (invariante 12) segue provada na aba Captacao,
+  // que continua com pitboard.
+  var celRot = document.querySelector('#lista .dia-sec-badge.neutro');
+  ok('o progresso do dia esta declarado no cabecalho da Rotina', !!celRot,
+     celRot ? celRot.textContent : 'sem contador');
   var tf = document.querySelector('#lista [data-acao="dia-marcar"]');
   if (celRot && tf) {
   // Um bloco anterior desta mesma suite ja marcou esta tarefa, entao aqui o
   // clique DESMARCA. A assercao e sobre VIRAR, nao sobre virar para 'true':
   // fixar o valor esperado faria a prova depender da ordem dos blocos.
   var checkAntes = tf.getAttribute('aria-checked');
-  var peAntes = celRot.querySelector('.pb-pe').textContent;
+  var peAntes = celRot.textContent;
   window.__rpcChamadas.length = 0; window.__fromChamadas.length = 0;
   tf.click();
   await espera(400);
@@ -3668,11 +3727,11 @@ async function rodar() {
      checkAntes + ' -> ' + tf.getAttribute('aria-checked'));
   ok('e a linha e o MESMO no do DOM (a linha nao foi remontada)',
      document.querySelector('#lista [data-acao="dia-marcar"]') === tf);
-  ok('o placar do dia acompanhou',
-     celRot.querySelector('.pb-pe').textContent !== peAntes,
-     peAntes + ' -> ' + celRot.querySelector('.pb-pe').textContent);
-  ok('e o placar e o MESMO no do DOM: nao houve remontagem',
-     document.querySelector('#lista .pb-celula[data-cel="rotina"]') === celRot);
+  ok('o progresso do dia acompanhou',
+     celRot.textContent !== peAntes,
+     peAntes + ' -> ' + celRot.textContent);
+  ok('e o contador e o MESMO no do DOM: nao houve remontagem',
+     document.querySelector('#lista .dia-sec-badge.neutro') === celRot);
   }
 
   // ---- Insights com memoria de tempo (12/08/2026) ---------------------------
