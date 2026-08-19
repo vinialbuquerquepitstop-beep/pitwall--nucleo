@@ -7,32 +7,37 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v64.md` (19/08/2026, **a aba Hoje refeita sobre
-  a referencia visual baixada nesse dia, e as pendencias que estavam escondidas em
-  cinco abas**. Frontend puro: zero migration, zero RPC nova, zero rede nova. O
-  layout saiu de duas colunas verticais fixas (medido: ~990px de altura a esquerda
-  contra ~380px a direita, ~600px de branco, grafico espremido em 1/3) para a
-  grade de 4 unidades que o Dashboard ja usava. O placar de 4 celulas SAIU da Hoje
-  por ordem do dono; o progresso da rotina herdou o lugar no cabecalho da propria
-  secao e `hojePlacarAtualiza()` foi religada nele, senao a atualizacao cirurgica
-  ficaria sem destino. Entrou a secao **Pendencias**, que nao vinha do mock: sete
-  contagens derivadas na leitura (lead vencido, pos-venda vencido, entrega sem
-  baixa, venda sem NF, peca sem publicar, lembrete vencido, tarefa aberta) com
-  botao que leva a aba onde se resolve, e NADA que se digite, porque Rotina e
-  Lembretes ja sao duas listas na mesma tela. O que o mock pedia e nao tinha
-  lastro foi barrado: "Google Ads" nao e origem do dicionario, os +12%/+8,5%
-  viraram variacao real contra o mes anterior, e o alerta por hora nao existe.
-  Duas medicoes mudaram decisao de cor: as tres semanticas quente/morno/frio tem
-  contraste **1.00 a 1.01 ENTRE SI** (coladas viram uma faixa so, por isso 3px de
-  respiro entre as fatias), e a serie de venda saiu do azul para `--ok` (3.35),
-  o que ENCOLHEU a excecao aberta na regra 11.1. **Excecao viva a conferir na
-  proxima sessao: `SERIE_E_ACAO_HOJE` no `validar.py`** (badge de pendentes e os
-  dois botoes primarios da Hoje), decisao consciente do dono; o auto-teste de
-  `.met-barra i` continua intacto. Achados sem dono: `LEAD-0019` e `LEAD-0028`
-  com origem nula valendo R$ 8.700 em venda concluida, e PII real de cliente que
-  saiu para o Stitch na geracao do mock. Suite: **691 assercoes, 0 falhas**, EXIT
-  0 nos seis comandos e nas cinco larguras. Commit `fda502a` em `origin/main`.)
-
+- topo: `handoff_migracao_pitwall_v65.md` (19/08/2026, **auditoria do CRM contra o
+  banco vivo, e a Fatia 1: a Fila deixou de ser lista e virou decisao**). Oito furos
+  medidos, ranqueados por dinheiro perdido: mediana de **118h ate o primeiro toque**
+  com ZERO leads tocados em menos de 24h; **0 toques de pos-venda na historia do
+  sistema** com 6 clientes entregues parados em `P1 · D1`; a fila ordenando por data e
+  desempatando por ordem ALFABETICA. Construida a Fatia 1: `v_lead` ganhou 7 colunas
+  DERIVADAS na leitura (`toques`, `respostas`, `toques_sem_resposta`, `valor_em_jogo`,
+  `duplicata_de`, `veredito`, `veredito_ordem`, `veredito_motivo`) e a fila passou a
+  ordenar por veredito, depois por dinheiro, depois por data. Nenhuma coluna nova em
+  tabela, nenhuma escrita nova, nenhuma mudanca de fetch (o app ja lia `select("*")`).
+  Suite de **691 para 713 assercoes**, 0 falhas, as 22 novas provadas por MUTACAO.
+  Duas licoes caras registradas na secao 3: a regra de `pare` que usava `dias_silencio`
+  era INALCANCAVEL (o silencio reinicia a cada toque do proprio operador, entao passou
+  a contar pelo primeiro toque); e a classe `vd` COLIDIU com o bloco de Detalhes da
+  venda da v61 (`display:none`), o chip sumiu da tela e **a suite ficou VERDE**, porque
+  `getComputedStyle` devolve a cor certa de elemento `display:none` — quem pegou foi a
+  foto. Ha agora assercao de CAIXA, nao so de cor. Fatias 2 (dedupe e re-ancora de
+  perfil), 3 (pos-venda de um clique + pedido de indicacao) e 4 (repescagem por evento)
+  estao especificadas e NAO construidas.
+- anterior: `handoff_migracao_pitwall_v64.md` (19/08/2026, **a aba Hoje refeita sobre
+  a referencia visual do Stitch, e as pendencias que estavam escondidas em cinco
+  abas**. Frontend puro: zero migration, zero RPC nova. O layout saiu de duas colunas
+  verticais fixas (~600px de branco medidos, grafico espremido em 1/3) para a grade de
+  4 unidades do Dashboard. O placar de 4 celulas saiu por ordem do dono e o progresso
+  da rotina herdou o lugar no cabecalho da secao, com `hojePlacarAtualiza()` religada
+  nele. Entrou a secao **Pendencias**, sete contagens derivadas na leitura com botao
+  que leva a aba onde se resolve. O que o mock pedia sem lastro foi barrado ("Google
+  Ads", +12%/+8,5% inventados, alerta por hora). Duas medicoes mudaram decisao de cor:
+  quente/morno/frio tem contraste **1.00 a 1.01 ENTRE SI** (dai os 3px de respiro na
+  barra da Temperatura), e a serie de venda saiu do azul para `--ok`. **Excecao viva na
+  regra 11.1: `SERIE_E_ACAO_HOJE` no `validar.py`**, decisao consciente do dono.)
 - anterior: `handoff_migracao_pitwall_v63.md` (18/08/2026, **frontend puro: o numero
   abriu venda a venda, e a regra de so contar venda concluida enfim chegou ao ar**.
   Duas ordens do dono no mesmo dia, que sao a mesma ordem. Os cards faturamento e

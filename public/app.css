@@ -3191,3 +3191,59 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   text-decoration:underline;text-underline-offset:2px;padding:2px 4px}
 .pend-ir:hover{color:var(--text)}
 .pend-ir:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ==========================================================================
+   O VEREDITO — o chip da linha para de dizer QUANTO atrasou e passa a dizer
+   O QUE FAZER (v65, 19/08/2026).
+
+   Seis vereditos dividem CINCO familias de token semantico, e este projeto ja
+   mediu que matiz sozinho NAO separa: quente x morno x frio ficam entre 1.00 e
+   1.01 de luminancia entre si. Foi essa medicao que obrigou icone nos 7 trilhos
+   de categoria, e vale igual aqui. `espere` e `pare` chegam a dividir a MESMA
+   familia (frio): ali a distincao e o icone MAIS a borda tracejada, que le como
+   "fora do fluxo" sem depender de cor nenhuma.
+
+   PREFIXO `vrd-`, e nao `vd-`: `.vd` JA EXISTE desde a v61 (o bloco de Detalhes
+   da venda, que nasce display:none ate abrir). A primeira versao deste bloco usou
+   `vd` e o chip sumiu da tela inteira, com a suite VERDE: as assercoes mediam cor
+   com getComputedStyle, e getComputedStyle devolve a cor certa mesmo de um
+   elemento display:none. Por isso ha agora uma assercao de VISIBILIDADE, nao so
+   de cor.
+
+   Nenhum token novo (regra 11.2), nenhum hex no JS (11.3) e nenhum uso novo de
+   var(--accent) (11.1): decisao nao e navegacao, entao veredito nunca veste a
+   cor da marca.
+   ========================================================================== */
+.chip.est.vrd{gap:5px}
+/* o ponto de 5.5px sai: quem carrega a forma agora e o icone */
+.chip.est.vrd::before{display:none}
+.vrd-ico{width:11px;height:11px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9}
+.vrd-prioridade{color:var(--ok-fg);background:var(--ok-bg);border-color:var(--ok-linha)}
+.vrd-agora{
+  color:var(--quente-fg);background:var(--quente-bg);border-color:var(--quente-linha);
+  font-variant-numeric:tabular-nums;
+}
+.vrd-mande{
+  color:var(--morno-fg);background:var(--morno-bg);border-color:var(--morno-linha);
+  font-variant-numeric:tabular-nums;
+}
+.vrd-espere{color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha)}
+.vrd-pare{
+  color:var(--frio-fg);background:var(--frio-bg);border-color:var(--frio-linha);
+  border-style:dashed;
+}
+.vrd-nao_mande{color:var(--erro-fg);background:var(--erro-bg);border-color:var(--erro-linha)}
+
+/* O MOTIVO e o que separa "faca 13 coisas" de "faca esta primeiro, e por isso".
+   Vive na linha, nunca em tooltip: motivo escondido atras de hover simplesmente
+   nao existe no celular, que e onde a fila e trabalhada de verdade.
+   O recuo de 40px alinha o texto sob o NOME (28px de avatar + 12px de gap), nao
+   sob a borda do cartao: assim ele le como continuacao da linha. */
+.card-motivo{
+  margin-top:8px;padding-left:40px;
+  font-size:12.5px;line-height:1.5;color:var(--dim);
+}
+@media (max-width:560px){
+  /* a 360px o avatar ja nao segura recuo: o motivo volta pra margem do cartao */
+  .card-motivo{padding-left:0;margin-top:10px}
+}

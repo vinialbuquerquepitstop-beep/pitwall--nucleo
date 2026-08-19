@@ -4057,6 +4057,163 @@ async function rodar() {
      ' venc=' + gr.venc.length);
 
 
+  // ---- O VEREDITO: a fila deixa de ser lista e vira DECISAO (19/08/2026) ----
+  // Por que este bloco existe: ate hoje a fila ordenava por data e desempatava
+  // em ordem ALFABETICA por nome. Medido na base real em 19/08/2026, isso punha
+  // o unico lead que ja tinha respondido DUAS vezes ("se comprometeu a comprar",
+  // 14 Pro Max) em 7o lugar, atras de seis mensagens de agradecimento de
+  // pos-venda. As assercoes abaixo travam as tres coisas que fazem a fila
+  // decidir em vez de listar: a ORDEM, o CHIP e o MOTIVO.
+  var VD = window.PitWall.ordenarFila;
+  function lv(cod, ord, val, dt) {
+    return { lead_code: cod, nome: cod, veredito_ordem: ord,
+             valor_em_jogo: val, proximo_contato: dt };
+  }
+  ok('veredito: prioridade vem antes de agora',
+     VD(lv('A', 1, 0, '2026-08-19'), lv('B', 2, 9999, '2026-01-01')) < 0);
+  ok('veredito: agora vem antes de mande',
+     VD(lv('A', 2, 0, '2026-08-19'), lv('B', 3, 0, '2026-01-01')) < 0);
+  // nao_mande e o caso que mais custa se afrouxar: e um cliente que comprou
+  // ontem prestes a receber abordagem de primeiro contato. Ele vai para o FIM
+  // mesmo sendo o mais antigo da fila.
+  ok('veredito: nao_mande cai para o fim mesmo vencendo ha mais tempo',
+     VD(lv('A', 6, 0, '2026-01-01'), lv('B', 4, 0, '2026-08-19')) > 0);
+  ok('veredito: dentro do mesmo veredito, o maior valor em jogo vem primeiro',
+     VD(lv('A', 2, 8400, '2026-08-19'), lv('B', 2, 2000, '2026-01-01')) < 0);
+  // O dinheiro NAO pode atravessar o veredito: se atravessasse, um pos-venda de
+  // R$ 8.400 passaria na frente de quem ja respondeu, e a fila voltaria a
+  // ordenar por tamanho de venda passada em vez de por probabilidade.
+  ok('veredito: o valor em jogo nao atravessa o veredito',
+     VD(lv('A', 3, 99999, '2026-01-01'), lv('B', 2, 0, '2026-08-19')) > 0);
+  // Degradacao: banco anterior a migration, ou fixture antigo, tem que cair na
+  // ordem ANTIGA em vez de virar comparacao com undefined (que devolve NaN e
+  // embaralha a fila inteira em silencio).
+  ok('veredito: lead sem veredito volta a ordenar por data',
+     VD({ nome: 'A', proximo_contato: '2026-01-01' },
+        { nome: 'B', proximo_contato: '2026-08-19' }) < 0);
+  ok('veredito: sem veredito dos dois lados, o desempate alfabetico sobrevive',
+     VD({ nome: 'Ana', proximo_contato: '2026-08-19' },
+        { nome: 'Bruno', proximo_contato: '2026-08-19' }) < 0);
+
+  // ---- o chip: cor NAO basta, e este projeto ja pagou para saber -----------
+  // Seis vereditos dividem CINCO familias de token semantico, e a v64 mediu que
+  // quente x morno x frio ficam entre 1.00 e 1.01 de luminancia entre si. Foi
+  // essa medicao que obrigou icone nos 7 trilhos de categoria. Aqui `espere` e
+  // `pare` chegam a dividir a MESMA familia (frio): sem icone e sem a borda
+  // tracejada, "espere" e "pare" viram o mesmo chip para quem nao distingue
+  // matiz, e o operador queima um lead achando que estava so aguardando.
+  var chipP = window.PitWall.vereditoChip({ veredito: 'prioridade' }, 0);
+  var chipE = window.PitWall.vereditoChip({ veredito: 'espere' }, 0);
+  var chipS = window.PitWall.vereditoChip({ veredito: 'pare' }, 0);
+  function pathDe(h) { var m = /<path d="([^"]+)"/.exec(h); return m ? m[1] : ''; }
+  ok('veredito: o chip traz icone, nunca so a palavra', chipP.indexOf('vrd-ico') >= 0);
+  ok('veredito: espere e pare tem ICONES diferentes, nao so cor',
+     pathDe(chipE) !== '' && pathDe(chipE) !== pathDe(chipS),
+     pathDe(chipE) + ' vs ' + pathDe(chipS));
+  // O chip de acao carrega o atraso junto: "Agora" sozinho nao diz se e de hoje
+  // ou de 33 dias atras, e essa diferenca decide qual dos seis vem primeiro.
+  ok('veredito: agora e mande carregam o atraso em dias no proprio chip',
+     window.PitWall.vereditoChip({ veredito: 'agora' }, 33).indexOf('33d') >= 0 &&
+     window.PitWall.vereditoChip({ veredito: 'mande' }, 19).indexOf('19d') >= 0);
+  // Degradacao do chip, pelo mesmo motivo da ordem: banco velho nao pode virar
+  // chip vazio na tela.
+  ok('veredito: lead SEM veredito mantem o chip de sinal antigo',
+     window.PitWall.vereditoChip({ proximo_contato: '2026-08-19' }, 3).indexOf('sn-urgente') >= 0);
+
+  // ---- e agora com CSS aplicado, que e o unico jeito de provar cor ---------
+  // O <div> nasce DENTRO de um .card-linha de verdade, e nao solto no #lista:
+  // a primeira versao deste bloco media num div avulso e nao viu que o chip
+  // estava display:none dentro do card. Contexto errado mede a coisa errada.
+  var linha0 = document.querySelector('#lista .card-linha') || document.getElementById('lista');
+  var scr = document.createElement('div');
+  scr.innerHTML = chipE + chipS;
+  linha0.appendChild(scr);
+  var csE = getComputedStyle(scr.children[0]), csS = getComputedStyle(scr.children[1]);
+  ok('veredito: espere e pare dividem a MESMA cor, e por isso o icone precisa existir',
+     csE.color === csS.color, csE.color + ' vs ' + csS.color);
+  ok('veredito: a borda tracejada separa pare de espere sem depender de cor',
+     csS.borderTopStyle === 'dashed' && csE.borderTopStyle === 'solid',
+     'pare=' + csS.borderTopStyle + ' espere=' + csE.borderTopStyle);
+  scr.parentNode.removeChild(scr);
+
+  // ---- a TELA, que e o que o dono abre e clica -----------------------------
+  var lm = JSON.parse(JSON.stringify(LEADS[0]));
+  lm.id = 'vd-1'; lm.lead_code = 'LEAD-9200'; lm.nome = 'Lead Com Veredito';
+  lm.status = 'pendente'; lm.arquivado_em = null; lm.consentimento = true;
+  lm.proximo_contato = hjP; lm.ultimo_toque_em = null; lm.respondido_em = null;
+  lm.cadencia_encerrada = false;
+  lm.veredito = 'prioridade'; lm.veredito_ordem = 1; lm.valor_em_jogo = 0;
+  lm.veredito_motivo = 'Ja respondeu 2x e voltou ao silencio ha 14d. Melhor aposta da fila.';
+  // 30.6h: acima de 24h (entao a pendencia da Hoje tem que sair como URGENTE) e
+  // abaixo de 48h (entao o formatador tem que dizer "31h", nao "1d").
+  lm.horas_esperando_1o_toque = 30.6;
+  LEADS.push(lm);
+  window.PitWall._setLeads(LEADS);
+  document.getElementById('abaFila').click();
+  await espera(300);
+
+  var cardV = document.querySelector('#lista .card[data-lead="LEAD-9200"]');
+  ok('veredito: o card com veredito aparece na Fila', !!cardV);
+  if (cardV) {
+    // O motivo vive na LINHA, nunca em tooltip: tooltip nao existe no celular,
+    // que e onde a fila e trabalhada de verdade.
+    var mot = cardV.querySelector('.card-motivo');
+    ok('veredito: o motivo aparece na linha do card, nao escondido em hover',
+       !!mot && mot.textContent.indexOf('Melhor aposta') >= 0,
+       mot ? mot.textContent : 'sem .card-motivo');
+    ok('veredito: o chip do card e o veredito, com icone',
+       !!cardV.querySelector('.chip.vrd.vrd-prioridade svg.vrd-ico'));
+    // ESTA e a assercao que a primeira versao nao tinha, e custou uma tela em
+    // branco com a suite VERDE: o prefixo escolhido era `vd`, e `.vd` ja existia
+    // desde a v61 (Detalhes da venda) com display:none. As assercoes de cor
+    // passaram assim mesmo, porque getComputedStyle devolve a cor certa de um
+    // elemento display:none. Cor provada nao e pixel na tela: medir a CAIXA.
+    var chipC = cardV.querySelector('.chip.vrd');
+    var csC = chipC ? getComputedStyle(chipC) : null;
+    var rC = chipC ? chipC.getBoundingClientRect() : null;
+    ok('veredito: o chip do card ocupa espaco de verdade na tela',
+       !!csC && csC.display !== 'none' && csC.visibility !== 'hidden' &&
+       rC.width > 20 && rC.height > 8,
+       csC ? ('display=' + csC.display + ' w=' + Math.round(rC.width) +
+              ' h=' + Math.round(rC.height)) : 'sem chip');
+    // E o icone dentro dele tambem, senao "o icone carrega a distincao" e so
+    // uma frase no comentario do CSS.
+    var icoC = cardV.querySelector('.chip.vrd .vrd-ico');
+    var rI = icoC ? icoC.getBoundingClientRect() : null;
+    ok('veredito: o icone do chip tambem ocupa espaco, nao e so markup',
+       !!rI && rI.width > 4 && rI.height > 4,
+       rI ? Math.round(rI.width) + 'x' + Math.round(rI.height) : 'sem icone');
+  }
+  // A prova que fecha a fatia: quem decide a ordem NA TELA e o veredito, e nao
+  // mais a data com desempate alfabetico.
+  var pri = document.querySelector('#lista .card');
+  ok('veredito: o lead de prioridade encabeca a fila renderizada',
+     !!pri && pri.getAttribute('data-lead') === 'LEAD-9200',
+     pri ? pri.getAttribute('data-lead') : 'nenhum card');
+
+  // ---- o relogio do PRIMEIRO TOQUE na Hoje --------------------------------
+  // Medido em 19/08/2026 na base real: mediana de 118h ate o primeiro toque, e
+  // ZERO leads tocados em menos de 24h, contra um benchmark de 5 minutos. O
+  // dado (v_lead.horas_esperando_1o_toque) ja era calculado no banco desde
+  // sempre e NENHUMA tela lia. Contador que nao aparece nao cobra nada.
+  document.getElementById('abaHoje').click();
+  await espera(400);
+  var pends = [].slice.call(document.querySelectorAll('#lista .pend-lin'));
+  var linhaEsp = pends.filter(function (x) {
+    return x.textContent.indexOf('sem 1') >= 0;
+  });
+  ok('espera: a Hoje cobra o lead que esta sem primeiro toque',
+     linhaEsp.length === 1, 'linhas=' + linhaEsp.length);
+  if (linhaEsp.length === 1) {
+    ok('espera: a linha diz ha quanto tempo o mais antigo espera, em horas',
+       linhaEsp[0].textContent.indexOf('31h') >= 0, linhaEsp[0].textContent);
+    // Acima de 24h a espera deixa de ser normal e vira atraso: o numero muda de
+    // cor. Sem isso a linha some no meio das outras pendencias.
+    ok('espera: acima de 24h o contador entra como urgente',
+       !!linhaEsp[0].querySelector('.pend-num.urg'));
+  }
+
+
   fim();
 
 }

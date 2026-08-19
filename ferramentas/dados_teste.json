@@ -40,7 +40,15 @@
    "cadencia_rotulo": "R2 · D2",
    "cadencia_vence_em": "2026-07-12",
    "cadencia_encerrada": false,
-   "cadencia_dias_para": -4
+   "cadencia_dias_para": -4,
+   "toques": 0,
+   "respostas": 0,
+   "toques_sem_resposta": 0,
+   "duplicata_de": null,
+   "veredito": "mande",
+   "veredito_ordem": 3,
+   "valor_em_jogo": 0,
+   "veredito_motivo": "R3 . D5 vencido ha 38d. 2 toque(s) sem resposta: troque o angulo."
   },
   {
    "id": "697b5b64-2e18-4d03-aea7-2223b5aedd8a",
@@ -81,7 +89,15 @@
    "cadencia_rotulo": "R2 · D2",
    "cadencia_vence_em": "2026-07-15",
    "cadencia_encerrada": false,
-   "cadencia_dias_para": -1
+   "cadencia_dias_para": -1,
+   "toques": 0,
+   "respostas": 0,
+   "toques_sem_resposta": 0,
+   "duplicata_de": null,
+   "veredito": "pare",
+   "veredito_ordem": 5,
+   "valor_em_jogo": 0,
+   "veredito_motivo": "4 toques sem uma unica resposta em 36d de tentativa. Sai do calendario: so volta por evento de produto ou preco."
   },
   {
    "id": "9001aaaa-0000-4000-8000-000000009001",
@@ -123,7 +139,15 @@
    "cadencia_vence_em": "2026-07-12",
    "cadencia_encerrada": false,
    "cadencia_dias_para": -4,
-   "whatsapp": null
+   "whatsapp": null,
+   "toques": 0,
+   "respostas": 0,
+   "toques_sem_resposta": 0,
+   "duplicata_de": null,
+   "veredito": "nao_mande",
+   "veredito_ordem": 6,
+   "valor_em_jogo": 0,
+   "veredito_motivo": "Sem consentimento registrado. A LGPD trava o envio."
   }
  ],
  "rotulos": [
