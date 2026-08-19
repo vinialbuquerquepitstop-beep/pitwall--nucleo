@@ -1588,7 +1588,10 @@ async function rodar() {
   // tempo, uma para 7 (antes de o Escopo existir) e outra para 8. Fica o 8, que
   // e o estado real, e o valor medido vai junto na mensagem: assercao que so diz
   // "falhou" obriga a rodar de novo para saber quanto deu.
-  ok('8 abas raras', document.querySelectorAll('.aba-rara').length === 8,
+  // v64 (18/08/2026): entrou a abaPitscare, o cuidado pos-venda. Rara de
+  // proposito: 10 clientes nao competem com a Fila pelos 5 lugares fixos do
+  // celular. Vai a 9.
+  ok('9 abas raras', document.querySelectorAll('.aba-rara').length === 9,
      String(document.querySelectorAll('.aba-rara').length));
   ok('rara começa escondida no mobile', getComputedStyle(document.getElementById('abaDash')).display === 'none');
   document.getElementById('abaMais').click();
@@ -3906,6 +3909,94 @@ async function rodar() {
     ok('pos-venda: o botao Toque enviado existe no card do cliente',
        !!cardP.querySelector('[data-acao="toque"]'));
   }
+
+  // ---- PITSCARE: A ABA DO CUIDADO POS-VENDA (18/08/2026) -------------------
+  // Por que a aba existe se o bloco acima ja mostra pos-venda: o bloco so mostra
+  // quem esta VENCIDO. Quem caiu FORA da cadencia e invisivel nele POR
+  // CONSTRUCAO, e eram 3 de 10 clientes reais em 18/08/2026, dois deles sem
+  // NENHUM toque desde a compra. A aba existe para esses tres aparecerem.
+  //
+  // Os tres grupos precisam ser exclusivos E exaustivos: quem cai em dois
+  // aparece duas vezes na mesma tela, quem nao cai em nenhum some sem aviso.
+  // Mesmo fixture clonado de lead real (clonePos), pelo mesmo motivo de antes.
+  var pcDia = clonePos(function (b) {
+    b.nome = 'Cliente Em Dia'; b.lead_code = 'LEAD-9102';
+    b.proximo_contato = window.PitWall.diaMaisISO(hjP, 3);
+  });
+  var pcFora = clonePos(function (b) {
+    b.nome = 'Cliente Esquecido'; b.lead_code = 'LEAD-9103';
+    b.cadencia_encerrada = true; b.proximo_contato = null;
+  });
+  LEADS.push(pcDia, pcFora);
+  window.PitWall._setLeads(LEADS);
+
+  var ativosPC = LEADS.filter(function (a) { return !a.arquivado_em; });
+  var gr = window.PitWall.gruposPitscare(ativosPC, hjP);
+  function achouPC(lista, cod) {
+    return lista.filter(function (a) { return a.lead_code === cod; }).length === 1;
+  }
+  ok('pitscare: passo vencido cai em Vencidos', achouPC(gr.venc, 'LEAD-9100'));
+  ok('pitscare: quem so vence depois cai em Em dia', achouPC(gr.dia, 'LEAD-9102'));
+  ok('pitscare: cadencia encerrada cai em Fora da cadencia', achouPC(gr.fora, 'LEAD-9103'));
+  ok('pitscare: os 3 grupos somam o total, ninguem some no caminho',
+     gr.venc.length + gr.dia.length + gr.fora.length === gr.total,
+     gr.venc.length + '+' + gr.dia.length + '+' + gr.fora.length + ' vs ' + gr.total);
+  var idsPC = gr.venc.concat(gr.dia, gr.fora).map(function (a) { return a.id; });
+  ok('pitscare: ninguem aparece em dois grupos',
+     idsPC.length === (new Set(idsPC)).size, 'n=' + idsPC.length);
+  // Spec de 21/07: pitscare e COEXTENSIVO com o perfil comprou. Se um lead que
+  // nao comprou vazar para ca, a aba deixou de ser o que foi aprovado.
+  ok('pitscare: so entra quem tem perfil comprou',
+     gr.venc.concat(gr.dia, gr.fora).every(function (a) { return a.perfil === 'comprou'; }));
+
+  // ---- e agora a TELA, que e o que o dono abre ------------------------------
+  document.getElementById('abaPitscare').click();
+  await espera(300);
+  ok('pitscare: o titulo do topo virou Pitscare',
+     document.getElementById('topoTit').textContent === 'Pitscare',
+     document.getElementById('topoTit').textContent);
+  var cabsPC = document.querySelectorAll('#lista .pos-cab');
+  ok('pitscare: a aba traz o cabecalho geral mais os 3 grupos', cabsPC.length === 4,
+     'cabecalhos=' + cabsPC.length);
+  var titsPC = [].map.call(cabsPC, function (el) {
+    return (el.querySelector('.pos-tit') || {}).textContent;
+  });
+  ok('pitscare: os 3 grupos aparecem nomeados na tela',
+     titsPC.indexOf('Vencidos') >= 0 && titsPC.indexOf('Em dia') >= 0 &&
+     titsPC.indexOf('Fora da cadência') >= 0, titsPC.join(' | '));
+  // v33: tela que omite recorte mente por omissao. Vale para CADA grupo.
+  ok('pitscare: todo cabecalho declara a sua janela',
+     [].every.call(cabsPC, function (el) {
+       var j = el.querySelector('.pos-jan');
+       return !!j && j.textContent.trim().length > 0;
+     }));
+  ok('pitscare: todo cabecalho tem icone, nunca so a palavra',
+     [].every.call(cabsPC, function (el) { return !!el.querySelector('svg.pos-ico'); }));
+  // O card do esquecido E a razao de a aba existir:
+  var cardFora = null, cardsPC = document.querySelectorAll('#lista .card');
+  for (var iC = 0; iC < cardsPC.length; iC++) {
+    if (cardsPC[iC].getAttribute('data-lead') === 'LEAD-9103') cardFora = cardsPC[iC];
+  }
+  ok('pitscare: o cliente esquecido APARECE na aba', !!cardFora);
+  if (cardFora) {
+    // registrar_toque so grava ultimo_toque_em e um evento append-only: nao
+    // ressuscita a cadencia, mas deixa o dono falar com ele hoje.
+    ok('pitscare: da para falar com o esquecido hoje, o botao de toque esta la',
+       !!cardFora.querySelector('[data-acao="toque"]'));
+  }
+  ok('pitscare: e esse mesmo esquecido continua invisivel no bloco da Fila',
+     window.PitWall.entraNoPosVenda(pcFora, hjP) === false);
+  // O pitboard e placar de LEAD. Nesta aba nao ha lead nenhum, entao ele mentiria.
+  ok('pitscare: o placar de lead fica oculto nesta aba',
+     document.getElementById('pitboard').className.indexOf('oculto') >= 0,
+     document.getElementById('pitboard').className);
+  // O contador da barra mostra os VENCIDOS: e o numero que cobra acao, e ele
+  // precisa aparecer sem o dono lembrar de abrir a aba.
+  ok('pitscare: o contador da barra lateral mostra os vencidos',
+     document.getElementById('badgePitscare').textContent === String(gr.venc.length),
+     'badge=' + document.getElementById('badgePitscare').textContent +
+     ' venc=' + gr.venc.length);
+
 
   fim();
 

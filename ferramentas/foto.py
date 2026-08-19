@@ -86,7 +86,7 @@ ABAS = {'hoje': 'abaHoje', 'fila': 'abaFila', 'todos': 'abaTodos',
         'vendas': 'abaVendas', 'conteudo': 'abaConteudo', 'rotina': 'abaRotina',
         'clientes': 'abaClientes', 'escopo': 'abaEscopo',
         'dashboard': 'abaDash', 'nfs': 'abaNfs', 'captacao': 'abaCaptacao',
-        'indicacoes': 'abaIndicacoes'}
+        'indicacoes': 'abaIndicacoes', 'pitscare': 'abaPitscare'}
 ID = ABAS.get(aba)
 if not ID:
     print(f'ABORTA: aba "{aba}" desconhecida. Use: {", ".join(sorted(ABAS))}')

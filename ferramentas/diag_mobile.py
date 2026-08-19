@@ -214,8 +214,13 @@ async function rodar(){
   window.__saida.nav = { fechado: fechado, aberto: aberto };
 
   injetarPosVenda.feito = false;
+  // v64 (18/08/2026): abaPitscare entrou aqui junto com a aba. Lista que nao
+  // cresce com a navegacao deixa aba nova SEM medida de celular, que e o
+  // unico lugar onde o dono usa o app em pe na loja. O cliente que
+  // injetarPosVenda() poe no fixture cai no grupo Vencidos dela.
   var abasIds = ['abaHoje','abaFila','abaTodos','abaVendas','abaConteudo',
-                 'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs','abaEscopo'];
+                 'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs','abaEscopo',
+                 'abaPitscare'];
   for (var k = 0; k < abasIds.length; k++){
     var el = D.getElementById(abasIds[k]);
     if (!el) { window.__saida.erros.push('sem ' + abasIds[k]); continue; }

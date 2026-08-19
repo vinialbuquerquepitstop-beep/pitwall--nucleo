@@ -74,6 +74,15 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke-linecap="round"/><path d="M17 9.5v5M14.5 12h5" stroke-linecap="round"/></svg>
         <span class="aba-txt">Indicações</span>
       </button>
+      <!-- Pitscare: o cuidado pos-venda. Aba rara de proposito (volume baixo, 10
+           clientes), mas com contador na barra: o atraso precisa aparecer sem
+           que o dono lembre de abrir. Icone escudo, o MESMO da frente pitscare
+           no Escopo (identidade nao pode mudar de forma entre telas). -->
+      <button class="aba aba-rara" id="abaPitscare" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3z" stroke-linejoin="round"/></svg>
+        <span class="aba-txt">Pitscare</span>
+        <span class="nav-badge" id="badgePitscare"></span>
+      </button>
 
       <button class="aba aba-rara" id="abaCaptacao" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/></svg>

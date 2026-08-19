@@ -235,7 +235,7 @@ for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
 # passa por este arquivo de proposito.
 _raras = set(re.findall(r'class="aba aba-rara" id="(\w+)"', novo_html))
 _esperadas = {'abaNfs', 'abaEscopo', 'abaClientes', 'abaIndicacoes', 'abaCaptacao',
-              'abaRotina', 'abaDash', 'abaCalc'}
+              'abaRotina', 'abaDash', 'abaCalc', 'abaPitscare'}
 ck(_raras == _esperadas,
    f'as abas raras mudaram. sumiram: {sorted(_esperadas - _raras)} | entraram sem registro: {sorted(_raras - _esperadas)}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
