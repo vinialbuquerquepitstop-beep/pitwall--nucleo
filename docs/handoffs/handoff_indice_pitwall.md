@@ -7,7 +7,33 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v63.md` (18/08/2026, **frontend puro: o numero
+- topo: `handoff_migracao_pitwall_v64.md` (19/08/2026, **a aba Hoje refeita sobre
+  a referencia visual baixada nesse dia, e as pendencias que estavam escondidas em
+  cinco abas**. Frontend puro: zero migration, zero RPC nova, zero rede nova. O
+  layout saiu de duas colunas verticais fixas (medido: ~990px de altura a esquerda
+  contra ~380px a direita, ~600px de branco, grafico espremido em 1/3) para a
+  grade de 4 unidades que o Dashboard ja usava. O placar de 4 celulas SAIU da Hoje
+  por ordem do dono; o progresso da rotina herdou o lugar no cabecalho da propria
+  secao e `hojePlacarAtualiza()` foi religada nele, senao a atualizacao cirurgica
+  ficaria sem destino. Entrou a secao **Pendencias**, que nao vinha do mock: sete
+  contagens derivadas na leitura (lead vencido, pos-venda vencido, entrega sem
+  baixa, venda sem NF, peca sem publicar, lembrete vencido, tarefa aberta) com
+  botao que leva a aba onde se resolve, e NADA que se digite, porque Rotina e
+  Lembretes ja sao duas listas na mesma tela. O que o mock pedia e nao tinha
+  lastro foi barrado: "Google Ads" nao e origem do dicionario, os +12%/+8,5%
+  viraram variacao real contra o mes anterior, e o alerta por hora nao existe.
+  Duas medicoes mudaram decisao de cor: as tres semanticas quente/morno/frio tem
+  contraste **1.00 a 1.01 ENTRE SI** (coladas viram uma faixa so, por isso 3px de
+  respiro entre as fatias), e a serie de venda saiu do azul para `--ok` (3.35),
+  o que ENCOLHEU a excecao aberta na regra 11.1. **Excecao viva a conferir na
+  proxima sessao: `SERIE_E_ACAO_HOJE` no `validar.py`** (badge de pendentes e os
+  dois botoes primarios da Hoje), decisao consciente do dono; o auto-teste de
+  `.met-barra i` continua intacto. Achados sem dono: `LEAD-0019` e `LEAD-0028`
+  com origem nula valendo R$ 8.700 em venda concluida, e PII real de cliente que
+  saiu para o Stitch na geracao do mock. Suite: **691 assercoes, 0 falhas**, EXIT
+  0 nos seis comandos e nas cinco larguras. Commit `fda502a` em `origin/main`.)
+
+- anterior: `handoff_migracao_pitwall_v63.md` (18/08/2026, **frontend puro: o numero
   abriu venda a venda, e a regra de so contar venda concluida enfim chegou ao ar**.
   Duas ordens do dono no mesmo dia, que sao a mesma ordem. Os cards faturamento e
   lucro ganharam `detalhar`: a soma abre dentro da propria faixa de valores, com
