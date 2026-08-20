@@ -7,7 +7,29 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v65.md` (19/08/2026, **auditoria do CRM contra o
+- topo: `handoff_migracao_pitwall_v66.md` (19/08/2026, **a Fatia 2 inteira: a mesma
+  pessoa parava de ser a mesma quando o telefone mudava de formato, e quem comprava
+  nunca entrava na regua de pos-venda**). Disparado por um bug reportado em uma frase
+  pelo dono. Nao era falta de trava: o `UNIQUE (tenant_id, whatsapp_digitos)` existia e
+  **nunca chegou a ser consultado**, porque das TRES portas que escrevem telefone so
+  duas canonicalizavam o DDI 55, e `editar_lead` nao. A trava virou indice por SUFIXO
+  (`right(whatsapp_digitos, 11)`), parcial em `arquivado_em is null`, entao formato nao
+  abre mais brecha e lead arquivado devolve o numero. Aretusa fundida sem perder a
+  consulta do iPhone 14 512GB que so existia na duplicata. Ao medir o banco para
+  responder qual seria a proxima fatia, apareceu o furo MAIOR: **`registrar_venda` nunca
+  chamava `fn_cadencia_trocar_perfil`**, entao a Aretusa fechou R$ 4.300 e seguia em
+  `avaliando R2 · D3` vencendo 20/08 (o sistema ia cobrar venda de quem ja comprou), e o
+  motor de pos-venda **nunca recebia ninguem novo** — os 6 clientes travados no `P1`, o
+  mais antigo ha 33 dias. Corrigido, com decisao registrada de que venda nova REINICIA o
+  pos-venda no P1, e a recusa deliberada de usar trigger em `lead.perfil` (dispararia
+  dentro de `fn_regua_varredura`). 5 migrations, **frontend intocado** (a suite de tela
+  nao se aplica e nao foi rodada; o numero valido segue o da v65). 6 provas de dedupe e
+  1 de ponta a ponta do pos-venda, todas como o dono autenticado com RLS valendo e
+  desfeitas por exception. Licao da secao 7: **mudar o alcance de uma trava muda o
+  significado de toda mensagem que fala sobre ela** — a prova pegou, a leitura do codigo
+  nao teria pego. Commits `3fa53f8` e `9b17b52`. Fatia 3 (pos-venda de um clique +
+  pedido de indicacao) esta DESBLOQUEADA e e a proxima; Fatia 4 segue especificada.
+- anterior: `handoff_migracao_pitwall_v65.md` (19/08/2026, **auditoria do CRM contra o
   banco vivo, e a Fatia 1: a Fila deixou de ser lista e virou decisao**). Oito furos
   medidos, ranqueados por dinheiro perdido: mediana de **118h ate o primeiro toque**
   com ZERO leads tocados em menos de 24h; **0 toques de pos-venda na historia do
