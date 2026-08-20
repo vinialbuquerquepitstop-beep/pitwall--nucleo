@@ -27,8 +27,14 @@ nenhuma das duas batia com o repo.
   1 de ponta a ponta do pos-venda, todas como o dono autenticado com RLS valendo e
   desfeitas por exception. Licao da secao 7: **mudar o alcance de uma trava muda o
   significado de toda mensagem que fala sobre ela** — a prova pegou, a leitura do codigo
-  nao teria pego. Commits `3fa53f8` e `9b17b52`. Fatia 3 (pos-venda de um clique +
-  pedido de indicacao) esta DESBLOQUEADA e e a proxima; Fatia 4 segue especificada.
+  nao teria pego. Commits `3fa53f8` e `9b17b52`. Em 20/08 a **Fatia 3
+  tambem entrou** (`c80fdaa`), e metade dela ja existia: o botao de um clique no
+  Pitscare estava no ar desde o `7d5f3f9`, e `sugerir_mensagem` ja atendia o perfil
+  `comprou` com P1 a P6 — o v65 listou esse item como pendente por engano e ele NAO foi
+  reconstruido. O furo real, visivel so lendo os nove textos, era que indicacao so era
+  pedida no **P4 (D90)** e o **P3 (D30) nao pedia NADA**, justamente onde o cliente esta
+  mais satisfeito. As tres variantes do P3 foram reescritas com o cuidado antes do
+  pedido. Sobra a **Fatia 4** (repescagem por evento).
 - anterior: `handoff_migracao_pitwall_v65.md` (19/08/2026, **auditoria do CRM contra o
   banco vivo, e a Fatia 1: a Fila deixou de ser lista e virou decisao**). Oito furos
   medidos, ranqueados por dinheiro perdido: mediana de **118h ate o primeiro toque**

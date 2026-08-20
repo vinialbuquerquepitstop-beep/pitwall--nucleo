@@ -1,9 +1,10 @@
-# Handoff v66 — 19/08/2026
+# Handoff v66 — 19 e 20/08/2026
 
 Substitui todos os anteriores. Sessao de CORRECAO, disparada por um bug reportado pelo
 dono em uma frase: "esta sendo possivel adicionar o mesmo lead, mesmo colocando o mesmo
 numero de telefone". A investigacao virou a **Fatia 2 inteira**, que era a fatia barata
-do roteiro da v65. **Cinco migrations entraram.** Nenhuma linha de frontend mudou.
+do roteiro da v65, e no dia seguinte a **Fatia 3**. **Seis migrations entraram.**
+Nenhuma linha de frontend mudou em nenhum dos dois dias.
 
 ---
 
@@ -21,8 +22,10 @@ do roteiro da v65. **Cinco migrations entraram.** Nenhuma linha de frontend mudo
 6. Isso foi corrigido tambem, e com ele a **Fatia 2 fechou por completo**.
 7. Frontend intocado: `git diff` em `public/` vazio. A suite de tela nao se aplica a
    esta sessao e nao foi rodada.
-8. As proximas fatias sao a 3 (pos-venda de um clique + pedido de indicacao) e a 4
-   (repescagem por evento). A 3 estava BLOQUEADA pelo furo do item 5, e agora nao esta.
+8. Em 20/08 a **Fatia 3 tambem foi construida**, e metade dela ja existia: o botao de
+   um clique no Pitscare estava no ar desde o commit `7d5f3f9`. O que faltava mesmo era
+   o pedido de indicacao, que so acontecia no P4 (D90). Detalhe na secao 10, item 3.
+   Sobra a **Fatia 4** (repescagem por evento).
 
 ---
 
@@ -236,10 +239,22 @@ Versionadas em `supabase/migrations/`, commits `3fa53f8` e `9b17b52`.
    frontend, nao feita sem ordem do dono.
 2. **`LEAD-0007` e `LEAD-0008` seguem sem telefone.** `editar_lead` agora impede
    *apagar*, mas nao preenche o que ja estava vazio. Sao leads de 05/07, do ETL.
-3. **A Fatia 3 esta desbloqueada e e a proxima.** Botao de um clique no Pitscare no
-   padrao do `sugerir_mensagem`, mais o **passo de indicacao** explicito no P2 ou P3
-   (indicacao e 40% de conversao e R$ 14.170 da receita, e nao ha nada sistematizado
-   pedindo). Os seis clientes da tabela da secao 4 sao a fila inicial dela.
+3. **A Fatia 3 foi construida em 20/08/2026** (commit `c80fdaa`), e o roteiro dela
+   estava metade errado. O item 1, "botao de um clique no Pitscare", **ja existia**
+   desde o commit `7d5f3f9`: `renderPitscare` monta os tres grupos com
+   `x(a,"fila",hj)`, o mesmo modo da Fila, que traz `Chamar no WhatsApp` e
+   `Sugerir mensagem` por `waHrefFila` (invariante 16) e `prefetchFilaSug`.
+   Conferido na foto de base cheia, nao so no codigo. `sugerir_mensagem` tambem ja
+   atendia o perfil `comprou` (P1 a P6, 3 variantes, mais fallback), provado com o
+   Victor Maia. **O v65 listou esse item como pendente por engano; nao foi
+   reconstruido.** O furo real so aparece lendo os nove textos: indicacao so era
+   pedida no **P4 (D90)**, e o **P3 (D30) era o unico passo do pos-venda que nao
+   pedia NADA**, justamente onde o cliente esta mais satisfeito. As tres variantes
+   do P3 foram reescritas com o CUIDADO ANTES DO PEDIDO. O rotulo do passo nao
+   mudou de proposito (`cadencia_estado` ja gravou `P3 · D30` nos leads vivos).
+   Achado de seguranca no caminho, e e o comportamento certo: `authenticated` NAO
+   tem UPDATE em `cadencia_estado` — o primeiro teste falhou com permission denied,
+   provando o invariante 9 na pratica.
 4. **Fatia 4** (cara, maior teto): normalizar `lead.produto`, hoje texto livre sujo
    (`"13 128GB 14 128GB"`, `"IPad e 17 Pro Max"`), e casar com `catalogo_iphone` /
    `calc_dados` para o lead entrar na fila COM O MOTIVO ESCRITO, fora do calendario.
