@@ -1998,6 +1998,7 @@ return vgMesLongo(m.ym)+": "+brlV(m.fat)+", "+m.n+(1===m.n?" venda":" vendas")+
 var DV_ICO={
 dinheiro:'<path d="M12 2v20M17 5.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.9 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3"/>',
 lucro:'<path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/>',
+media:'<path d="M4 20V14M9 20V9M14 20v-5M19 20V6"/><path d="M2.5 12.5h19" stroke-dasharray="3 2.6"/>',
 margem:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/>',
 vaza:'<path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/>',
 ticket:'<path d="M20 12a2 2 0 0 1 2-2V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a2 2 0 0 1-2-2z"/><path d="M9 7v10"/>',
@@ -2506,7 +2507,18 @@ return'<ul class="ro-leg">'+out+"</ul>"}
 function dvCard(tit,corpo,extra,cls){
 return'<article class="cd'+(cls?" "+cls:"")+'">'+
 (tit?'<div class="cd-top"><h3>'+c(tit)+"</h3>"+(extra||"")+"</div>":"")+corpo+"</article>"}
-function dvKpi(cod,rot,valor,ico,tom,pe){
+// `neg` pinta o NUMERO de vermelho. Ate 21/08/2026 o card saia "R$ -500,00" na
+// cor normal, e o tracinho de menos era a unica coisa separando "lucrei pouco"
+// de "perdi dinheiro" — num numero de 22px, batendo o olho, isso nao existe.
+// A aba Vendas ja fazia certo desde a v52 (`vg-num.neg`); so o dashboard nao.
+// Token: --d-down, e nao --erro-fg que a aba Vendas usa. Nao e descuido: DENTRO
+// deste card a seta de variacao ja usa --d-down para dizer "ruim", e dois
+// vermelhos diferentes a 4px de distancia querendo dizer a mesma coisa leem como
+// defeito. Proximidade ganha de consistencia entre abas que nunca se veem
+// juntas. O hex e a medicao de contraste NAO vem escritos aqui: a regra 11.1 do
+// validar.py proibe hex de cor no JS, e com razao. Estao no comentario do bloco
+// `.kp-num.neg`, no app.css, junto do proprio token.
+function dvKpi(cod,rot,valor,ico,tom,pe,neg){
 // O icone fica na linha do ROTULO, e o numero ocupa a largura inteira do card
 // embaixo. Na primeira versao os tres dividiam a mesma linha, e medido na foto a
 // 1440px (onde o dashboard vive numa coluna de ~1030px, nao na tela toda) o
@@ -2514,17 +2526,24 @@ function dvKpi(cod,rot,valor,ico,tom,pe){
 // "R$ 2.800,...". Dinheiro cortado pela reticencia parece outro numero.
 return'<article class="kp" data-kpi="'+c(cod)+'"><div class="kp-topo">'+
 '<p class="kp-rot">'+c(rot)+"</p>"+dvIcone(ico,tom)+"</div>"+
-'<p class="kp-num">'+c(valor)+'</p><p class="kp-pe">'+pe+"</p></article>"}
+'<p class="kp-num'+(neg?" neg":"")+'">'+c(valor)+'</p><p class="kp-pe">'+pe+"</p></article>"}
 // Variacao contra o periodo anterior. `pp` compara pontos percentuais (margem e
 // conversao sao taxas: variar "18%" numa taxa nao quer dizer nada util).
 // `inverte` marca a metrica em que subir e RUIM: vazamento crescendo e verde
 // seria a tela comemorando o prejuizo.
+// Sem base utilizavel devolve VAZIO, nao um texto de desculpa. Desde que o pe
+// passou a carregar SEMPRE o numero de contexto (lucro medio, custo), a frase
+// "sem base de comparacao" so ocupava a linha onde o dono procura um numero.
+// Medido em 21/08/2026: a janela padrao (trimestre) tem como anterior mar-mai/2026,
+// SEM VENDA NENHUMA, entao o KPI de Lucro exibia essa frase exatamente no lugar
+// onde o lucro medio morava. A ausencia de comparacao ja e dita em voz alta no
+// cabecalho (`dh-vazio`); repeti-la cinco vezes na faixa nao informa, so apaga.
 function dvVar(atual,ant,pp,inverte){
-if(null==ant)return'<span class="kp-var kp-sem">sem período anterior</span>';
+if(null==ant)return"";
 var d,txt;
 if(pp){d=atual-ant;txt=(d>=0?"+":"−")+vgPct1(Math.abs(d),100).replace("%","")+" p.p."}
 else{
-if(!ant)return'<span class="kp-var kp-sem">sem base de comparação</span>';
+if(!ant)return"";
 d=100*(atual-ant)/Math.abs(ant);
 txt=(d>=0?"+":"−")+vgPct1(Math.abs(d),100)}
 var bom=inverte?d<0:d>=0;
@@ -2540,16 +2559,43 @@ vv=Number(vds[j2].valor_venda)||0;
 if(!j2||vv>mai)mai=vv;
 if(!j2||vv<men)men=vv}
 var vs=ant?'<span class="kp-vs">vs '+c(rotAnt)+"</span>":"";
-var pe=function(cmp,ctx){return ant?cmp+vs:'<span class="kp-var kp-sem">'+c(ctx)+"</span>"};
+// O pe mostra contexto E variacao JUNTOS. Ate 21/08/2026 um TROCAVA pelo outro:
+// existindo periodo anterior, "R$ X por venda" e o numero de despesa sumiam. Como
+// o anterior quase sempre existe, os dois numeros que o dono foi procurar eram, na
+// pratica, invisiveis — foi assim que o pedido "adicione o lucro medio e custos"
+// nasceu de coisa que ja estava escrita. Contexto PRIMEIRO: e numero medido; a
+// variacao e leitura sobre ele, e leitura nao come o dado.
+var pe=function(cmp,ctx){
+return'<span class="kp-var kp-sem">'+c(ctx)+"</span>"+(cmp?cmp+vs:"")};
+// Custo INTEIRO: aparelho + frete + taxas. `vaza` sozinho e so frete e taxas
+// (R$ 674 na base de 21/08/2026) contra R$ 25.420 de aparelho, ou seja 38x menor.
+// Rotular `vaza` de "despesa" no card da Margem convidava a ler os custos da
+// operacao como 674, e por isso o numero grande subiu para o pe do Lucro, que e
+// onde ele explica a conta, e a Margem passou a dizer o que de fato mede.
+var custoTot=a.custo+vaza;
+// Uma condicao so para os tres cards: com fat>0, lucro negativo e margem
+// negativa sao o MESMO fato, e lucro medio e lucro dividido por n>0. Espelha
+// exatamente o `neg` que vgValores ja usa na aba Vendas.
+var negLuc=!!(a.n&&a.luc<0);
 var antVaza=ant?ant.frete+ant.taxas:0;
 return'<div class="kp-faixa">'+
 dvKpi("fat","Faturamento",a.n?brlV(a.fat):tr,"dinheiro","azul",
   pe(dvVar(a.fat,ant?ant.fat:null),a.n+(1===a.n?" venda":" vendas")+" na janela"))+
 dvKpi("luc","Lucro",a.n?brlV(a.luc):tr,"lucro","verde",
-  pe(dvVar(a.luc,ant?ant.luc:null),a.n?brlV(a.luc/a.n)+" por venda":"nada fechado"))+
+  pe(dvVar(a.luc,ant?ant.luc:null),a.n?brlV(custoTot)+" de custo":"nada fechado"),negLuc)+
+// Lucro medio sai do PE do Lucro e vira card proprio, pelo mesmo motivo que a
+// v52 tirou a Margem do pe: numero que divide caixa com outro le como rodape do
+// vizinho. O tom VERDE repete o do Lucro de proposito: e a MESMA grandeza, uma
+// total e outra por unidade, e tom diferente sugeriria assunto diferente.
+// Divide por `a.n`, o mesmo denominador do Ticket medio (vgConta: fora cancelada
+// e pre-venda). Dois cards vizinhos com denominador diferente e sem dizer qual
+// seria a mesma armadilha que a conversao de 133,3% ja custou nesta tela.
+dvKpi("lucmed","Lucro médio",a.n?brlV(a.luc/a.n):tr,"media","verde",
+  pe(dvVar(a.n?a.luc/a.n:0,ant&&ant.n?ant.luc/ant.n:null),
+     a.n?"em "+a.n+(1===a.n?" venda":" vendas"):"nada fechado"),negLuc)+
 dvKpi("margem","Margem",a.n?vgPct1(a.luc,a.fat):tr,"margem","laranja",
   pe(dvVar(a.fat>0?100*a.luc/a.fat:0,ant&&ant.fat>0?100*ant.luc/ant.fat:null,!0),
-     a.n?brlV(vaza)+" de despesa":"sem base"))+
+     a.n?brlV(vaza)+" de frete e taxas":"sem venda"),negLuc)+
 dvKpi("ticket","Ticket médio",a.n?brlV(a.fat/a.n):tr,"ticket","roxo",
   pe(dvVar(a.n?a.fat/a.n:0,ant&&ant.n?ant.fat/ant.n:null),
      a.n>1?"maior "+brlV(mai)+" · menor "+brlV(men):a.n?"venda única":"sem venda"))+
@@ -2616,6 +2662,14 @@ return dvCard("Faturamento ao longo do tempo",
   '<div class="tp-eixo">'+eixo+'</div><div class="tp-cols">'+out+"</div></div>"+
   '<p class="cd-pe">'+a.meses.length+(1===a.meses.length?" mês":" meses")+
   ' na janela. A linha diária volta a partir de <b>8 pontos</b>.</p>',"","c-tempo")}
+// As linhas de custo saem com o sinal de menos NA PALAVRA ("(−) Frete",
+// "− R$ 220,00") e sao despesa NORMAL de toda venda: NAO entram em vermelho.
+// Vermelho aqui e para RESULTADO negativo, e so ha dois: a margem bruta e o
+// lucro liquido. Pintar as despesas tambem faria o card inteiro sangrar em toda
+// venda saudavel, e em duas semanas o dono para de ver a cor.
+// O `.l-total b` tinha cor VERDE FIXA no CSS: ate 21/08/2026 um mes de prejuizo
+// saia com "Lucro liquido R$ -500,00" pintado de VERDE. Era o pior numero da
+// tela, porque nao so omitia como afirmava o contrario.
 function dvCardFinanceiro(a){
 var bruta=a.fat-a.custo;
 var lin=function(rot,val,cls,cor){
@@ -2624,10 +2678,10 @@ return dvCard("Resumo financeiro",
   '<ul class="fn">'+
   lin("Faturamento",brlV(a.fat),"l-forte")+
   lin("(−) Custo dos aparelhos","− "+brlV(a.custo))+
-  lin("(=) Margem bruta",brlV(bruta),"l-sub")+
+  lin("(=) Margem bruta",brlV(bruta),"l-sub",bruta<0?"neg":"")+
   lin("(−) Frete","− "+brlV(a.frete))+
   lin("(−) Taxas","− "+brlV(a.taxas))+
-  lin("(=) Lucro líquido",brlV(a.luc),"l-total")+
+  lin("(=) Lucro líquido",brlV(a.luc),"l-total",a.luc<0?"neg":"")+
   "</ul><p class=\"cd-pe\">Não existem <b>devoluções</b> nem <b>impostos</b> no cadastro de "+
   "venda: as duas linhas da referência ficaram de fora em vez de nascerem zeradas.</p>",
   "","c-fin")}
@@ -2640,7 +2694,8 @@ for(j=0;j<lst.length&&j<6;j++){
 v=lst[j];val=Number(v.valor_venda)||0;luc=Number(v.lucro)||0;
 out+='<li><span class="pr-i">'+(j+1)+'</span><span class="pr-nome">'+
 c(v.modelo_texto||v.modelo_rotulo||"sem modelo")+"<em>"+
-c((v.condicao?s("condicao",v.condicao):"sem condição")+" · margem "+vgPct1(luc,val))+
+c((v.condicao?s("condicao",v.condicao):"sem condição")+" · margem ")+
+'<span class="'+(luc<0?"neg":"")+'">'+c(vgPct1(luc,val))+"</span>"+
 "</em></span><span class=\"pr-un\">1 un.</span><b>"+c(brlV(val))+"</b></li>"}
 return dvCard("Aparelhos mais vendidos",'<ul class="pr">'+out+"</ul>","","c-prod")}
 // A conversao aqui e a MESMA coorte do KPI (lead que entrou na janela e ja
@@ -2711,7 +2766,7 @@ var mg=m.fat>0?100*m.luc/m.fat:0;
 out+='<li data-cond="'+c(m.cod||"sem")+'"><span class="cn-rot">'+c(m.rot)+"</span>"+
 '<span class="cn-tubo"><span class="cn-b'+(mg<0?" neg":"")+'" style="width:'+
 Math.max(2,Math.min(100,Math.round(100*Math.abs(mg)/mx)))+'%"></span></span>'+
-"<b>"+c(vgPct1(m.luc,m.fat))+"</b><em>"+m.n+" un.</em></li>"}
+'<b class="'+(mg<0?"neg":"")+'">'+c(vgPct1(m.luc,m.fat))+"</b><em>"+m.n+" un.</em></li>"}
 // Ocupa o slot de "origens de trafego" da referencia. O sistema nao tem
 // analytics nenhum, e sessao inventada nao e dado.
 return dvCard("Margem por condição",'<ul class="cn">'+out+"</ul>"+

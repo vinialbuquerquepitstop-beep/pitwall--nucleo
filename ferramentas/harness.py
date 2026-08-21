@@ -4213,6 +4213,195 @@ async function rodar() {
        !!linhaEsp[0].querySelector('.pend-num.urg'));
   }
 
+  // ---- DASHBOARD: lucro medio e custo na faixa de KPI (21/08/2026) ---------
+  // A faixa de KPI do dashboard nunca teve UMA assercao, e foi exatamente ali
+  // que dois numeros sumiram sem ninguem notar: o pe do card TROCAVA o numero
+  // de contexto pela seta de variacao, entao "por venda" (lucro medio) e o
+  // custo so existiam na janela SEM periodo anterior. Como o anterior quase
+  // sempre existe, o dono pediu para "adicionar" o que ja estava escrito.
+  // Fixture: contam v1, v2 e v5 (v3 cancelada e v4 pre-venda ficam de fora por
+  // vgConta). fat 9200, lucro 840, n 3, custo 8100, frete 220, taxas 40.
+  document.getElementById('abaDash').click();
+  await espera(80);
+  // A janela e FIXADA aqui, nunca herdada: um bloco anterior da suite ja deixou
+  // o dashboard em Mes, e a primeira versao destas assercoes mediu uma venda so
+  // achando que media tres. Teste que depende de qual janela sobrou do vizinho
+  // nao prova nada, so muda de resultado quando o vizinho muda.
+  var btTri = document.querySelector('#lista .dh-seg-b[data-id="trimestre"]');
+  ok('dash: existe o seletor de janela Trimestre', !!btTri);
+  if (btTri) { btTri.click(); await espera(80); }
+  var faixa = document.querySelector('#lista .kp-faixa');
+  ok('dash: a faixa de KPI foi renderizada', !!faixa);
+  if (faixa) {
+    var kps = faixa.querySelectorAll('.kp');
+    ok('dash: a faixa tem SEIS KPIs', kps.length === 6, 'kps=' + kps.length);
+    var kLuc = faixa.querySelector('[data-kpi="luc"]'),
+        kMed = faixa.querySelector('[data-kpi="lucmed"]'),
+        kMar = faixa.querySelector('[data-kpi="margem"]'),
+        kTic = faixa.querySelector('[data-kpi="ticket"]');
+    ok('dash: existe o card Lucro medio', !!kMed);
+    if (kMed) {
+      ok('dash: o card se chama Lucro medio',
+         kMed.querySelector('.kp-rot').textContent === 'Lucro médio',
+         kMed.querySelector('.kp-rot').textContent);
+      // 840 / 3 = 280. O numero, nao a existencia do card.
+      ok('dash: lucro medio exibe R$ 280,00',
+         kMed.querySelector('.kp-num').textContent === 'R$ 280,00',
+         kMed.querySelector('.kp-num').textContent);
+      // O denominador vai DECLARADO. Ate a v66 o unico lugar que dizia sobre
+      // quantas vendas o numero foi tirado era o card do Faturamento, a duas
+      // caixas de distancia.
+      ok('dash: lucro medio declara o denominador',
+         kMed.querySelector('.kp-pe').textContent.indexOf('em 3 vendas') >= 0,
+         kMed.querySelector('.kp-pe').textContent);
+      // Card com markup e sem caixa nao existe para quem olha a tela.
+      ok('dash: o card Lucro medio ocupa espaco de verdade',
+         kMed.offsetWidth > 0 && kMed.offsetHeight > 0,
+         kMed.offsetWidth + 'x' + kMed.offsetHeight);
+      ok('dash: o icone do Lucro medio tambem ocupa espaco',
+         !!kMed.querySelector('.kp-ico svg') &&
+         kMed.querySelector('.kp-ico').offsetWidth > 0);
+    }
+    // MESMO denominador do Ticket medio: 3. Dois cards vizinhos dividindo por
+    // numeros diferentes sem dizer qual foi o defeito que a conversao de
+    // 133,3% ja custou nesta tela.
+    if (kMed && kTic)
+      ok('dash: lucro medio e ticket medio dividem pelo MESMO n',
+         kMed.querySelector('.kp-pe').textContent.indexOf('em 3 vendas') >= 0 &&
+         kTic.querySelector('.kp-num').textContent === 'R$ 3.066,67',
+         'ticket=' + kTic.querySelector('.kp-num').textContent);
+    if (kLuc) {
+      // Custo INTEIRO: 8100 de aparelho + 220 de frete + 40 de taxas = 8360.
+      ok('dash: o pe do Lucro carrega o custo total',
+         kLuc.querySelector('.kp-pe').textContent.indexOf('R$ 8.360,00 de custo') >= 0,
+         kLuc.querySelector('.kp-pe').textContent);
+    }
+    if (kMar) {
+      // `vaza` e SO frete e taxas (260 contra 8100 de aparelho, 31x menor).
+      // Chamar isso de "despesa" no card da Margem convidava a ler os custos da
+      // operacao como 260. O rotulo agora diz o que o numero mede.
+      ok('dash: a Margem diz frete e taxas, nao "despesa"',
+         kMar.querySelector('.kp-pe').textContent.indexOf('R$ 260,00 de frete e taxas') >= 0 &&
+         kMar.querySelector('.kp-pe').textContent.indexOf('despesa') < 0,
+         kMar.querySelector('.kp-pe').textContent);
+    }
+    // A REGRESSAO QUE ORIGINOU TUDO: com periodo anterior existindo, o pe
+    // engolia o numero e escrevia uma desculpa no lugar. Nenhum card pode
+    // voltar a fazer isso.
+    ok('dash: nenhum pe troca o numero por uma desculpa',
+       faixa.textContent.indexOf('sem base de comparação') < 0 &&
+       faixa.textContent.indexOf('sem período anterior') < 0,
+       faixa.textContent.slice(0, 160));
+    // Uma unica definicao de lucro na tela: o card de baixo tem que fechar com
+    // o de cima. 8100 e a linha "Custo dos aparelhos" do Resumo financeiro, e
+    // 8100 + 260 e o que o KPI do Lucro anuncia.
+    // O SEXTO card e o que quebra a grade, entao a grade entra na prova junto.
+    // Com auto-fit (a regra que valia ate 21/08/2026) cinco cabiam numa linha so
+    // por sorte, e o sexto caia SOZINHO na segunda: medido 4+2 a 1280px e 5+1 a
+    // 1440 e 1920. Card unico na segunda linha le como sobra, nao como placar.
+    // Em 3 colunas fixas os seis fecham dois blocos iguais.
+    var linhas = {}, nLin = 0, q;
+    for (q = 0; q < kps.length; q++) {
+      var tp = kps[q].offsetTop;
+      if (!linhas[tp]) { linhas[tp] = 0; nLin++; }
+      linhas[tp]++;
+    }
+    var todasCheias = true;
+    for (var tk in linhas) if (linhas[tk] !== 3) todasCheias = false;
+    ok('dash: os 6 KPIs fecham DUAS linhas de tres, sem card orfao',
+       nLin === 2 && todasCheias, JSON.stringify(linhas) + ' faixaW=' + faixa.clientWidth);
+    // Dinheiro cortado pela reticencia parece OUTRO numero, e o card ja pagou
+    // por isso uma vez ("R$ 11.200..." em 12/08/2026). Estreitar o card para
+    // caber mais um KPI e a maneira mais facil de reintroduzir o defeito, entao
+    // a largura util de cada numero e medida, nao confiada ao minmax do CSS.
+    var cortado = [];
+    for (q = 0; q < kps.length; q++) {
+      var nn = kps[q].querySelector('.kp-num');
+      if (nn.scrollWidth > nn.clientWidth)
+        cortado.push(kps[q].getAttribute('data-kpi') + ' ' + nn.scrollWidth + '>' + nn.clientWidth);
+    }
+    ok('dash: nenhum numero de KPI sai truncado', cortado.length === 0, cortado.join(', '));
+    // Vermelho que pinta TUDO nao informa nada. No trimestre o fixture fecha
+    // +840, entao o positivo tem que continuar na cor de texto normal: sem esta
+    // metade, uma regra que pintasse todo numero de vermelho passaria verde.
+    var VERM = 'rgb(220, 38, 38)';
+    ok('dash: lucro POSITIVO nao entra em vermelho',
+       kLuc.querySelector('.kp-num').className.indexOf('neg') < 0 &&
+       getComputedStyle(kLuc.querySelector('.kp-num')).color !== VERM,
+       getComputedStyle(kLuc.querySelector('.kp-num')).color);
+    // A venda de prejuizo do fixture (v5, -500 sobre 1000) esta DENTRO do
+    // trimestre, entao os dois cards que quebram por item tem que marca-la
+    // mesmo com o total positivo.
+    var prNeg = document.querySelectorAll('#lista .c-prod .pr-nome em .neg');
+    ok('dash: aparelho com margem negativa vai em vermelho',
+       prNeg.length === 1 && getComputedStyle(prNeg[0]).color === VERM,
+       'n=' + prNeg.length + ' ' + (prNeg[0] ? prNeg[0].textContent + ' ' +
+       getComputedStyle(prNeg[0]).color : ''));
+    var cnNeg = document.querySelectorAll('#lista .c-cond .cn b.neg');
+    ok('dash: condicao com margem negativa vai em vermelho',
+       cnNeg.length === 1 && getComputedStyle(cnNeg[0]).color === VERM,
+       'n=' + cnNeg.length + ' ' + (cnNeg[0] ? cnNeg[0].textContent + ' ' +
+       getComputedStyle(cnNeg[0]).color : ''));
+    var fin = document.querySelector('#lista .c-fin');
+    ok('dash: o Resumo financeiro existe e fecha com a faixa',
+       !!fin && fin.textContent.indexOf('R$ 8.100,00') >= 0 &&
+       fin.textContent.indexOf('R$ 840,00') >= 0,
+       fin ? fin.textContent.slice(0, 200) : 'sem card');
+  }
+
+  // Agora a janela MES, que e a unica com periodo anterior POVOADO (jul tem v1 e
+  // v2). E o caso que a mudanca de 21/08/2026 existe para cobrir: contexto e
+  // variacao na MESMA linha. Ate aqui, existindo anterior, a variacao comia o
+  // numero, e era o numero que o dono tinha ido buscar.
+  var btMes = document.querySelector('#lista .dh-seg-b[data-id="mes"]');
+  ok('dash: existe o seletor de janela Mes', !!btMes);
+  if (btMes) {
+    btMes.click();
+    await espera(80);
+    var kMed2 = document.querySelector('#lista [data-kpi="lucmed"]');
+    ok('dash/mes: o card Lucro medio sobrevive a troca de janela', !!kMed2);
+    if (kMed2) {
+      var peM = kMed2.querySelector('.kp-pe');
+      ok('dash/mes: com anterior POVOADO o pe mostra contexto E variacao',
+         peM.textContent.indexOf('em 1 venda') >= 0 &&
+         !!peM.querySelector('.kp-var.v-bom, .kp-var.v-ruim') &&
+         !!peM.querySelector('.kp-vs'),
+         peM.textContent);
+      // Mes no prejuizo: o SINAL tem que chegar na tela. Esta assercao cobre o
+      // TEXTO; a cor e provada logo abaixo, por getComputedStyle. Sao duas
+      // provas de proposito: numero certo pintado errado e numero errado
+      // pintado certo falham de jeitos diferentes.
+      ok('dash/mes: mes no prejuizo exibe lucro medio negativo',
+         kMed2.querySelector('.kp-num').textContent === 'R$ -500,00',
+         kMed2.querySelector('.kp-num').textContent);
+    }
+    // COR COMPUTADA, nao a classe: a classe prova o JS, a cor prova que o CSS
+    // chegou. Sao coisas diferentes, e aqui a diferenca era o bug: o `.l-total b`
+    // do Resumo financeiro tem verde FIXO, e a regra do negativo so vence
+    // porque vem depois no arquivo. Assertar `.neg` teria passado com o numero
+    // ainda VERDE na tela.
+    var VERM2 = 'rgb(220, 38, 38)';
+    var negs = [['luc', '#lista [data-kpi="luc"] .kp-num'],
+                ['lucmed', '#lista [data-kpi="lucmed"] .kp-num'],
+                ['margem', '#lista [data-kpi="margem"] .kp-num'],
+                ['resumo/lucro liquido', '#lista .c-fin .l-total b'],
+                ['resumo/margem bruta', '#lista .c-fin .l-sub b']];
+    for (var z = 0; z < negs.length; z++) {
+      var el = document.querySelector(negs[z][1]);
+      ok('dash/mes: ' + negs[z][0] + ' negativo pinta de vermelho',
+         !!el && getComputedStyle(el).color === VERM2,
+         el ? el.textContent + ' -> ' + getComputedStyle(el).color : 'sem elemento');
+    }
+    // As linhas de CUSTO nao sao resultado negativo, sao despesa normal: se
+    // sangrarem tambem, a cor deixa de significar prejuizo em duas semanas.
+    var custoLin = document.querySelectorAll('#lista .c-fin li:not(.l-sub):not(.l-total) b');
+    var sangrou = 0;
+    for (var y = 0; y < custoLin.length; y++)
+      if (getComputedStyle(custoLin[y]).color === VERM2) sangrou++;
+    ok('dash/mes: as linhas de custo NAO entram em vermelho',
+       custoLin.length >= 3 && sangrou === 0,
+       'linhas=' + custoLin.length + ' vermelhas=' + sangrou);
+  }
 
   fim();
 

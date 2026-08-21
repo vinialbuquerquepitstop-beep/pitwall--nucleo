@@ -2174,7 +2174,15 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    VIEWPORT, e o dashboard vive numa coluna de ~1030px ao lado da barra lateral
    de 232px. A 1440px de tela a regra de 5 colunas cabia na conta e nao cabia na
    caixa. Sizing intrinseco resolve sem adivinhar o breakpoint. */
-.kp-faixa{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+/* TRES colunas fixas, nunca auto-fit. Com 5 KPIs o auto-fit acertava por sorte
+   (cinco cabiam numa linha so); com o Lucro medio virando o SEXTO, em 21/08/2026,
+   ele passou a quebrar 4+2 a 1280px e 5+1 a 1440px e 1920px — um card sozinho na
+   segunda linha, que le como sobra, nao como parte do placar. Medido, nao
+   estimado: faixaW 927 e 990. Em 3+3 os seis fecham dois blocos iguais em toda
+   largura acima de 720px, e cada card sobe de 154px para ~300px de numero util,
+   longe do truncamento de dinheiro que o minmax(178px) existia para evitar.
+   A referencia de record ja usa repeat(3,1fr) na grade de dashboard. */
+.kp-faixa{display:grid;grid-template-columns:repeat(3,1fr);
   gap:12px;margin-bottom:12px}
 .kp{background:var(--bg);border:1px solid var(--d-linha);border-radius:var(--d-r);
   padding:15px 16px;min-width:0}
@@ -2281,6 +2289,23 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fn li.l-total{border-top:1px solid var(--d-linha);margin-top:4px;padding-top:9px}
 .fn li.l-total b{color:var(--d-verde);font-size:14px;font-weight:600}
 
+/* ==== numero negativo e VERMELHO no dashboard inteiro (21/08/2026) ==========
+   Ate aqui, prejuizo saia na cor normal e o tracinho de menos era a unica coisa
+   separando "lucrei pouco" de "perdi dinheiro". No `.l-total` era pior que
+   omissao: a cor era VERDE FIXA, entao a tela AFIRMAVA lucro sobre um rombo.
+   Token --d-down (#DC2626), o mesmo que `.kp-var.v-ruim` ja usa DENTRO do card
+   de KPI. Nao e --erro-fg (#B01235, o da aba Vendas) de proposito: dois
+   vermelhos a 4px de distancia dizendo a mesma coisa leem como defeito.
+   Medido contra branco: 4.83, acima do piso de 4.5 de texto normal (as duas
+   linhas de 14px do resumo) e bem acima do 3.0 de texto grande (o KPI, 22px).
+   As regras abaixo vem DEPOIS de `.l-total b` e de `.l-sub b` de proposito:
+   a especificidade EMPATA (duas classes, dois elementos) e quem vem por ultimo
+   ganha. Mover este bloco para cima devolve o prejuizo verde em silencio. */
+.kp-num.neg{color:var(--d-down)}
+.fn li b.neg{color:var(--d-down)}
+.pr-nome em .neg{color:var(--d-down)}
+.cn li b.neg{color:var(--d-down)}
+
 /* ---- ranking de aparelhos ---- */
 .pr{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
 /* A coluna "1 un." saiu da linha do nome e foi para o pe, junto da condicao: com
@@ -2339,7 +2364,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   border-radius:9px;padding:10px;cursor:pointer}
 
 @media (max-width:1150px){
-  .kp-faixa{grid-template-columns:repeat(3,1fr)}
+  /* .kp-faixa saiu daqui: agora ja nasce em 3 colunas na regra base. */
   .dash-l2,.dash-l3{grid-template-columns:1fr 1fr}
 }
 @media (max-width:720px){
