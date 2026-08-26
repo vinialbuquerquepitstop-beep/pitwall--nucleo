@@ -7,7 +7,36 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v67.md` (25 e 26/08/2026, **a Fatia 1 do modulo
+- topo: `handoff_migracao_pitwall_v68.md` (26/08/2026, **a Fatia 2 do modulo
+  Financeiro: regras de classificacao automatica, 6 migrations e a quarta sub-view**).
+  Sessao de retomada, disparada por "retorne o processo de financas, app caiu". O
+  arranque achou DUAS linhas do v67 ja vencidas: a Fatia 1 estava commitada E publicada
+  (`78be994` em `origin/main`), e a base **nao** estava vazia. O dono tinha importado um
+  **OFX REAL** as 10:14 de 26/08: `181 lidas, 181 novas, 0 duplicadas`, janela 28/07 a
+  26/08, soma liquida -R$ 29,06. Isso fechou a ressalva numero 1 do v67 sem uma linha de
+  codigo. Os 181 estavam **100% sem classificar**, e a Fatia 2 nasceu 12 minutos depois
+  da importacao: **as regras foram desenhadas contra o extrato de verdade**. Banco:
+  tabela `fin_regra` (com `check` que recusa regra que nao classifica nada e indice
+  unico sobre o padrao NORMALIZADO), 3 helpers privadas, 5 RPCs e **um motor unico**
+  (`privado.fn_fin_aplicar_regras`) que serve o botao E a importacao, para as duas nunca
+  divergirem. Sem `unaccent` de proposito (a extensao nao esta instalada; `fn_fin_norm`
+  faz o servico com `translate`, e `IMMUTABLE` e serve no indice). Decisoes que valem
+  registro: **a regra nasce de um lancamento real, nunca de formulario vazio**; o
+  extrator pega o segmento imediatamente ANTES do CPF/CNPJ (pegar o segundo devolveria
+  `Transferencia enviada pelo Pix` e **casaria metade do extrato**); `fin_regra_sugerir`
+  **nao sugere categoria nem dominio**, porque inferir seria adivinhar (invariante 18);
+  alcance default `nao_classificados` e sobrescrever exige confirmacao **com o numero**;
+  previa obrigatoria que EXPIRA se a regra mudar; padrao que casa mais de 60% da base e
+  recusado com o numero na cara e so passa com `forcar`; **nunca DELETE** (pausar e
+  arquivar). **885 assercoes, 0 falhas** (piso 829), os 6 comandos e as 5 larguras em
+  EXIT 0, rodados pela Torre na retomada. Isolamento PROVADO, nao so lido: o vendedor
+  Brendon ve **0 linhas** em `fin_regra` e `fin_movimento` e leva `Financeiro e restrito
+  ao dono.` nas 5 RPCs. **Commitado e publicado.** O que fica aberto: `fin_regra` tem
+  **0 linhas**, entao a Fatia 2 ainda e capacidade e nao resultado, e a proxima acao e
+  do dono (criar a primeira regra a partir de uma linha de UBER, que sozinho e 22 dos
+  181). Segue aberto tambem o `LEDGERBAL` guardado e **nunca conferido** contra a soma
+  dos movimentos, que e a checagem que pega importacao incompleta.
+- anterior: `handoff_migracao_pitwall_v67.md` (25 e 26/08/2026, **a Fatia 1 do modulo
   Financeiro: 6 migrations e a aba na tela**). Disparado pelo pedido do dono de "um
   sistema financeiro completo", que era CINCO subsistemas e foi cortado em 6 fatias.
   Decisao central: **caixa e resultado sao verdades separadas e nunca se somam** (`venda`
@@ -26,9 +55,9 @@ nenhuma das duas batia com o repo.
   R$ 20 no mesmo dia, apagando dinheiro real em silencio; virou hash com **ocorrencia**),
   e a `vitrine` achou o **`diag_mobile.py` dando verde vazio** porque a lista `abasIds` e
   chumbada e nao continha a aba nova, entao a tela nunca era desenhada na medicao.
-  **Nada commitado, nada publicado.** A ressalva que so o dono fecha: **nenhum OFX real
-  foi testado**, e a base financeira tem ZERO movimentos. Detalhe do frontend na linha
-  `vitrine` v1.
+  Fechou dizendo **"nada commitado, nada publicado"** e **"nenhum OFX real foi
+  testado, base com ZERO movimentos"**: as tres afirmacoes cairam no mesmo dia, e a
+  correcao esta no v68. Detalhe do frontend na linha `vitrine` v1.
 - anterior: `handoff_migracao_pitwall_v66.md` (19/08/2026, **a Fatia 2 inteira: a mesma
   pessoa parava de ser a mesma quando o telefone mudava de formato, e quem comprava
   nunca entrava na regua de pos-venda**). Disparado por um bug reportado em uma frase

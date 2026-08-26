@@ -3531,3 +3531,228 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fin-placar .pb-num.fin-num-p{font-size:11.5px}
   .fin-prev-cab,.fin-prev-lin{grid-template-columns:48px minmax(0,1fr) auto;gap:8px;padding:7px 9px}
 }
+
+/* ==========================================================================
+   FINANCEIRO — a Fatia 2: regras de classificacao              (26/08/2026)
+
+   Zero token novo no :root, e zero uso NOVO de var(--accent): tudo aqui pinta
+   com o que a Fatia 1 ja mediu, ou reusa classe que ja existe (.btn-cad,
+   .fin-chip, .pb-celula, .campo, .cad-acoes, .fin-erro).
+
+   Os tres papeis de cor, e nenhum deles e novo:
+
+   1. TRILHO (quem sou). A regra herda o trilho do GRUPO da categoria que ela
+      aplica, com o icone do grupo. Regra que nao define categoria NAO ganha
+      barra colorida: ela nao tem grupo, e inventar cor ali seria pintar um dado
+      que nao existe. Icone ela ganha do mesmo jeito, porque linha sem icone nao
+      se varre com o olho.
+   2. --morno = TRABALHO PENDENTE. Regra pausada, conflitos, sem dominio e
+      sinal contrario sao todos o mesmo recado: cobra atencao, nao quebrou
+      nada. E o mesmo token de .nf-falta, .fin-sec.cobra e .fin-lin.nc.
+      Conflito em --erro seria mentira: casar duas regras e ambiguidade.
+   3. --erro = INTEGRIDADE. Aparece em UM lugar novo, e so nele: o botao que
+      CONFIRMA alcance todos, o unico ponto da aba que reescreve, sem desfazer,
+      uma decisao que o dono tomou a mao. Mesma familia da faixa do invariante
+      18: nao e dinheiro, e o dado deixando de bater.
+      O botao que ABRE essa confirmacao fica em --morno, nao em --erro: ele
+      ainda nao faz nada.
+   ========================================================================== */
+.fin-regras{display:block}
+/* --- o botao que comeca tudo, na linha de Movimentos ---
+   Ele mora no mesmo agrupamento dos dois seletores. Em telas estreitas toma a
+   linha inteira em vez de disputar largura com a categoria: "Alimentação fora"
+   nao existe num seletor de 90px, e foi exatamente esse aperto que a Fatia 1
+   ja tinha medido a 390px. */
+.fin-lin-regra{
+  flex:0 0 auto;background:var(--bg);border:1px solid var(--line-forte);color:var(--dim);
+  border-radius:var(--radius-p);padding:6px 10px;
+  font-family:var(--body);font-size:12px;font-weight:500;line-height:1.35;white-space:nowrap;
+}
+.fin-lin-regra:hover{color:var(--text);border-color:var(--text);background:var(--surface)}
+.fin-lin-form{grid-column:1/-1;min-width:0}
+
+/* --- o formulario (mesmo componente na linha e na lista de regras) --- */
+.fin-reg-form{
+  border:1px solid var(--line-forte);border-radius:var(--radius);
+  padding:14px 16px;margin-top:10px;background:var(--surface);
+}
+.fin-reg-fonte{font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere}
+.fin-reg-fonte b{color:var(--text);font-weight:500;font-family:var(--mono);font-size:11.5px}
+/* O achado em destaque: MUDAVENDING, pega outros 18. E a frase que faz o dono
+   entender em um segundo por que a regra vale a pena. */
+.fin-reg-achado{
+  display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+  border:1px solid var(--line);border-radius:var(--radius-p);
+  background:var(--bg);padding:11px 13px;margin-bottom:12px;
+}
+.fin-reg-achado-p{
+  font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);
+  letter-spacing:-.01em;overflow-wrap:anywhere;min-width:0;
+}
+.fin-reg-achado-n{font-size:12.5px;color:var(--dim)}
+.fin-reg-achado-av{flex:1 1 100%;font-size:12px;line-height:1.45;color:var(--morno-fg)}
+
+/* --- a previa: as mesmas celulas do pitboard, sem a grade de 4 --- */
+.fin-reg-prev{margin:12px 0 6px}
+.fin-reg-cels,.fin-reg-envelope{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.fin-reg-cels .pb-celula{flex:1 1 140px;min-width:0}
+.fin-reg-envelope .pb-celula{flex:1 1 190px;min-width:0}
+.fin-reg-cels .pb-num,.fin-reg-envelope .pb-num{font-size:22px;letter-spacing:-.02em}
+.fin-reg-cels .pb-num.cobra,.fin-reg-envelope .pb-num.cobra{color:var(--morno-fg)}
+.fin-reg-cels .pb-celula:has(.pb-num.cobra),
+.fin-reg-envelope .pb-celula:has(.pb-num.cobra){border-color:var(--morno-linha);background:var(--morno-bg)}
+.fin-reg-cels .pb-celula:has(.pb-num.cobra) .pb-rot,
+.fin-reg-cels .pb-celula:has(.pb-num.cobra) .pb-pe,
+.fin-reg-envelope .pb-celula:has(.pb-num.cobra) .pb-rot,
+.fin-reg-envelope .pb-celula:has(.pb-num.cobra) .pb-pe{color:var(--morno-fg)}
+/* Previa velha e pior que previa nenhuma: ela diz um numero que nao vale mais.
+   Por isso ela se ANUNCIA velha e o botao de gravar tranca junto. */
+.fin-reg-velha{
+  font-size:12.5px;line-height:1.45;color:var(--morno-fg);
+  border:1px solid var(--morno-linha);background:var(--morno-bg);
+  border-radius:var(--radius-p);padding:9px 12px;
+}
+.fin-reg-velha b{font-weight:600}
+/* Os avisos vem prontos do servidor e sao exibidos como vieram. */
+.fin-reg-avisos{
+  list-style:none;display:flex;flex-direction:column;gap:5px;margin:8px 0 0;
+  border:1px solid var(--morno-linha);background:var(--morno-bg);
+  border-radius:var(--radius-p);padding:10px 12px;
+}
+.fin-reg-avisos li{font-size:12.5px;line-height:1.45;color:var(--morno-fg)}
+.fin-reg-ex{margin-top:12px}
+.fin-reg-ex-lin{
+  font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--text);
+  padding:6px 9px;border:1px solid var(--line);border-bottom:0;background:var(--bg);
+  overflow-wrap:anywhere;
+}
+.fin-reg-ex-lin:first-of-type{border-radius:var(--radius-p) var(--radius-p) 0 0}
+.fin-reg-ex-lin:last-of-type{border-bottom:1px solid var(--line);border-radius:0 0 var(--radius-p) var(--radius-p)}
+
+/* --- a lista de regras --- */
+.fin-reg-lista{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.fin-reg{
+  border:1px solid var(--line);border-left:3px solid var(--tr,var(--line-forte));
+  border-radius:var(--radius);padding:11px 14px;background:var(--bg);
+}
+.fin-reg-cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:var(--tr,var(--text))}
+.fin-reg-cab .tr-ico{stroke-width:1.7}
+.fin-reg-padrao{
+  font-family:var(--mono);font-size:13.5px;font-weight:500;color:var(--text);
+  letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere;
+}
+.fin-reg-tipo{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+/* Regra pausada aparece PAUSADA, nunca sumida: o servidor devolve as nao
+   arquivadas de proposito, e regra escondida vira dado inalcancavel. */
+.fin-reg-selo{
+  margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:500;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--morno-fg);
+  border:1px solid var(--morno-linha);background:var(--morno-bg);
+  border-radius:var(--radius-p);padding:3px 7px;
+}
+.fin-reg.pausada{border-left-color:var(--morno);background:var(--morno-bg);border-color:var(--morno-linha)}
+.fin-reg.pausada .fin-reg-padrao,.fin-reg.pausada .fin-reg-cab{color:var(--morno-fg)}
+.fin-reg-alvo{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-top:7px}
+.fin-reg-cat{font-size:12.5px;font-weight:500;color:var(--text)}
+.fin-reg-gr,.fin-reg-dom,.fin-reg-prio,.fin-reg-origem{
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);
+  border:1px solid var(--line);border-radius:var(--radius-p);padding:2px 6px;
+}
+.fin-reg-nao{font-size:11.5px;color:var(--dim);font-style:normal;opacity:.85}
+.fin-reg-conta{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:8px}
+/* casaria_hoje EM DESTAQUE: e a pergunta que a lista responde (o que essa regra
+   pega AGORA). O destaque e escala e peso, nao cor: numero pintado ja foi
+   reprovado duas vezes neste projeto. */
+.fin-reg-hoje{
+  font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;
+}
+.fin-reg-hoje.tem{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.01em}
+.fin-reg-ja,.fin-reg-quando{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.fin-reg-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.fin-reg-b{
+  background:var(--bg);border:1px solid var(--line-forte);color:var(--dim);
+  border-radius:var(--radius-p);padding:6px 10px;
+  font-family:var(--body);font-size:12px;font-weight:500;line-height:1.35;
+}
+.fin-reg-b:hover{color:var(--text);border-color:var(--text);background:var(--surface)}
+/* O botao que ABRE a confirmacao de sobrescrita: --morno, porque ele ainda nao
+   faz nada. Quem carrega o vermelho e o botao que CONFIRMA, la embaixo. */
+.fin-reg-b.perigo{color:var(--morno-fg);border-color:var(--morno-linha);background:var(--morno-bg)}
+.fin-reg-b.perigo:hover{color:var(--morno-fg);border-color:var(--morno);background:var(--morno-bg)}
+.fin-reg-editor{margin-top:4px}
+.fin-reg-pe{margin-top:16px}
+
+/* --- a decisao perigosa: alcance TODOS --- */
+.fin-sobrepor{
+  display:flex;flex-direction:column;gap:5px;margin-top:10px;
+  border:1px solid var(--morno-linha);background:var(--morno-bg);
+  border-radius:var(--radius);padding:12px 14px;
+}
+.fin-sobrepor b{font-size:13.5px;font-weight:600;color:var(--morno-fg);letter-spacing:-.01em}
+.fin-sobrepor span{font-size:12px;line-height:1.5;color:var(--text)}
+.fin-sobrepor-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+/* O UNICO vermelho novo da aba. Nao e gasto e nao e falha do sistema: e o dado
+   do dono sendo reescrito sem desfazer. Mesma familia da faixa do invariante 18. */
+.fin-sobrepor-acoes .fin-reg-b.perigo{
+  background:var(--erro-fg);border-color:var(--erro-fg);color:var(--bg);
+}
+.fin-sobrepor-acoes .fin-reg-b.perigo:hover{
+  background:var(--erro-fg);border-color:var(--erro-fg);color:var(--bg);opacity:.9;
+}
+
+/* --- regra salva: a faixa que oferece o aplicar agora --- */
+.fin-reg-ok{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;
+  border:1px solid var(--ok-linha);background:var(--ok-bg);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;
+}
+.fin-reg-ok b{flex:1 1 200px;min-width:0;font-size:13.5px;font-weight:600;color:var(--ok-fg);line-height:1.45}
+.fin-reg-ok-forcado{flex:1 1 100%;font-size:12px;color:var(--morno-fg);line-height:1.45}
+.fin-reg-x{
+  background:none;border:0;color:var(--dim);font-size:17px;line-height:1;
+  padding:4px 6px;border-radius:var(--radius-p);flex:0 0 auto;
+}
+.fin-reg-x:hover{color:var(--text);background:var(--surface)}
+
+/* --- o retorno inteiro de fin_regra_aplicar --- */
+.fin-apl{
+  border:1px solid var(--line-forte);border-radius:var(--radius);
+  padding:12px 14px;margin-bottom:12px;background:var(--surface);
+}
+.fin-apl.sobrepos{border-color:var(--erro-linha);background:var(--erro-bg)}
+.fin-apl-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fin-apl-cab .cad-grupo{flex:1 1 200px;min-width:0;margin:0}
+.fin-apl-msg{font-size:12.5px;line-height:1.5;color:var(--text);margin:8px 0 0}
+.fin-apl-lista{display:flex;flex-direction:column;margin-top:8px}
+.fin-apl-lin{
+  display:flex;align-items:baseline;gap:10px;
+  padding:6px 0;border-bottom:1px solid var(--line);
+}
+.fin-apl-lin:last-child{border-bottom:0}
+.fin-apl-p{flex:1 1 auto;min-width:0;font-family:var(--mono);font-size:11.5px;overflow-wrap:anywhere}
+.fin-apl-n{font-family:var(--mono);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+
+/* --- importar: o dividendo aparecendo --- */
+.fin-imp-regras{flex:1 1 100%;display:flex;flex-direction:column;gap:5px;font-size:12.5px;line-height:1.45}
+.fin-imp-regras b{font-size:12.5px;font-weight:600;color:var(--ok-fg)}
+.fin-imp-por{display:flex;gap:6px;flex-wrap:wrap}
+.fin-imp-p{
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+  border:1px solid var(--line);border-radius:var(--radius-p);padding:2px 7px;background:var(--bg);
+}
+.fin-imp-p b{font-family:var(--mono);font-size:11px;color:var(--text)}
+.fin-imp-conf{font-size:12px;color:var(--morno-fg);line-height:1.45}
+
+@media (max-width:860px){
+  /* A linha de regra e a mais densa da aba: padrao, casamento, categoria,
+     grupo, dominio, prioridade, origem, dois contadores e CINCO acoes. A 360px
+     o botao de criar regra e as acoes tomam a linha inteira em vez de disputar
+     largura, e todo alvo de toque sobe para 38px. */
+  .fin-lin-regra{flex:1 1 100%;text-align:center;min-height:38px}
+  .fin-reg-b{min-height:38px}
+  .fin-reg-cels .pb-celula{flex:1 1 132px}
+  .fin-reg-envelope .pb-celula{flex:1 1 150px}
+  .fin-reg-cels .pb-num,.fin-reg-envelope .pb-num{font-size:19px}
+  .fin-reg-selo{margin-left:0}
+  .fin-reg-form{padding:12px 13px}
+}

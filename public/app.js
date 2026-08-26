@@ -625,11 +625,19 @@ e.innerHTML=topo+metTopo(d)+metOrigem(d)+metConteudo(d)}
 //
 // Sub-navegacao por CHIP dentro da aba, e nao tres itens no menu lateral: ele
 // ja carrega 14 entradas, e financeiro sozinho nao pode virar 20% da barra.
-var FIN_SUBS=[["visao","Visão"],["movimentos","Movimentos"],["importar","Importar"]];
+var FIN_SUBS=[["visao","Visão"],["movimentos","Movimentos"],["importar","Importar"],["regras","Regras"]];
 var FIN_DOMS=[["empresa","Empresa"],["pessoal","Pessoal"],["tudo","Tudo"]];
 var FIN_SUB="visao",FIN_DOM="tudo",FIN_MES="",FIN_STATUS="todos";
 var FIN_CFG=null,FIN_PAINEL=null,FIN_MOV=null,FIN_SEL={},FIN_AVISO="";
 var FIN_LANC=!1,FIN_REPETIR=null,FIN_PREVIA=null,FIN_IMP=null;
+// Fatia 2. FIN_REG_FORM e o formulario ABERTO (um so por vez, seja na linha de
+// Movimentos, seja na lista de Regras); FIN_REG_PREV e a previa FRESCA daquele
+// formulario. A previa carrega a assinatura dos campos que a produziram: se o
+// dono mexer em qualquer um deles depois, ela vira velha e o botao de salvar
+// tranca. E a mesma disciplina da previa da importacao, pelo mesmo motivo:
+// escrever sem o dono ter visto o efeito e como nasce base suja.
+var FIN_REGRAS=null,FIN_REG_FORM=null,FIN_REG_PREV=null,FIN_REG_ERRO="";
+var FIN_REG_OK=null,FIN_APL=null,FIN_SOBREPOR=null;
 // Sao NOVE grupos financeiros e SETE tokens de trilho medidos. Inventar dois
 // tokens novos exigiria medir contraste, e a spec e o CLAUDE.md sao explicitos:
 // cor nova so entra medida. Entao a colisao e ASSUMIDA e nomeada: Marketing e
@@ -768,20 +776,24 @@ finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta 
 // Classificar um a um com 50 a 150 lancamentos por mes e trabalho abandonado na
 // segunda semana. A selecao em lote nao e conforto: e o que faz a aba
 // sobreviver ao segundo mes.
-function finOpcoesCat(sel,comLimpar){
+// rotVazio (Fatia 2): na LINHA, deixar em branco quer dizer "sem categoria";
+// numa REGRA quer dizer "esta regra nao mexe na categoria". Sao frases
+// diferentes para o mesmo <option value="">, e chamar as duas de "sem
+// categoria" faria a regra parecer que APAGA a categoria de quem ela pega.
+function finOpcoesCat(sel,comLimpar,rotVazio){
 var cats=(FIN_CFG&&FIN_CFG.categorias)||[],ordem=[],mapa={},i,gr;
 for(i=0;i<cats.length;i++){
 gr=cats[i].grupo||"Outros";
 if(!mapa[gr]){mapa[gr]=[];ordem.push(gr)}
 mapa[gr].push(cats[i])}
-var out='<option value="">'+(comLimpar?"(não mexer)":"sem categoria")+"</option>";
+var out='<option value="">'+(rotVazio||(comLimpar?"(não mexer)":"sem categoria"))+"</option>";
 if(comLimpar)out+='<option value="__limpar">limpar a categoria</option>';
 for(i=0;i<ordem.length;i++){
 out+='<optgroup label="'+c(ordem[i])+'">'+mapa[ordem[i]].map(function(x){
 return'<option value="'+c(x.codigo)+'"'+(sel===x.codigo?" selected":"")+">"+c(x.rotulo)+"</option>"}).join("")+"</optgroup>"}
 return out}
-function finOpcoesDom(sel,comLimpar){
-var out='<option value="">'+(comLimpar?"(não mexer)":"sem domínio")+"</option>";
+function finOpcoesDom(sel,comLimpar,rotVazio){
+var out='<option value="">'+(rotVazio||(comLimpar?"(não mexer)":"sem domínio"))+"</option>";
 if(comLimpar)out+='<option value="__limpar">limpar o domínio</option>';
 return out+'<option value="empresa"'+("empresa"===sel?" selected":"")+">Empresa</option>"+
 '<option value="pessoal"'+("pessoal"===sel?" selected":"")+">Pessoal</option>"}
@@ -801,7 +813,14 @@ return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+'" data-lin
 '<div class="fin-lin-cls">'+
 '<select class="fin-sel-cat" data-acao="fin-cat" data-id="'+id+'" data-atual="'+c(x.categoria_codigo||"")+'" aria-label="Categoria de '+c(x.descricao||"lançamento")+'">'+finOpcoesCat(x.categoria_codigo||"",!1)+"</select>"+
 '<select class="fin-sel-dom" data-acao="fin-dom-lin" data-id="'+id+'" data-atual="'+c(x.dominio||"")+'" aria-label="Domínio de '+c(x.descricao||"lançamento")+'">'+finOpcoesDom(x.dominio||"",!1)+"</select>"+
-"</div></div>"}
+// O caminho principal da Fatia 2 comeca AQUI, na linha, e nao numa tela de
+// cadastro: o dono esta olhando a descricao que se repete e quer dizer
+// "sempre que aparecer isso, faz assim". Abrir um cadastro de regras para
+// depois inventar padroes de cabeca e o caminho que ninguem percorre.
+'<button class="fin-lin-regra" data-acao="fin-reg-de-lin" data-id="'+id+'">criar regra</button>'+
+"</div>"+
+(FIN_REG_FORM&&FIN_REG_FORM.movimento_id===x.id?'<div class="fin-lin-form">'+finRegForm()+"</div>":"")+
+"</div>"}
 function finLote(){
 var qt=Object.keys(FIN_SEL).length;
 return'<div class="fin-lote'+(qt?" aberto":"")+'" id="finLote" role="group" aria-label="Ação em lote">'+
@@ -848,7 +867,11 @@ var corpo=itens.length?itens.map(finMovLin).join(""):
 return'<section class="fin-mov"><div class="fin-mov-cab"><h2 class="fin-bloco-tit">Movimentos</h2>'+
 '<span class="fin-bloco-pe">'+c(rec)+"</span>"+
 '<button class="fin-chip" data-acao="fin-so-nc" aria-pressed="'+(so?"true":"false")+'">só não classificados</button></div>'+
-aviso+finLote()+'<div class="fin-lista">'+corpo+"</div>"+trunc+
+// finAplHTML entra aqui tambem, e nao so na sub-view Regras: o `aplicar agora`
+// e oferecido logo depois de criar a regra, que acontece NA LINHA. Sem isto o
+// dono aplicava e nao via `classificados`, `conflitos` nem `por_regra`, que e
+// exatamente o silencio que faz perder a confianca no automatico.
+aviso+finRegOkHTML()+finAplHTML()+finLote()+'<div class="fin-lista">'+corpo+"</div>"+trunc+
 '<div class="fin-mov-pe">'+finFormLanc()+"</div></section>"}
 // ---- Importar: o OFX e lido no NAVEGADOR ----------------------------------
 // OFX 1.x e SGML raso, nao XML: tag de folha frequentemente NAO fecha
@@ -911,11 +934,25 @@ return'<div class="fin-prev-lin"><span class="fin-prev-data">'+c(x.data_iso?fmtD
 '<span class="fin-prev-val'+(neg?" neg":"")+'">'+c(x.valor)+"</span></div>"}).join("");
 return'<div class="fin-prev-tab"><div class="fin-prev-cab"><span>data</span><span>descrição</span><span>valor</span></div>'+linhas+"</div>"+
 '<p class="cad-nota">Mostrando '+vis.length+" de "+pr.itens.length+" linhas lidas. Confira se o parser leu certo antes de gravar.</p>"}
+// O momento em que o trabalho passado paga dividendo. Desde a Fatia 2 a propria
+// importacao aplica as regras nos RECEM-INSERIDOS, no alcance seguro, e devolve
+// quantos ja nasceram classificados, por qual regra, e quantos conflitos houve.
+// Esconder isso seria apagar a unica prova visivel de que criar regra valeu.
+// `conflitos` sai em --morno: ambiguidade cobra trabalho, nao e falha de sistema.
+function finImpRegras(imp){
+var n=Number(imp&&imp.classificados)||0,cf=Number(imp&&imp.conflitos)||0;
+var pr=(imp&&imp.por_regra)||[];
+if(!n&&!cf&&!pr.length)return'<span class="fin-imp-regras">Nenhuma regra pegou linha nenhuma nesta importação.</span>';
+return'<span class="fin-imp-regras"><b>'+n+(1===n?" lançamento já nasceu classificado":" lançamentos já nasceram classificados")+" pelas suas regras.</b>"+
+(pr.length?'<span class="fin-imp-por">'+pr.map(function(x){
+return'<span class="fin-imp-p">'+c(x.padrao||"")+" <b>"+(Number(x.n)||0)+"</b></span>"}).join("")+"</span>":"")+
+(cf?'<span class="fin-imp-conf">'+cf+(1===cf?" linha casou":" linhas casaram")+" mais de uma regra; venceu a de menor prioridade.</span>":"")+"</span>"}
 function finImportarView(){
 var ops=((FIN_CFG&&FIN_CFG.contas)||[]).map(function(x){
 return'<option value="'+c(x.id)+'">'+c(x.rotulo)+"</option>"}).join("");
 var res=FIN_IMP?'<div class="fin-imp-ok" role="status"><b>'+c(FIN_IMP.msg||"Importado")+"</b>"+
   (FIN_IMP.aviso?'<span class="fin-imp-aviso">'+c(FIN_IMP.aviso)+"</span>":"")+
+  finImpRegras(FIN_IMP)+
   '<button class="btn-cad" data-acao="fin-ir-nc">Ver os não classificados</button></div>':"";
 var previa="";
 if(FIN_PREVIA&&FIN_PREVIA.erro)
@@ -1036,23 +1073,403 @@ var d=r.data;
 if(!d||!1===d.ok){
 if(alvoErro)alvoErro.textContent=(d&&(d.erro||d.msg))||"Importação recusada";
 return}
-FIN_IMP={msg:d.msg||(d.novas||0)+" lançamentos novos",aviso:aviso};
+// Desde a Fatia 2 a importacao ja CLASSIFICA o que nasce casando com regra, e
+// devolve `classificados`, `classificados_por_regra` e `conflitos`. Guardar so
+// a msg jogaria fora exatamente o momento em que o trabalho passado paga
+// dividendo, que e a unica prova visivel de que criar regra valeu a pena.
+FIN_IMP={msg:d.msg||(d.novas||0)+" lançamentos novos",aviso:aviso,
+classificados:d.classificados||0,por_regra:d.classificados_por_regra||[],conflitos:d.conflitos||0};
 FIN_PREVIA=null;
+FIN_REGRAS=null;
 I(d.msg||"Extrato importado");
+renderFinanceiro(!0)}
+// ---- Regras: a primeira vez que o modulo DEVOLVE trabalho ------------------
+// Fatia 2, 26/08/2026. Tudo antes disto PEDIA trabalho do dono: importar,
+// classificar linha a linha, dizer o lado de cada gasto. A regra e o primeiro
+// pedaco que paga de volta: ele classifica o Uber uma vez e mata as 27 linhas
+// de Uber. Por isso o caminho principal comeca na LINHA de Movimentos, nunca
+// nesta lista. Ninguem abre um cadastro de regras para depois inventar padroes
+// de cabeca; o dono esta olhando o MUDAVENDING e quer dizer "sempre que
+// aparecer isso, faz assim".
+//
+// O que a tela NAO faz, de proposito:
+//   - nao infere categoria nem dominio. fin_regra_sugerir devolve so o padrao
+//     extraido e a contagem; escolher o destino e do dono (invariante 18).
+//   - nao reescreve os avisos do servidor. Eles vem prontos em `avisos` e sao
+//     exibidos como vieram: reescrever no JS criaria uma segunda verdade sobre
+//     a mesma regra.
+//   - nao esconde recusa. A trava dos 60% volta com `pode_forcar`, e a tela
+//     mostra o numero e oferece o botao. Esconder a recusa e forcar sozinho sao
+//     os dois erros opostos, e os dois cegam o dono.
+//   - nao oferece `alcance: todos` como caminho normal em lugar nenhum.
+var FIN_TIPOS=[["contem","contém"],["comeca","começa com"],["exato","igual a"]];
+function finRegTipoRot(x){
+var i;
+for(i=0;i<FIN_TIPOS.length;i++)if(FIN_TIPOS[i][0]===x)return FIN_TIPOS[i][1];
+return"contém"}
+// Trilho sem icone e regressao, mas regra SEM categoria nao tem trilho nenhum:
+// ela nao carrega identidade de grupo, so decide o lado. Nesse caso a barra
+// colorida NAO aparece (inventar cor para grupo que nao existe e pintar dado
+// que nao existe) e o icone e o de etiqueta, generico de proposito. Icone
+// sempre tem: linha sem icone nao se varre com o olho.
+function finRegIcone(r){
+if(r&&r.categoria_grupo)return finIconeGrupo(r.categoria_grupo);
+return'<svg class="tr-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V5.4A1.4 1.4 0 0 1 5.4 4H11l9 9-7 7-9-9z" stroke-linejoin="round"></path><circle cx="8.2" cy="8.2" r="1.2"></circle></svg>'}
+// Celula de numero. Reusa .pb-celula do pitboard porque e o mesmo objeto visual
+// (rotulo, numero, pe) e nao a GRADE de 4 colunas dele, que aqui varia de 2 a 4.
+// `cobra` e --morno: numero que pede trabalho, nunca --erro.
+function finRegCel(rot,num,pe,cls){
+return'<div class="pb-celula"><div class="pb-rot">'+c(rot)+"</div>"+
+'<div class="pb-num'+(cls?" "+cls:"")+'">'+c(String(null==num?"—":num))+"</div>"+
+'<div class="pb-pe">'+c(pe)+"</div></div>"}
+// A assinatura dos QUATRO campos que mudam o efeito da regra (prioridade nao
+// muda: o servidor nem a recebe no prever). Se ela mudar depois da previa, a
+// previa esta velha e o botao de salvar tranca. Sem isso o dono veria "pega 3"
+// e gravaria uma regra que pega 300.
+function finRegSig(f){
+return[String(f.padrao||""),String(f.tipo_match||"contem"),
+String(f.categoria_codigo||""),String(f.dominio||"")].join("|")}
+function finRegFresca(){
+return!!(FIN_REG_PREV&&FIN_REG_FORM&&FIN_REG_PREV.__sig===finRegSig(FIN_REG_FORM))}
+// O formulario vive no DOM e o estado vive aqui: antes de qualquer coisa que
+// re-renderize, o que o dono digitou volta para FIN_REG_FORM, senao some.
+function finRegColher(){
+var f=FIN_REG_FORM;
+if(!f)return null;
+var p=E("finRegPadrao"),tp=E("finRegTipo"),cx=E("finRegCat"),dx=E("finRegDom"),px=E("finRegPrio");
+if(p)f.padrao=String(p.value||"").trim();
+if(tp)f.tipo_match=tp.value||"contem";
+if(cx)f.categoria_codigo=cx.value||"";
+if(dx)f.dominio=dx.value||"";
+if(px)f.prioridade=String(px.value||"").trim();
+return f}
+function finRegErro(html){
+FIN_REG_ERRO=html||"";
+var el=E("finRegErro");
+if(el)el.innerHTML=FIN_REG_ERRO}
+// A previa se repinta SOZINHA, sem re-render da aba inteira: re-renderizar
+// custaria uma leitura de fin_painel e de fin_movimentos a cada mexida num
+// seletor, e ainda tiraria o foco do campo que o dono acabou de tocar.
+function finRegPintarPrev(){
+var box=E("finRegPrev");
+if(box)box.innerHTML=finRegPreviaHTML();
+var lista=E("lista"),bt=lista?lista.querySelector('[data-acao="fin-reg-salvar"]'):null;
+if(bt)bt.disabled=!finRegFresca()}
+function finRegPreviaHTML(){
+var p=FIN_REG_PREV;
+if(!p)return'<p class="cad-nota">Toque em <b>Ver o efeito</b> para saber quantos lançamentos essa regra pega, e quantos ela mudaria, antes de gravar.</p>';
+if(!finRegFresca())return'<p class="fin-reg-velha">Você mexeu na regra depois desta prévia. Toque em <b>Ver o efeito</b> de novo: o número de cima não vale mais.</p>';
+var dif=Number(p.casaria_ja_classificados_diferentes)||0;
+var inc=Number(p.incoerencia_sinal_n)||0;
+var cels='<div class="fin-reg-cels">'+
+finRegCel("pega ao todo",p.casaria_total,finN1(p.casaria_pct)+"% dos "+(p.base_total||0)+" da base","")+
+finRegCel("classifica agora",p.casaria_nao_classificados,"ainda sem classificação","")+
+finRegCel("já classificados",p.casaria_ja_classificados,dif?dif+(1===dif?" ficaria DIFERENTE":" ficariam DIFERENTES"):"nenhum mudaria de destino",dif?"cobra":"")+
+// Caso real da base do dono: a regra do Uber pega os 5 REEMBOLSOS (positivos)
+// junto com os 22 gastos. E aviso, nao recusa, e por isso aparece como numero e
+// nao como bloqueio.
+finRegCel("sinal contrário",inc,"valor contra a natureza da categoria",inc?"cobra":"")+"</div>";
+// Os avisos vem PRONTOS do servidor e sao exibidos como vieram. Reescrever aqui
+// criaria uma segunda verdade sobre a mesma regra, que e como duas telas passam
+// a discordar sobre o mesmo numero.
+var av=(p.avisos||[]).length?'<ul class="fin-reg-avisos">'+(p.avisos||[]).map(function(x){
+return"<li>"+c(x)+"</li>"}).join("")+"</ul>":"";
+var exs=p.exemplos||[];
+// Contagem convence, texto real CONFERE. Sem as descricoes na tela o dono
+// aprova "pega 27" sem saber que 6 daqueles 27 sao outra coisa.
+var ex=exs.length?'<div class="fin-reg-ex"><p class="cad-grupo">Confira com o olho</p>'+
+exs.map(function(x){return'<div class="fin-reg-ex-lin">'+c(x)+"</div>"}).join("")+
+'<p class="cad-nota">'+exs.length+(1===exs.length?" descrição real que casa":" descrições reais que casam")+" com este padrão hoje (o servidor manda até 5).</p></div>":"";
+return'<p class="cad-grupo">Prévia · nada foi gravado ainda</p>'+cels+av+ex}
+function finRegForm(){
+var f=FIN_REG_FORM;
+if(!f)return"";
+var novo=!f.id;
+var tops=FIN_TIPOS.map(function(x){
+return'<option value="'+x[0]+'"'+(f.tipo_match===x[0]?" selected":"")+">"+c(x[1])+"</option>"}).join("");
+var fonte=f.descricao?'<p class="fin-reg-fonte">a partir de <b>'+c(f.descricao)+"</b></p>":"";
+// O achado em destaque: `MUDAVENDING · pega outros 18`. E a frase que faz o
+// dono entender em um segundo por que criar a regra vale a pena.
+var achado=f.achado?'<div class="fin-reg-achado">'+
+'<span class="fin-reg-achado-p">'+c(f.achado.padrao||"")+"</span>"+
+'<span class="fin-reg-achado-n">'+c(f.achado.msg||"")+"</span>"+
+(f.achado.fallback?'<span class="fin-reg-achado-av">Não achei o nome da contraparte nessa descrição: o padrão abaixo é a descrição sem os números. Confira antes de salvar.</span>':"")+"</div>":"";
+return'<div class="fin-reg-form"><p class="cad-grupo">'+(novo?"Nova regra":"Editar regra")+"</p>"+fonte+achado+
+'<div class="campo"><label for="finRegPadrao">Padrão *</label>'+
+'<input id="finRegPadrao" type="text" autocomplete="off" placeholder="NOME QUE SE REPETE NO EXTRATO" value="'+c(f.padrao||"")+'"></div>'+
+'<div class="fin-form-lin">'+
+'<div class="campo"><label for="finRegTipo">Casamento</label>'+
+'<select id="finRegTipo" data-acao="fin-reg-prever" data-atual="'+c(f.tipo_match||"contem")+'">'+tops+"</select></div>"+
+'<div class="campo"><label for="finRegPrio">Prioridade</label>'+
+'<input id="finRegPrio" type="number" min="0" max="9999" step="1" value="'+c(f.prioridade||"100")+'"></div></div>'+
+'<div class="campo"><label for="finRegCat">Categoria</label>'+
+'<select id="finRegCat" data-acao="fin-reg-prever" data-atual="'+c(f.categoria_codigo||"")+'">'+finOpcoesCat(f.categoria_codigo||"",!1,"não define categoria")+"</select></div>"+
+'<div class="campo"><label for="finRegDom">Domínio</label>'+
+'<select id="finRegDom" data-acao="fin-reg-prever" data-atual="'+c(f.dominio||"")+'">'+finOpcoesDom(f.dominio||"",!1,"não define domínio")+"</select></div>"+
+'<p class="cad-nota">A regra precisa definir categoria, domínio, ou os dois. Quando duas regras pegam a mesma linha, ganha a de <b>menor</b> prioridade.</p>'+
+'<div class="fin-reg-prev" id="finRegPrev">'+finRegPreviaHTML()+"</div>"+
+'<div class="cad-acoes">'+
+'<button class="btn-cad secundario" data-acao="fin-reg-prever">Ver o efeito</button>'+
+'<button class="btn-cad" data-acao="fin-reg-salvar"'+(finRegFresca()?"":" disabled")+">"+(novo?"Criar regra":"Salvar alterações")+"</button>"+
+'<button class="btn-cad secundario" data-acao="fin-reg-cancelar">Cancelar</button></div>'+
+'<p class="cad-nota">O botão de gravar só abre depois da prévia. É a mesma regra da importação: nada é escrito antes de você ver o efeito.</p>'+
+'<div class="fin-erro" id="finRegErro" role="alert">'+FIN_REG_ERRO+"</div></div>"}
+// A faixa que aparece depois de salvar. Ela existe para uma coisa so: oferecer
+// o `aplicar agora`. Regra criada e que nao roda e trabalho que o dono fez e
+// nao viu render.
+function finRegOkHTML(){
+var o=FIN_REG_OK;
+if(!o)return"";
+return'<div class="fin-reg-ok" role="status"><b>'+c(o.msg||"Regra salva.")+"</b>"+
+(o.forcado?'<span class="fin-reg-ok-forcado">Criada com forçar: o padrão pega mais de 60% da base.</span>':"")+
+'<button class="btn-cad" data-acao="fin-reg-aplicar-uma" data-id="'+c(o.id)+'">Aplicar agora'+(o.n?" ("+o.n+")":"")+"</button>"+
+'<button class="btn-cad secundario" data-acao="fin-sub" data-sub="regras">Ver as regras</button>'+
+'<button class="fin-reg-x" data-acao="fin-reg-ok-fechar" aria-label="Fechar aviso">×</button></div>'}
+// O retorno INTEIRO de fin_regra_aplicar. `conflitos` e o numero que nao pode
+// ser escondido: e quantas linhas casaram mais de uma regra. Conflito silencioso
+// e como o dono perde a confianca no automatico, e depois nao volta.
+// Ele sai em --morno, nunca --erro: casar duas regras e ambiguidade, nao falha.
+function finAplHTML(){
+var a=FIN_APL;
+if(!a)return"";
+var conf=Number(a.conflitos)||0,rest=Number(a.restam_nao_classificados)||0;
+var pr=(a.por_regra||[]).length?'<div class="fin-apl-lista">'+(a.por_regra||[]).map(function(x){
+return'<div class="fin-apl-lin"><span class="fin-apl-p">'+c(x.padrao||"")+"</span>"+
+'<span class="fin-apl-n">'+(Number(x.n)||0)+"</span></div>"}).join("")+"</div>":
+'<p class="cad-nota">Nenhuma regra pegou linha nenhuma nesta passada.</p>';
+return'<div class="fin-apl'+("todos"===a.alcance?" sobrepos":"")+'" role="status">'+
+'<div class="fin-apl-cab"><p class="cad-grupo">Aplicação · alcance '+
+c("todos"===a.alcance?"TODOS, sobrescreveu classificação sua":"não classificados, o seguro")+"</p>"+
+'<button class="fin-reg-x" data-acao="fin-apl-fechar" aria-label="Fechar resultado">×</button></div>'+
+'<div class="fin-reg-cels">'+
+finRegCel("classificados",a.classificados,"nesta passada","")+
+finRegCel("conflitos",conf,conf?"casaram mais de uma regra; venceu a de menor prioridade":"nenhuma linha casou duas regras",conf?"cobra":"")+
+finRegCel("sem domínio",rest,"ainda fora de todo total",rest?"cobra":"")+
+finRegCel("sem categoria",a.restam_sem_categoria,"entram no total, sem destino","")+"</div>"+
+'<p class="fin-apl-msg">'+c(a.msg||"")+"</p>"+pr+"</div>"}
+// A DECISAO PERIGOSA. `alcance: todos` sobrescreve o que o dono classificou a
+// mao, e nao tem desfazer. Ela nunca e o caminho padrao e nunca aparece sem o
+// NUMERO: o botao da linha so ABRE esta confirmacao, que antes pergunta ao
+// servidor (fin_regra_prever com so o id) quantos ja classificados ficariam
+// diferentes. Confirmar sem numero seria pedir fe.
+function finSobreporHTML(r){
+if(!FIN_SOBREPOR||FIN_SOBREPOR.id!==r.id)return"";
+var p=FIN_SOBREPOR.prev||{},dif=Number(p.casaria_ja_classificados_diferentes)||0;
+return'<div class="fin-sobrepor"><b>'+(dif?"Reaplicar por cima muda "+dif+(1===dif?" lançamento que você já classificou.":" lançamentos que você já classificou."):"Nenhum lançamento já classificado mudaria de destino.")+"</b>"+
+'<span>O botão <b>aplicar</b> só toca no que ainda não tem classificação. Este aqui reescreve a decisão que você tomou à mão, e não tem desfazer.</span>'+
+'<div class="fin-sobrepor-acoes">'+
+'<button class="fin-reg-b perigo" data-acao="fin-sobrepor-ok" data-id="'+c(r.id)+'">'+(dif?"Sobrescrever os "+dif:"Reaplicar mesmo assim")+"</button>"+
+'<button class="fin-reg-b" data-acao="fin-sobrepor-nao">Deixar como está</button></div></div>'}
+function finRegLin(r){
+var gr=r.categoria_grupo||"",pausada=!1===r.ativo;
+var hoje=Number(r.casaria_hoje)||0,ja=Number(r.aplicada_n)||0;
+var alvo=r.categoria_codigo?
+  '<span class="fin-reg-cat">'+c(r.categoria_rotulo||r.categoria_codigo)+"</span>"+
+  (gr?'<span class="fin-reg-gr">'+c(gr)+"</span>":""):
+  '<span class="fin-reg-nao">não mexe na categoria</span>';
+alvo+=r.dominio?'<span class="fin-reg-dom">'+c("empresa"===r.dominio?"Empresa":"Pessoal")+"</span>":
+  '<span class="fin-reg-nao">não mexe no domínio</span>';
+alvo+='<span class="fin-reg-prio">prioridade '+(Number(r.prioridade)||0)+"</span>"+
+  '<span class="fin-reg-origem">'+c("manual"===r.origem?"digitada":"aprendida de um lançamento")+"</span>";
+var quando=r.ultima_aplicacao?'<span class="fin-reg-quando">última vez em '+c(fmtDiaCurto(String(r.ultima_aplicacao).slice(0,10)))+"</span>":
+  '<span class="fin-reg-quando">nunca aplicada</span>';
+var editando=!!(FIN_REG_FORM&&FIN_REG_FORM.id===r.id);
+var id=c(r.id);
+return'<div class="fin-reg'+(pausada?" pausada":"")+'" data-regra="'+id+'"'+(gr?' style="--tr:'+finTrilho(gr)+'"':"")+">"+
+'<div class="fin-reg-cab">'+finRegIcone(r)+
+'<span class="fin-reg-padrao">'+c(r.padrao||"")+"</span>"+
+'<span class="fin-reg-tipo">'+c(finRegTipoRot(r.tipo_match))+"</span>"+
+// Regra pausada aparece PAUSADA, nunca sumida: o servidor devolve as nao
+// arquivadas de proposito, e regra escondida vira dado inalcancavel. --morno,
+// porque desligada e estado de trabalho, nao falha de sistema.
+(pausada?'<span class="fin-reg-selo">pausada</span>':"")+"</div>"+
+'<div class="fin-reg-alvo">'+alvo+"</div>"+
+'<div class="fin-reg-conta">'+
+'<span class="fin-reg-hoje'+(hoje?" tem":"")+'">'+hoje+(1===hoje?" esperando por ela":" esperando por ela")+"</span>"+
+'<span class="fin-reg-ja">já classificou '+ja+"</span>"+quando+"</div>"+
+'<div class="fin-reg-acoes">'+
+'<button class="fin-reg-b" data-acao="fin-reg-editar" data-id="'+id+'">editar</button>'+
+'<button class="fin-reg-b" data-acao="fin-reg-pausar" data-id="'+id+'" data-ativo="'+(pausada?"0":"1")+'">'+(pausada?"retomar":"pausar")+"</button>"+
+(pausada?"":'<button class="fin-reg-b" data-acao="fin-reg-aplicar-uma" data-id="'+id+'">aplicar</button>')+
+(pausada?"":'<button class="fin-reg-b perigo" data-acao="fin-reg-sobrepor" data-id="'+id+'">reaplicar por cima…</button>')+
+'<button class="fin-reg-b" data-acao="fin-reg-arquivar" data-id="'+id+'">arquivar</button></div>'+
+finSobreporHTML(r)+
+(editando?'<div class="fin-reg-editor">'+finRegForm()+"</div>":"")+"</div>"}
+// O vazio de hoje: zero regras. Ele nao pode so informar que esta vazio, tem
+// que ENSINAR o caminho certo, que nao passa por aqui.
+function finRegVazio(){
+return'<div class="estado"><strong>Nenhuma regra ainda.</strong>'+
+"Regra não nasce nesta tela: nasce de um lançamento real. Abra Movimentos, ache uma descrição que se repete e toque em <b>criar regra</b> na linha dela. Você classifica o Uber uma vez e mata todas as linhas de Uber."+
+'<div class="fin-vazio-acoes"><button class="btn-cad" data-acao="fin-sub" data-sub="movimentos">Ir para Movimentos</button></div></div>'}
+function finRegrasView(d){
+var regras=(d&&d.regras)||[];
+var ativas=0,pega=0,i;
+for(i=0;i<regras.length;i++){
+if(!1!==regras[i].ativo)ativas++;
+if((Number(regras[i].casaria_hoje)||0)>0)pega++}
+var pausadas=regras.length-ativas;
+var rec=regras.length+(1===regras.length?" regra":" regras")+" · "+ativas+" no ar"+
+  (pausadas?" · "+pausadas+(1===pausadas?" pausada":" pausadas"):"");
+// Os dois numeros do envelope de fin_regras(). Eles sao o placar do trabalho
+// que SOBRA, e por isso vivem no topo desta tela: e a pergunta que a aba inteira
+// existe para responder.
+var env='<div class="fin-reg-envelope">'+
+finRegCel("sem domínio",d.nao_classificados,"fora de todo total (invariante 18)",Number(d.nao_classificados)?"cobra":"")+
+finRegCel("sem categoria",d.sem_categoria,"entram no total, sem destino para onde","")+"</div>";
+var manual=FIN_REG_FORM&&!FIN_REG_FORM.movimento_id&&!FIN_REG_FORM.id;
+return'<section class="fin-regras"><div class="fin-mov-cab"><h2 class="fin-bloco-tit">Regras</h2>'+
+'<span class="fin-bloco-pe">'+c(rec)+"</span>"+
+// `aplicar todas` usa o alcance PADRAO, sempre. `todos` nao existe aqui de
+// proposito: por regra da para mostrar o numero exato de quantos ja
+// classificados mudariam; para o conjunto nao da, porque somar os numeros de
+// cada regra contaria duas vezes a linha que casa duas, e reimplementar o
+// desempate no JS seria duplicar no cliente a regra que ja mora no banco.
+(regras.length?'<button class="btn-cad" data-acao="fin-reg-aplicar">Aplicar todas</button>':"")+"</div>"+
+finRegOkHTML()+finAplHTML()+env+
+(regras.length?'<p class="cad-nota">'+(pega?pega+(1===pega?" regra tem":" regras têm")+" o que pegar agora.":"Nenhuma regra tem o que pegar agora.")+
+  " <b>Aplicar todas</b> usa o alcance seguro: só mexe no que ainda não está classificado.</p>":"")+
+'<div class="fin-reg-lista">'+(regras.length?regras.map(finRegLin).join(""):finRegVazio())+"</div>"+
+'<div class="fin-reg-pe">'+(manual?finRegForm():
+  '<button class="btn-cad secundario" data-acao="fin-reg-nova">+ regra na mão</button>'+
+  '<p class="cad-nota">O caminho normal é criar a regra a partir de uma linha. Este aqui existe para quando o servidor não consegue extrair o nome da descrição e manda digitar na mão.</p>')+"</div></section>"}
+// ---- escrita das regras ----------------------------------------------------
+async function finRegPrever(btn){
+var f=FIN_REG_FORM;
+if(!f)return;
+if(!f.padrao)return void finRegErro(c("Escreva o padrão a casar."));
+// As quatro chaves vao SEMPRE, com null quando vazias: com `id` no payload o
+// servidor herda tudo que a chave nao trouxer, entao omitir `dominio` diria
+// "mantem o que ja esta la" e nao "esta regra nao mexe no dominio".
+var pl={padrao:f.padrao,tipo_match:f.tipo_match||"contem",
+categoria_codigo:f.categoria_codigo||null,dominio:f.dominio||null};
+if(f.id)pl.id=f.id;
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_prever",{payload:pl});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void finRegErro(c("Falha: "+r.error.message))}
+var d=r.data;
+if(!d||!1===d.ok){
+FIN_REG_PREV=null;
+finRegPintarPrev();
+return void finRegErro(c((d&&(d.erro||d.msg))||"Não consegui prever o efeito."))}
+d.__sig=finRegSig(f);
+FIN_REG_PREV=d;
+finRegErro("");
+finRegPintarPrev()}
+async function finRegSalvar(f,forcar,btn){
+var pl={padrao:f.padrao,tipo_match:f.tipo_match||"contem",
+categoria_codigo:f.categoria_codigo||null,dominio:f.dominio||null,
+prioridade:f.prioridade||"100"};
+if(f.id)pl.id=f.id;else pl.origem=f.origem||"aprendida";
+if(forcar)pl.forcar=!0;
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_salvar",{payload:pl});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void finRegErro(c("Falha: "+r.error.message))}
+var d=r.data;
+if(!d||!1===d.ok){
+// A trava do padrao amplo demais (mais de 60% da base) volta com pode_forcar.
+// O numero aparece e o botao fica ao lado: a tela nao esconde a recusa e nao
+// forca sozinha.
+if(d&&!0===d.pode_forcar)
+return void finRegErro(c(d.erro||"Padrão amplo demais.")+
+  '<button class="btn-acao" data-acao="fin-reg-forcar">Criar assim mesmo, pegando '+
+  c(String(d.casaria_total||0))+" de "+c(String(d.base_total||0))+"</button>");
+return void finRegErro(c((d&&(d.erro||d.msg))||"Regra recusada"))}
+FIN_REG_OK={id:d.id,padrao:d.padrao||f.padrao,msg:d.msg||"Regra salva.",
+n:Number(d.casaria_nao_classificados)||0,forcado:!0===d.forcado};
+FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_REG_ERRO="";FIN_REGRAS=null;
+I(d.msg||"Regra salva");
+renderFinanceiro(!0)}
+// pausar, retomar e arquivar mandam SO o que muda: chave ausente nao mexe no
+// campo, e o servidor herda o resto da regra que ja esta gravada.
+//
+// `forcar` vai junto no pausar de proposito, e nao e conveniencia: a trava dos
+// 60% roda de novo em todo salvar com id, entao uma regra que o dono ja forcou
+// conscientemente ficaria IMPOSSIVEL de desligar. Travar o desligamento de uma
+// regra ampla e o contrario do que a trava existe para proteger. Nao ha risco de
+// criar coisa nova: com id no payload o caminho e sempre UPDATE.
+async function finRegSalvarSimples(pl,btn){
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_salvar",{payload:pl});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+r.error.message,!0)}
+var d=r.data;
+if(!d||!1===d.ok)return void I((d&&(d.erro||d.msg))||"Operação recusada",!0);
+FIN_REGRAS=null;FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_SOBREPOR=null;
+I(d.msg||"Regra atualizada");
+renderFinanceiro(!0)}
+async function finRegAplicar(pl,btn){
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_aplicar",{payload:pl});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+r.error.message,!0)}
+var d=r.data;
+if(!d||!1===d.ok)return void I((d&&(d.erro||d.msg))||"Aplicação recusada",!0);
+FIN_APL=d;FIN_REG_OK=null;FIN_REGRAS=null;FIN_SOBREPOR=null;
+I(d.msg||"Regras aplicadas");
+renderFinanceiro(!0)}
+async function finRegDaLinha(mid,btn){
+FIN_REG_ERRO="";FIN_REG_PREV=null;FIN_REG_OK=null;FIN_APL=null;
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_sugerir",{payload:{movimento_id:mid}});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+r.error.message,!0)}
+var d=r.data;
+// Quando o servidor nao consegue extrair um padrao util, ele mesmo manda
+// digitar na mao. A tela ABRE o formulario vazio com o recado dele, em vez de
+// mostrar um toast que some e deixar o dono sem saida.
+if(!d||!1===d.ok){
+FIN_REG_FORM={id:null,movimento_id:mid,descricao:"",padrao:"",tipo_match:"contem",
+categoria_codigo:"",dominio:"",prioridade:"100",origem:"manual",achado:null};
+FIN_REG_ERRO=c((d&&(d.erro||d.msg))||"Não consegui extrair um padrão desta descrição.");
+return void renderFinanceiro(!0)}
+FIN_REG_FORM={id:null,movimento_id:mid,descricao:d.descricao||"",padrao:d.padrao||"",
+tipo_match:d.tipo_match||"contem",categoria_codigo:"",dominio:"",prioridade:"100",
+origem:d.origem||"aprendida",
+achado:{padrao:d.padrao||"",msg:d.msg||"",fallback:!0===d.fallback,
+casaria_n:Number(d.casaria_n)||0,exemplos:d.exemplos||[]}};
+renderFinanceiro(!0)}
+async function finRegSobrepor(rid,btn){
+if(btn)btn.disabled=!0;
+var r=await t.rpc("fin_regra_prever",{payload:{id:rid}});
+if(btn)btn.disabled=!1;
+if(r.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+r.error.message,!0)}
+var d=r.data;
+if(!d||!1===d.ok)return void I((d&&(d.erro||d.msg))||"Não consegui medir o efeito",!0);
+FIN_SOBREPOR={id:rid,prev:d};
 renderFinanceiro(!0)}
 // ---- delegado --------------------------------------------------------------
 // UM ponto de entrada para todo data-acao que comeca com "fin-": o A() do bloco
 // minificado ganha uma linha so, e toda a logica desta aba mora aqui, legivel.
+// Trocar de sub-view, de mes, de dominio ou de filtro pode fazer a LINHA de
+// onde o formulario nasceu sumir da lista. Formulario preso a uma linha que nao
+// existe mais e um fantasma: fecha junto, com a previa e a confirmacao de
+// sobrescrita, que so valem para o que estava na tela.
+function finRegFechar(){
+FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_REG_ERRO="";FIN_SOBREPOR=null}
 async function finAcao(acao,id,el){
-if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};return void renderFinanceiro()}
-if("fin-dom"===acao){FIN_DOM=el.getAttribute("data-dom")||"tudo";FIN_SEL={};return void renderFinanceiro()}
+if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+if("fin-dom"===acao){FIN_DOM=el.getAttribute("data-dom")||"tudo";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-mes"===acao){
 FIN_MES=vgMesMais(finMes(),parseInt(el.getAttribute("data-delta"),10)||0);
-FIN_SEL={};FIN_AVISO="";return void renderFinanceiro()}
-if("fin-ir-nc"===acao){FIN_SUB="movimentos";FIN_STATUS="nao_classificados";FIN_SEL={};return void renderFinanceiro()}
+FIN_SEL={};FIN_AVISO="";finRegFechar();return void renderFinanceiro()}
+if("fin-ir-nc"===acao){FIN_SUB="movimentos";FIN_STATUS="nao_classificados";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-so-nc"===acao){
 FIN_STATUS="nao_classificados"===FIN_STATUS?"todos":"nao_classificados";
-FIN_SEL={};return void renderFinanceiro()}
+FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-sel"===acao){
 if(el.checked)FIN_SEL[id]=1;else delete FIN_SEL[id];
 var lin=el.closest?el.closest(".fin-lin"):null;
@@ -1094,7 +1511,66 @@ finLancErro("");
 await finLancar(rep,el);
 return}
 if("fin-imp-limpar"===acao){FIN_PREVIA=null;return void renderFinanceiro(!0)}
-if("fin-imp-ok"===acao){await finImportar(el);return}}
+if("fin-imp-ok"===acao){await finImportar(el);return}
+// ---- Fatia 2: regras ----
+if("fin-reg-de-lin"===acao){await finRegDaLinha(id,el);return}
+if("fin-reg-nova"===acao){
+FIN_REG_ERRO="";FIN_REG_PREV=null;FIN_REG_OK=null;FIN_APL=null;
+FIN_REG_FORM={id:null,movimento_id:null,descricao:"",padrao:"",tipo_match:"contem",
+categoria_codigo:"",dominio:"",prioridade:"100",origem:"manual",achado:null};
+return void renderFinanceiro(!0)}
+if("fin-reg-editar"===acao){
+var regs=(FIN_REGRAS&&FIN_REGRAS.regras)||[],rg=null,ri;
+for(ri=0;ri<regs.length;ri++)if(regs[ri].id===id){rg=regs[ri];break}
+if(!rg)return void I("Regra não encontrada na lista carregada",!0);
+FIN_REG_ERRO="";FIN_REG_PREV=null;FIN_REG_OK=null;FIN_APL=null;FIN_SOBREPOR=null;
+FIN_REG_FORM={id:rg.id,movimento_id:null,descricao:"",padrao:rg.padrao||"",
+tipo_match:rg.tipo_match||"contem",categoria_codigo:rg.categoria_codigo||"",
+dominio:rg.dominio||"",prioridade:String(null==rg.prioridade?"100":rg.prioridade),
+origem:rg.origem||"aprendida",achado:null};
+return void renderFinanceiro(!0)}
+if("fin-reg-cancelar"===acao){
+FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_REG_ERRO="";
+return void renderFinanceiro(!0)}
+if("fin-reg-prever"===acao){
+// O delegado de #lista escuta click E change, e um <select> dispara os dois.
+// No click o valor ainda e o VELHO: sem comparar com data-atual, a previa
+// sairia com a escolha anterior e so a segunda chamada acertaria.
+var at=el&&el.getAttribute?el.getAttribute("data-atual"):null;
+if(null!==at&&el.value===at)return;
+if(el&&el.setAttribute&&null!==at)el.setAttribute("data-atual",el.value);
+if(!finRegColher())return;
+await finRegPrever(el);
+return}
+if("fin-reg-salvar"===acao){
+var fs=finRegColher();
+if(!fs)return;
+if(!finRegFresca())return void finRegErro(c("Veja o efeito antes de gravar: a prévia é obrigatória."));
+await finRegSalvar(fs,!1,el);
+return}
+if("fin-reg-forcar"===acao){
+if(!FIN_REG_FORM)return;
+await finRegSalvar(FIN_REG_FORM,!0,el);
+return}
+if("fin-reg-pausar"===acao){
+await finRegSalvarSimples({id:id,ativo:"1"!==el.getAttribute("data-ativo"),forcar:!0},el);
+return}
+if("fin-reg-arquivar"===acao){
+if(!window.confirm("Arquivar esta regra? Ela para de classificar daqui pra frente. O que ela já classificou fica exatamente como está."))return;
+await finRegSalvarSimples({id:id,arquivar:!0},el);
+return}
+// ids ausente = todas as ativas. `ids: []` e ERRO no servidor, nunca "todas":
+// por isso o caminho de todas manda payload VAZIO, e nunca uma lista vazia.
+if("fin-reg-aplicar"===acao){await finRegAplicar({},el);return}
+if("fin-reg-aplicar-uma"===acao){await finRegAplicar({ids:[id]},el);return}
+if("fin-reg-sobrepor"===acao){await finRegSobrepor(id,el);return}
+if("fin-sobrepor-nao"===acao){FIN_SOBREPOR=null;return void renderFinanceiro(!0)}
+if("fin-sobrepor-ok"===acao){
+FIN_SOBREPOR=null;
+await finRegAplicar({ids:[id],alcance:"todos"},el);
+return}
+if("fin-reg-ok-fechar"===acao){FIN_REG_OK=null;return void renderFinanceiro(!0)}
+if("fin-apl-fechar"===acao){FIN_APL=null;return void renderFinanceiro(!0)}}
 function finPintarLote(){
 var caixa=E("finLote");
 if(!caixa)return;
@@ -1150,6 +1626,19 @@ var dm=rm.data;
 if(!dm||!1===dm.ok)corpo='<div class="estado erro">'+c(dm&&dm.msg||"Falha ao ler os movimentos.")+"</div>";
 else{FIN_MOV=dm;corpo=finMovimentos(dm,jn)}}}
 else if("importar"===FIN_SUB)corpo=finImportarView();
+else if("regras"===FIN_SUB){
+// fin_regras() e relida so quando FIN_REGRAS foi invalidada (salvar, aplicar,
+// arquivar, importar). Ela carrega um casaria_hoje por regra, que e uma
+// contagem por linha no servidor: reler a cada repintura seria caro e mostraria
+// sempre a mesma resposta.
+if(!FIN_REGRAS){
+var rr=await t.rpc("fin_regras",{});
+if(rr.error)corpo=estadoErro("as regras",rr.error.message);
+else{
+var dr=rr.data;
+if(!dr||!1===dr.ok)corpo='<div class="estado erro">'+c(dr&&dr.msg||"Falha ao ler as regras.")+"</div>";
+else FIN_REGRAS=dr}}
+if(!corpo)corpo=finRegrasView(FIN_REGRAS)}
 else corpo=finVisao(d,jn);
 e.innerHTML=finTopo(jn,d)+corpo;
 finLigar()}

@@ -345,10 +345,103 @@ var FIN_MOVS = [
   { id: 'f5', data: '2026-08-15', descricao: 'SEM CATEGORIA MAS COM LADO', valor: -580,
     categoria_codigo: null, dominio: 'empresa', origem: 'extrato' },
   { id: 'f6', data: '2026-08-14', descricao: 'APLICACAO CDB', valor: -5000,
-    categoria_codigo: 'aplicacao', dominio: 'empresa', origem: 'extrato' }];
+    categoria_codigo: 'aplicacao', dominio: 'empresa', origem: 'extrato' },
+  // A repeticao REAL da base do dono, em miniatura. Na base viva sao 27 linhas
+  // de UBER DO BRASIL TECNOLOGIA LTDA: 22 gastos e 5 REEMBOLSOS positivos. Aqui
+  // sao 4 (3 gastos + 1 estorno), e os 4 casos que a Fatia 2 pode errar estao
+  // todos representados:
+  //   f7-f9  sem classificacao  -> casaria_nao_classificados, e o que aplicar muda
+  //   f10    ja classificado como OUTRA coisa -> casaria_ja_classificados_diferentes
+  //   f10    valor POSITIVO numa categoria de saida -> incoerencia_sinal_n
+  //   f10    tem CPF/CNPJ no fim -> exercita a extracao "segmento antes do CNPJ"
+  { id: 'f7', data: '2026-08-13', descricao: 'Compra no debito - UBER DO BRASIL TECNOLOGIA LTDA',
+    valor: -27.9, categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f8', data: '2026-08-12', descricao: 'Compra no debito - UBER DO BRASIL TECNOLOGIA LTDA',
+    valor: -19.5, categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f9', data: '2026-08-11', descricao: 'Compra no debito - UBER DO BRASIL TECNOLOGIA LTDA',
+    valor: -42.3, categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f10', data: '2026-08-10', descricao: 'Estorno - UBER DO BRASIL TECNOLOGIA LTDA - 12.345.678/0001-90',
+    valor: 15.4, categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' }];
+// ---- Fatia 2: regras de classificacao (26/08/2026) ----
+// O stub implementa o CASAMENTO DE VERDADE (normalizar sem acento, subir para
+// maiuscula, contem/comeca/exato) sobre o mesmo FIN_MOVS que a tela le, e MUTA
+// o fixture quando aplica. Stub que devolvesse contagem inventada cegaria
+// justamente as assercoes que existem para provar "pega outros 3", "conflitos"
+// e "casaria_ja_classificados_diferentes".
+//
+// O que ele NAO reproduz e a extracao de nome do fin_regra_sugerir na forma
+// completa: aqui esta a regra DOCUMENTADA (segmento imediatamente antes do
+// CPF/CNPJ; sem CPF/CNPJ, o segundo segmento), que e a que a base do dono
+// exercita. A autoridade sobre a extracao e do banco, que tem prova propria.
+var FIN_REGRAS_FX = [];
+var FIN_REG_SEQ = 0;
+// O limite dos 60%% e do SERVIDOR. Com 12 lancamentos no fixture, nenhum padrao
+// realista casa 8 deles, entao a trava ficaria sem prova nenhuma. O interruptor
+// abaixo desce o corte para 25%% e a regra do Uber (4 de 12) o cruza com NUMEROS
+// REAIS: o que se prova aqui e o que a TELA faz com a recusa (mostra o numero e
+// oferece o botao), nao o valor do corte, que e provado no banco.
+function finLimAmplo() { return window.__FIN_AMPLO ? 25 : 60; }
+function finNorm(x) {
+  return String(x == null ? '' : x).normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').toUpperCase();
+}
+function finUteis(x) { return finNorm(x).replace(/[^A-Z0-9]/g, '').length; }
+function finCasa(alvo, padrao, tipo) {
+  var a = finNorm(alvo), p = finNorm(padrao);
+  if (tipo === 'exato') return a === p;
+  if (tipo === 'comeca') return a.indexOf(p) === 0;
+  return a.indexOf(p) >= 0;
+}
+function finTexto(m) { return m.descricao_original || m.descricao || ''; }
+function finCasam(padrao, tipo) {
+  return FIN_MOVS.filter(function (m) { return finCasa(finTexto(m), padrao, tipo); });
+}
+function finExemplos(lista) {
+  return lista.map(finTexto).filter(function (v, i, a) { return a.indexOf(v) === i; })
+              .sort().slice(0, 5);
+}
+// menor prioridade ganha; desempate por padrao mais LONGO (mais especifico).
+function finRegAtivas(ids) {
+  return FIN_REGRAS_FX.filter(function (r) {
+    if (r.arquivado_em || !r.ativo) return false;
+    return !ids || ids.indexOf(r.id) >= 0;
+  }).sort(function (a, b) {
+    if (a.prioridade !== b.prioridade) return a.prioridade - b.prioridade;
+    return b.padrao.length - a.padrao.length;
+  });
+}
+// `conflitos` conta a LINHA que casou mais de uma regra, nao o par de regras.
+function finAplicarRegras(ids, alvo, alcance) {
+  var regras = finRegAtivas(ids), n = 0, conf = 0, porRegra = {};
+  (alvo || FIN_MOVS).forEach(function (m) {
+    var casou = regras.filter(function (r) { return finCasa(finTexto(m), r.padrao, r.tipo_match); });
+    if (!casou.length) return;
+    if (casou.length > 1) conf++;
+    var r = casou[0], mudou = false;
+    if (r.categoria_codigo && (alcance === 'todos' || !m.categoria_codigo) &&
+        m.categoria_codigo !== r.categoria_codigo) { m.categoria_codigo = r.categoria_codigo; mudou = true; }
+    if (r.dominio && (alcance === 'todos' || !m.dominio) &&
+        m.dominio !== r.dominio) { m.dominio = r.dominio; mudou = true; }
+    if (!mudou) return;
+    n++; r.aplicada_n++; r.ultima_aplicacao = '2026-08-26T12:00:00Z';
+    porRegra[r.id] = (porRegra[r.id] || 0) + 1;
+  });
+  var pr = Object.keys(porRegra).map(function (k) {
+    var r = FIN_REGRAS_FX.filter(function (x) { return x.id === k; })[0];
+    return { id: k, padrao: r ? r.padrao : '', n: porRegra[k] };
+  });
+  return { classificados: n, por_regra: pr, conflitos: conf };
+}
+function finRestam() {
+  return { dom: FIN_MOVS.filter(function (m) { return !m.dominio; }).length,
+           cat: FIN_MOVS.filter(function (m) { return !m.categoria_codigo; }).length };
+}
 window.__finClassificar = [];
 window.__finLancar = [];
 window.__finImportar = [];
+window.__finRegSalvar = [];
+window.__finRegAplicar = [];
+window.__finRegPrever = [];
 window.__uploads = [];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
@@ -805,10 +898,232 @@ window.supabase = {
           if (fiP.arquivo && fiP.arquivo.indexOf('t-prova/') !== 0)
             return Promise.resolve({ data: { ok: false, erro: 'Caminho de arquivo fora da pasta do tenant.' }, error: null });
           var fiIt = fiP.itens || [];
+          // Fatia 2: a importacao ja aplica as regras nos RECEM-INSERIDOS, no
+          // alcance seguro, e devolve o que pegou. Aqui o casamento roda sobre
+          // as descricoes que estao ENTRANDO (elas ainda nao viraram FIN_MOVS
+          // neste stub), com as mesmas regras vivas: e o dividendo do trabalho
+          // passado, que a sub-view Importar precisa mostrar.
+          var fiNovos = fiIt.map(function (x, ix) {
+            return { id: 'imp-' + ix, descricao: x.descricao, valor: parseFloat(x.valor) || 0,
+                     categoria_codigo: null, dominio: null }; });
+          var fiReg = finAplicarRegras(null, fiNovos, 'nao_classificados');
           return Promise.resolve({ data: { ok: true, importacao_id: 'imp1',
             novas: fiIt.length, duplicadas: 0, lidas: fiIt.length,
             periodo_ini: fiP.periodo_ini || null, periodo_fim: fiP.periodo_fim || null,
-            msg: fiIt.length + ' lancamentos novos, 0 ja existiam.' }, error: null });
+            classificados: fiReg.classificados, classificados_por_regra: fiReg.por_regra,
+            conflitos: fiReg.conflitos,
+            msg: fiIt.length + ' lancamentos novos, 0 ja existiam.' +
+              (fiReg.classificados === 0 ? ''
+               : fiReg.classificados === 1 ? ' 1 ja nasceu classificado pelas regras.'
+               : ' ' + fiReg.classificados + ' ja nasceram classificados pelas regras.') }, error: null });
+        }
+        if (nome === 'fin_regra_sugerir') {
+          var sgP = args.payload || {};
+          var sgM = FIN_MOVS.filter(function (x) { return x.id === sgP.movimento_id; })[0];
+          if (!sgM)
+            return Promise.resolve({ data: { ok: false, erro: 'Lancamento nao encontrado.' }, error: null });
+          var sgT = String(finTexto(sgM)).replace(/\s+/g, ' ').trim();
+          var sgSeg = sgT.split(' - '), sgIdx = -1, sgK;
+          for (sgK = 0; sgK < sgSeg.length; sgK++)
+            if (/^[0-9•][0-9•.\/-]{5,}$/.test(sgSeg[sgK])) { sgIdx = sgK; break; }
+          var sgNome = sgIdx >= 1 ? sgSeg[sgIdx - 1] : (sgSeg.length >= 2 ? sgSeg[1] : sgSeg[0]);
+          sgNome = sgNome.replace(/^[0-9]{2}\.[0-9]{3}\.[0-9]{3} +/, '')
+                         .replace(/\s+[0-9]{4,}$/, '').replace(/[ .,\-\/]+$/, '').trim();
+          var sgFall = false;
+          if (finUteis(sgNome) < 3) {
+            sgNome = sgT.replace(/[0-9]/g, '').replace(/\s+/g, ' ').trim();
+            sgFall = true;
+          }
+          if (finUteis(sgNome) < 3)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Nao consegui extrair um padrao util desta descricao. Digite a regra na mao.' }, error: null });
+          var sgCs = finCasam(sgNome, 'contem');
+          return Promise.resolve({ data: { ok: true, movimento_id: sgM.id, descricao: finTexto(sgM),
+            padrao: sgNome, tipo_match: 'contem', origem: 'aprendida', fallback: sgFall,
+            casaria_n: sgCs.length,
+            casaria_nao_classificados: sgCs.filter(function (m) { return !m.dominio || !m.categoria_codigo; }).length,
+            exemplos: finExemplos(sgCs),
+            msg: sgCs.length <= 1 ? 'Essa regra pega so este lancamento por enquanto.'
+                                  : 'Essa regra pega outros ' + (sgCs.length - 1) + '.' }, error: null });
+        }
+        if (nome === 'fin_regra_prever') {
+          var pvP = args.payload || {};
+          window.__finRegPrever.push(JSON.parse(JSON.stringify(pvP)));
+          var pvBase = FIN_MOVS.length;
+          var pvR = pvP.id ? FIN_REGRAS_FX.filter(function (x) { return x.id === pvP.id; })[0] : null;
+          if (pvP.id && !pvR)
+            return Promise.resolve({ data: { ok: false, erro: 'Regra nao encontrada.' }, error: null });
+          // com `id`, toda chave AUSENTE herda da regra gravada. E o que permite
+          // a tela chamar so com {id} para medir o efeito de sobrescrever.
+          var pvPad = pvP.padrao || (pvR ? pvR.padrao : null);
+          var pvTip = pvP.tipo_match || (pvR ? pvR.tipo_match : 'contem');
+          var pvCat = Object.prototype.hasOwnProperty.call(pvP, 'categoria_codigo')
+            ? (pvP.categoria_codigo || null) : (pvR ? pvR.categoria_codigo : null);
+          var pvDom = Object.prototype.hasOwnProperty.call(pvP, 'dominio')
+            ? (pvP.dominio || null) : (pvR ? pvR.dominio : null);
+          if (!pvPad)
+            return Promise.resolve({ data: { ok: false, erro: 'Informe o padrao a casar.' }, error: null });
+          var pvNat = null;
+          if (pvCat) {
+            var pvC = FIN_CATS.filter(function (y) { return y.codigo === pvCat; })[0];
+            if (!pvC)
+              return Promise.resolve({ data: { ok: false, erro: 'Categoria inexistente ou desativada: ' + pvCat }, error: null });
+            pvNat = pvC.natureza_esperada;
+          }
+          var pvCs = finCasam(pvPad, pvTip);
+          var pvNc = 0, pvJc = 0, pvJcd = 0, pvSob = 0, pvInc = 0;
+          pvCs.forEach(function (m) {
+            var mudaNc = (pvDom && !m.dominio) || (pvCat && !m.categoria_codigo);
+            var dif = (pvDom && m.dominio && m.dominio !== pvDom) ||
+                      (pvCat && m.categoria_codigo && m.categoria_codigo !== pvCat);
+            if (mudaNc) pvNc++; else { pvJc++; if (dif) pvJcd++; }
+            if (dif) pvSob++;
+            if ((pvNat === 'entrada' && m.valor < 0) || (pvNat === 'saida' && m.valor > 0)) pvInc++;
+          });
+          var pvPct = pvBase ? Math.round(1000 * pvCs.length / pvBase) / 10 : 0;
+          var pvAv = [];
+          if (finUteis(pvPad) < 3) pvAv.push('Padrao curto demais: menos de 3 caracteres uteis.');
+          if (pvBase > 0 && pvCs.length * 100 > pvBase * finLimAmplo())
+            pvAv.push('Padrao generico demais: casa ' + pvPct + '%% da base (' + pvCs.length + ' de ' + pvBase + ').');
+          if (pvJcd > 0) pvAv.push(pvJcd + ' ja tem classificacao DIFERENTE. Aplicar com alcance todos sobrescreve a sua decisao.');
+          if (pvInc > 0) pvAv.push(pvInc + ' com sinal contrario ao esperado da categoria (' + pvNat + ').');
+          if (!pvCs.length) pvAv.push('Nenhum lancamento casa com este padrao hoje.');
+          return Promise.resolve({ data: { ok: true, padrao: pvPad, tipo_match: pvTip,
+            categoria_codigo: pvCat, dominio: pvDom, base_total: pvBase,
+            casaria_total: pvCs.length, casaria_pct: pvPct,
+            casaria_nao_classificados: pvNc, casaria_ja_classificados: pvJc,
+            casaria_ja_classificados_diferentes: pvJcd, sobrescreveria_diferente: pvSob,
+            incoerencia_sinal_n: pvInc, exemplos: finExemplos(pvCs), avisos: pvAv }, error: null });
+        }
+        if (nome === 'fin_regra_salvar') {
+          var svP = args.payload || {};
+          window.__finRegSalvar.push(JSON.parse(JSON.stringify(svP)));
+          var svR = svP.id ? FIN_REGRAS_FX.filter(function (x) { return x.id === svP.id; })[0] : null;
+          if (svP.id && !svR)
+            return Promise.resolve({ data: { ok: false, erro: 'Regra nao encontrada.' }, error: null });
+          // arquivar sai ANTES de toda validacao: soft delete nunca pode ser
+          // barrado por regra de conteudo da regra que esta sendo apagada.
+          if (svR && svP.arquivar === true) {
+            svR.arquivado_em = '2026-08-26T12:00:00Z'; svR.ativo = false;
+            return Promise.resolve({ data: { ok: true, id: svR.id, arquivada: true,
+              msg: 'Regra arquivada. As classificacoes ja feitas continuam como estao.' }, error: null });
+          }
+          var svPad = svP.padrao || (svR ? svR.padrao : null);
+          var svTip = svP.tipo_match || (svR ? svR.tipo_match : 'contem');
+          var svCat = Object.prototype.hasOwnProperty.call(svP, 'categoria_codigo')
+            ? (svP.categoria_codigo || null) : (svR ? svR.categoria_codigo : null);
+          var svDom = Object.prototype.hasOwnProperty.call(svP, 'dominio')
+            ? (svP.dominio || null) : (svR ? svR.dominio : null);
+          var svPri = (svP.prioridade != null && svP.prioridade !== '')
+            ? parseInt(svP.prioridade, 10) : (svR ? svR.prioridade : 100);
+          var svAtv = (svP.ativo != null) ? !!svP.ativo : (svR ? svR.ativo : true);
+          if (!svPad)
+            return Promise.resolve({ data: { ok: false, erro: 'Informe o padrao a casar.' }, error: null });
+          if (finUteis(svPad) < 3)
+            return Promise.resolve({ data: { ok: false, erro: 'Padrao curto demais (' + finUteis(svPad) +
+              ' caractere(s) util(eis)). Use pelo menos 3: padrao curto casa o extrato inteiro.' }, error: null });
+          if (!svCat && !svDom)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'A regra precisa definir categoria, dominio, ou os dois. Regra que nao classifica nada e ruido.' }, error: null });
+          if (svCat && !FIN_CATS.filter(function (y) { return y.codigo === svCat; })[0])
+            return Promise.resolve({ data: { ok: false, erro: 'Categoria inexistente ou desativada: ' + svCat }, error: null });
+          if (isNaN(svPri) || svPri < 0 || svPri > 9999)
+            return Promise.resolve({ data: { ok: false, erro: 'Prioridade fora da faixa: use de 0 a 9999.' }, error: null });
+          var svCasa = finCasam(svPad, svTip), svBase = FIN_MOVS.length;
+          var svAmplo = svBase > 0 && svCasa.length * 100 > svBase * finLimAmplo();
+          if (svAmplo && svP.forcar !== true)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Padrao generico demais: "' + svPad + '" casa ' + svCasa.length + ' de ' + svBase +
+                    ' lancamentos (' + (Math.round(1000 * svCasa.length / svBase) / 10) +
+                    '%%). Uma regra assim classifica quase tudo igual e apaga a distincao entre os gastos. ' +
+                    'Use o nome da contraparte. Se for mesmo o que voce quer, reenvie com forcar: true.',
+              casaria_total: svCasa.length, base_total: svBase, pode_forcar: true }, error: null });
+          var svDup = FIN_REGRAS_FX.filter(function (x) {
+            return !x.arquivado_em && x.id !== (svP.id || null) &&
+                   finNorm(x.padrao) === finNorm(svPad) && x.tipo_match === svTip; })[0];
+          if (svDup)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Ja existe uma regra ativa com este padrao e este tipo de casamento.' }, error: null });
+          var svNovo = !svR;
+          if (svNovo) {
+            FIN_REG_SEQ++;
+            svR = { id: 'reg' + FIN_REG_SEQ, aplicada_n: 0, ultima_aplicacao: null,
+                    criado_em: '2026-08-26T12:00:00Z', arquivado_em: null,
+                    origem: svP.origem || 'aprendida' };
+            FIN_REGRAS_FX.push(svR);
+          }
+          svR.padrao = svPad; svR.tipo_match = svTip; svR.categoria_codigo = svCat;
+          svR.dominio = svDom; svR.prioridade = svPri; svR.ativo = svAtv;
+          if (svP.origem) svR.origem = svP.origem;
+          var svNc = svCasa.filter(function (m) {
+            return (svDom && !m.dominio) || (svCat && !m.categoria_codigo); }).length;
+          return Promise.resolve({ data: { ok: true, id: svR.id, criada: svNovo, padrao: svPad,
+            casaria_total: svCasa.length, casaria_nao_classificados: svNc,
+            forcado: svAmplo && svP.forcar === true,
+            msg: (svNovo ? 'Regra criada. ' : 'Regra atualizada. ') +
+                 (svNc === 0 ? 'Nenhum lancamento pendente para ela agora.'
+                  : svNc === 1 ? 'Ela classifica 1 lancamento ainda nao classificado.'
+                  : 'Ela classifica ' + svNc + ' lancamentos ainda nao classificados.') }, error: null });
+        }
+        if (nome === 'fin_regra_aplicar') {
+          var apP = args.payload || {};
+          window.__finRegAplicar.push(JSON.parse(JSON.stringify(apP)));
+          var apAlc = apP.alcance || 'nao_classificados';
+          if (apAlc !== 'nao_classificados' && apAlc !== 'todos')
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Alcance invalido: use nao_classificados (padrao) ou todos.' }, error: null });
+          var apIds = null;
+          if (Object.prototype.hasOwnProperty.call(apP, 'ids') && apP.ids != null) {
+            if (!(apP.ids instanceof Array))
+              return Promise.resolve({ data: { ok: false, erro: 'ids deve ser uma lista.' }, error: null });
+            // `ids: []` e ERRO, nunca "todas": mandar lista vazia querendo dizer
+            // "tudo" e como um DELETE sem WHERE virar DELETE de nada por sorte.
+            if (!apP.ids.length)
+              return Promise.resolve({ data: { ok: false,
+                erro: 'Lista de regras vazia. Omita a chave ids para aplicar todas as ativas.' }, error: null });
+            apIds = apP.ids;
+          }
+          var apRest0 = finRestam();
+          if (!finRegAtivas(null).length)
+            return Promise.resolve({ data: { ok: true, alcance: apAlc, classificados: 0,
+              por_regra: [], conflitos: 0, restam_nao_classificados: apRest0.dom,
+              restam_sem_categoria: apRest0.cat,
+              msg: 'Nenhuma regra ativa. Nada foi alterado.' }, error: null });
+          var apR = finAplicarRegras(apIds, null, apAlc);
+          var apRest = finRestam();
+          return Promise.resolve({ data: { ok: true, alcance: apAlc,
+            classificados: apR.classificados, por_regra: apR.por_regra, conflitos: apR.conflitos,
+            restam_nao_classificados: apRest.dom, restam_sem_categoria: apRest.cat,
+            msg: (apR.classificados === 0 ? 'Nada mudou: nenhum lancamento pendente casou com as regras.'
+                  : apR.classificados === 1 ? '1 lancamento classificado.'
+                  : apR.classificados + ' lancamentos classificados.') +
+                 (apAlc === 'todos' ? ' Alcance TODOS: classificacao anterior foi sobrescrita.' : '') +
+                 (apR.conflitos === 0 ? ''
+                  : apR.conflitos === 1 ? ' 1 linha casou mais de uma regra; venceu a de menor prioridade.'
+                  : ' ' + apR.conflitos + ' linhas casaram mais de uma regra; venceu a de menor prioridade.') +
+                 (apRest.dom === 0 ? ' Nada mais sem dominio.' : ' Restam ' + apRest.dom + ' sem dominio.') }, error: null });
+        }
+        if (nome === 'fin_regras') {
+          // devolve as NAO ARQUIVADAS, inclusive as desligadas: filtrar por
+          // ativo esconderia a regra pausada e ela viraria dado inalcancavel.
+          var rgRest = finRestam();
+          var rgL = FIN_REGRAS_FX.filter(function (x) { return !x.arquivado_em; }).map(function (r) {
+            var cc = FIN_CATS.filter(function (y) { return y.codigo === r.categoria_codigo; })[0];
+            return { id: r.id, padrao: r.padrao, tipo_match: r.tipo_match,
+              categoria_codigo: r.categoria_codigo,
+              categoria_rotulo: cc ? cc.rotulo : null, categoria_grupo: cc ? cc.grupo : null,
+              dominio: r.dominio, prioridade: r.prioridade, origem: r.origem, ativo: r.ativo,
+              aplicada_n: r.aplicada_n, ultima_aplicacao: r.ultima_aplicacao,
+              criado_em: r.criado_em,
+              casaria_hoje: finCasam(r.padrao, r.tipo_match).filter(function (m) {
+                return (r.dominio && !m.dominio) || (r.categoria_codigo && !m.categoria_codigo); }).length };
+          }).sort(function (a, b) {
+            if (a.prioridade !== b.prioridade) return a.prioridade - b.prioridade;
+            if (a.aplicada_n !== b.aplicada_n) return b.aplicada_n - a.aplicada_n;
+            return a.padrao < b.padrao ? -1 : a.padrao > b.padrao ? 1 : 0;
+          });
+          return Promise.resolve({ data: { ok: true, regras: rgL,
+            nao_classificados: rgRest.dom, sem_categoria: rgRest.cat }, error: null });
         }
         return Promise.resolve({ data: { ok: false, msg: 'rpc nao stubada: ' + nome }, error: null });
       },
@@ -4658,8 +4973,8 @@ async function rodar() {
      window.__rpcChamadas.some(function (r) { return r.nome === 'fin_config'; }));
 
   // ---- topo: sub-navegacao, dominio e janela declarada ------------------
-  ok('fin: sao 3 chips de sub-view, e Visao abre pressionado',
-     finQA('.fin-sub .fin-chip').length === 3 &&
+  ok('fin: sao 4 chips de sub-view, e Visao abre pressionado',
+     finQA('.fin-sub .fin-chip').length === 4 &&
      finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Visão',
      'n=' + finQA('.fin-sub .fin-chip').length);
   ok('fin: o dominio e Empresa | Pessoal | Tudo, com Tudo ligado',
@@ -4677,7 +4992,7 @@ async function rodar() {
   var fxA = finQ('.fin-alerta');
   ok('fin: a faixa de nao classificado existe', !!fxA);
   ok('fin: ela diz o VALOR e a CONTAGEM',
-     !!fxA && /R\\$ 105,50 em 1 lançamento ainda sem classificação/.test(fxA.textContent),
+     !!fxA && /R\\$ 195,20 em 4 lançamentos ainda sem classificação/.test(fxA.textContent),
      fxA ? fxA.textContent.slice(0, 80) : 'sem faixa');
   ok('fin: ela declara que os numeros abaixo IGNORAM esse valor',
      !!fxA && /Os números abaixo ignoram esse valor/.test(fxA.textContent));
@@ -4686,7 +5001,7 @@ async function rodar() {
   ok('fin: ela declara que NAO muda com o filtro Empresa/Pessoal',
      !!fxA && /não muda com o filtro Empresa\\/Pessoal/.test(fxA.textContent));
   ok('fin: e mostra a soma COM SINAL, nao so o modulo',
-     !!fxA && fxA.textContent.indexOf('R$ -105,50') >= 0,
+     !!fxA && fxA.textContent.indexOf('R$ -195,20') >= 0,
      fxA ? fxA.textContent.slice(60, 190) : 'sem faixa');
   // --erro aqui e legitimo: dado incompleto e problema de INTEGRIDADE, nao
   // gasto. E o unico lugar da aba onde o vermelho aparece por dado do dono.
@@ -4767,8 +5082,9 @@ async function rodar() {
      finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Movimentos');
   ok('fin: e ja chega com "so nao classificados" ligado',
      finQ('[data-acao="fin-so-nc"]').getAttribute('aria-pressed') === 'true');
-  ok('fin: nesse modo so o lancamento SEM dominio aparece',
-     finQA('.fin-lin').length === 1 &&
+  ok('fin: nesse modo so os lancamentos SEM dominio aparecem',
+     finQA('.fin-lin').length === 4 &&
+     finQA('.fin-lin').every(function (x) { return x.className.indexOf('nc') >= 0; }) &&
      /DEBITO NAO IDENTIFICADO/.test(finQ('.fin-lin-desc').textContent),
      'n=' + finQA('.fin-lin').length);
   // Em nao_classificados o SERVIDOR ignora o dominio. A tela diz isso em vez de
@@ -4781,8 +5097,8 @@ async function rodar() {
 
   finQ('[data-acao="fin-so-nc"]').click();
   await espera(340);
-  ok('fin: desligar o filtro devolve os 6 lancamentos da janela',
-     finQA('.fin-lin').length === 6, 'n=' + finQA('.fin-lin').length);
+  ok('fin: desligar o filtro devolve os 10 lancamentos da janela',
+     finQA('.fin-lin').length === 10, 'n=' + finQA('.fin-lin').length);
   ok('fin: a lista e newest-first',
      finQA('.fin-lin-data')[0].textContent === '20/08', finQA('.fin-lin-data')[0].textContent);
   ok('fin: saida na linha NAO sai em vermelho (gastar nao e falha)',
@@ -5104,6 +5420,406 @@ async function rodar() {
      finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Importar');
   window.__FIN_VAZIO = 0;
 
+  // ======================================================================
+  // ABA FINANCEIRO — Fatia 2: REGRAS DE CLASSIFICACAO         (26/08/2026)
+  // ======================================================================
+  // Todo numero abaixo e DETERMINISTICO no fixture: sao 12 lancamentos, 4 deles
+  // UBER (3 sem classificacao + 1 estorno positivo ja classificado como outra
+  // coisa). Esse quarto lancamento e quem faz `casaria_ja_classificados_
+  // diferentes` e `incoerencia_sinal_n` valerem 1 em vez de 0, que e a unica
+  // maneira de provar que a tela os EXIBE em vez de engolir.
+  // As assercoes consultam o DOM RENDERIZADO e a COR COMPUTADA, como as da
+  // Fatia 1.
+  window.confirm = function () { return true; };
+  window.__finRegSalvar = [];
+  window.__finRegAplicar = [];
+  window.__finRegPrever = [];
+
+  function fin2Lin(txt) {
+    var ls = finQA('.fin-lin'), k, d;
+    for (k = 0; k < ls.length; k++) {
+      d = ls[k].querySelector('.fin-lin-desc');
+      if (d && d.textContent.indexOf(txt) >= 0) return ls[k];
+    }
+    return null;
+  }
+  function fin2Cels() {
+    return finQA('.fin-reg-cels .pb-num').map(function (x) { return x.textContent; });
+  }
+  function fin2Ult(lista) { return lista.length ? lista[lista.length - 1] : {}; }
+
+  // ---- a sub-view nova, e o vazio que ENSINA o caminho certo -------------
+  finQ('.fin-sub .fin-chip[data-sub="regras"]').click();
+  await espera(430);
+  ok('fin2: o quarto chip abre a sub-view Regras',
+     finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Regras' &&
+     !!finQ('.fin-regras'),
+     finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent);
+  ok('fin2: fin_regras foi chamada',
+     window.__rpcChamadas.some(function (r) { return r.nome === 'fin_regras'; }));
+  // Ninguem abre um cadastro de regras para depois inventar padroes de cabeca.
+  // O vazio nao pode so informar que esta vazio: tem que mandar para a linha.
+  ok('fin2: a Regras vazia ENSINA que a regra nasce de um lancamento real',
+     /Regra não nasce nesta tela/.test(finTxt()) &&
+     !!finQ('.fin-reg-lista [data-acao="fin-sub"][data-sub="movimentos"]'));
+  // Os dois numeros do envelope de fin_regras() ficam no TOPO: sao o placar do
+  // trabalho que sobra, que e a pergunta que a aba inteira responde.
+  ok('fin2: o envelope traz sem dominio E sem categoria',
+     finQA('.fin-reg-envelope .pb-rot').map(function (x) { return x.textContent; }).join('|') ===
+       'sem domínio|sem categoria',
+     finQA('.fin-reg-envelope .pb-rot').map(function (x) { return x.textContent; }).join('|'));
+
+  // ---- o caminho principal: da LINHA para a regra ------------------------
+  finQ('.fin-sub .fin-chip[data-sub="movimentos"]').click();
+  await espera(430);
+  // precondicao DECLARADA em vez de herdada do bloco anterior: o filtro de nao
+  // classificados esconderia justamente a linha ja classificada que faz o
+  // `casaria_ja_classificados_diferentes` valer 1.
+  if (finQ('[data-acao="fin-so-nc"]').getAttribute('aria-pressed') === 'true') {
+    finQ('[data-acao="fin-so-nc"]').click();
+    await espera(430);
+  }
+  ok('fin2: toda linha de movimento oferece criar regra',
+     finQA('.fin-lin').length > 0 &&
+     finQA('.fin-lin').every(function (x) { return !!x.querySelector('[data-acao="fin-reg-de-lin"]'); }),
+     'linhas=' + finQA('.fin-lin').length);
+  var fx2Uber = fin2Lin('UBER DO BRASIL');
+  ok('fin2: o fixture tem a repeticao real (UBER) para a regra ter o que pegar',
+     !!fx2Uber);
+  fx2Uber.querySelector('[data-acao="fin-reg-de-lin"]').click();
+  await espera(430);
+  // o re-render troca os nos: segurar a referencia velha e olhar para um
+  // elemento que ja saiu do documento.
+  fx2Uber = fin2Lin('UBER DO BRASIL');
+  ok('fin2: criar regra chama fin_regra_sugerir com o movimento da linha',
+     window.__rpcChamadas.some(function (r) {
+       return r.nome === 'fin_regra_sugerir' && r.args && r.args.payload &&
+              r.args.payload.movimento_id === 'f7'; }),
+     JSON.stringify(window.__rpcChamadas.filter(function (r) { return r.nome === 'fin_regra_sugerir'; })));
+  ok('fin2: o formulario abre DENTRO da linha, sem tirar o dono do contexto',
+     !!fx2Uber && !!fx2Uber.querySelector('.fin-lin-form .fin-reg-form'));
+  // O achado em destaque: MUDAVENDING, pega outros 18. Aqui: 4 UBER, pega outros 3.
+  ok('fin2: o achado mostra o padrao extraido e quantos mais ele pega',
+     !!finQ('.fin-reg-achado-p') &&
+     finQ('.fin-reg-achado-p').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA' &&
+     /Essa regra pega outros 3\\./.test(finQ('.fin-reg-achado-n').textContent),
+     (finQ('.fin-reg-achado-p') ? finQ('.fin-reg-achado-p').textContent : 'sem achado') +
+       ' :: ' + (finQ('.fin-reg-achado-n') ? finQ('.fin-reg-achado-n').textContent : ''));
+  // fin_regra_sugerir NAO devolve categoria nem dominio, e a tela nao inventa:
+  // decidir o que e cada gasto e do dono (invariante 18).
+  ok('fin2: o formulario nasce SEM categoria e SEM dominio escolhidos',
+     document.getElementById('finRegCat').value === '' &&
+     document.getElementById('finRegDom').value === '',
+     document.getElementById('finRegCat').value + '|' + document.getElementById('finRegDom').value);
+  // A previa e obrigatoria, igual a da importacao: nada e gravado antes de o
+  // dono ver o efeito.
+  ok('fin2: o botao de gravar nasce TRANCADO ate existir previa',
+     finQ('[data-acao="fin-reg-salvar"]').disabled === true);
+  ok('fin2: e nada foi gravado ate aqui', window.__finRegSalvar.length === 0);
+
+  // ---- a previa: o numero ANTES da escrita -------------------------------
+  document.getElementById('finRegCat').value = 'alimentacao_fora';
+  document.getElementById('finRegCat').dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(380);
+  document.getElementById('finRegDom').value = 'pessoal';
+  document.getElementById('finRegDom').dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(380);
+  var fx2P = fin2Ult(window.__finRegPrever);
+  // Com `id` no payload o servidor herda o que a chave nao trouxer. Sem mandar
+  // as quatro chaves SEMPRE, omitir dominio diria "mantem o que ja esta la" em
+  // vez de "esta regra nao mexe no dominio".
+  ok('fin2: prever manda as quatro chaves que definem o efeito',
+     fx2P.padrao === 'UBER DO BRASIL TECNOLOGIA LTDA' && fx2P.tipo_match === 'contem' &&
+     fx2P.categoria_codigo === 'alimentacao_fora' && fx2P.dominio === 'pessoal',
+     JSON.stringify(fx2P));
+  ok('fin2: a previa aparece e diz quantos pega, quantos classifica e quantos mudam',
+     fin2Cels().join('|') === '4|3|1|1', fin2Cels().join('|'));
+  ok('fin2: e declara a base contra a qual mediu',
+     /33,3% dos 12 da base/.test(finQ('.fin-reg-cels .pb-pe').textContent),
+     finQ('.fin-reg-cels .pb-pe').textContent);
+  ok('fin2: o ja classificado que mudaria de destino e dito em voz alta',
+     /1 ficaria DIFERENTE/.test(finQ('.fin-reg-prev').textContent),
+     finQ('.fin-reg-prev').textContent.slice(0, 120));
+  // Os avisos vem PRONTOS do servidor. A tela exibe, nao reescreve: reescrever
+  // criaria uma segunda verdade sobre a mesma regra.
+  var fx2Av = finQA('.fin-reg-avisos li').map(function (x) { return x.textContent; });
+  ok('fin2: os avisos do servidor sao exibidos como vieram',
+     fx2Av.some(function (x) { return x.indexOf('ja tem classificacao DIFERENTE') >= 0; }) &&
+     fx2Av.some(function (x) { return x.indexOf('sinal contrario ao esperado da categoria (saida)') >= 0; }),
+     JSON.stringify(fx2Av));
+  // Caso real da base do dono: a regra do Uber pega os REEMBOLSOS positivos
+  // junto com os gastos. E AVISO, nao recusa, e por isso sai em --morno.
+  ok('fin2: o sinal contrario cobra em --morno, nunca na cor de falha',
+     finCor(finQA('.fin-reg-cels .pb-num')[3]) === COR_MORNO &&
+     finCor(finQA('.fin-reg-cels .pb-num')[3]) !== COR_ERRO,
+     finCor(finQA('.fin-reg-cels .pb-num')[3]));
+  // Contagem convence; texto real CONFERE. Sem as descricoes o dono aprova
+  // "pega 27" sem saber que 6 daqueles 27 sao outra coisa.
+  ok('fin2: a previa mostra as descricoes REAIS que casam',
+     finQA('.fin-reg-ex-lin').length === 2 &&
+     finQA('.fin-reg-ex-lin').some(function (x) { return /Estorno - UBER/.test(x.textContent); }),
+     'n=' + finQA('.fin-reg-ex-lin').length);
+  ok('fin2: com previa fresca o botao de gravar destranca',
+     finQ('[data-acao="fin-reg-salvar"]').disabled === false);
+
+  // ---- previa VELHA nao grava --------------------------------------------
+  // Mexer no padrao depois da previa faz o numero de cima deixar de valer.
+  // Gravar assim seria escrever com base numa conta que nao e mais a mesma.
+  document.getElementById('finRegPadrao').value = 'UBER';
+  window.__finRegSalvar = [];
+  finQ('[data-acao="fin-reg-salvar"]').click();
+  await espera(380);
+  ok('fin2: mexer na regra depois da previa BARRA a gravacao',
+     window.__finRegSalvar.length === 0 &&
+     /prévia é obrigatória/.test(document.getElementById('finRegErro').textContent),
+     document.getElementById('finRegErro').textContent.slice(0, 80));
+  document.getElementById('finRegPadrao').value = 'UBER DO BRASIL TECNOLOGIA LTDA';
+  finQ('[data-acao="fin-reg-prever"]').click();
+  await espera(400);
+
+  // ---- gravar, e so entao aplicar ----------------------------------------
+  window.__finRegSalvar = [];
+  finQ('[data-acao="fin-reg-salvar"]').click();
+  await espera(460);
+  var fx2S = fin2Ult(window.__finRegSalvar);
+  ok('fin2: salvar manda padrao, tipo, categoria, dominio, prioridade e origem',
+     fx2S.padrao === 'UBER DO BRASIL TECNOLOGIA LTDA' && fx2S.tipo_match === 'contem' &&
+     fx2S.categoria_codigo === 'alimentacao_fora' && fx2S.dominio === 'pessoal' &&
+     fx2S.prioridade === '100' && fx2S.origem === 'aprendida',
+     JSON.stringify(fx2S));
+  ok('fin2: e NAO manda forcar quando o servidor nao pediu',
+     !Object.prototype.hasOwnProperty.call(fx2S, 'forcar'), JSON.stringify(fx2S));
+  // Regra criada que nao roda e trabalho que o dono fez e nao viu render.
+  ok('fin2: depois de gravar a tela OFERECE aplicar agora, com o numero',
+     !!finQ('.fin-reg-ok [data-acao="fin-reg-aplicar-uma"]') &&
+     /Aplicar agora \\(3\\)/.test(finQ('.fin-reg-ok [data-acao="fin-reg-aplicar-uma"]').textContent),
+     finQ('.fin-reg-ok [data-acao="fin-reg-aplicar-uma"]')
+       ? finQ('.fin-reg-ok [data-acao="fin-reg-aplicar-uma"]').textContent : 'sem botao');
+  window.__finRegAplicar = [];
+  finQ('.fin-reg-ok [data-acao="fin-reg-aplicar-uma"]').click();
+  await espera(480);
+  var fx2A = fin2Ult(window.__finRegAplicar);
+  // O botao normal usa o alcance DEFAULT do servidor, sempre. `todos` nao pode
+  // vazar para o caminho comum nem por conveniencia.
+  ok('fin2: aplicar usa o alcance DEFAULT (a chave nem e enviada)',
+     !Object.prototype.hasOwnProperty.call(fx2A, 'alcance') &&
+     (fx2A.ids || []).length === 1, JSON.stringify(fx2A));
+  ok('fin2: o retorno INTEIRO aparece na tela, nao so a msg',
+     !!finQ('.fin-apl') && fin2Cels().join('|').indexOf('3|0|') === 0,
+     fin2Cels().join('|'));
+  ok('fin2: e diz por qual regra, com quantos cada uma pegou',
+     !!finQ('.fin-apl-lista .fin-apl-lin') &&
+     finQ('.fin-apl-p').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA' &&
+     finQ('.fin-apl-n').textContent === '3',
+     finQ('.fin-apl-lista') ? finQ('.fin-apl-lista').textContent : 'sem lista');
+  ok('fin2: as tres linhas de UBER ficaram classificadas DE VERDADE',
+     finQA('.fin-lin').filter(function (x) {
+       var d = x.querySelector('.fin-lin-desc');
+       return d && /Compra no debito - UBER/.test(d.textContent) &&
+              x.querySelector('.fin-sel-dom').value === 'pessoal' &&
+              x.querySelector('.fin-sel-cat').value === 'alimentacao_fora'; }).length === 3,
+     'n=' + finQA('.fin-lin').filter(function (x) {
+       var d = x.querySelector('.fin-lin-desc');
+       return d && /Compra no debito - UBER/.test(d.textContent); }).length);
+
+  // ---- a lista de regras vira acervo -------------------------------------
+  finQ('.fin-sub .fin-chip[data-sub="regras"]').click();
+  await espera(460);
+  ok('fin2: a regra aparece com padrao, categoria, grupo, dominio e prioridade',
+     finQA('.fin-reg').length === 1 &&
+     finQ('.fin-reg-padrao').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA' &&
+     finQ('.fin-reg-cat').textContent === 'Alimentação fora' &&
+     finQ('.fin-reg-gr').textContent === 'Vida' &&
+     finQ('.fin-reg-dom').textContent === 'Pessoal' &&
+     /prioridade 100/.test(finQ('.fin-reg-prio').textContent),
+     finQ('.fin-reg') ? finQ('.fin-reg').textContent.slice(0, 90) : 'sem regra');
+  // Trilho sem icone e regressao: matiz sozinho nao separa categoria de
+  // categoria, e o icone e quem carrega a distincao.
+  ok('fin2: toda linha de regra carrega ICONE',
+     finQA('.fin-reg').every(function (x) { return !!x.querySelector('.fin-reg-cab svg.tr-ico'); }));
+  ok('fin2: casaria_hoje aparece, e zerou depois de aplicar',
+     /0 esperando por ela/.test(finQ('.fin-reg-hoje').textContent),
+     finQ('.fin-reg-hoje').textContent);
+  ok('fin2: e o contador de quantos ela ja classificou vem do servidor',
+     /já classificou 3/.test(finQ('.fin-reg-ja').textContent),
+     finQ('.fin-reg-ja').textContent);
+
+  // ---- conflito: o numero que nao pode ser escondido ---------------------
+  // Segunda regra que casa o MESMO texto com prioridade maior. Ela existe para
+  // provar que `conflitos` chega na tela: conflito silencioso e como o dono
+  // perde a confianca no automatico, e depois nao volta.
+  finQ('[data-acao="fin-reg-nova"]').click();
+  await espera(430);
+  ok('fin2: existe o caminho manual, para quando o servidor nao extrai o nome',
+     !!document.getElementById('finRegPadrao') && !!finQ('.fin-reg-pe .fin-reg-form'));
+  document.getElementById('finRegPadrao').value = 'BRASIL TECNOLOGIA';
+  document.getElementById('finRegPrio').value = '200';
+  document.getElementById('finRegCat').value = 'mercado';
+  document.getElementById('finRegCat').dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(400);
+  finQ('.fin-reg-pe [data-acao="fin-reg-salvar"]').click();
+  await espera(480);
+  window.__finRegAplicar = [];
+  finQ('[data-acao="fin-reg-aplicar"]').click();
+  await espera(520);
+  var fx2T = fin2Ult(window.__finRegAplicar);
+  // ids AUSENTE = todas as ativas. `ids: []` e ERRO no servidor, nunca "todas".
+  ok('fin2: aplicar todas manda payload VAZIO, nunca uma lista de ids vazia',
+     !Object.prototype.hasOwnProperty.call(fx2T, 'ids') &&
+     !Object.prototype.hasOwnProperty.call(fx2T, 'alcance'),
+     JSON.stringify(fx2T));
+  ok('fin2: nenhuma chamada de aplicar levou ids vazio, em momento nenhum',
+     window.__finRegAplicar.every(function (x) {
+       return !x.ids || (x.ids instanceof Array && x.ids.length > 0); }),
+     JSON.stringify(window.__finRegAplicar));
+  ok('fin2: os conflitos aparecem na tela com o numero',
+     fin2Cels()[1] === '4' &&
+     /casaram mais de uma regra/.test(finQ('.fin-apl').textContent),
+     fin2Cels().join('|'));
+  // Conflito e AMBIGUIDADE, nao falha de sistema: --morno, nunca --erro.
+  ok('fin2: conflito cobra em --morno, nunca na cor de falha',
+     finCor(finQA('.fin-reg-cels .pb-num')[1]) === COR_MORNO &&
+     finCor(finQA('.fin-reg-cels .pb-num')[1]) !== COR_ERRO,
+     finCor(finQA('.fin-reg-cels .pb-num')[1]));
+
+  // ---- a decisao perigosa: alcance TODOS ---------------------------------
+  var fx2R1 = finQA('.fin-reg').filter(function (x) {
+    return x.querySelector('.fin-reg-padrao').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA'; })[0];
+  window.__finRegAplicar = [];
+  fx2R1.querySelector('[data-acao="fin-reg-sobrepor"]').click();
+  await espera(500);
+  // O botao da linha so ABRE a confirmacao. Antes de escrever qualquer coisa
+  // ele pergunta ao servidor quantos ja classificados ficariam diferentes:
+  // confirmar sem numero seria pedir fe.
+  ok('fin2: reaplicar por cima mede ANTES, chamando prever so com o id',
+     fin2Ult(window.__finRegPrever).id === 'reg1' &&
+     !Object.prototype.hasOwnProperty.call(fin2Ult(window.__finRegPrever), 'padrao'),
+     JSON.stringify(fin2Ult(window.__finRegPrever)));
+  ok('fin2: e nada foi aplicado nesse passo', window.__finRegAplicar.length === 0);
+  ok('fin2: a confirmacao DIZ o numero de lancamentos que serao sobrescritos',
+     !!finQ('.fin-sobrepor') &&
+     /muda 1 lançamento que você já classificou/.test(finQ('.fin-sobrepor b').textContent),
+     finQ('.fin-sobrepor') ? finQ('.fin-sobrepor b').textContent : 'sem confirmacao');
+  ok('fin2: o botao de confirmar carrega o numero, nao um sim generico',
+     /Sobrescrever o 1|Sobrescrever os 1/.test(finQ('[data-acao="fin-sobrepor-ok"]').textContent),
+     finQ('[data-acao="fin-sobrepor-ok"]').textContent);
+  finQ('[data-acao="fin-sobrepor-ok"]').click();
+  await espera(520);
+  var fx2Sb = fin2Ult(window.__finRegAplicar);
+  ok('fin2: so a confirmacao explicita manda alcance todos',
+     fx2Sb.alcance === 'todos' && (fx2Sb.ids || []).length === 1,
+     JSON.stringify(fx2Sb));
+  ok('fin2: e a tela declara que sobrescreveu, em vez de deixar silencioso',
+     !!finQ('.fin-apl.sobrepos') &&
+     /sobrescreveu classificação sua/.test(finQ('.fin-apl').textContent),
+     finQ('.fin-apl') ? finQ('.fin-apl').textContent.slice(0, 90) : 'sem bloco');
+
+  // ---- pausar e arquivar --------------------------------------------------
+  fx2R1 = finQA('.fin-reg').filter(function (x) {
+    return x.querySelector('.fin-reg-padrao').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA'; })[0];
+  window.__finRegSalvar = [];
+  fx2R1.querySelector('[data-acao="fin-reg-pausar"]').click();
+  await espera(520);
+  var fx2Pa = fin2Ult(window.__finRegSalvar);
+  ok('fin2: pausar manda so o que muda, com o id',
+     fx2Pa.id === 'reg1' && fx2Pa.ativo === false &&
+     !Object.prototype.hasOwnProperty.call(fx2Pa, 'padrao'),
+     JSON.stringify(fx2Pa));
+  var fx2Ps = finQ('.fin-reg.pausada');
+  // Regra escondida vira dado inalcancavel: o servidor devolve as nao
+  // arquivadas de proposito, e a tela mostra a pausada PAUSADA.
+  ok('fin2: regra pausada aparece pausada, nao sumida',
+     !!fx2Ps && finQA('.fin-reg').length === 2 &&
+     fx2Ps.querySelector('.fin-reg-selo').textContent === 'pausada',
+     'regras=' + finQA('.fin-reg').length);
+  ok('fin2: o selo de pausada usa --morno (estado), nunca a cor de falha',
+     !!fx2Ps && finCor(fx2Ps.querySelector('.fin-reg-selo')) === COR_MORNO &&
+     finCor(fx2Ps.querySelector('.fin-reg-selo')) !== COR_ERRO,
+     fx2Ps ? finCor(fx2Ps.querySelector('.fin-reg-selo')) : 'sem selo');
+  ok('fin2: e regra pausada nao oferece aplicar nem reaplicar por cima',
+     !!fx2Ps && !fx2Ps.querySelector('[data-acao="fin-reg-aplicar-uma"]') &&
+     !fx2Ps.querySelector('[data-acao="fin-reg-sobrepor"]') &&
+     !!fx2Ps.querySelector('[data-acao="fin-reg-pausar"]'));
+  var fx2R2 = finQA('.fin-reg').filter(function (x) {
+    return x.querySelector('.fin-reg-padrao').textContent === 'BRASIL TECNOLOGIA'; })[0];
+  window.__finRegSalvar = [];
+  fx2R2.querySelector('[data-acao="fin-reg-arquivar"]').click();
+  await espera(520);
+  ok('fin2: arquivar e soft delete, e a regra sai da lista',
+     fin2Ult(window.__finRegSalvar).arquivar === true &&
+     finQA('.fin-reg').length === 1,
+     JSON.stringify(fin2Ult(window.__finRegSalvar)) + ' regras=' + finQA('.fin-reg').length);
+
+  // ---- a trava do padrao amplo demais ------------------------------------
+  // O corte de 60% e do servidor e tem prova propria no banco. Com 12
+  // lancamentos no fixture nenhum padrao realista casa 8, entao o interruptor
+  // desce o corte para 25% e a regra do Uber (4 de 12) o cruza com NUMEROS
+  // REAIS. O que se prova aqui e o que a TELA faz com a recusa.
+  window.__FIN_AMPLO = 1;
+  finQ('[data-acao="fin-reg-nova"]').click();
+  await espera(430);
+  document.getElementById('finRegPadrao').value = 'UBER';
+  document.getElementById('finRegDom').value = 'pessoal';
+  document.getElementById('finRegDom').dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(420);
+  window.__finRegSalvar = [];
+  finQ('.fin-reg-pe [data-acao="fin-reg-salvar"]').click();
+  await espera(480);
+  // Esconder a recusa e forcar sozinho sao os dois erros opostos, e os dois
+  // cegam o dono. A tela mostra o numero e deixa ELE decidir.
+  ok('fin2: a recusa por padrao amplo aparece com o numero, sem ser escondida',
+     /casa 4 de 12 lancamentos/.test(document.getElementById('finRegErro').textContent),
+     document.getElementById('finRegErro').textContent.slice(0, 110));
+  ok('fin2: e a tela NAO forcou sozinha',
+     fin2Ult(window.__finRegSalvar).forcar === undefined,
+     JSON.stringify(fin2Ult(window.__finRegSalvar)));
+  ok('fin2: o botao de forcar e oferecido, com o numero no rotulo',
+     !!finQ('[data-acao="fin-reg-forcar"]') &&
+     /pegando 4 de 12/.test(finQ('[data-acao="fin-reg-forcar"]').textContent),
+     finQ('[data-acao="fin-reg-forcar"]') ? finQ('[data-acao="fin-reg-forcar"]').textContent : 'sem botao');
+  window.__finRegSalvar = [];
+  finQ('[data-acao="fin-reg-forcar"]').click();
+  await espera(520);
+  ok('fin2: forcar reenvia com forcar:true e a regra nasce',
+     fin2Ult(window.__finRegSalvar).forcar === true && finQA('.fin-reg').length === 2,
+     JSON.stringify(fin2Ult(window.__finRegSalvar)) + ' regras=' + finQA('.fin-reg').length);
+  ok('fin2: e a tela DIZ que ela nasceu forcada',
+     !!finQ('.fin-reg-ok-forcado') &&
+     /mais de 60% da base/.test(finQ('.fin-reg-ok-forcado').textContent),
+     finQ('.fin-reg-ok-forcado') ? finQ('.fin-reg-ok-forcado').textContent : 'sem aviso');
+  window.__FIN_AMPLO = 0;
+
+  // ---- a importacao paga o dividendo -------------------------------------
+  // Regra que casa a descricao do OFX de prova. E o momento em que o trabalho
+  // passado se mostra: o lancamento ja NASCE classificado.
+  finQ('[data-acao="fin-reg-nova"]').click();
+  await espera(430);
+  document.getElementById('finRegPadrao').value = 'PADARIA';
+  document.getElementById('finRegCat').value = 'alimentacao_fora';
+  document.getElementById('finRegCat').dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(420);
+  ok('fin2: padrao que nao casa nada hoje e dito, em vez de parecer que pegou',
+     finQA('.fin-reg-avisos li').some(function (x) {
+       return /Nenhum lancamento casa com este padrao hoje/.test(x.textContent); }),
+     finQ('.fin-reg-avisos') ? finQ('.fin-reg-avisos').textContent : 'sem avisos');
+  finQ('.fin-reg-pe [data-acao="fin-reg-salvar"]').click();
+  await espera(480);
+  finQ('.fin-sub .fin-chip[data-sub="importar"]').click();
+  await espera(430);
+  window.__finImportar = [];
+  await finSoltar(finLatin1(OFX), 'agosto3.ofx');
+  finQ('[data-acao="fin-imp-ok"]').click();
+  await espera(560);
+  ok('fin2: a importacao mostra quantos ja nasceram classificados pelas regras',
+     !!finQ('.fin-imp-regras') &&
+     /1 lançamento já nasceu classificado/.test(finQ('.fin-imp-regras').textContent),
+     finQ('.fin-imp-regras') ? finQ('.fin-imp-regras').textContent.slice(0, 90) : 'sem bloco');
+  ok('fin2: e diz por qual regra',
+     !!finQ('.fin-imp-p') && /PADARIA/.test(finQ('.fin-imp-p').textContent) &&
+     finQ('.fin-imp-p b').textContent === '1',
+     finQ('.fin-imp-p') ? finQ('.fin-imp-p').textContent : 'sem regra');
+
+
   fim();
 
 }
@@ -5129,7 +5845,11 @@ setTimeout(function () {
 // 50000 mantem 10s de folga abaixo do orcamento de 60000: o watchdog continua
 // disparando ANTES do orcamento acabar, que e a unica coisa que o torna util.
 // Se voltar a estourar, subir os DOIS, nunca so este.
-}, 50000);
+// 26/08/2026: estourou de novo, no primeiro clique do bloco da Fatia 2. Os DOIS
+// subiram junto, pela terceira vez e pelo mesmo motivo de sempre: o relogio e
+// VIRTUAL, entao cada `await espera(...)` consome watchdog mesmo com a suite
+// levando poucos segundos reais. 100000 mantem 20s de folga abaixo de 120000.
+}, 100000);
 window.addEventListener('error', function (e) { window.__log.push('FALHOU  erro de runtime: ' + e.message); });
 // Se rodar() estourar no meio, o <pre id=RESULTADO> nunca nascia e o lado
 // Python morria com IndexError, sem dizer ONDE parou. Agora o erro vira a
@@ -5159,9 +5879,9 @@ out = subprocess.run([CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
                       # <pre id=RESULTADO>, o que o lado Python le como "nao
                       # chegou ao fim" (nao como falha de assercao). Orcamento e
                       # tempo VIRTUAL: subir nao deixa a suite mais lenta.
-                      f'--user-data-dir={perfil}', '--virtual-time-budget=60000',
+                      f'--user-data-dir={perfil}', '--virtual-time-budget=120000',
                       '--dump-dom', tmp.as_uri()],
-                     capture_output=True, text=True, encoding='utf-8', timeout=120)
+                     capture_output=True, text=True, encoding='utf-8', timeout=300)
 dom = out.stdout or ''
 # Procurar 'RESULTADO' cru engana: a string existe no proprio <script> injetado,
 # entao o guard passava e o split estourava com IndexError. Procurar a TAG.
