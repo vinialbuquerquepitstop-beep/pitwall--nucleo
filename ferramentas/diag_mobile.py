@@ -218,9 +218,14 @@ async function rodar(){
   // cresce com a navegacao deixa aba nova SEM medida de celular, que e o
   // unico lugar onde o dono usa o app em pe na loja. O cliente que
   // injetarPosVenda() poe no fixture cai no grupo Vencidos dela.
+  // v67 (25/08/2026): abaFinanceiro entrou aqui JUNTO com a aba. Lista que nao
+  // cresce com a navegacao deixa aba nova SEM medida de celular, que e o unico
+  // lugar onde o dono usa o app em pe na loja. Sem esta linha as cinco larguras
+  // sairiam verdes sem nunca ter desenhado a tela nova: verde que nao mediu
+  // nada e pior que vermelho.
   var abasIds = ['abaHoje','abaFila','abaTodos','abaVendas','abaConteudo',
                  'abaClientes','abaIndicacoes','abaCaptacao','abaRotina','abaDash','abaNfs','abaEscopo',
-                 'abaPitscare'];
+                 'abaPitscare','abaFinanceiro'];
   for (var k = 0; k < abasIds.length; k++){
     var el = D.getElementById(abasIds[k]);
     if (!el) { window.__saida.erros.push('sem ' + abasIds[k]); continue; }
@@ -268,6 +273,45 @@ async function rodar(){
     if (abasIds[k] === 'abaFila' && !D.querySelector('#lista .pos-cab'))
       window.__saida.erros.push('pos-venda nao entrou na medicao: #lista .pos-cab '
         + 'ausente na Fila, entao a secao nova NAO foi medida nesta largura');
+    // A aba Financeiro tem TRES sub-views por chip, e a que aperta o layout NAO
+    // e a que abre por padrao: a Visao e leitura, e a linha densa (checkbox +
+    // descricao + valor + DOIS seletores) mora em Movimentos. Medir so a Visao
+    // deixaria justamente o pedaco apertado fora da conta.
+    // A barra de lote nasce display:none e elemento invisivel nao entra na
+    // medicao, entao ela e ABERTA aqui de proposito, marcando dois lancamentos;
+    // e o formulario manual tambem, que nasce recolhido atras de um botao.
+    if (abasIds[k] === 'abaFinanceiro') {
+      medir('abaFinanceiro/visao');
+      var chMov = D.querySelector('#lista .fin-sub .fin-chip[data-sub="movimentos"]');
+      if (chMov) { chMov.click(); await espera(430); }
+      var chks = D.querySelectorAll('#lista .fin-chk');
+      if (chks.length > 1) { chks[0].click(); chks[1].click(); await espera(160); }
+      var bLanc = D.querySelector('#lista [data-acao="fin-lanc-abrir"]');
+      if (bLanc) { bLanc.click(); await espera(430); }
+      if (!D.querySelector('#lista .fin-lin'))
+        window.__saida.erros.push('Financeiro: nenhuma .fin-lin na sub-view Movimentos, '
+          + 'entao a linha densa NAO foi medida nesta largura');
+      if (!D.querySelector('#lista #finLancConta'))
+        window.__saida.erros.push('Financeiro: o formulario de lancamento manual nao abriu, '
+          + 'entao ele NAO foi medido nesta largura');
+      medir('abaFinanceiro/movimentos');
+      var chImp = D.querySelector('#lista .fin-sub .fin-chip[data-sub="importar"]');
+      if (chImp) { chImp.click(); await espera(430); }
+      if (!D.querySelector('#lista #finSolta'))
+        window.__saida.erros.push('Financeiro: a area de soltar o OFX nao apareceu, '
+          + 'entao a sub-view Importar NAO foi medida nesta largura');
+      medir('abaFinanceiro/importar');
+      // volta para a Visao: o medir() generico logo abaixo mede a sub-view de
+      // arranque, que e a que o dono ve primeiro.
+      var chVis = D.querySelector('#lista .fin-sub .fin-chip[data-sub="visao"]');
+      if (chVis) { chVis.click(); await espera(430); }
+      var gav2 = D.querySelectorAll('#lista details:not([open])');
+      for (var g2 = 0; g2 < gav2.length; g2++) gav2[g2].open = true;
+      if (gav2.length) await espera(140);
+      if (!D.querySelector('#lista .fin-alerta'))
+        window.__saida.erros.push('Financeiro: a faixa de nao classificado nao estava no DOM, '
+          + 'entao o bloco do invariante 18 NAO foi medido nesta largura');
+    }
     medir(abasIds[k]);
     if (abasIds[k] === 'abaVendas') window.__saida.painelVendas = medirPainelVendas();
   }

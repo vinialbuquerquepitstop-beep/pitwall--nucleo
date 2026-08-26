@@ -10,7 +10,7 @@ aponte para arquivo inexistente.
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v63.md`. Conferir a pasta em vez de confiar nesta
+   `handoff_migracao_pitwall_v67.md`. Conferir a pasta em vez de confiar nesta
    linha: ela ja ficou desatualizada antes (ficou presa no v32 ate 21/07/2026,
    no v35 ate 23/07/2026, no v37 ate 28/07/2026, no v43 ate 08/08/2026, no v48
    ate 14/08/2026 e no v59 ate 17/08/2026, quando o trabalho tinha vindo de outra
@@ -113,6 +113,13 @@ descobrir que o desenho estava errado.
 16. LGPD na Fila: `waHrefFila` so devolve link se `consentimento === true`.
 17. Nao construir superficie de SaaS antes do primeiro pagamento. Barato entra agora
     (schema multi-tenant, RLS, auditoria); caro so quando alguem pagar.
+18. Movimento financeiro sem `dominio` classificado (`empresa` / `pessoal`) nao entra
+    em NENHUM total de resultado, de gasto ou de meta. Ele aparece somente como "nao
+    classificado", com valor visivel, cobrando o trabalho. `dominio` nunca tem default
+    silencioso. Nasceu na v67 porque o dono tem UMA conta bancaria com dinheiro da loja
+    e pessoal misturados: com default silencioso, o mercado do mes vira custo da loja e
+    o lucro parece certo estando errado. Corolario: caixa (`fin_movimento`) e resultado
+    (`venda`) sao verdades separadas e NUNCA se somam.
 
 Reforcos anotados na v33 (nao sao numero novo, so alcance dos existentes):
 - Invariante 4 vale tambem para peca de conteudo, nao so lead: `nivelPeca` calcula no

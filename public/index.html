@@ -108,6 +108,17 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6" stroke-linecap="round"/></svg>
         <span class="aba-txt">Dashboard</span>
       </button>
+      <!-- Financeiro (Fatia 1, 25/08/2026). Fica no grupo Análise e logo abaixo
+           do Dashboard porque responde a mesma família de pergunta, mas do
+           outro lado do dinheiro: o Dashboard lê a VENDA (resultado por
+           competência) e o Financeiro lê o CAIXA. Os dois nunca se somam.
+           Ícone de carteira: o de barras já é o Dashboard, o de sacola é
+           Vendas e o de calculadora é a Calc; identidade não repete forma
+           entre telas. -->
+      <button class="aba aba-rara" id="abaFinanceiro" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 16.5v-8z" stroke-linejoin="round"/><path d="M4 8.5A2.5 2.5 0 0 0 6.5 11H20" stroke-linecap="round"/><circle cx="16.4" cy="14.6" r="1.2"/></svg>
+        <span class="aba-txt">Financeiro</span>
+      </button>
 
       <p class="nav-rot nav-rot-2">Ferramentas</p>
       <a class="aba aba-rara" id="abaCalc" href="/calc/" target="_blank" rel="noopener">

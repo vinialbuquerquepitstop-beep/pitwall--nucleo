@@ -191,6 +191,10 @@ var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB
   venda: VENDAS_ARQ_STUB, catalogo_iphone: CATALOGO_STUB,
   motoboy: MOTOBOYS, auditoria: AUDITORIA, v_venda_pagamento: PAGAMENTOS_STUB,
   calc_dados: CALC_STUB,
+  // nfTenant() le daqui para montar o caminho <tenant>/... do Storage. Sem
+  // esta linha o upload do extrato nunca era exercido e a assercao de que o
+  // caminho comeca com o tenant nao rodava em rodada nenhuma.
+  app_usuario: [{ tenant_id: 't-prova' }],
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -311,6 +315,41 @@ var CONT = [
   { id:'c5', titulo:'Reels tutorial',    data:_dISO(20), tipo_rotulo:'Reels', tipo_codigo:'reels', status_rotulo:'A produzir',  status_codigo:'a_produzir',  semana:'S32', url:null, hoje:false },
   { id:'c6', titulo:'Story recap',       data:_dISO(-6), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Publicado',   status_codigo:'publicado',   semana:'S29', url:null, hoje:false },
   { id:'c7', titulo:'Story ideia velha', data:_dISO(-7), tipo_rotulo:'Story', tipo_codigo:'story', status_rotulo:'Descartado',  status_codigo:'descartado',  semana:'S29', url:null, hoje:false }];
+// ---- Financeiro (Fatia 1). Config REAL, copiada do seed de 26/08/2026: os
+// `codigo` sao sem acento (chave, invariante 12) e os `rotulo` carregam os
+// caracteres exatos do sistema. Sao 6 das 33 categorias, uma por GRUPO que a
+// tela precisa desenhar diferente, incluindo a de natureza `neutro`, que fica
+// fora de todo total de gasto.
+var FIN_CATS = [
+  { codigo: 'compra_aparelho', rotulo: 'Compra de aparelho', grupo: 'Mercadoria',
+    natureza_esperada: 'saida', dominio_sugerido: 'empresa', ordem: 1 },
+  { codigo: 'frete_envio', rotulo: 'Frete e envio', grupo: 'Operação',
+    natureza_esperada: 'saida', dominio_sugerido: 'empresa', ordem: 2 },
+  { codigo: 'venda_aparelho', rotulo: 'Venda de aparelho', grupo: 'Receita',
+    natureza_esperada: 'entrada', dominio_sugerido: 'empresa', ordem: 14 },
+  { codigo: 'mercado', rotulo: 'Mercado', grupo: 'Casa',
+    natureza_esperada: 'saida', dominio_sugerido: 'pessoal', ordem: 19 },
+  { codigo: 'alimentacao_fora', rotulo: 'Alimentação fora', grupo: 'Vida',
+    natureza_esperada: 'saida', dominio_sugerido: 'pessoal', ordem: 20 },
+  { codigo: 'aplicacao', rotulo: 'Aplicação', grupo: 'Neutro',
+    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 32 }];
+var FIN_MOVS = [
+  { id: 'f1', data: '2026-08-20', descricao: 'PIX FORNECEDOR MP', valor: -4300,
+    categoria_codigo: 'compra_aparelho', dominio: 'empresa', origem: 'extrato' },
+  { id: 'f2', data: '2026-08-18', descricao: 'SUPERMERCADO PRINCESA', valor: -320.5,
+    categoria_codigo: 'mercado', dominio: 'pessoal', origem: 'extrato' },
+  { id: 'f3', data: '2026-08-17', descricao: 'DEBITO NAO IDENTIFICADO', valor: -105.5,
+    categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f4', data: '2026-08-16', descricao: 'PIX RECEBIDO CLIENTE', valor: 2000,
+    categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' },
+  { id: 'f5', data: '2026-08-15', descricao: 'SEM CATEGORIA MAS COM LADO', valor: -580,
+    categoria_codigo: null, dominio: 'empresa', origem: 'extrato' },
+  { id: 'f6', data: '2026-08-14', descricao: 'APLICACAO CDB', valor: -5000,
+    categoria_codigo: 'aplicacao', dominio: 'empresa', origem: 'extrato' }];
+window.__finClassificar = [];
+window.__finLancar = [];
+window.__finImportar = [];
+window.__uploads = [];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
 // Contador irmao do __rpcChamadas, para o lado das TABELAS. Sem ele nao da para
@@ -615,7 +654,182 @@ window.supabase = {
         // O molde vem de window.__MOLDE para o teste trocar de cena (cache
         // vazio, stale, tipo desconhecido) sem recarregar a pagina.
         if (nome === 'molde_semana') { return Promise.resolve({ data: window.__MOLDE, error: null }); }
+        // ---- Financeiro, Fatia 1 (25/08/2026) -----------------------------
+        // O stub espelha o CONTRATO das 6 RPCs, medido pelo `base` contra o
+        // banco vivo. Cada linha do fixture existe por um caso que a TELA pode
+        // errar, nao para engordar a lista:
+        //   f1 saida empresa classificada  -> secao de gasto normal
+        //   f2 saida pessoal classificada  -> o filtro de dominio tem o que separar
+        //   f3 SEM dominio                 -> a faixa do invariante 18 so existe por causa dele
+        //   f4 entrada empresa             -> o bloco de entradas
+        //   f5 dominio SEM categoria       -> o grupo "Sem categoria", em --morno
+        //   f6 categoria neutra            -> fica FORA de todo total de gasto
+        // fin_classificar MUTA o fixture e aplica a regra REAL: o que manda e a
+        // PRESENCA da chave, nao o valor. Chave ausente nao mexe; chave presente
+        // com null LIMPA. Stub que ignorasse isso cegaria justamente a assercao
+        // que prova que a tela nao manda dominio quando so trocou a categoria.
+        if (nome === 'fin_config') {
+          return Promise.resolve({ data: { ok: true,
+            contas: [{ id: 'cta1', codigo: 'principal', rotulo: 'Conta principal',
+                       banco: null, tipo: 'corrente', dominio_padrao: 'misto', ordem: 1 }],
+            categorias: FIN_CATS }, error: null });
+        }
+        if (nome === 'fin_painel') {
+          // __FIN_VAZIO reproduz o estado REAL de hoje: fin_movimento tem 0
+          // linhas, e a primeira coisa que o dono vai ver e a tela vazia. As
+          // 3 RPCs de leitura devolvem ok:true com lista vazia, entao a tela
+          // nao pode quebrar nem sair muda.
+          if (window.__FIN_VAZIO)
+            return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
+              hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
+              ini_anterior: null, fim_anterior: null,
+              placar: { entrou: 0, saiu: 0, resultado: 0,
+                        nao_classificado_valor: 0, nao_classificado_n: 0 },
+              secoes: [], entradas: [] }, error: null });
+          var fpNc = FIN_MOVS.filter(function (x) { return x.dominio === null; });
+          var fpVal = 0;
+          fpNc.forEach(function (x) { fpVal += x.valor; });
+          return Promise.resolve({ data: { ok: true,
+            ini: args.p_ini, fim: args.p_fim, hoje: '2026-08-25',
+            dominio: args.p_dominio || 'tudo',
+            ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
+            placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
+                      nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length },
+            // secoes e entradas vao como FIXTURE constante: aqui se prova a
+            // TELA (barra, delta, icone, grupo), nao a agregacao, que ja tem
+            // prova propria no lado do banco. Os tres casos que a tela pode
+            // errar estao todos aqui: delta null (nao havia base anterior),
+            // delta com base, e o grupo "Sem categoria".
+            secoes: [
+              { grupo: 'Mercadoria', total: 4300, pct: 62.5, delta_pct: 12.4, categorias: [
+                { codigo: 'compra_aparelho', rotulo: 'Compra de aparelho', total: 4300,
+                  pct: 62.5, delta_pct: 12.4, n: 2 } ] },
+              { grupo: 'Casa', total: 2000, pct: 29.1, delta_pct: null, categorias: [
+                { codigo: 'mercado', rotulo: 'Mercado', total: 2000, pct: 29.1, delta_pct: null, n: 3 } ] },
+              { grupo: 'Sem categoria', total: 580, pct: 8.4, delta_pct: null, categorias: [
+                { codigo: 'sem_categoria', rotulo: 'Sem categoria', total: 580,
+                  pct: 8.4, delta_pct: null, n: 1 } ] } ],
+            entradas: [
+              { grupo: 'Receita', total: 2000, pct: 100, delta_pct: -8.2, categorias: [
+                { codigo: 'venda_aparelho', rotulo: 'Venda de aparelho', total: 2000,
+                  pct: 100, delta_pct: -8.2, n: 1 } ] } ] }, error: null });
+        }
+        if (nome === 'fin_movimentos') {
+          var fmSo = args.p_status === 'nao_classificados';
+          var fmDom = args.p_dominio === 'tudo' ? null : (args.p_dominio || null);
+          if (fmSo) fmDom = null;   // o servidor ignora o dominio nesse status
+          if (window.__FIN_VAZIO)
+            return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
+              hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
+              status: fmSo ? 'nao_classificados' : 'todos',
+              n: 0, total: 0, truncado: false, itens: [] }, error: null });
+          var fmItens = FIN_MOVS.filter(function (x) {
+            if (fmSo && x.dominio !== null) return false;
+            if (fmDom && x.dominio !== fmDom) return false;
+            return true;
+          }).map(function (x) {
+            var cat = FIN_CATS.filter(function (y) { return y.codigo === x.categoria_codigo; })[0];
+            return { id: x.id, data: x.data, descricao: x.descricao,
+                     descricao_original: x.descricao, valor: x.valor,
+                     categoria_codigo: x.categoria_codigo,
+                     categoria_rotulo: cat ? cat.rotulo : null,
+                     grupo: cat ? cat.grupo : null,
+                     natureza_esperada: cat ? cat.natureza_esperada : null,
+                     dominio: x.dominio, origem: x.origem || 'extrato',
+                     conta_rotulo: 'Conta principal', observacao: null,
+                     venda_id: null, criado_em: x.data + 'T12:00:00Z' };
+          });
+          var fmTot = 0;
+          fmItens.forEach(function (x) { fmTot += x.valor; });
+          return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
+            hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
+            status: fmSo ? 'nao_classificados' : 'todos',
+            n: fmItens.length, total: fmTot,
+            truncado: !!window.__FIN_TRUNCADO, itens: fmItens }, error: null });
+        }
+        if (nome === 'fin_classificar') {
+          var fcP = args.payload || {};
+          window.__finClassificar.push(JSON.parse(JSON.stringify(fcP)));
+          var fcIds = fcP.ids || [], fcN = 0, fcAviso = null;
+          var temCat = Object.prototype.hasOwnProperty.call(fcP, 'categoria_codigo');
+          var temDom = Object.prototype.hasOwnProperty.call(fcP, 'dominio');
+          FIN_MOVS.forEach(function (x) {
+            if (fcIds.indexOf(x.id) < 0) return;
+            var mudou = false;
+            if (temCat) {
+              var nc = fcP.categoria_codigo || null;
+              if (x.categoria_codigo !== nc) { x.categoria_codigo = nc; mudou = true; }
+              var cat = FIN_CATS.filter(function (y) { return y.codigo === nc; })[0];
+              // o aviso REAL: sinal do valor contra a natureza esperada
+              if (cat && cat.natureza_esperada === 'entrada' && x.valor < 0)
+                fcAviso = 'Valor negativo em categoria de entrada.';
+              if (cat && cat.natureza_esperada === 'saida' && x.valor > 0)
+                fcAviso = 'Valor positivo em categoria de saida.';
+            }
+            if (temDom) {
+              var nd = fcP.dominio || null;
+              if (x.dominio !== nd) { x.dominio = nd; mudou = true; }
+            }
+            if (mudou) fcN++;
+          });
+          return Promise.resolve({ data: { ok: true, n: fcN, aviso: fcAviso,
+            msg: fcN + ' classificados' }, error: null });
+        }
+        if (nome === 'fin_lancar') {
+          var flP = args.payload || {};
+          window.__finLancar.push(JSON.parse(JSON.stringify(flP)));
+          var flData = flP.data || '2026-08-25';
+          var igual = FIN_MOVS.filter(function (x) {
+            return x.data === flData && x.descricao === flP.descricao &&
+                   String(x.valor) === String(parseFloat(flP.valor));
+          })[0];
+          if (igual && !flP.forcar)
+            return Promise.resolve({ data: { ok: false, repetido: true,
+              erro: 'Ja existe um lancamento igual nesse dia.',
+              dica: 'Se aconteceu duas vezes mesmo, confirme abaixo.' }, error: null });
+          var flId = 'fx' + (FIN_MOVS.length + 1);
+          FIN_MOVS.push({ id: flId, data: flData, descricao: flP.descricao,
+            valor: parseFloat(flP.valor),
+            categoria_codigo: flP.categoria_codigo || null,
+            dominio: flP.dominio || null, origem: 'manual' });
+          return Promise.resolve({ data: { ok: true, id: flId, data: flData,
+            valor: flP.valor, msg: 'Lancamento registrado.' }, error: null });
+        }
+        if (nome === 'fin_importar_extrato') {
+          var fiP = args.payload || {};
+          window.__finImportar.push(JSON.parse(JSON.stringify(fiP)));
+          if (!fiP.conta_id)
+            return Promise.resolve({ data: { ok: false, erro: 'Conta obrigatoria.' }, error: null });
+          // o caminho do arquivo, quando vem, TEM que comecar com o tenant: a
+          // policy do Storage recusa fora da pasta, e o stub cobra igual.
+          if (fiP.arquivo && fiP.arquivo.indexOf('t-prova/') !== 0)
+            return Promise.resolve({ data: { ok: false, erro: 'Caminho de arquivo fora da pasta do tenant.' }, error: null });
+          var fiIt = fiP.itens || [];
+          return Promise.resolve({ data: { ok: true, importacao_id: 'imp1',
+            novas: fiIt.length, duplicadas: 0, lidas: fiIt.length,
+            periodo_ini: fiP.periodo_ini || null, periodo_fim: fiP.periodo_fim || null,
+            msg: fiIt.length + ' lancamentos novos, 0 ja existiam.' }, error: null });
+        }
         return Promise.resolve({ data: { ok: false, msg: 'rpc nao stubada: ' + nome }, error: null });
+      },
+      storage: {
+        // Balde privado. O caminho e conferido pelo proprio fin_importar_extrato
+        // stubado; aqui so se registra a chamada e se oferece o caminho de
+        // FALHA, que e o unico jeito de provar a regra "perder o extrato
+        // guardado e ruim, perder a importacao inteira e pior".
+        from: function (balde) {
+          return {
+            upload: function (caminho, arquivo, opcoes) {
+              window.__uploads.push({ balde: balde, caminho: caminho, opcoes: opcoes });
+              if (window.__UPLOAD_FALHA)
+                return Promise.resolve({ data: null, error: { message: 'bucket indisponivel (prova)' } });
+              return Promise.resolve({ data: { path: caminho }, error: null });
+            },
+            createSignedUrl: function (caminho) {
+              return Promise.resolve({ data: { signedUrl: 'about:blank' }, error: null });
+            }
+          };
+        }
       },
       functions: {
         // o botao Sincronizar: com __SYNC_FALHA o stub devolve o contrato REAL
@@ -1647,7 +1861,10 @@ async function rodar() {
   // v64 (18/08/2026): entrou a abaPitscare, o cuidado pos-venda. Rara de
   // proposito: 10 clientes nao competem com a Fila pelos 5 lugares fixos do
   // celular. Vai a 9.
-  ok('9 abas raras', document.querySelectorAll('.aba-rara').length === 9,
+  // v67 (25/08/2026): entrou a abaFinanceiro, a Fatia 1 do Financeiro. Rara
+  // pelo mesmo criterio da Pitscare: e leitura de fechamento, nao laco do dia,
+  // e nao pode disputar os 5 lugares fixos do celular com a Fila. Vai a 10.
+  ok('10 abas raras', document.querySelectorAll('.aba-rara').length === 10,
      String(document.querySelectorAll('.aba-rara').length));
   ok('rara começa escondida no mobile', getComputedStyle(document.getElementById('abaDash')).display === 'none');
   document.getElementById('abaMais').click();
@@ -4402,6 +4619,490 @@ async function rodar() {
        custoLin.length >= 3 && sangrou === 0,
        'linhas=' + custoLin.length + ' vermelhas=' + sangrou);
   }
+
+  // ======================================================================
+  // ABA FINANCEIRO — Fatia 1                                  (25/08/2026)
+  // ======================================================================
+  // Todas as assercoes consultam o DOM RENDERIZADO (#lista) e a COR
+  // COMPUTADA, nunca document.body.textContent (que enxerga o proprio
+  // app.js colado no <body>) nem o hex escrito no CSS.
+  function finTxt() { var l = document.getElementById('lista'); return l ? l.textContent : ''; }
+  function finQ(s) { return document.querySelector('#lista ' + s); }
+  function finQA(s) { return [].slice.call(document.querySelectorAll('#lista ' + s)); }
+  function finCor(el, prop) { return el ? getComputedStyle(el)[prop || 'color'] : 'sem elemento'; }
+  var COR_ERRO = 'rgb(176, 18, 53)';    // --erro-fg  #B01235
+  var COR_MORNO = 'rgb(148, 101, 0)';   // --morno-fg #946500
+  var COR_DIM = 'rgb(92, 102, 117)';    // --dim      #5C6675
+  var COR_TEXTO = 'rgb(15, 21, 35)';    // --text     #0F1523
+
+  window.__FIN_VAZIO = 0;
+  document.getElementById('abaFinanceiro').click();
+  await espera(420);
+
+  // ---- a aba e o roteamento --------------------------------------------
+  ok('fin: a aba Financeiro existe e e rara',
+     !!document.getElementById('abaFinanceiro') &&
+     document.getElementById('abaFinanceiro').className.indexOf('aba-rara') >= 0);
+  ok('fin: clicar acende a aba',
+     document.getElementById('abaFinanceiro').getAttribute('aria-selected') === 'true');
+  // Sem a edicao do ternario do topoTit a aba nova herdava o FALLBACK e a tela
+  // dizia "Dashboard" em cima do financeiro. Esta assercao existe por causa
+  // disso, nao por capricho.
+  ok('fin: o titulo do topo vira Financeiro, nunca o fallback Dashboard',
+     document.getElementById('topoTit').textContent === 'Financeiro',
+     document.getElementById('topoTit').textContent);
+  ok('fin: o pitboard de LEAD some (sao numeros de outro laco)',
+     getComputedStyle(document.getElementById('pitboard')).display === 'none');
+  ok('fin: o #lista declara a aba', document.getElementById('lista').getAttribute('data-aba') === 'financeiro');
+  ok('fin: fin_config foi chamada',
+     window.__rpcChamadas.some(function (r) { return r.nome === 'fin_config'; }));
+
+  // ---- topo: sub-navegacao, dominio e janela declarada ------------------
+  ok('fin: sao 3 chips de sub-view, e Visao abre pressionado',
+     finQA('.fin-sub .fin-chip').length === 3 &&
+     finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Visão',
+     'n=' + finQA('.fin-sub .fin-chip').length);
+  ok('fin: o dominio e Empresa | Pessoal | Tudo, com Tudo ligado',
+     finQA('.fin-dom .fin-chip').map(function (x) { return x.textContent; }).join('|') === 'Empresa|Pessoal|Tudo' &&
+     finQ('.fin-dom .fin-chip[aria-pressed="true"]').textContent === 'Tudo',
+     finQA('.fin-dom .fin-chip').map(function (x) { return x.textContent; }).join('|'));
+  // Tela que omite recorte mente: a mesma licao da aba Conteudo.
+  ok('fin: a janela vem DECLARADA (de X a Y)',
+     /^de \\d\\d\\/\\d\\d a \\d\\d\\/\\d\\d$/.test(finQ('.fin-janela').textContent.trim()),
+     finQ('.fin-janela').textContent);
+  ok('fin: o mes seguinte fica travado no mes corrente',
+     finQA('.fin-mes-b')[1].disabled === true);
+
+  // ---- a faixa do invariante 18 ----------------------------------------
+  var fxA = finQ('.fin-alerta');
+  ok('fin: a faixa de nao classificado existe', !!fxA);
+  ok('fin: ela diz o VALOR e a CONTAGEM',
+     !!fxA && /R\\$ 105,50 em 1 lançamento ainda sem classificação/.test(fxA.textContent),
+     fxA ? fxA.textContent.slice(0, 80) : 'sem faixa');
+  ok('fin: ela declara que os numeros abaixo IGNORAM esse valor',
+     !!fxA && /Os números abaixo ignoram esse valor/.test(fxA.textContent));
+  // O servidor devolve o nao classificado sem respeitar p_dominio. Sem esta
+  // frase o dono trocaria para Empresa e acharia que o numero encolheu.
+  ok('fin: ela declara que NAO muda com o filtro Empresa/Pessoal',
+     !!fxA && /não muda com o filtro Empresa\\/Pessoal/.test(fxA.textContent));
+  ok('fin: e mostra a soma COM SINAL, nao so o modulo',
+     !!fxA && fxA.textContent.indexOf('R$ -105,50') >= 0,
+     fxA ? fxA.textContent.slice(60, 190) : 'sem faixa');
+  // --erro aqui e legitimo: dado incompleto e problema de INTEGRIDADE, nao
+  // gasto. E o unico lugar da aba onde o vermelho aparece por dado do dono.
+  ok('fin: a faixa usa a cor de ERRO (integridade), medida na cor computada',
+     finCor(finQ('.fin-alerta-txt b')) === COR_ERRO,
+     finCor(finQ('.fin-alerta-txt b')));
+  ok('fin: a faixa tem botao que leva para a fila de nao classificados',
+     !!finQ('.fin-alerta-btn[data-acao="fin-ir-nc"]'));
+
+  // ---- Visao: placar e secoes ------------------------------------------
+  ok('fin: o placar tem as 4 celulas do pitboard',
+     finQA('.fin-placar .pb-celula').length === 4,
+     'n=' + finQA('.fin-placar .pb-celula').length);
+  ok('fin: o placar nomeia entrou, saiu, resultado e nao classificado',
+     finQA('.fin-placar .pb-rot').map(function (x) { return x.textContent; }).join('|') ===
+       'entrou|saiu|resultado|não classificado',
+     finQA('.fin-placar .pb-rot').map(function (x) { return x.textContent; }).join('|'));
+  ok('fin: saiu vem POSITIVO (modulo), como o servidor manda',
+     finQA('.fin-placar .pb-num')[1].textContent === 'R$ 205,50',
+     finQA('.fin-placar .pb-num')[1].textContent);
+  // Gasto NAO e vermelho: --erro e falha de sistema, e gastar nao e bug.
+  ok('fin: o total de SAIDA nao sai em vermelho',
+     finCor(finQA('.fin-placar .pb-num')[1]) !== COR_ERRO,
+     finCor(finQA('.fin-placar .pb-num')[1]));
+  ok('fin: o nao classificado do placar cobra em --morno, nunca em --erro',
+     finCor(finQ('.fin-placar .pb-num.cobra')) === COR_MORNO,
+     finCor(finQ('.fin-placar .pb-num.cobra')));
+
+  ok('fin: as secoes de gasto vem por grupo, ordenadas pelo servidor',
+     finQA('.fin-bloco')[0].querySelectorAll('.fin-sec').length === 3,
+     'n=' + finQA('.fin-bloco')[0].querySelectorAll('.fin-sec').length);
+  // Trilho sem icone e regressao: as colisoes de luminancia entre trilho e cor
+  // semantica ficam entre 1.14 e 1.44, entao matiz sozinho nao separa.
+  var fxSecs = finQA('.fin-sec');
+  ok('fin: TODA secao carrega icone (matiz sozinho nao distingue os 9 grupos)',
+     fxSecs.length > 0 && fxSecs.every(function (x) { return !!x.querySelector('.fin-sec-cab svg.tr-ico'); }),
+     'secoes=' + fxSecs.length + ' sem icone=' +
+     fxSecs.filter(function (x) { return !x.querySelector('.fin-sec-cab svg.tr-ico'); }).length);
+  ok('fin: a barra da secao e NEUTRA, um tom so (magnitude carrega a mensagem)',
+     finCor(finQ('.fin-barra i'), 'backgroundColor') === COR_DIM,
+     finCor(finQ('.fin-barra i'), 'backgroundColor'));
+  ok('fin: o valor da secao de gasto NAO sai em vermelho',
+     finCor(finQ('.fin-sec-val')) === COR_TEXTO,
+     finCor(finQ('.fin-sec-val')));
+  // delta_pct null NAO vira 0%: inventar zero onde nao havia base e mentir.
+  // Duas secoes sem base anterior (Casa e Sem categoria), cada uma com a sua
+  // unica categoria: sao 4 marcas de "novo", nao 3. E nenhuma delas pode ser
+  // "0%", que seria inventar uma comparacao que nunca existiu.
+  ok('fin: delta_pct null desenha "novo", nunca 0 por cento',
+     finQA('.fin-delta.nova').length === 4 &&
+     finQA('.fin-delta.nova').every(function (x) { return x.textContent === 'novo'; }) &&
+     finQA('.fin-delta').every(function (x) { return x.textContent.indexOf('0,0%') < 0; }),
+     'novos=' + finQA('.fin-delta.nova').length);
+  ok('fin: delta_pct com base desenha o numero com sinal',
+     finQA('.fin-sec')[0].querySelector('.fin-delta').textContent === '+12,4% vs anterior',
+     finQA('.fin-sec')[0].querySelector('.fin-delta').textContent);
+  // "Sem categoria" e ESTADO (trabalho pendente), nao identidade de categoria.
+  var fxCob = finQ('.fin-sec.cobra');
+  ok('fin: o grupo "Sem categoria" existe e cobra em --morno',
+     !!fxCob && finCor(fxCob.querySelector('.fin-sec-cab')) === COR_MORNO,
+     fxCob ? finCor(fxCob.querySelector('.fin-sec-cab')) : 'sem grupo');
+  ok('fin: e ele NAO usa a cor de erro (falta de categoria nao e falha)',
+     !!fxCob && finCor(fxCob.querySelector('.fin-sec-cab')) !== COR_ERRO);
+  ok('fin: entradas sao bloco SEPARADO, abaixo das saidas',
+     finQA('.fin-bloco').length === 2 &&
+     finQA('.fin-bloco-tit')[0].textContent === 'Para onde o dinheiro foi' &&
+     finQA('.fin-bloco-tit')[1].textContent === 'De onde o dinheiro veio',
+     finQA('.fin-bloco-tit').map(function (x) { return x.textContent; }).join('|'));
+  ok('fin: a tela declara que categoria neutra fica fora dos dois blocos',
+     /natureza .*neutro.* fica fora/.test(finQ('.fin-rodape').textContent) ||
+     finQ('.fin-rodape').textContent.indexOf('fica fora dos dois blocos') >= 0,
+     finQ('.fin-rodape').textContent.slice(0, 70));
+
+  // ---- o botao da faixa leva para a lista JA filtrada -------------------
+  finQ('.fin-alerta-btn').click();
+  await espera(360);
+  ok('fin: o botao da faixa muda para Movimentos',
+     finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Movimentos');
+  ok('fin: e ja chega com "so nao classificados" ligado',
+     finQ('[data-acao="fin-so-nc"]').getAttribute('aria-pressed') === 'true');
+  ok('fin: nesse modo so o lancamento SEM dominio aparece',
+     finQA('.fin-lin').length === 1 &&
+     /DEBITO NAO IDENTIFICADO/.test(finQ('.fin-lin-desc').textContent),
+     'n=' + finQA('.fin-lin').length);
+  // Em nao_classificados o SERVIDOR ignora o dominio. A tela diz isso em vez de
+  // deixar o seletor de Empresa parecendo aceso e sem efeito.
+  ok('fin: o recorte declara que o filtro Empresa/Pessoal nao se aplica aqui',
+     /o filtro Empresa\\/Pessoal não se aplica aqui/.test(finQ('.fin-mov-cab .fin-bloco-pe').textContent),
+     finQ('.fin-mov-cab .fin-bloco-pe').textContent);
+  ok('fin: a linha sem dominio carrega a marca de pendencia',
+     finQ('.fin-lin').className.indexOf('nc') >= 0, finQ('.fin-lin').className);
+
+  finQ('[data-acao="fin-so-nc"]').click();
+  await espera(340);
+  ok('fin: desligar o filtro devolve os 6 lancamentos da janela',
+     finQA('.fin-lin').length === 6, 'n=' + finQA('.fin-lin').length);
+  ok('fin: a lista e newest-first',
+     finQA('.fin-lin-data')[0].textContent === '20/08', finQA('.fin-lin-data')[0].textContent);
+  ok('fin: saida na linha NAO sai em vermelho (gastar nao e falha)',
+     finCor(finQ('.fin-lin-val.neg')) === COR_TEXTO, finCor(finQ('.fin-lin-val.neg')));
+
+  // ---- classificacao na linha: a chave PRESENTE e o que manda -----------
+  window.__finClassificar = [];
+  var fxCat = finQ('.fin-lin .fin-sel-cat');
+  fxCat.value = 'frete_envio';
+  fxCat.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(360);
+  var fxP1 = window.__finClassificar[0] || {};
+  ok('fin: trocar a categoria na linha chama fin_classificar com UM id',
+     (fxP1.ids || []).length === 1, JSON.stringify(fxP1));
+  ok('fin: e manda SO categoria_codigo, sem a chave dominio (presenca manda)',
+     fxP1.categoria_codigo === 'frete_envio' &&
+     !Object.prototype.hasOwnProperty.call(fxP1, 'dominio'),
+     JSON.stringify(fxP1));
+
+  window.__finClassificar = [];
+  var fxDom = finQ('.fin-lin .fin-sel-dom');
+  fxDom.value = 'pessoal';
+  fxDom.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(360);
+  var fxP2 = window.__finClassificar[0] || {};
+  ok('fin: trocar o dominio na linha manda SO dominio, sem categoria_codigo',
+     fxP2.dominio === 'pessoal' &&
+     !Object.prototype.hasOwnProperty.call(fxP2, 'categoria_codigo'),
+     JSON.stringify(fxP2));
+
+  // Chave presente com null LIMPA. Sem este caminho nao ha como desfazer uma
+  // classificacao errada pela propria tela.
+  window.__finClassificar = [];
+  var fxLimpa = finQ('.fin-lin .fin-sel-cat');
+  fxLimpa.value = '';
+  fxLimpa.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(360);
+  var fxP3 = window.__finClassificar[0] || {};
+  ok('fin: escolher "sem categoria" manda a chave com null (limpa de verdade)',
+     Object.prototype.hasOwnProperty.call(fxP3, 'categoria_codigo') &&
+     fxP3.categoria_codigo === null, JSON.stringify(fxP3));
+
+  // O aviso de natureza nao pode sumir em 3,2s de toast.
+  window.__finClassificar = [];
+  var fxAv = finQA('.fin-lin')[3].querySelector('.fin-sel-cat');
+  fxAv.value = 'compra_aparelho';
+  fxAv.dispatchEvent(new Event('change', { bubbles: true }));
+  await espera(380);
+  ok('fin: o aviso de natureza fica NA TELA, nao so no toast',
+     !!finQ('.fin-aviso') && /Valor positivo em categoria de saida/.test(finQ('.fin-aviso').textContent),
+     finQ('.fin-aviso') ? finQ('.fin-aviso').textContent : 'sem aviso');
+
+  // ---- selecao em lote: requisito, nao conforto -------------------------
+  ok('fin: a barra de lote nasce escondida',
+     getComputedStyle(document.getElementById('finLote')).display === 'none');
+  var fxChks = finQA('.fin-chk');
+  fxChks[0].click();
+  await espera(90);
+  fxChks[1].click();
+  await espera(120);
+  ok('fin: marcar dois lancamentos abre a barra de lote',
+     getComputedStyle(document.getElementById('finLote')).display !== 'none' &&
+     document.getElementById('finLoteN').textContent === '2 selecionados',
+     document.getElementById('finLoteN').textContent);
+  window.__finClassificar = [];
+  document.getElementById('finLoteDom').value = 'empresa';
+  finQ('[data-acao="fin-lote-ok"]').click();
+  await espera(400);
+  var fxL = window.__finClassificar[0] || {};
+  ok('fin: o lote manda N ids numa UNICA chamada',
+     window.__finClassificar.length === 1 && (fxL.ids || []).length === 2,
+     JSON.stringify(fxL));
+  ok('fin: e "(nao mexer)" na categoria NAO entra no payload',
+     fxL.dominio === 'empresa' &&
+     !Object.prototype.hasOwnProperty.call(fxL, 'categoria_codigo'),
+     JSON.stringify(fxL));
+
+  fxChks = finQA('.fin-chk');
+  fxChks[2].click();
+  await espera(120);
+  window.__finClassificar = [];
+  document.getElementById('finLoteCat').value = '__limpar';
+  finQ('[data-acao="fin-lote-ok"]').click();
+  await espera(400);
+  var fxL2 = window.__finClassificar[0] || {};
+  ok('fin: "limpar" no lote manda a chave com null, e nao a string',
+     Object.prototype.hasOwnProperty.call(fxL2, 'categoria_codigo') &&
+     fxL2.categoria_codigo === null, JSON.stringify(fxL2));
+
+  // ---- truncado: omitir seria mentir por omissao ------------------------
+  window.__FIN_TRUNCADO = 1;
+  finQ('[data-acao="fin-so-nc"]').click();
+  await espera(340);
+  finQ('[data-acao="fin-so-nc"]').click();
+  await espera(340);
+  ok('fin: quando o servidor trunca, a tela DIZ que truncou',
+     !!finQ('.fin-truncado') && /Estreite o período/.test(finQ('.fin-truncado').textContent),
+     finQ('.fin-truncado') ? finQ('.fin-truncado').textContent : 'sem aviso de truncado');
+  window.__FIN_TRUNCADO = 0;
+
+  // ---- lancamento manual: dinheiro vivo nao aparece no OFX --------------
+  ok('fin: existe o botao de lancamento manual',
+     !!finQ('[data-acao="fin-lanc-abrir"]'));
+  finQ('[data-acao="fin-lanc-abrir"]').click();
+  await espera(340);
+  ok('fin: o formulario manual abre com conta, tipo, valor e data',
+     !!document.getElementById('finLancConta') && !!document.getElementById('finLancSinal') &&
+     !!document.getElementById('finLancValor') && !!document.getElementById('finLancData'));
+  document.getElementById('finLancDesc').value = 'CAFE DINHEIRO';
+  document.getElementById('finLancValor').value = '40';
+  document.getElementById('finLancData').value = '2026-08-22';
+  document.getElementById('finLancCat').value = 'alimentacao_fora';
+  document.getElementById('finLancDom').value = 'pessoal';
+  window.__finLancar = [];
+  finQ('[data-acao="fin-lanc-ok"]').click();
+  await espera(420);
+  var fxLan = window.__finLancar[0] || {};
+  // O sinal e SELETOR, nao um menos digitado: saida vira valor negativo.
+  ok('fin: Tipo=Saida vira valor NEGATIVO no payload',
+     fxLan.valor === '-40.00' && fxLan.descricao === 'CAFE DINHEIRO',
+     JSON.stringify(fxLan));
+  ok('fin: e o lancamento manual entra na lista',
+     finTxt().indexOf('CAFE DINHEIRO') >= 0);
+
+  // Sem o botao de forcar, o dono nao consegue registrar dois cafes iguais.
+  finQ('[data-acao="fin-lanc-abrir"]').click();
+  await espera(340);
+  document.getElementById('finLancDesc').value = 'CAFE DINHEIRO';
+  document.getElementById('finLancValor').value = '40';
+  document.getElementById('finLancData').value = '2026-08-22';
+  window.__finLancar = [];
+  finQ('[data-acao="fin-lanc-ok"]').click();
+  await espera(400);
+  ok('fin: lancamento repetido e recusado com a mensagem do servidor',
+     !!document.getElementById('finLancErro') &&
+     /Ja existe um lancamento igual nesse dia/.test(document.getElementById('finLancErro').textContent),
+     document.getElementById('finLancErro') ? document.getElementById('finLancErro').textContent.slice(0, 60) : 'sem erro');
+  ok('fin: e a tela oferece "aconteceu duas vezes mesmo"',
+     !!finQ('[data-acao="fin-lanc-forcar"]'));
+  window.__finLancar = [];
+  finQ('[data-acao="fin-lanc-forcar"]').click();
+  await espera(420);
+  ok('fin: o botao reenvia com forcar:true e o lancamento passa',
+     (window.__finLancar[0] || {}).forcar === true,
+     JSON.stringify(window.__finLancar[0] || {}));
+
+  // ---- Importar: o parser roda no navegador -----------------------------
+  function finNL(linhas) { return linhas.join(String.fromCharCode(10)); }
+  function finLatin1(txt) {
+    var b = [], i;
+    for (i = 0; i < txt.length; i++) b.push(txt.charCodeAt(i) & 255);
+    return new Uint8Array(b);
+  }
+  async function finAte(cond, tentativas) {
+    var i = 0, max = tentativas || 40;
+    while (i < max) { if (cond()) return true; await espera(60); i++; }
+    return false;
+  }
+  async function finSoltar(conteudo, nomeArq) {
+    var inp = document.getElementById('finArq');
+    var arq = new File([conteudo], nomeArq || 'agosto.ofx', { type: 'application/x-ofx' });
+    var dt = new DataTransfer();
+    dt.items.add(arq);
+    inp.files = dt.files;
+    // O resultado da leitura ANTERIOR sai do DOM antes do disparo: sem isso a
+    // espera acha o bloco velho, volta na hora e a assercao mede a leitura
+    // passada. Foi exatamente o que aconteceu no segundo arquivo.
+    var velho = finQ('.fin-previa') || finQ('.estado.erro');
+    if (velho && velho.parentNode) velho.parentNode.removeChild(velho);
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    await finAte(function () { return !!finQ('.fin-previa') || !!finQ('.estado.erro'); });
+    await espera(80);
+  }
+  finQ('.fin-sub .fin-chip[data-sub="importar"]').click();
+  await espera(360);
+  ok('fin: a sub-view Importar tem area de soltar e input de arquivo',
+     !!document.getElementById('finSolta') && !!document.getElementById('finArq'));
+  ok('fin: a faixa de nao classificado continua visivel na Importar',
+     !!finQ('.fin-alerta'));
+
+  // Arquivo sem STMTTRN: dizer isso e melhor que importar zero calado.
+  await finSoltar(finNL(['OFXHEADER:100', '<OFX><SIGNONMSGSRSV1></SIGNONMSGSRSV1></OFX>']), 'vazio.ofx');
+  ok('fin: OFX sem lancamento diz o que houve, em vez de importar zero calado',
+     /Não encontrei lançamentos nesse arquivo/.test(finTxt()),
+     (finQ('.estado.erro') ? finQ('.estado.erro').textContent.slice(0, 60) : 'sem recado'));
+  ok('fin: e nada foi gravado', window.__finImportar.length === 0);
+
+  // OFX 1.x de verdade: tag de folha SEM fechamento, encoding ISO-8859-1,
+  // TRNAMT ja com sinal, MEMO ganhando de NAME.
+  var OFX = finNL([
+    'OFXHEADER:100', 'DATA:OFXSGML', 'VERSION:102', 'CHARSET:1252', '',
+    '<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS>',
+    '<CURDEF>BRL',
+    '<BANKACCTFROM><BANKID>0260<ACCTID>12345<ACCTTYPE>CHECKING</BANKACCTFROM>',
+    '<BANKTRANLIST>',
+    '<DTSTART>20260801000000[-3:BRT]',
+    '<DTEND>20260831000000[-3:BRT]',
+    '<STMTTRN>',
+    '<TRNTYPE>DEBIT',
+    '<DTPOSTED>20260804120000[-3:BRT]',
+    '<TRNAMT>-100.00',
+    '<FITID>ABC1',
+    '<NAME>NOME QUE PERDE',
+    '<MEMO>PADARIA AÇÚCAR & CIA',
+    '</STMTTRN>',
+    '<STMTTRN>',
+    '<TRNTYPE>CREDIT',
+    '<DTPOSTED>20260805120000[-3:BRT]',
+    '<TRNAMT>2500.90',
+    '<FITID>ABC2',
+    '<NAME>PIX RECEBIDO',
+    '</STMTTRN>',
+    '</BANKTRANLIST>',
+    '<LEDGERBAL><BALAMT>1234.56<DTASOF>20260831120000[-3:BRT]</LEDGERBAL>',
+    '</STMTRS></STMTTRNRS></BANKMSGSRSV1>',
+    '<SIGNONMSGSRSV1><SONRS><FI><ORG>Nubank<FID>260</FI></SONRS></SIGNONMSGSRSV1>',
+    '</OFX>']);
+  await finSoltar(finLatin1(OFX), 'agosto.ofx');
+  var fxPrev = finQ('.fin-previa');
+  ok('fin: a PREVIA aparece antes de qualquer gravacao', !!fxPrev);
+  ok('fin: e nada foi gravado ainda (previa e obrigatoria)',
+     window.__finImportar.length === 0);
+  ok('fin: a previa diz quantos lancamentos o arquivo tem',
+     !!fxPrev && finQA('.fin-previa .pb-num')[0].textContent === '2',
+     fxPrev ? finQA('.fin-previa .pb-num')[0].textContent : 'sem previa');
+  ok('fin: a previa diz o periodo declarado no OFX',
+     !!fxPrev && finQA('.fin-previa .pb-num')[1].textContent === '01/08 a 31/08',
+     fxPrev ? finQA('.fin-previa .pb-num')[1].textContent : 'sem previa');
+  ok('fin: a previa diz o saldo final informado pelo banco',
+     !!fxPrev && finQA('.fin-previa .pb-num')[2].textContent === '1234.56',
+     fxPrev ? finQA('.fin-previa .pb-num')[2].textContent : 'sem previa');
+  ok('fin: a previa diz o banco',
+     !!fxPrev && finQA('.fin-previa .pb-num')[3].textContent === 'Nubank',
+     fxPrev ? finQA('.fin-previa .pb-num')[3].textContent : 'sem previa');
+  // Encoding: lido como UTF-8 o Latin-1 vira lixo. O parser cai para
+  // windows-1252 quando aparece o caractere de substituicao.
+  ok('fin: acento de ISO-8859-1 chega inteiro na previa (nao vira lixo)',
+     !!fxPrev && fxPrev.textContent.indexOf('PADARIA AÇÚCAR & CIA') >= 0,
+     fxPrev ? finQ('.fin-prev-desc').textContent : 'sem previa');
+  ok('fin: MEMO ganha de NAME na descricao',
+     !!fxPrev && fxPrev.textContent.indexOf('NOME QUE PERDE') < 0);
+  ok('fin: TRNAMT vem COM sinal e NAO e invertido',
+     !!fxPrev && finQA('.fin-prev-val')[0].textContent === '-100.00' &&
+     finQA('.fin-prev-val')[1].textContent === '2500.90',
+     finQA('.fin-prev-val').map(function (x) { return x.textContent; }).join('|'));
+  ok('fin: a previa mostra as primeiras linhas e DECLARA quantas mostrou',
+     finQA('.fin-prev-lin').length === 2 && /Mostrando 2 de 2 linhas lidas/.test(fxPrev.textContent));
+
+  window.__uploads = [];
+  window.__finImportar = [];
+  finQ('[data-acao="fin-imp-ok"]').click();
+  await espera(520);
+  ok('fin: confirmar sobe o arquivo ORIGINAL para o balde privado extrato',
+     window.__uploads.length === 1 && window.__uploads[0].balde === 'extrato',
+     JSON.stringify(window.__uploads[0] || {}));
+  ok('fin: e o caminho comeca com o tenant (a policy do Storage recusa fora)',
+     (window.__uploads[0] || {}).caminho.indexOf('t-prova/') === 0,
+     (window.__uploads[0] || {}).caminho);
+  var fxImp = window.__finImportar[0] || {};
+  ok('fin: sobe-depois-registra: a RPC recebe o caminho do arquivo',
+     fxImp.arquivo === window.__uploads[0].caminho, JSON.stringify(fxImp.arquivo));
+  ok('fin: a data vai CRUA do OFX (o servidor normaliza)',
+     (fxImp.itens || [])[0].data === '20260804120000[-3:BRT]',
+     JSON.stringify((fxImp.itens || [])[0] || {}));
+  ok('fin: o fitid vai junto (e a trava de dedupe do banco)',
+     (fxImp.itens || [])[0].fitid === 'ABC1');
+  ok('fin: periodo e saldo declarados no OFX chegam na RPC',
+     fxImp.periodo_ini === '2026-08-01' && fxImp.periodo_fim === '2026-08-31' &&
+     fxImp.saldo_final_informado === '1234.56',
+     JSON.stringify([fxImp.periodo_ini, fxImp.periodo_fim, fxImp.saldo_final_informado]));
+  ok('fin: o resultado usa a msg PRONTA do servidor',
+     !!finQ('.fin-imp-ok') && /2 lancamentos novos, 0 ja existiam/.test(finQ('.fin-imp-ok').textContent),
+     finQ('.fin-imp-ok') ? finQ('.fin-imp-ok').textContent.slice(0, 60) : 'sem resultado');
+  ok('fin: e oferece o atalho para a fila de nao classificados',
+     !!finQ('.fin-imp-ok [data-acao="fin-ir-nc"]'));
+
+  // Upload que falha NAO aborta a importacao: perder o extrato guardado e ruim,
+  // perder a importacao inteira e pior. Mas a tela tem que DIZER que perdeu.
+  window.__UPLOAD_FALHA = 1;
+  window.__uploads = [];
+  window.__finImportar = [];
+  await finSoltar(finLatin1(OFX), 'agosto2.ofx');
+  finQ('[data-acao="fin-imp-ok"]').click();
+  await espera(520);
+  var fxImp2 = window.__finImportar[0] || {};
+  ok('fin: upload falhando, a importacao SEGUE, sem o campo arquivo',
+     window.__finImportar.length === 1 &&
+     !Object.prototype.hasOwnProperty.call(fxImp2, 'arquivo'),
+     JSON.stringify(Object.keys(fxImp2)));
+  ok('fin: e a tela AVISA que o extrato nao ficou guardado',
+     !!finQ('.fin-imp-aviso') && /não ficou guardado/.test(finQ('.fin-imp-aviso').textContent),
+     finQ('.fin-imp-aviso') ? finQ('.fin-imp-aviso').textContent.slice(0, 70) : 'sem aviso');
+  window.__UPLOAD_FALHA = 0;
+
+  // ---- o estado VAZIO, que e o que o dono vai ver primeiro --------------
+  window.__FIN_VAZIO = 1;
+  document.getElementById('abaHoje').click();
+  await espera(200);
+  document.getElementById('abaFinanceiro').click();
+  await espera(420);
+  // A sub-view escolhida SOBREVIVE a troca de aba de proposito (quem estava
+  // classificando volta onde parou). O teste declara a propria precondicao em
+  // vez de herda-la, senao ele quebra na primeira vez que essa decisao mudar.
+  finQ('.fin-sub .fin-chip[data-sub="visao"]').click();
+  await espera(420);
+  ok('fin: com o banco vazio a tela NAO quebra e continua com o placar',
+     finQA('.fin-placar .pb-celula').length === 4,
+     'n=' + finQA('.fin-placar .pb-celula').length);
+  ok('fin: sem nada classificado a faixa de cobranca some',
+     !finQ('.fin-alerta'));
+  ok('fin: o vazio DIZ o que fazer, em vez de so informar que esta vazio',
+     /Importe o extrato do seu banco em OFX para começar/.test(finTxt()));
+  ok('fin: e leva direto para a Importar',
+     !!finQ('.fin-vazio-acoes [data-acao="fin-sub"][data-sub="importar"]'));
+  finQ('.fin-vazio-acoes [data-acao="fin-sub"][data-sub="importar"]').click();
+  await espera(360);
+  ok('fin: o botao do vazio abre mesmo a Importar',
+     !!document.getElementById('finSolta') &&
+     finQ('.fin-sub .fin-chip[aria-pressed="true"]').textContent === 'Importar');
+  window.__FIN_VAZIO = 0;
 
   fim();
 

@@ -234,8 +234,12 @@ for aba in ['abaHoje', 'abaConteudo', 'abaRotina', 'abaMais']:
 # decisao de navegacao (a barra so tem 6 lugares, decisao 6 do v45), entao ela
 # passa por este arquivo de proposito.
 _raras = set(re.findall(r'class="aba aba-rara" id="(\w+)"', novo_html))
+# `abaFinanceiro` entra em 25/08/2026, com a Fatia 1 do Financeiro. Rara de
+# proposito: e leitura de fechamento, nao laco do dia, e a barra do celular so
+# tem 6 lugares (decisao 6 do v45). Como .aba-rara ela auto-posiciona na gaveta
+# do Mais, entao nao empurra ninguem de la.
 _esperadas = {'abaNfs', 'abaEscopo', 'abaClientes', 'abaIndicacoes', 'abaCaptacao',
-              'abaRotina', 'abaDash', 'abaCalc', 'abaPitscare'}
+              'abaRotina', 'abaDash', 'abaCalc', 'abaPitscare', 'abaFinanceiro'}
 ck(_raras == _esperadas,
    f'as abas raras mudaram. sumiram: {sorted(_esperadas - _raras)} | entraram sem registro: {sorted(_raras - _esperadas)}')
 ck('Conteúdo' in novo_html and 'Rotina' in novo_html, 'acento na UI: Conteúdo/Rotina (a referencia decidiu "corrige")')
@@ -322,6 +326,23 @@ ROTULO_DE_GRUPO = [
 #
 # O auto-teste de .met-barra i continua abaixo, intacto: se algum dia ele parar
 # de reprovar, a regra morreu e esta excecao morre junto.
+# Quarto papel de produto: CONTROLE NATIVO E ALVO DE SOLTAR.
+# Aberto em 25/08/2026 com a aba Financeiro. Continua NOMEADO um a um, e os dois
+# sao affordance de CONTROLE, nao pintura de dado:
+#   .fin-chk        -> `accent-color` da caixa de selecao nativa. Sem ela o
+#                      Chrome pinta a caixa no proprio azul-roxo dele, que
+#                      colide com a marca a 4px de distancia. E o mesmo papel do
+#                      anel de foco: o navegador ja ia usar UM azul; a regra so
+#                      decide qual.
+#   .fin-solta.alvo -> a area de soltar o arquivo enquanto o dedo/mouse esta em
+#                      cima dela. Estado transitorio de um controle, irmao de
+#                      :hover; nao sobrevive ao soltar e nunca representa dado.
+# O auto-teste abaixo continua exigindo que a regra REPROVE barra de progresso
+# azul: se ele parar de reprovar, esta excecao morre junto.
+CONTROLE_NATIVO = [
+    'fin-chk',
+    'fin-solta.alvo',
+]
 SERIE_E_ACAO_HOJE = [
     # a serie de venda saiu do azul em 19/08/2026 (virou --ok, verde): as duas
     # entradas que viviam aqui foram REMOVIDAS, e a excecao encolheu sozinha.
@@ -339,6 +360,8 @@ def papel_do_azul(sel):
         return 'rotulo de grupo'
     if any(a in sel for a in SERIE_E_ACAO_HOJE):
         return 'serie de grafico ou acao primaria da Hoje'
+    if any(a in sel for a in CONTROLE_NATIVO):
+        return 'controle nativo ou alvo de soltar'
     return None
 # auto-teste: a regra so vale se ainda REPROVAR o caso que ela existe para pegar.
 assert papel_do_azul('.met-barra i') is None, 'a regra 11.1 parou de pegar barra de progresso azul'
@@ -349,6 +372,12 @@ assert papel_do_azul('.cont-col-rot') == 'rotulo de grupo'
 # e o rotulo de grupo NAO pode virar salvo-conduto para pintar o dado:
 assert papel_do_azul('.mol-peca') is None, 'rotulo de grupo vazou para o conteudo do cartao'
 assert papel_do_azul('.cont-card') is None, 'rotulo de grupo vazou para o cartao inteiro'
+# e o controle nativo tambem NAO pode virar salvo-conduto: a excecao vale para a
+# caixa de selecao e para a area de soltar, nunca para a linha que elas moram.
+assert papel_do_azul('.fin-chk') == 'controle nativo ou alvo de soltar'
+assert papel_do_azul('.fin-solta.alvo') == 'controle nativo ou alvo de soltar'
+assert papel_do_azul('.fin-lin') is None, 'a excecao de controle vazou para a linha de movimento'
+assert papel_do_azul('.fin-barra i') is None, 'a excecao de controle vazou para a barra de secao'
 # 11.6 A tabela de parcelamento e DADO, nao codigo (16/08/2026). Ela vive em
 # calc_dados.dados.config.taxas e tem TRES consumidores: a calc do dono, o
 # dados.js do consultor (gerado) e o painel. Um coeficiente copiado para o

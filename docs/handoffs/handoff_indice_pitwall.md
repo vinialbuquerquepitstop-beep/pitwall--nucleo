@@ -7,7 +7,29 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v66.md` (19/08/2026, **a Fatia 2 inteira: a mesma
+- topo: `handoff_migracao_pitwall_v67.md` (25 e 26/08/2026, **a Fatia 1 do modulo
+  Financeiro: 6 migrations e a aba na tela**). Disparado pelo pedido do dono de "um
+  sistema financeiro completo", que era CINCO subsistemas e foi cortado em 6 fatias.
+  Decisao central: **caixa e resultado sao verdades separadas e nunca se somam** (`venda`
+  diz o resultado, `fin_movimento` diz o caixa; somar os dois dobraria o faturamento no
+  dia em que o PIX do cliente virasse lancamento). Como o dono tem UMA conta bancaria com
+  dinheiro da loja e pessoal misturados, nasceu o **invariante 18**: movimento sem
+  `dominio` nao entra em total nenhum, e `dominio` nunca tem default silencioso. Banco: 4
+  tabelas (`fin_conta`, `fin_categoria`, `fin_movimento`, `fin_importacao`), 33 categorias
+  em 9 grupos, bucket privado `extrato`, 6 RPCs, 14 cenarios de prova com RLS valendo e
+  desfeitos por exception (vendedor Brendon ve **0** nas 4 tabelas e leva recusa nas 6
+  RPCs). Tela: aba `Financeiro` com Visao, Movimentos e Importar, parser de OFX no
+  navegador com previa obrigatoria. **829 assercoes, 0 falhas** (piso 713), os 6 comandos
+  e as 5 larguras em EXIT 0, conferidos pela Torre rodando a suite e nao lendo relatorio.
+  Dois achados que valem mais que a entrega: o `base` **recusou a especificacao da Torre
+  e estava certo** (o `hash_dedupe` como foi pedido engoliria o segundo de dois Uber de
+  R$ 20 no mesmo dia, apagando dinheiro real em silencio; virou hash com **ocorrencia**),
+  e a `vitrine` achou o **`diag_mobile.py` dando verde vazio** porque a lista `abasIds` e
+  chumbada e nao continha a aba nova, entao a tela nunca era desenhada na medicao.
+  **Nada commitado, nada publicado.** A ressalva que so o dono fecha: **nenhum OFX real
+  foi testado**, e a base financeira tem ZERO movimentos. Detalhe do frontend na linha
+  `vitrine` v1.
+- anterior: `handoff_migracao_pitwall_v66.md` (19/08/2026, **a Fatia 2 inteira: a mesma
   pessoa parava de ser a mesma quando o telefone mudava de formato, e quem comprava
   nunca entrava na regua de pos-venda**). Disparado por um bug reportado em uma frase
   pelo dono. Nao era falta de trava: o `UNIQUE (tenant_id, whatsapp_digitos)` existia e
@@ -408,7 +430,24 @@ nenhuma das duas batia com o repo.
 
 ## Linha frontend (vitrine)
 
-- topo: (vazio)
+- topo: `handoff_frontend_pitwall_v1.md` (26/08/2026, **a aba Financeiro, Fatia 1**).
+  Primeiro handoff desta linha. Nao substitui o da migracao: complementa, cobrindo so o
+  que a `vitrine` construiu. Visao (placar + secoes de gasto por grupo), Movimentos
+  (classificacao na linha e em lote) e Importar (parser OFX no navegador, previa
+  obrigatoria antes de gravar), tudo pendurado no invariante 18, que virou faixa fixa no
+  topo. **Zero token de cor novo**: 9 grupos financeiros sobre os 7 trilhos ja medidos,
+  com mapa explicito e UMA colisao assumida a dedo (Marketing e Vida, os dois icones mais
+  distantes); `Sem categoria` em `--morno` porque e ESTADO, nao identidade; e **gasto
+  nunca em vermelho** (`--erro` so na faixa de nao classificado e no resultado negativo,
+  travado por cor computada). Duas excecoes NOMEADAS em `validar.py`
+  (`CONTROLE_NATIVO = ['fin-chk', 'fin-solta.alvo']`) com auto-teste provando que nao
+  vazam, e num terceiro caso a regra estava certa e o **CSS foi corrigido** em vez de
+  aberta excecao. **A baseline `.antes` nao foi repontada em momento nenhum.** As "4
+  ancoras" da linha minificada que o briefing pedia eram SEIS, e as duas que faltavam
+  eram defeito visivel (sem a do `topoTit` a tela escreveria "Dashboard" em cima do
+  financeiro). Achou o `diag_mobile.py` medindo verde vazio e o corrigiu para varrer as
+  tres sub-views. Matou uma flake real (`file.arrayBuffer()` nao anda com
+  `--virtual-time-budget`: espera fixa era loteria).
 
 ## Linha qa (bandeira)
 

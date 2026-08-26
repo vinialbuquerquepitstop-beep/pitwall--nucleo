@@ -3272,3 +3272,262 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   /* a 360px o avatar ja nao segura recuo: o motivo volta pra margem do cartao */
   .card-motivo{padding-left:0;margin-top:10px}
 }
+
+/* ==========================================================================
+   FINANCEIRO — a Fatia 1                                       (25/08/2026)
+   Spec: docs/superpowers/specs/2026-08-25-financeiro-design.md
+
+   Tres decisoes de cor, e nenhuma delas e paleta nova:
+
+   1. GASTO NAO E VERMELHO. --erro (#B01235) e falha de SISTEMA. Gastar nao e
+      bug, e por isso a barra de secao e NEUTRA e o valor de saida sai na cor de
+      texto normal. E o mesmo criterio que ja poe frete e taxas em --morno no
+      painel de vendas, e que manteve --erro fora do grafico de abandono do
+      Escopo.
+   2. O UNICO vermelho aqui e o `resultado` NEGATIVO (--erro-fg, o mesmo que
+      .vg-num.neg da aba Vendas ja usa) e a faixa de nao classificado, que e de
+      fato problema de INTEGRIDADE do dado, nao de dinheiro.
+   3. "Sem categoria" usa --morno, o token de trabalho pendente que .nf-falta e
+      .btn-acao.nf-pede ja usam. Nunca --erro: falta de categoria e trabalho que
+      falta, nao falha.
+
+   Zero token novo no :root. Os 9 grupos financeiros pintam com os 7 tokens de
+   trilho que prova_trilho.py ja mede (3.80 a 5.21 contra branco), e a colisao
+   Marketing/Vida e resolvida pelo ICONE, como manda o sistema Trilho x Sinal.
+   ========================================================================== */
+.fin-topo{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:0 2px 10px;border-bottom:1px solid var(--line);margin-bottom:14px;
+}
+.fin-sub,.fin-dom{display:flex;gap:5px;flex-wrap:wrap}
+.fin-dom{margin-left:auto}
+/* aria-pressed e papel MECANICO do azul (estado pressionado de filtro): mesma
+   familia do .met-faixa e do .dh-seg-b, nao um sexto uso da marca. */
+.fin-chip{
+  background:var(--bg);border:1px solid var(--line);color:var(--dim);
+  border-radius:var(--radius-p);padding:5px 12px;
+  font-family:var(--body);font-size:12.5px;font-weight:500;line-height:1.35;
+}
+.fin-chip:hover{color:var(--text);border-color:var(--line-forte);background:var(--surface)}
+.fin-chip[aria-pressed="true"]{
+  color:var(--accent);border-color:var(--accent-linha);background:var(--accent-tint);
+}
+.fin-mes{display:flex;align-items:center;gap:7px;flex-wrap:wrap;width:100%}
+.fin-mes-b{
+  width:30px;height:30px;flex:0 0 auto;display:grid;place-items:center;
+  background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
+  border-radius:var(--radius-p);font-size:15px;line-height:1;
+}
+.fin-mes-b:hover{background:var(--surface)}
+.fin-mes-b:disabled{opacity:.35;cursor:default}
+.fin-mes-rot{font-size:14px;font-weight:600;letter-spacing:-.01em;text-transform:capitalize}
+/* A janela DECLARADA. Tela que omite recorte mente: sem esta linha o mes
+   corrente, que para em hoje, leria como mes fechado. */
+.fin-janela{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.02em}
+
+/* --- a faixa do invariante 18 ---
+   Ela e a metade visivel da regra. --erro aqui e legitimo: nao e gasto, e dado
+   incompleto que nao entra em total nenhum. */
+.fin-alerta{
+  display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;
+  border:1px solid var(--erro-linha);background:var(--erro-bg);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;
+}
+.fin-alerta-ico{
+  width:19px;height:19px;flex:0 0 auto;margin-top:1px;
+  stroke:var(--erro-fg);fill:none;stroke-width:1.7;
+}
+.fin-alerta-txt{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.fin-alerta-txt b{font-size:14px;font-weight:600;color:var(--erro-fg);letter-spacing:-.01em}
+.fin-alerta-txt span{font-size:12px;line-height:1.5;color:var(--text)}
+.fin-alerta-btn{
+  flex:0 0 auto;background:var(--erro-fg);border:1px solid var(--erro-fg);color:var(--bg);
+  border-radius:var(--radius-p);padding:8px 14px;
+  font-family:var(--body);font-size:13px;font-weight:500;
+}
+.fin-alerta-btn:hover{opacity:.9}
+
+/* --- placar. Reusa o pitboard e so encolhe o numero: aqui ele carrega moeda
+       ("R$ 12.345,67"), nao um inteiro de dois digitos, e a 27px ele saia
+       cortado pela reticencia numa coluna de celular. Dinheiro truncado parece
+       outro numero. --- */
+.fin-placar{margin-bottom:16px}
+.fin-placar .pb-num{font-size:20px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fin-placar .pb-num.neg{color:var(--erro-fg)}
+.fin-placar .pb-num.cobra{color:var(--morno-fg)}
+.fin-placar .pb-celula:has(.pb-num.cobra){border-color:var(--morno-linha);background:var(--morno-bg)}
+.fin-placar .pb-celula:has(.pb-num.cobra) .pb-rot,
+.fin-placar .pb-celula:has(.pb-num.cobra) .pb-pe{color:var(--morno-fg)}
+/* periodo, saldo e banco da previa nao sao numero grande: sao texto curto. */
+.fin-placar .pb-num.fin-num-p{font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:0}
+
+/* --- secoes de gasto e de entrada --- */
+.fin-bloco{margin-bottom:22px}
+.fin-bloco-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fin-bloco-tit{font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.015em}
+.fin-bloco-pe{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.fin-sec{
+  border:1px solid var(--line);border-left:3px solid var(--tr,var(--line-forte));
+  border-radius:var(--radius);padding:11px 14px;margin-bottom:8px;background:var(--bg);
+}
+.fin-sec-cab{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;cursor:pointer;
+  list-style:none;color:var(--tr,var(--text));
+}
+.fin-sec-cab::-webkit-details-marker{display:none}
+.fin-sec-cab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.fin-sec-cab .tr-ico{stroke-width:1.7}
+.fin-sec-rot{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.fin-sec-val{
+  margin-left:auto;font-family:var(--display);font-size:16px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:-.02em;
+}
+.fin-sec-pct{font-family:var(--mono);font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+/* "Sem categoria" nao e identidade, e ESTADO: trabalho pendente, em --morno.
+   Nunca --erro, pelo mesmo motivo do .btn-acao.nf-pede. */
+.fin-sec.cobra{border-left-color:var(--morno);background:var(--morno-bg);border-color:var(--morno-linha)}
+.fin-sec.cobra .fin-sec-cab{color:var(--morno-fg)}
+.fin-barra{display:block;height:6px;border-radius:3px;background:var(--line);margin:9px 0 2px;overflow:hidden}
+.fin-barra i{display:block;height:100%;background:var(--dim);border-radius:3px}
+.fin-cats{display:flex;flex-direction:column;margin-top:6px}
+.fin-cat{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;
+}
+.fin-cat:last-child{border-bottom:0;padding-bottom:0}
+.fin-cat-rot{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+.fin-cat-n{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.fin-cat-val{font-family:var(--mono);font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.fin-cat-pct{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+/* A variacao e NEUTRA: gasto que sobe nao e necessariamente ruim (comprar
+   estoque sobe Mercadoria), e pintar de vermelho seria a tela julgando o que
+   ela nao tem como saber. */
+.fin-delta{font-family:var(--mono);font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.fin-delta.nova{opacity:.8;font-style:normal}
+.fin-rodape{font-size:11.5px;color:var(--dim);line-height:1.5;margin:4px 0 18px}
+.fin-rodape b{color:var(--text);font-weight:500}
+.fin-vazio-acoes{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+
+/* --- movimentos --- */
+.fin-mov-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fin-aviso{
+  border:1px solid var(--morno-linha);background:var(--morno-bg);color:var(--morno-fg);
+  border-radius:var(--radius-p);padding:9px 12px;font-size:12.5px;line-height:1.45;margin-bottom:10px;
+}
+.fin-truncado{
+  font-size:12px;color:var(--morno-fg);background:var(--morno-bg);
+  border:1px solid var(--morno-linha);border-radius:var(--radius-p);
+  padding:8px 11px;margin-top:10px;line-height:1.45;
+}
+.fin-lote{display:none}
+.fin-lote.aberto{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  border:1px solid var(--accent-linha);background:var(--accent-tint);
+  border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;
+}
+/* o contador NAO ganha o azul da marca: ele conta, nao age. Azul aqui seria
+   pintura de dado, que e exatamente o que a regra 11.1 do validar.py existe
+   para barrar. O bloco inteiro ja le como area de acao pelo --accent-tint. */
+.fin-lote-n{font-family:var(--mono);font-size:11.5px;font-weight:500;color:var(--text)}
+.fin-lote-sel{
+  flex:1 1 150px;min-width:0;max-width:100%;
+  background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
+  border-radius:var(--radius-p);padding:7px 9px;font-size:13px;
+}
+.fin-lista{display:flex;flex-direction:column;gap:6px}
+.fin-lin{
+  display:grid;grid-template-columns:20px minmax(0,1fr) auto minmax(0,290px);
+  align-items:center;gap:10px;
+  border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;background:var(--bg);
+}
+/* sem dominio = fora de todo total (invariante 18). A linha carrega a marca de
+   trabalho pendente, nao de erro. */
+.fin-lin.nc{border-left:3px solid var(--morno);padding-left:9px}
+.fin-lin.sel{border-color:var(--accent-linha);background:var(--accent-tint)}
+.fin-chk{width:17px;height:17px;accent-color:var(--accent);flex:0 0 auto;margin:0}
+.fin-lin-txt{min-width:0}
+.fin-lin-desc{font-size:13.5px;line-height:1.35;overflow-wrap:anywhere}
+.fin-lin-pe{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.fin-lin-data{font-variant-numeric:tabular-nums}
+.fin-lin-conta,.fin-lin-origem,.fin-lin-obs{opacity:.85}
+.fin-lin-val{
+  font-family:var(--mono);font-size:13.5px;font-weight:500;
+  font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
+}
+/* Saida NAO e vermelha: gastar nao e falha. O sinal e o alinhamento tabular
+   fazem a distincao, como no .vg-corte-num. */
+.fin-lin-val.neg{color:var(--text)}
+.fin-lin-cls{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.fin-sel-cat,.fin-sel-dom{
+  flex:1 1 120px;min-width:0;max-width:100%;
+  background:var(--bg);border:1px solid var(--line-forte);color:var(--text);
+  border-radius:var(--radius-p);padding:6px 8px;font-size:12.5px;
+}
+.fin-sel-dom{flex:0 1 108px}
+.fin-mov-pe{margin-top:14px}
+.fin-form{border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;background:var(--surface)}
+.fin-form-lin{display:flex;gap:10px;flex-wrap:wrap}
+.fin-form-lin .campo{flex:1 1 120px;min-width:0}
+.fin-erro{color:var(--erro-fg);font-size:12.5px;line-height:1.5;margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fin-erro:empty{display:none}
+.fin-dica{color:var(--dim);flex:1 1 100%}
+
+/* --- importar --- */
+.fin-solta{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:relative;
+  border:1px dashed var(--line-forte);border-radius:var(--radius);
+  background:var(--surface);padding:18px 16px;margin-bottom:16px;
+}
+.fin-solta.alvo{border-color:var(--accent);background:var(--accent-tint)}
+.fin-solta-ico{width:24px;height:24px;flex:0 0 auto;stroke:var(--dim);fill:none;stroke-width:1.6}
+.fin-solta-txt{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.fin-solta-txt b{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.fin-solta-txt span{font-size:12px;color:var(--dim);line-height:1.5}
+.fin-solta-inp{flex:1 1 200px;min-width:0;max-width:100%;font-size:12.5px;color:var(--dim)}
+.fin-solta-inp:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* A previa e obrigatoria: nada e gravado antes de o dono conferir que o parser
+   leu certo. Importar calado o que o parser entendeu errado e como nasce base
+   suja que ninguem consegue auditar depois. */
+.fin-previa{border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px}
+.fin-prev-tab{border:1px solid var(--line);border-radius:var(--radius-p);overflow:hidden;margin-bottom:10px}
+.fin-prev-cab,.fin-prev-lin{
+  display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;
+  padding:7px 11px;align-items:baseline;
+}
+.fin-prev-cab{
+  background:var(--surface);border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);
+}
+.fin-prev-lin{font-size:12.5px;border-bottom:1px solid var(--line)}
+.fin-prev-lin:last-child{border-bottom:0}
+.fin-prev-data{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.fin-prev-desc{min-width:0;overflow-wrap:anywhere}
+.fin-prev-val{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-prev-val.neg{color:var(--text)}
+.fin-imp-ok{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border:1px solid var(--ok-linha);background:var(--ok-bg);
+  border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;
+}
+.fin-imp-ok b{font-size:14px;font-weight:600;color:var(--ok-fg)}
+/* Upload que falhou NAO some: perder o extrato guardado e ruim, e a tela diz
+   que perdeu, em vez de deixar o dono achando que ficou tudo salvo. */
+.fin-imp-aviso{flex:1 1 100%;font-size:12px;color:var(--morno-fg);line-height:1.45}
+
+@media (max-width:860px){
+  .fin-dom{margin-left:0}
+  /* a 390px a linha de movimento em 4 colunas espremia o seletor de categoria
+     em ~70px, onde "Alimentação fora" nao existe. Ela empilha: descricao e
+     valor na primeira linha, os dois seletores na segunda, cada um com metade
+     da largura util e alvo de toque de 40px. */
+  .fin-lin{grid-template-columns:20px minmax(0,1fr) auto;row-gap:8px}
+  .fin-lin-cls{grid-column:1/-1}
+  .fin-sel-cat,.fin-sel-dom{flex:1 1 120px;min-height:40px}
+  .fin-sel-dom{flex:1 1 100px}
+  .fin-lote-sel{min-height:40px}
+  .fin-chip{min-height:34px}
+  .fin-mes-b{width:34px;height:34px}
+  .fin-placar .pb-num{font-size:17px}
+  .fin-placar .pb-num.fin-num-p{font-size:11.5px}
+  .fin-prev-cab,.fin-prev-lin{grid-template-columns:48px minmax(0,1fr) auto;gap:8px;padding:7px 9px}
+}
