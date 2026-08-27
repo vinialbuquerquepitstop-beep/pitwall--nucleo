@@ -104,8 +104,17 @@ que so seria verdade na familia que eu escolhi olhar.
 
 ## 4. Portao
 
-Rodado ANTES de **cada um dos tres commits** (`67d0066`, `147e731`, `2aec847`), verde nas
-tres vezes, com o mesmo resultado. Conferido por EXIT CODE, nunca pelo texto da saida.
+### 4.1 Portao de entrada (`P-ABRE`)
+
+Rodado no inicio do `P-R0`, os 9 itens. **Reprovou no item 2**: uma migration `fin_`
+aplicada no banco e ausente do git. Pelo `CONTRATO.md` 6.1, "se qualquer item reprovar, a
+entrega da vez passa a ser fechar esse item", e foi o que o `P-R0` fez (secao 3.3).
+Os itens 1 e 3 a 9 passaram, com a suite abaixo.
+
+### 4.2 A suite
+
+Rodada ANTES de **cada commit da sessao**, verde em todas as vezes, com o mesmo resultado.
+Conferida por EXIT CODE, nunca pelo texto da saida.
 
 | Comando | EXIT |
 |---|---|
@@ -116,6 +125,29 @@ tres vezes, com o mesmo resultado. Conferido por EXIT CODE, nunca pelo texto da 
 | `python ferramentas/prova_atmosfera.py` | 0 |
 | `node --check public/app.js` | 0 |
 | `python ferramentas/diag_mobile.py` em 360, 390, 414, 1280, 1440 | 0 nas cinco |
+
+### 4.3 Portao de saida (`P-FECHA`), item a item
+
+Os 8 itens do `CONTRATO.md` 6.2, respondidos para a entrega do `P-R0` (commit `2aec847`).
+**Esta tabela faltava neste arquivo ate 27/08/2026** e existia so no chat da sessao, o que
+o dono pegou ao perguntar onde estava o registro do portao de saida. Chat nao e registro.
+
+| # | Item | Resposta |
+|---|---|---|
+| 1 | SQL rodado no banco de verdade, nao revisado no olho | **n/a.** Nenhum SQL novo foi escrito. A migration ja estava aplicada desde 26/08; a entrega foi versiona-la, e a fidelidade foi provada por **md5**, nao por leitura |
+| 2 | RLS testada como dono E como vendedor | **n/a.** Nenhuma policy, grant ou tabela tocada |
+| 3 | A tela le TODO campo novo que o servidor passou a devolver | **n/a.** Nenhum campo novo. Ressalva: `bruto` e `abatido` seguem sem leitor, mas sao da entrega ANTERIOR e estao registrados como `D-3` |
+| 4 | Assercao nova na suite, com prefixo de fatia | **NAO.** Nenhuma assercao foi criada. Justificativa: nenhuma linha de comportamento mudou. As entregas da sessao sao documento e versionamento de arquivo `.sql` ja aplicado. **Isto e uma resposta NAO, nao um n/a**, e fica assim escrito de proposito |
+| 5 | EXIT 0 nos comandos e nas 5 larguras | **SIM.** Secao 4.2, rodado antes de cada commit |
+| 6 | Commit unico, incluindo spec e plano | **SIM por entrega, NAO por sessao.** Cada entrega teve um commit so; a sessao teve varios porque teve varias entregas. Ver secao 3 |
+| 7 | Handoff da linha do Financeiro atualizado | **SIM.** Este arquivo, sem serie paralela |
+| 8 | Nenhuma recusa nova fora da secao 4 do contrato | **SIM.** Nenhuma recusa foi criada |
+
+**Portao de confianca (6.3): algum numero visivel na tela mudou nesta entrega?**
+**Nao.** Zero linha de `public/` tocada na sessao inteira.
+
+**Veredito da entrega do `P-R0`: fechada e APROVADA**, com a reprovacao do item 4 dita na
+cara em vez de maquiada de "n/a".
 
 ---
 
