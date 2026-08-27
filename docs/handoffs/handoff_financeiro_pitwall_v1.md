@@ -63,14 +63,49 @@ o prompt fica curto e descartavel.
   ouro 6, "Invariante 15" para `F3`; Parte 3 item 2, "Acrescentar os invariantes 13 a 16
   ao CONTRATO.md" para "Conferir que o CONTRATO.md esta em docs/financeiro/". Varredura
   posterior: nenhuma citacao da numeracao morta sobrou no arquivo.
-- **Fica de fora, de proposito:** `docs/superpowers/plans/2026-08-19-segundo-lojista-tenant.md`,
-  ainda sem versionar. Divida propria, tratada no `P-R0`.
+- **Ficou de fora deste commit, de proposito:**
+  `docs/superpowers/plans/2026-08-19-segundo-lojista-tenant.md`. Divida propria, tratada
+  no `P-R0` da mesma sessao (secao 3.3), onde entrou.
+
+### 3.2 Segunda entrega da sessao: o handoff (commit `147e731`)
+
+Nasce este arquivo e a `## Linha financeiro` no indice ganha topo. E onde a secao 6
+passou a existir.
+
+### 3.3 Terceira entrega da sessao: `P-R0`, higiene (commit `2aec847`)
+
+**Frase:** o git volta a descrever o banco.
+
+O `P-R0` avisava para nao presumir o estado da divida, e fez bem: a migration que a
+medicao de 26/08 apontava como faltando (`fin_fatia21_painel_abatimento`) **ja estava
+commitada** em `0fa9ed4`. A que faltava era outra, aplicada **depois** da medicao.
+
+- `supabase/migrations/20260826_fin_fatia21_painel_abatimento_sem_categoria.sql`, novo.
+  Aplicada no banco como `20260826223626`, as 22:36 de 26/08, e nunca versionada.
+  Recuperada de `supabase_migrations.schema_migrations` e **conferida por md5**, nao
+  transcrita no olho: `42fea630406ca5054b9002c9cfe36efd` nos dois lados, 8579 chars.
+  E o conserto de um defeito que a propria Fatia 2.1 tinha introduzido: o filtro
+  `natureza_esperada = 'saida'` derrubava das secoes o movimento com dominio escolhido e
+  categoria em branco, que seguia contando no `saiu`. R$ 184,80 no total e em secao
+  nenhuma (secoes 1012,01 contra `saiu` 1196,81).
+- `docs/superpowers/plans/2026-08-19-segundo-lojista-tenant.md`, novo. Plano real, 14
+  secoes, objetivo e arquitetura definidos, sem versionar desde 19/08. Entrou.
+
+**Prova, rodada depois do commit:** 14 migrations `fin_` aplicadas no banco, 14
+versionadas no git, **diferenca zero nos dois sentidos**. `git status --porcelain` vazio.
+
+**O que NAO ficou zero, e nao era desta entrega:** 158 migrations aplicadas contra 26
+versionadas. A pasta `supabase/migrations/` so comecou a ser usada em 21/07/2026 e as
+**132 anteriores** foram aplicadas por MCP sem arquivo. Divida estrutural anterior a esta
+sessao, nao deriva nova. Registrada aqui em vez de escondida atras de um "diferenca zero"
+que so seria verdade na familia que eu escolhi olhar.
 
 ---
 
 ## 4. Portao
 
-Rodado ANTES do commit `67d0066`.
+Rodado ANTES de **cada um dos tres commits** (`67d0066`, `147e731`, `2aec847`), verde nas
+tres vezes, com o mesmo resultado. Conferido por EXIT CODE, nunca pelo texto da saida.
 
 | Comando | EXIT |
 |---|---|
@@ -146,6 +181,12 @@ carregada`). Esse conjunto **nao foi recontado** nesta sessao.
 **D-6. Ternario com os dois bracos identicos.**
 `public/app.js:1288`: `(1===hoje?" esperando por ela":" esperando por ela")`.
 
+**D-7. Achada no `P-R0`, nao pela sessao de aceite.** A migration
+`fin_fatia21_painel_abatimento_sem_categoria` (aplicada `20260826223626`, as 22:36 de
+26/08) alterou valores exibidos nas secoes da Visao. `grep -c "184,80\|184.80"
+public/app.js` = **0**; nao ha texto na tela referente a essa mudanca. Mesmo criterio das
+outras seis: registro, sem diagnostico e sem proposta.
+
 ---
 
 ## 7. Ordem decidida para a sequencia
@@ -169,13 +210,60 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
 
 ---
 
-## 9. O que fica aberto
+## 9. O que NAO foi provado, e o que fica aberto
 
-- **`git push` pendente.** `main` esta **ahead 2** de `origin/main`: `0fa9ed4` (Fatia 2.1,
-  o abatimento) e `67d0066` (este). O dono ordenou o push nesta sessao e o comando foi
-  **bloqueado pelo classificador do auto mode do Claude Code**, nao por erro de git.
-  Enquanto nao subir, a migration do abatimento esta aplicada no banco e o codigo nao
-  esta publicado: **o app publicado esta atras do banco.** E a divida que o `P-R0` mede.
+### 9.1 Nao provado nesta sessao
+
+- **O `P-R0` provou paridade de NOME, nao de CONTEUDO.** Para a migration recuperada, o
+  md5 bate byte a byte. Para as outras 13 `fin_`, foi conferido que existe arquivo com o
+  nome de cada migration aplicada; **o corpo de cada arquivo nao foi comparado** com o que
+  esta em `supabase_migrations.schema_migrations`.
+- **Nada foi verificado no app rodando.** As tres entregas sao de documento e de arquivo
+  `.sql` ja aplicado. Nenhuma tela foi aberta.
+- **As ~12 frases de cliente da `D-4` nao foram recontadas** (por decisao do dono: recontar
+  e trabalho do `P-AUDITA`).
+
+### 9.2 Aberto
+
+- **`git push` pendente, e e a maior.** `main` esta **ahead 4** de `origin/main`:
+  `0fa9ed4` (Fatia 2.1), `67d0066` (contrato), `147e731` (handoff) e `2aec847` (`P-R0`).
+  Primeira tentativa: **bloqueada pelo classificador do auto mode do Claude Code**, nao
+  por erro de git. Segunda: o dono colou a mensagem inteira junto do comando e o git
+  recusou com `fatal: invalid refspec '1.'`. **Nada subiu.** Neste repo push e deploy, e
+  por decisao do dono nesta sessao **o push nao sai de dentro de uma sessao de construcao,
+  a friccao e proposital** e nao se adiciona regra de `git push` no `settings.json`.
+  Enquanto nao subir, o app publicado esta atras do banco. Comando: `! git push origin main`
+- **132 migrations aplicadas sem arquivo no git** (158 aplicadas, 26 versionadas).
+  Estrutural, anterior a esta sessao. Ver secao 3.3.
 - **`LEDGERBAL` guardado e nunca conferido** contra a soma dos movimentos. Herdado do v68.
 - **`fin_regra` continua com 0 linhas.** Herdado do v68.
-- O plano do segundo lojista segue sem versionar.
+
+---
+
+## 10. Invariantes reforcados nesta sessao
+
+- **Inv. 18** ganhou casa fixa: deixou de viver so no `CLAUDE.md` e no PRD e passou a ser
+  a secao 2.1 do `CONTRATO.md`, que carrega sozinho.
+- **F1 a F4 passam a existir com numero proprio.** A numeracao "13 a 16" que colidia com a
+  global do projeto foi morta na revisao 1 e varrida do guia no ato da copia.
+- **C6, entrega vertical**, foi o criterio que manteve a entrega da `D-k` fechada: a frase
+  esta escrita e aprovada, e nenhuma linha foi codada porque o `P-AUDITA` ainda nao
+  liberou a `D-2`.
+- **Portao por EXIT CODE, nunca por texto de saida:** rodado nas tres vezes.
+- **"Entrega vazia e resultado valido"** foi testado e **nao se aplicou**: o `P-R0` achou
+  divergencia real. O criterio serviu para nao inventar trabalho, nao para pular a
+  medicao.
+
+---
+
+## 11. Primeiro movimento do proximo chat
+
+1. **O dono roda `! git push origin main`.** Nada mais comeca antes disso: sao 4 commits
+   parados e o app publicado esta atras do banco.
+2. **`P-AUDITA`, em sessao SEPARADA desta**, apontado para as **sete** divergencias da
+   secao 6 (as seis da sessao de aceite mais a `D-7`). So o que sobreviver vira entrega.
+3. Se o `P-AUDITA` confirmar a `D-2`, abrir a entrega da secao 8, ja aprovada pelo dono
+   palavra por palavra. Se derrubar a `D-2`, **a frase morre junto** e nao se gasta sessao.
+4. Depois, `P-W1-COBERTURA`.
+
+Nao comecar pelo `P-W1-COBERTURA`, e nao abrir a entrega da `D-k` antes do `P-AUDITA`.
