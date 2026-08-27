@@ -139,10 +139,11 @@ revisao 1 de hoje. O apontamento em `CLAUDE.md` funciona e nao precisa mudar de 
 
 ## 6. Divergencias observadas, nao tratadas
 
-Levantadas pela sessao de aceite, **reconferidas uma a uma nesta sessao** com `grep` no
-`app.js` e nas migrations versionadas. Registro puro: nenhuma foi consertada, nenhuma foi
-diagnosticada, nenhuma proposta esta escrita aqui. A ordem de listagem e a da sessao de
-aceite, nao ordem de gravidade.
+**Sao SETE: `D-1` a `D-7`.** As seis primeiras vieram da sessao de aceite; a **`D-7` nao**,
+foi achada durante o `P-R0` desta sessao. Todas **reconferidas uma a uma** com `grep` no
+`app.js` e nas migrations versionadas antes de virarem afirmacao. Registro puro: nenhuma
+foi consertada, nenhuma foi diagnosticada, nenhuma proposta esta escrita aqui. A ordem de
+listagem e a de descoberta, nao ordem de gravidade.
 
 **D-1. `F3` nao tem implementacao em `public/app.js`.**
 `grep -c "base incompleta\|julgado\|julgada" public/app.js` = **0**.
@@ -196,7 +197,7 @@ Definida pelo dono nesta sessao.
 | # | Bloco | Criterio |
 |---|---|---|
 | 1 | `P-ABRE` · `P-R0` · `P-FECHA` | diferenca esperada **zero**. Se der zero, a entrega e vazia: encerrar a sessao, nao inventar trabalho |
-| 2 | `P-AUDITA`, em **sessao separada** | apontado para as 6 divergencias da secao 6. **So o que sobreviver a auditoria vira entrega** |
+| 2 | `P-AUDITA`, em **sessao separada** | apontado para as **7** divergencias da secao 6, `D-1` a `D-7`. **So o que sobreviver a auditoria vira entrega** |
 | 3 | entrega da `D-k` (secao 8) | so **depois** de o `P-AUDITA` confirmar |
 | 4 | `P-W1-COBERTURA` | a tela para de desenhar `pct` e `delta` sobre 2,2% de R$ 70.286,30 |
 
@@ -236,8 +237,8 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
   **Decisao do dono, que fica valendo:** neste repo push e deploy, **o push nao sai de
   dentro de uma sessao de construcao**, a friccao e proposital, e **nao se adiciona regra
   de `git push` no `.claude/settings.json`**. Quem quiser publicar pede ao dono.
-  **Nao verificado:** o build da Cloudflare dispara sozinho no push, mas ninguem abriu a
-  pagina publicada para conferir que ela subiu.
+  **Build da Cloudflare: verificado pelo dono no navegador**, em 27/08/2026, depois do
+  push. A pagina publicada subiu.
   Primeira tentativa: **bloqueada pelo classificador do auto mode do Claude Code**, nao
   por erro de git. Segunda: o dono colou a mensagem inteira junto do comando e o git
   recusou com `fatal: invalid refspec '1.'`. **Nada subiu.** Neste repo push e deploy, e
@@ -269,9 +270,9 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
 
 ## 11. Primeiro movimento do proximo chat
 
-1. ~~O dono roda o push.~~ **Feito em 27/08/2026** (`9649124..c17a55e`). Se sobrar duvida,
-   o unico movimento antes de comecar e **abrir a aba Financeiro no app publicado** e
-   confirmar que o build da Cloudflare subiu: ninguem conferiu isso.
+1. ~~O dono roda o push, e depois confere o build da Cloudflare.~~ **Os dois feitos em
+   27/08/2026:** push (`9649124..c17a55e`, depois `c17a55e..15c61d6`) e **build da
+   Cloudflare confirmado pelo dono no navegador**. Nada bloqueia o passo 2.
 2. **`P-AUDITA`, em sessao SEPARADA desta**, apontado para as **sete** divergencias da
    secao 6 (as seis da sessao de aceite mais a `D-7`). So o que sobreviver vira entrega.
 3. Se o `P-AUDITA` confirmar a `D-2`, abrir a entrega da secao 8, ja aprovada pelo dono

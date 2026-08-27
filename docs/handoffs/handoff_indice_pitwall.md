@@ -488,10 +488,11 @@ nenhuma das duas batia com o repo.
   no repo e passa a carregar sozinho**, commit `67d0066`). Primeiro handoff desta linha,
   como o `CONTRATO.md` exige no portao de saida (secao 6.2). Entrega de governanca: zero
   linha de `public/` ou `supabase/` tocada. Traz a secao **6, divergencias observadas e
-  nao tratadas**: seis achados que a sessao de aceite levantou sozinha e que foram
-  reconferidos com `grep` nos dois lados, com arquivo e linha, **por decisao do dono como
-  registro puro, sem diagnostico e sem proposta** (o `P-AUDITA` decide o que vira
-  entrega). Traz tambem a secao 7 com a ordem decidida da sequencia. O estado do modulo em
+  nao tratadas**: **sete** achados, `D-1` a `D-7`, todos reconferidos com `grep` nos dois
+  lados, com arquivo e linha, **por decisao do dono como registro puro, sem diagnostico e
+  sem proposta** (o `P-AUDITA` decide o que vira entrega). Seis vieram da sessao de aceite
+  e a `D-7` foi achada depois, no `P-R0`. Traz tambem a secao 7 com a ordem decidida da
+  sequencia. O estado do modulo em
   si continua na linha migracao (`v68`, Fatia 2) e na linha frontend (`v1`, a aba): este
   handoff nao os substitui, governa.
 - **contrato de record: `docs/financeiro/CONTRATO.md`** (revisao 1, 27/08/2026). Nao e
