@@ -484,9 +484,16 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: (vazio). O primeiro handoff desta linha nasce `handoff_financeiro_pitwall_v1.md`,
-  como o `CONTRATO.md` exige no portao de saida (secao 6.2). Ate ele existir, o estado do
-  modulo mora na linha migracao (`v68`, Fatia 2) e na linha frontend (`v1`, a aba).
+- topo: `handoff_financeiro_pitwall_v1.md` (27/08/2026, **o contrato do Financeiro entra
+  no repo e passa a carregar sozinho**, commit `67d0066`). Primeiro handoff desta linha,
+  como o `CONTRATO.md` exige no portao de saida (secao 6.2). Entrega de governanca: zero
+  linha de `public/` ou `supabase/` tocada. Traz a secao **6, divergencias observadas e
+  nao tratadas**: seis achados que a sessao de aceite levantou sozinha e que foram
+  reconferidos com `grep` nos dois lados, com arquivo e linha, **por decisao do dono como
+  registro puro, sem diagnostico e sem proposta** (o `P-AUDITA` decide o que vira
+  entrega). Traz tambem a secao 7 com a ordem decidida da sequencia. O estado do modulo em
+  si continua na linha migracao (`v68`, Fatia 2) e na linha frontend (`v1`, a aba): este
+  handoff nao os substitui, governa.
 - **contrato de record: `docs/financeiro/CONTRATO.md`** (revisao 1, 27/08/2026). Nao e
   handoff, e a regra: 292 linhas com o inventario medido (5 tabelas, 11 RPCs, 5 helpers
   privadas), os invariantes herdados com o numero GLOBAL (6, 7, 8, 9, 10, 12, 18) mais os
