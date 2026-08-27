@@ -482,6 +482,29 @@ nenhuma das duas batia com o repo.
 
 - topo: (vazio). A bandeira nao tem Write: ela entrega o texto e a Torre grava.
 
+## Linha financeiro
+
+- topo: (vazio). O primeiro handoff desta linha nasce `handoff_financeiro_pitwall_v1.md`,
+  como o `CONTRATO.md` exige no portao de saida (secao 6.2). Ate ele existir, o estado do
+  modulo mora na linha migracao (`v68`, Fatia 2) e na linha frontend (`v1`, a aba).
+- **contrato de record: `docs/financeiro/CONTRATO.md`** (revisao 1, 27/08/2026). Nao e
+  handoff, e a regra: 292 linhas com o inventario medido (5 tabelas, 11 RPCs, 5 helpers
+  privadas), os invariantes herdados com o numero GLOBAL (6, 7, 8, 9, 10, 12, 18) mais os
+  novos do modulo com prefixo `F` (F1 a F4), os invariantes de construcao (C1 a C6), as
+  17 decisoes fechadas (D-a a D-q), o vocabulario fechado de recusa e os tres portoes.
+  **Onde qualquer documento anterior disser "invariantes 13 a 16", leia F1 a F4**: aquela
+  numeracao colidia com a global e foi morta na revisao 1.
+- **carrega sozinho.** `CLAUDE.md`, bloco de arranque, item 4 (empurrou "abrir a skill"
+  para o 5, de proposito: contrato que perde para a skill nao e contrato). Quem tocar em
+  `fin_` ou na aba Financeiro le o contrato antes da primeira linha, e se ele conflitar
+  com o pedido do prompt, o contrato ganha e a sessao avisa.
+- acompanham, na mesma pasta: `PROMPTS.md` (os prompts de sessao, revisao 1, que
+  substitui os espalhados em `plano_de_prompts_financeiro_v1` e
+  `plano_mestre_financeiro_v1`), `PLANO.md` (o plano mestre, revisao 2),
+  `guia_de_uso_dos_prompts.md` (operacao e calendario, com as tres citacoes da numeracao
+  morta trocadas por F2, F3 e F1-F4 no ato da copia) e `PRD-ESTADO.md` (o PRD de estado
+  medido em 26/08, que ate 27/08 era o `doc.md` solto na raiz do repo, sem versionar).
+
 ## Linhas ainda sem agente proprio
 
 `dados` (modo Painel), `devops` (modo Box) e `produto` (modo Estrategista) rodam

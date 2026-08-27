@@ -21,7 +21,10 @@ aponte para arquivo inexistente.
 2. Verificar o estado vivo do banco via MCP do Supabase antes de tocar em qualquer coisa.
 3. Se o pedido tocar no visual do frontend, abrir `docs/design/referencia-visual-v3.html`
    ANTES de escrever CSS. Ela e a referencia de record, aprovada pelo dono.
-4. So entao abrir a skill do dominio do pedido.
+4. Ao tocar em qualquer coisa com prefixo `fin_` ou na aba Financeiro:
+   leia `docs/financeiro/CONTRATO.md` ANTES de escrever a primeira linha.
+   Se o contrato conflitar com o pedido do prompt, o CONTRATO ganha e voce avisa.
+5. So entao abrir a skill do dominio do pedido.
 
 Nota sobre skills: hoje sao SETE em `.claude/skills/`, todas COMPLETAS. As tres do
 nucleo do produto:
