@@ -225,11 +225,19 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
 
 ### 9.2 Aberto
 
-- **`git push` pendente, e e a maior.** Nada desta sessao esta no remoto, **nem o commit
-  que gravou este arquivo**: `0fa9ed4` (Fatia 2.1, de ontem), mais `67d0066` (contrato),
-  `147e731` (handoff), `2aec847` (`P-R0`) e o `P-FECHA`. Confira com
-  `git log --oneline origin/main..HEAD` em vez de confiar num numero escrito aqui, que
-  envelhece a cada commit.
+- ~~**`git push` pendente.**~~ **FECHADA em 27/08/2026**, pelo dono, com o comando rodado
+  por ele na sessao: `9649124..c17a55e  main -> main`. `git rev-list --left-right --count
+  origin/main...HEAD` devolve **`0  0`**: local e remoto identicos. Subiu tambem o
+  `0fa9ed4` (Fatia 2.1), que estava parado desde 26/08, entao **o git deixou de estar
+  atras do banco**.
+  Duas tentativas falharam antes: a primeira **bloqueada pelo classificador do auto mode
+  do Claude Code**, a segunda recusada pelo git com `fatal: invalid refspec '1.'` porque a
+  mensagem inteira foi colada junto do comando.
+  **Decisao do dono, que fica valendo:** neste repo push e deploy, **o push nao sai de
+  dentro de uma sessao de construcao**, a friccao e proposital, e **nao se adiciona regra
+  de `git push` no `.claude/settings.json`**. Quem quiser publicar pede ao dono.
+  **Nao verificado:** o build da Cloudflare dispara sozinho no push, mas ninguem abriu a
+  pagina publicada para conferir que ela subiu.
   Primeira tentativa: **bloqueada pelo classificador do auto mode do Claude Code**, nao
   por erro de git. Segunda: o dono colou a mensagem inteira junto do comando e o git
   recusou com `fatal: invalid refspec '1.'`. **Nada subiu.** Neste repo push e deploy, e
@@ -261,8 +269,9 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
 
 ## 11. Primeiro movimento do proximo chat
 
-1. **O dono roda `! git push origin main`.** Nada mais comeca antes disso: sao 4 commits
-   parados e o app publicado esta atras do banco.
+1. ~~O dono roda o push.~~ **Feito em 27/08/2026** (`9649124..c17a55e`). Se sobrar duvida,
+   o unico movimento antes de comecar e **abrir a aba Financeiro no app publicado** e
+   confirmar que o build da Cloudflare subiu: ninguem conferiu isso.
 2. **`P-AUDITA`, em sessao SEPARADA desta**, apontado para as **sete** divergencias da
    secao 6 (as seis da sessao de aceite mais a `D-7`). So o que sobreviver vira entrega.
 3. Se o `P-AUDITA` confirmar a `D-2`, abrir a entrega da secao 8, ja aprovada pelo dono
