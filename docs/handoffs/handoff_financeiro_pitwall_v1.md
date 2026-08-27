@@ -225,8 +225,11 @@ nenhuma linha foi codada. Nao comecar sem o `P-AUDITA` ter confirmado a `D-2`.
 
 ### 9.2 Aberto
 
-- **`git push` pendente, e e a maior.** `main` esta **ahead 4** de `origin/main`:
-  `0fa9ed4` (Fatia 2.1), `67d0066` (contrato), `147e731` (handoff) e `2aec847` (`P-R0`).
+- **`git push` pendente, e e a maior.** Nada desta sessao esta no remoto, **nem o commit
+  que gravou este arquivo**: `0fa9ed4` (Fatia 2.1, de ontem), mais `67d0066` (contrato),
+  `147e731` (handoff), `2aec847` (`P-R0`) e o `P-FECHA`. Confira com
+  `git log --oneline origin/main..HEAD` em vez de confiar num numero escrito aqui, que
+  envelhece a cada commit.
   Primeira tentativa: **bloqueada pelo classificador do auto mode do Claude Code**, nao
   por erro de git. Segunda: o dono colou a mensagem inteira junto do comando e o git
   recusou com `fatal: invalid refspec '1.'`. **Nada subiu.** Neste repo push e deploy, e
