@@ -43,6 +43,10 @@ E uma criada em 27/07/2026:
   `calc_dados` no Supabase, e `/calc/consultor/`, que le o `dados.js` do repo; 4
   `references/`). O gatilho principal e o dono colar export de chat ou lista de
   fornecedor. A skill tem regra propria de auto-atualizacao a cada mudanca de caminho.
+- `condutor-financeiro` (criada em 28/08/2026: conduz o ciclo de entrega do
+  Financeiro. Alimenta o subagente `condutor`, SOMENTE-LEITURA, que le o estado e
+  devolve o proximo prompt da sessao; ele nao escreve, e quem executa o prompt e a
+  Torre ou o subagente de dominio, nunca o condutor; 3 `references/`).
 
 Conferido em 16/07/2026: os 8 `references/` que a `pitwall-nucleo/SKILL.md` pede
 existem e tem conteudo (`invariantes.md` 126 linhas, `modelo-de-dados.md` 117,

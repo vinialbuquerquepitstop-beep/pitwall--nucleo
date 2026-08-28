@@ -2,6 +2,10 @@
 -- Pit Wall 2.0 (Nucleo) — tabela de dados da Calculadora (pitstop-calc)
 -- Caminho no repo: supabase/migrations/20260721_calc_dados.sql
 --
+-- Aplicada fora do ledger via SQL Editor em 21/07/2026. Reconstruida a partir
+-- do estado real do banco em 28/08/2026. Corpo da policy alinhado com
+-- 20260817233215. NAO reaplicar.
+--
 -- Guarda os precos de fornecedor (dado comercial sensivel) ATRAS do login,
 -- em vez do dados.js publico. A calc em /calc/ le esta tabela apos a sessao
 -- do Supabase, protegida por RLS. Um JSONB por tenant, no mesmo formato que
@@ -10,8 +14,6 @@
 -- Por que JSONB e nao tabela relacional: a calc espera um unico objeto DADOS.
 -- Guardar o blob inteiro mantem o formato, o validador (validarDados) e o
 -- fluxo de atualizacao (trocar o blob) sem reescrever nada da calc.
---
--- APLICAR NO Supabase Dashboard > SQL Editor (voce e dono do projeto).
 -- =====================================================================
 
 -- 1) Tabela ------------------------------------------------------------
@@ -22,23 +24,25 @@ create table if not exists public.calc_dados (
   primary key (tenant_id)
 );
 
-comment on table public.calc_dados is
-  'Blob DADOS da calculadora (produtos/config/bateria/tela). Um por tenant. Lido pela pagina /calc/ apos login.';
-
 -- 2) RLS (invariante 7: toda tabela de dado tem tenant_id + policy que o usa)
 alter table public.calc_dados enable row level security;
 
--- Leitura: qualquer usuario autenticado do tenant ve a linha do proprio tenant.
--- Usa o helper de tenant que vive no schema `privado` (invariante 8).
+-- Leitura: SO o papel `dono` do proprio tenant. O recorte por papel entrou em
+-- 20260817233215 (calc_dados_select_apenas_dono) porque a tabela carrega custo
+-- de fornecedor, e vendedor nunca ve custo (decisao do dono, 17/08/2026).
+-- Usa os helpers que vivem no schema `privado` (invariante 8).
 drop policy if exists calc_dados_sel on public.calc_dados;
 create policy calc_dados_sel
   on public.calc_dados
   for select
   to authenticated
-  using (tenant_id = privado.fn_tenant_atual());
+  using (
+    tenant_id = privado.fn_tenant_atual()
+    and privado.fn_papel_atual() = 'dono'
+  );
 
 -- Privilegio minimo (invariante 9: nada de TRUNCATE; so o SELECT necessario).
--- A ESCRITA (atualizar precos) e feita aqui no Dashboard (service role, ignora RLS),
+-- A ESCRITA (atualizar precos) e feita por service role, que ignora RLS,
 -- entao `authenticated` NAO recebe insert/update.
 revoke all on public.calc_dados from authenticated;
 grant select on public.calc_dados to authenticated;
@@ -59,17 +63,3 @@ grant select on public.calc_dados to authenticated;
 -- )
 -- on conflict (tenant_id) do update
 --   set dados = excluded.dados, atualizado_em = now();
-
--- =====================================================================
--- 4) VERIFICAR (rode como usuario logado, ou confira via app)
---
---   Se a calc mostrar "Tabela vazia?" mesmo com a linha inserida, o helper
---   privado.fn_tenant_atual() nao casou. Confirme o nome exato:
---     select proname, pronamespace::regnamespace
---       from pg_proc where proname ilike '%tenant%';
---   Se o nome/logica diferir, ajuste a policy calc_dados_sel acima.
---   Fallback provisorio (libera para QUALQUER autenticado, sem recorte de tenant):
---     drop policy if exists calc_dados_sel on public.calc_dados;
---     create policy calc_dados_sel on public.calc_dados
---       for select to authenticated using (true);
--- =====================================================================

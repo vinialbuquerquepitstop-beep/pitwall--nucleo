@@ -1,9 +1,13 @@
--- migration: fin_fatia21_painel_abatimento
+-- migration aplicada: 20260826201829_fin_fatia21_painel_abatimento
+-- Corpo recuperado de supabase_migrations.schema_migrations em 28/08/2026: o
+-- arquivo versionado carregava, sob este nome, o corpo do sem_categoria. Conferido
+-- por md5 RAW contra o ledger antes desta linha entrar:
+-- dfd3683c7076962834f67237d20ccf75, 9890 chars.
 --
 -- Fatia 2.1, Task 1: conserta um defeito de calculo em fin_painel.
 -- Ate aqui, uma entrada numa categoria de natureza "saida" (ex: reembolso do
 -- Uber) contava como sinal oposto e SOMAVA em fin_painel.entradas, inflando o
--- placar "entrou" como se fosse receita. O correto e o valor voltar como
+-- placo "entrou" como se fosse receita. O correto e o valor voltar como
 -- ABATIMENTO da propria categoria de gasto, derivado na leitura (invariante 4:
 -- nada disso vira coluna nova nem reescreve dado).
 --
@@ -16,12 +20,7 @@
 --     proprio lado. v_result fica INTACTO: ele soma com sinal e ja estava
 --     certo, e continua sendo a prova de que o placar nao mudou.
 -- 3b. Bloco secoes: a secao de gasto passa a olhar a NATUREZA da categoria
---     ('saida'), nao mais o sinal do movimento (`valor < 0`). O balde
---     `sem_categoria` entra junto pelo SINAL, porque categoria nula nao tem
---     natureza para derivar: sem essa clausula, um movimento com dominio
---     escolhido e categoria em branco contava no `saiu` e sumia das secoes, e a
---     soma das secoes deixava de bater com o `saiu` (medido: R$ 184,80 de
---     buraco). Cada categoria
+--     ('saida'), nao mais o sinal do movimento (`valor < 0`). Cada categoria
 --     devolve bruto e abatido separados, e o total = bruto - abatido. Secao ou
 --     categoria que fica negativa (mais devolucao que gasto na janela) PASSA A
 --     APARECER com sinal, em vez de sumir: o filtro antigo (`cat.tot > 0`)
@@ -110,8 +109,7 @@ begin
        and m.data between v_pini and v_fim
        and m.dominio is not null
        and (v_dom is null or m.dominio = v_dom)
-       and ( coalesce(c.natureza_esperada, '') = 'saida'
-             or (m.categoria_codigo is null and m.valor < 0) )
+       and coalesce(c.natureza_esperada, '') = 'saida'
   ), cat as (
     select grupo, codigo, rotulo,
            coalesce(sum(-valor) filter (where atual), 0)                  as tot,
@@ -158,8 +156,7 @@ begin
        and m.data between v_pini and v_fim
        and m.dominio is not null
        and (v_dom is null or m.dominio = v_dom)
-       and ( coalesce(c.natureza_esperada, '') = 'entrada'
-             or (m.categoria_codigo is null and m.valor > 0) )
+       and coalesce(c.natureza_esperada, '') = 'entrada'
   ), cat as (
     select grupo, codigo, rotulo,
            coalesce(sum(valor)  filter (where atual), 0)                  as tot,

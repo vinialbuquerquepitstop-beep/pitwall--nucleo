@@ -484,7 +484,19 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v1.md` (27/08/2026, **o contrato do Financeiro entra
+- topo: `handoff_financeiro_pitwall_v2.md` (28/08/2026, **o git passa a descrever o banco
+  por CORPO, nao so por nome**). O portao de entrada reprovou no item 1 (tree suja) e,
+  pelo `CONTRATO.md` 6.1, a entrega da vez virou fechar o portao: o `P-AUDITA` NAO saiu.
+  Achado principal: `20260826_fin_fatia21_painel_abatimento.sql` carregava, sob aquele
+  nome, o corpo do `sem_categoria`; o corpo que o banco aplicou nao existia em arquivo
+  nenhum. Recuperado do ledger e conferido por md5 RAW (`dfd3683c...`, 9890 chars nos dois
+  lados). **As 14 `fin_` passam a bater 14 de 14 por corpo NORMALIZADO** (era 13 de 14).
+  O criterio de record desta linha e o normalizado, nao o RAW: os arquivos do repo
+  carregam cabecalho que o ledger nunca recebeu, entao RAW bate 1 de 14 e isso e correto.
+  Entram tambem o `condutor` versionado (5 arquivos, 626 linhas) e o `20260721_calc_dados.sql`,
+  que passa a declarar que foi aplicado fora do ledger e perde um fallback `using (true)`
+  que vivia em comentario. Nenhum DDL saiu: o banco foi so leitura.
+- `handoff_financeiro_pitwall_v1.md` (27/08/2026, **o contrato do Financeiro entra
   no repo e passa a carregar sozinho**, commit `67d0066`). Primeiro handoff desta linha,
   como o `CONTRATO.md` exige no portao de saida (secao 6.2). Entrega de governanca: zero
   linha de `public/` ou `supabase/` tocada. Traz a secao **6, divergencias observadas e
