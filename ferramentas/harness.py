@@ -332,7 +332,9 @@ var FIN_CATS = [
   { codigo: 'alimentacao_fora', rotulo: 'Alimentação fora', grupo: 'Vida',
     natureza_esperada: 'saida', dominio_sugerido: 'pessoal', ordem: 20 },
   { codigo: 'aplicacao', rotulo: 'Aplicação', grupo: 'Neutro',
-    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 32 }];
+    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 32 },
+  { codigo: 'repasse', rotulo: 'Repasse', grupo: 'Neutro',
+    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 34 }];
 var FIN_MOVS = [
   { id: 'f1', data: '2026-08-20', descricao: 'PIX FORNECEDOR MP', valor: -4300,
     categoria_codigo: 'compra_aparelho', dominio: 'empresa', origem: 'extrato' },
@@ -361,7 +363,13 @@ var FIN_MOVS = [
   { id: 'f9', data: '2026-08-11', descricao: 'Compra no debito - UBER DO BRASIL TECNOLOGIA LTDA',
     valor: -42.3, categoria_codigo: null, dominio: null, origem: 'extrato' },
   { id: 'f10', data: '2026-08-10', descricao: 'Estorno - UBER DO BRASIL TECNOLOGIA LTDA - 12.345.678/0001-90',
-    valor: 15.4, categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' }];
+    valor: 15.4, categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' },
+  { id: 'f11', data: '2026-08-09', descricao: 'Pix recebido - AGENCY FORD SUL C MODELOS',
+    valor: 4800, categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f12', data: '2026-08-08', descricao: 'Pix enviado - FORD MODELS SUL',
+    valor: -4800, categoria_codigo: null, dominio: null, origem: 'extrato' },
+  { id: 'f13', data: '2026-08-07', descricao: 'Pix enviado - NAO E PAR DISSO',
+    valor: -50, categoria_codigo: null, dominio: null, origem: 'extrato' }];
 // ---- Fatia 2: regras de classificacao (26/08/2026) ----
 // O stub implementa o CASAMENTO DE VERDADE (normalizar sem acento, subir para
 // maiuscula, contem/comeca/exato) sobre o mesmo FIN_MOVS que a tela le, e MUTA
@@ -444,6 +452,7 @@ window.__finRegAplicar = [];
 window.__finRegPrever = [];
 window.__finCobertura = [];
 window.__finMovArgs = [];
+window.__finRepasse = [];
 window.__uploads = [];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
@@ -779,6 +788,7 @@ window.supabase = {
               hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
               ini_anterior: null, fim_anterior: null,
               pct_julgado: 100,
+              repasse: { valor: 0, n: 0 },
               placar: { entrou: 0, saiu: 0, resultado: 0,
                         nao_classificado_valor: 0, nao_classificado_n: 0 },
               secoes: [], entradas: [] }, error: null });
@@ -794,6 +804,14 @@ window.supabase = {
             // __FIN_INCOMPLETA liga o estado degradado, que e o estado REAL de
             // hoje no banco: 2,11%% julgado em VALOR.
             pct_julgado: window.__FIN_INCOMPLETA ? 2.11 : 98,
+            // O valor conta so o lado POSITIVO do par: somar os dois dobraria o
+            // numero e a tela declararia o triplo do que passou.
+            repasse: (function () {
+              var rr = FIN_MOVS.filter(function (x) { return x.categoria_codigo === 'repasse'; });
+              var rv = 0;
+              rr.forEach(function (x) { if (x.valor > 0) rv += x.valor; });
+              return { valor: rv, n: rr.length };
+            })(),
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
             placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
                       nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length },
@@ -821,6 +839,34 @@ window.supabase = {
         // R$ 1.677,85 julgado, 2,11%%, R$ 77.942,01 em 131 linhas pendentes.
         // Fixture inventado aqui cegaria a aritmetica: julgado + pendente tem
         // que fechar no bruto, e a assercao confere isso.
+        if (nome === 'fin_repasse_marcar') {
+          var rpP = args.payload || {};
+          window.__finRepasse.push(JSON.parse(JSON.stringify(rpP)));
+          var rpE = FIN_MOVS.filter(function (x) { return x.id === rpP.entrada_id; })[0];
+          var rpS = FIN_MOVS.filter(function (x) { return x.id === rpP.saida_id; })[0];
+          if (!rpP.entrada_id || !rpP.saida_id)
+            return Promise.resolve({ data: { ok: false, erro: 'Informe a entrada e a saida do repasse.' }, error: null });
+          if (rpP.entrada_id === rpP.saida_id)
+            return Promise.resolve({ data: { ok: false, erro: 'Entrada e saida sao o mesmo lancamento.' }, error: null });
+          if (!rpE || !rpS)
+            return Promise.resolve({ data: { ok: false, erro: 'Lancamento nao encontrado.' }, error: null });
+          if (rpE.valor <= 0 || rpS.valor >= 0)
+            return Promise.resolve({ data: { ok: false, erro:
+              'Entrada e saida invertidas: a entrada e o valor positivo e a saida e o negativo.' }, error: null });
+          if (rpE.repasse_id || rpS.repasse_id)
+            return Promise.resolve({ data: { ok: false, erro: 'Lancamento ja faz parte de outro repasse.' }, error: null });
+          var rpMaior = Math.max(Math.abs(rpE.valor), Math.abs(rpS.valor));
+          var rpPct = rpMaior > 0 ? (100 * Math.abs(Math.abs(rpE.valor) - Math.abs(rpS.valor)) / rpMaior) : 0;
+          if (rpPct > 5)
+            return Promise.resolve({ data: { ok: false, erro:
+              'Par desigual: a diferenca e de ' + rpPct.toFixed(2) + '%%, acima dos 5%% permitidos.' }, error: null });
+          var rpPar = 'par-' + (window.__finRepasse.length);
+          rpE.repasse_id = rpPar; rpE.categoria_codigo = 'repasse';
+          rpS.repasse_id = rpPar; rpS.categoria_codigo = 'repasse';
+          return Promise.resolve({ data: { ok: true, repasse_id: rpPar,
+            entrada_id: rpE.id, saida_id: rpS.id,
+            valor: Math.abs(rpE.valor), diferenca_pct: Number(rpPct.toFixed(2)) }, error: null });
+        }
         if (nome === 'fin_cobertura') {
           window.__finCobertura.push({ p_ini: args.p_ini, p_fim: args.p_fim });
           return Promise.resolve({ data: { ok: true,
@@ -5024,7 +5070,7 @@ async function rodar() {
   var fxA = finQ('.fin-alerta');
   ok('fin: a faixa de nao classificado existe', !!fxA);
   ok('fin: ela diz o VALOR e a CONTAGEM',
-     !!fxA && /R\\$ 195,20 em 4 lançamentos ainda sem classificação/.test(fxA.textContent),
+     !!fxA && /R\\$ 245,20 em 7 lançamentos ainda sem classificação/.test(fxA.textContent),
      fxA ? fxA.textContent.slice(0, 80) : 'sem faixa');
   ok('fin: ela declara que os numeros abaixo IGNORAM esse valor',
      !!fxA && /Os números abaixo ignoram esse valor/.test(fxA.textContent));
@@ -5033,7 +5079,7 @@ async function rodar() {
   ok('fin: ela declara que NAO muda com o filtro Empresa/Pessoal',
      !!fxA && /não muda com o filtro Empresa\\/Pessoal/.test(fxA.textContent));
   ok('fin: e mostra a soma COM SINAL, nao so o modulo',
-     !!fxA && fxA.textContent.indexOf('R$ -195,20') >= 0,
+     !!fxA && fxA.textContent.indexOf('R$ -245,20') >= 0,
      fxA ? fxA.textContent.slice(60, 190) : 'sem faixa');
   // --erro aqui e legitimo: dado incompleto e problema de INTEGRIDADE, nao
   // gasto. E o unico lugar da aba onde o vermelho aparece por dado do dono.
@@ -5115,7 +5161,7 @@ async function rodar() {
   ok('fin: e ja chega com "so nao classificados" ligado',
      finQ('[data-acao="fin-so-nc"]').getAttribute('aria-pressed') === 'true');
   ok('fin: nesse modo so os lancamentos SEM dominio aparecem',
-     finQA('.fin-lin').length === 4 &&
+     finQA('.fin-lin').length === 7 &&
      finQA('.fin-lin').every(function (x) { return x.className.indexOf('nc') >= 0; }) &&
      /DEBITO NAO IDENTIFICADO/.test(finQ('.fin-lin-desc').textContent),
      'n=' + finQA('.fin-lin').length);
@@ -5129,8 +5175,8 @@ async function rodar() {
 
   finQ('[data-acao="fin-so-nc"]').click();
   await espera(340);
-  ok('fin: desligar o filtro devolve os 10 lancamentos da janela',
-     finQA('.fin-lin').length === 10, 'n=' + finQA('.fin-lin').length);
+  ok('fin: desligar o filtro devolve os 13 lancamentos da janela',
+     finQA('.fin-lin').length === 13, 'n=' + finQA('.fin-lin').length);
   ok('fin: a lista e newest-first',
      finQA('.fin-lin-data')[0].textContent === '20/08', finQA('.fin-lin-data')[0].textContent);
   ok('fin: saida na linha NAO sai em vermelho (gastar nao e falha)',
@@ -5567,7 +5613,7 @@ async function rodar() {
   ok('fin2: a previa aparece e diz quantos pega, quantos classifica e quantos mudam',
      fin2Cels().join('|') === '4|3|1|1', fin2Cels().join('|'));
   ok('fin2: e declara a base contra a qual mediu',
-     /33,3% dos 12 da base/.test(finQ('.fin-reg-cels .pb-pe').textContent),
+     /26,7% dos 15 da base/.test(finQ('.fin-reg-cels .pb-pe').textContent),
      finQ('.fin-reg-cels .pb-pe').textContent);
   ok('fin2: o ja classificado que mudaria de destino e dito em voz alta',
      /1 ficaria DIFERENTE/.test(finQ('.fin-reg-prev').textContent),
@@ -5800,14 +5846,14 @@ async function rodar() {
   // Esconder a recusa e forcar sozinho sao os dois erros opostos, e os dois
   // cegam o dono. A tela mostra o numero e deixa ELE decidir.
   ok('fin2: a recusa por padrao amplo aparece com o numero, sem ser escondida',
-     /casa 4 de 12 lancamentos/.test(document.getElementById('finRegErro').textContent),
+     /casa 4 de 15 lancamentos/.test(document.getElementById('finRegErro').textContent),
      document.getElementById('finRegErro').textContent.slice(0, 110));
   ok('fin2: e a tela NAO forcou sozinha',
      fin2Ult(window.__finRegSalvar).forcar === undefined,
      JSON.stringify(fin2Ult(window.__finRegSalvar)));
   ok('fin2: o botao de forcar e oferecido, com o numero no rotulo',
      !!finQ('[data-acao="fin-reg-forcar"]') &&
-     /pegando 4 de 12/.test(finQ('[data-acao="fin-reg-forcar"]').textContent),
+     /pegando 4 de 15/.test(finQ('[data-acao="fin-reg-forcar"]').textContent),
      finQ('[data-acao="fin-reg-forcar"]') ? finQ('[data-acao="fin-reg-forcar"]').textContent : 'sem botao');
   window.__finRegSalvar = [];
   finQ('[data-acao="fin-reg-forcar"]').click();
@@ -5962,6 +6008,97 @@ async function rodar() {
      /os números abaixo ignoram/i.test(finTxt()),
      'faixas=' + finQA('.fin-alerta').length);
 
+  // ---- repasse: dinheiro que so passa ------------------------------------
+  // O par e marcado A MAO. Casar automatico por valor e data seria inferencia
+  // sobre contraparte, que e o Inv. 18. A tela le o SINAL para saber quem e
+  // entrada e quem e saida (isso e leitura do dado, nao inferencia de
+  // significado), e quem valida folga, sinal e par ja usado e o SERVIDOR.
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  ok('fin3: sem selecao nenhuma, marcar repasse nao e oferecido',
+     !!finQ('[data-acao="fin-repasse"]') && finQ('[data-acao="fin-repasse"]').hidden === true);
+  finQ('.fin-chk[data-id="f11"]').click();
+  await espera(200);
+  ok('fin3: com UM selecionado tambem nao: repasse e par, nao linha solta',
+     finQ('[data-acao="fin-repasse"]').hidden === true);
+  finQ('.fin-chk[data-id="f12"]').click();
+  await espera(200);
+  ok('fin3: com DOIS selecionados a acao aparece',
+     finQ('[data-acao="fin-repasse"]').hidden === false);
+
+  // A entrada foi selecionada PRIMEIRO e a saida depois; embaralhar a ordem
+  // aqui e de proposito, porque quem manda e o sinal, nao a ordem do clique.
+  window.__finRepasse = [];
+  finQ('[data-acao="fin-repasse"]').click();
+  await espera(520);
+  var f3R = window.__finRepasse[window.__finRepasse.length - 1] || {};
+  ok('fin3: o positivo vai como entrada e o negativo como saida',
+     f3R.entrada_id === 'f11' && f3R.saida_id === 'f12',
+     JSON.stringify(f3R));
+  // O textContent da linha inclui o <select> INTEIRO de categorias, entao
+  // procurar a palavra "Repasse" ali casa nas 15 linhas. O que vale e o valor
+  // SELECIONADO.
+  function f3Rep() {
+    return finQA('.fin-lin').filter(function (x) {
+      var sel = x.querySelector('[data-acao="fin-cat"]');
+      return sel && sel.value === 'repasse'; }).length;
+  }
+  ok('fin3: os dois lados do par viram categoria Repasse',
+     f3Rep() === 2, 'linhas em repasse=' + f3Rep());
+
+  // ---- a recusa do servidor, exibida COMO VEIO (C3) -----------------------
+  // 2000 contra 4300 e 53,49% de diferenca. A tela nao decide isso: ela manda,
+  // leva a recusa e mostra o texto do servidor, com o numero na cara.
+  window.__finRepasse = [];
+  finQ('.fin-chk[data-id="f4"]').click();
+  finQ('.fin-chk[data-id="f1"]').click();
+  await espera(220);
+  finQ('[data-acao="fin-repasse"]').click();
+  await espera(520);
+  ok('fin3: par desigual e recusado pelo SERVIDOR, nao pela tela',
+     window.__finRepasse.length === 1, 'chamadas=' + window.__finRepasse.length);
+  ok('fin3: e a recusa exibida e a frase do servidor, com o numero',
+     /Par desigual: a diferenca e de 53\.49%, acima dos 5% permitidos\./.test(document.body.textContent),
+     'sem a frase do servidor na tela');
+  ok('fin3: e nada foi marcado nesse passo', f3Rep() === 2, 'linhas em repasse=' + f3Rep());
+
+  // ---- par ja usado -------------------------------------------------------
+  window.__finRepasse = [];
+  finQ('[data-acao="fin-lote-limpar"]').click();
+  await espera(420);
+  finQ('.fin-chk[data-id="f11"]').click();
+  finQ('.fin-chk[data-id="f3"]').click();
+  await espera(220);
+  finQ('[data-acao="fin-repasse"]').click();
+  await espera(520);
+  ok('fin3: lancamento que ja esta num par nao entra em outro',
+     /Lancamento ja faz parte de outro repasse\./.test(document.body.textContent));
+
+  // ---- a Visao DECLARA o que ficou de fora --------------------------------
+  // Repasse ja ficava fora de entrou e saiu por ser natureza neutro. O que
+  // faltava era DIZER: numero excluido em silencio e a mesma familia da D-7,
+  // o dono ve o total encolher e nao sabe por que.
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+  var f3L = finQ('.fin-repasse-lin');
+  ok('fin3: a Visao declara o repasse que ficou fora', !!f3L,
+     f3L ? f3L.textContent.slice(0, 60) : 'sem linha');
+  ok('fin3: contando SO um lado do par, nunca os dois',
+     !!f3L && /R\$\s*4\.800,00/.test(f3L.textContent) &&
+     !/9\.600,00/.test(f3L.textContent),
+     f3L ? f3L.textContent.slice(0, 80) : 'sem linha');
+  ok('fin3: e dizendo em quantos PARES, nao em quantos lancamentos',
+     !!f3L && /em 1 repasse /.test(f3L.textContent) && !/em 2 repasses/.test(f3L.textContent),
+     f3L ? f3L.textContent.slice(0, 80) : 'sem linha');
+  ok('fin3: a declaracao explica POR QUE fica fora',
+     !!f3L && /entrou e saiu no mesmo valor/.test(f3L.textContent),
+     f3L ? f3L.textContent.slice(-90) : 'sem linha');
+  ok('fin3: e o placar continua inteiro ao lado dela: repasse nao apaga numero',
+     finQA('.fin-placar').length === 1 && finQA('.pb-num').length === 4);
+  // A linha e nota de rodape do placar, nao alerta: cobrar em vermelho o que
+  // nao e problema ensina o dono a ignorar o vermelho.
+  ok('fin3: a declaracao NAO usa a cor de falha',
+     finCor(f3L) !== COR_ERRO, finCor(f3L));
 
   fim();
 

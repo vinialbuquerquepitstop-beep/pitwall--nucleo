@@ -794,6 +794,14 @@ return'<div class="estado"><strong>Nenhum lançamento nesta janela.</strong>'+
 "Importe o extrato do seu banco em OFX para começar. Dinheiro vivo, que não aparece no extrato, entra à mão em Movimentos."+
 '<div class="fin-vazio-acoes"><button class="btn-cad" data-acao="fin-sub" data-sub="importar">Importar extrato</button>'+
 '<button class="btn-cad secundario" data-acao="fin-sub" data-sub="movimentos">Lançar à mão</button></div></div>'}
+function finRepasseLinha(rep){
+var n=Number(rep&&rep.n)||0;
+if(!n)return"";
+var pares=Math.round(n/2);
+return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+pares+
+(1===pares?" repasse":" repasses")+" ficaram fora de entrou e saiu. "+
+"Dinheiro de terceiro que só passou pela conta: entrou e saiu no mesmo valor, "+
+"então somar os dois lados infla os dois números e o resultado só acerta por acidente.</p>"}
 function finVisao(pnl,jn,cob){
 var pl=pnl.placar||{},secs=pnl.secoes||[],ents=pnl.entradas||[];
 if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finPlacar(pl)+finVazio();
@@ -802,10 +810,10 @@ if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finPlacar(pl)+f
 // os tres numeros do placar (entrou, saiu, resultado) sao economicos, e os
 // blocos agregam so a fatia ja julgada, que e justamente a leitura que parece a
 // verdade do periodo sem ser.
-if(cob)return finBaseIncompleta(cob);
+if(cob)return finBaseIncompleta(cob)+finRepasseLinha(pnl.repasse||{});
 var domRot="tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM;
 var rec="por grupo · "+domRot+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim);
-return finPlacar(pl)+
+return finPlacar(pl)+finRepasseLinha(pnl.repasse||{})+
 finBloco("Para onde o dinheiro foi",rec,secs,"Nenhuma saída classificada nesta janela.")+
 finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta janela.")+
 '<p class="fin-rodape">Categoria de natureza <b>neutro</b> (transferência entre contas, aplicação, resgate) fica fora dos dois blocos de propósito: aplicar dinheiro não é gastar dinheiro.</p>'}
@@ -865,6 +873,7 @@ return'<div class="fin-lote'+(qt?" aberto":"")+'" id="finLote" role="group" aria
 '<select class="fin-lote-sel" id="finLoteCat" aria-label="Categoria para o lote">'+finOpcoesCat("",!0)+"</select>"+
 '<select class="fin-lote-sel" id="finLoteDom" aria-label="Domínio para o lote">'+finOpcoesDom("",!0)+"</select>"+
 '<button class="btn-cad" data-acao="fin-lote-ok">Aplicar</button>'+
+'<button class="btn-cad secundario" id="finLoteRep" data-acao="fin-repasse"'+(2===qt?"":" hidden")+'>Marcar repasse</button>'+
 '<button class="btn-cad secundario" data-acao="fin-lote-limpar">Limpar seleção</button></div>'}
 // O formulario de lancamento manual nasce das ids que o proprio JS emite, e nao
 // de mais um painel no index.html: sao seis campos que so existem dentro desta
@@ -1513,6 +1522,26 @@ if(el.checked)FIN_SEL[id]=1;else delete FIN_SEL[id];
 var lin=el.closest?el.closest(".fin-lin"):null;
 if(lin)lin.className="fin-lin"+(el.checked?" sel":"")+(lin.className.indexOf(" nc")>=0?" nc":"");
 return void finPintarLote()}
+if("fin-repasse"===acao){
+var rids=Object.keys(FIN_SEL);
+if(2!==rids.length)return void I("Selecione os dois lançamentos do repasse",!0);
+var itens=(FIN_MOV&&FIN_MOV.itens)||[],a=null,b=null,ri;
+for(ri=0;ri<itens.length;ri++){
+if(itens[ri].id===rids[0])a=itens[ri];
+if(itens[ri].id===rids[1])b=itens[ri]}
+if(!a||!b)return void I("Selecione os dois lançamentos do repasse",!0);
+var ent=Number(a.valor)>=0?a:b,sai=ent===a?b:a;
+el.disabled=!0;
+var rr=await t.rpc("fin_repasse_marcar",{payload:{entrada_id:ent.id,saida_id:sai.id}});
+el.disabled=!1;
+if(rr.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+rr.error.message,!0)}
+var rd=rr.data;
+if(!rd||!1===rd.ok)return void I((rd&&(rd.erro||rd.msg))||"Repasse recusado",!0);
+FIN_SEL={};FIN_AVISO="";
+I(brlV(Number(rd.valor)||0)+" marcado como repasse");
+return void renderFinanceiro(!0)}
 if("fin-lote-limpar"===acao){FIN_SEL={};return void renderFinanceiro(!0)}
 if("fin-lote-ok"===acao){
 var ids=Object.keys(FIN_SEL);
@@ -1612,9 +1641,12 @@ if("fin-apl-fechar"===acao){FIN_APL=null;return void renderFinanceiro(!0)}}
 function finPintarLote(){
 var caixa=E("finLote");
 if(!caixa)return;
-var qt=Object.keys(FIN_SEL).length,rot=E("finLoteN");
+var qt=Object.keys(FIN_SEL).length,rot=E("finLoteN"),rep=E("finLoteRep");
 caixa.className="fin-lote"+(qt?" aberto":"");
-if(rot)rot.textContent=qt+(1===qt?" selecionado":" selecionados")}
+if(rot)rot.textContent=qt+(1===qt?" selecionado":" selecionados");
+// Repasse e PAR: com um ou com tres nao ha o que ligar, e botao que aceita
+// clique sem par so serve para produzir recusa que o dono nao pediu.
+if(rep)rep.hidden=2!==qt}
 // Arrastar precisa de listener PROPRIO: o #lista ja tem dragover/drop do kanban
 // de Conteudo, e os dois saem cedo quando nao ha card sendo arrastado, entao o
 // navegador abriria o arquivo por cima do app se ninguem chamasse preventDefault.

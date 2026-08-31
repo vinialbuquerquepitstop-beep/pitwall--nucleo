@@ -3389,6 +3389,17 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fin-inc-cortes i{font-style:normal;font-size:11px;color:var(--dim)}
 .fin-inc-cortes li.pend b{color:var(--morno-fg);font-weight:600}
 .fin-inc>.btn-cad{width:auto}
+
+/* --- a declaracao do repasse. Nao e alerta e nao e faixa: e nota de rodape do
+       placar, no mesmo tom do .fin-rodape que ja explica o balde `neutro`.
+       Zero token novo. --- */
+.fin-repasse-lin{
+  margin:-6px 0 16px;padding:10px 12px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius-p);
+  font-size:12px;line-height:1.55;color:var(--dim);
+}
+.fin-repasse-lin b{font-family:var(--mono);font-weight:500;color:var(--text)}
 @media (max-width:420px){
   .fin-inc{padding:14px 12px 12px}
   .fin-inc-tit{font-size:15px}

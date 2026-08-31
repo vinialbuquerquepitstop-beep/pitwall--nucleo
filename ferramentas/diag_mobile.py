@@ -286,6 +286,13 @@ async function rodar(){
       if (chMov) { chMov.click(); await espera(430); }
       var chks = D.querySelectorAll('#lista .fin-chk');
       if (chks.length > 1) { chks[0].click(); chks[1].click(); await espera(160); }
+      // Com DOIS selecionados a acao de repasse deixa de estar hidden, e e a
+      // barra de lote no seu estado mais largo (dois seletores mais tres
+      // botoes). Elemento escondido nao entra na medicao, entao sem este passo
+      // o pedaco mais apertado da barra nunca seria medido no celular.
+      if (!D.querySelector('#lista [data-acao="fin-repasse"]:not([hidden])'))
+        window.__saida.erros.push('Financeiro: a acao de marcar repasse nao apareceu com dois '
+          + 'selecionados, entao a barra de lote cheia NAO foi medida nesta largura');
       var bLanc = D.querySelector('#lista [data-acao="fin-lanc-abrir"]');
       if (bLanc) { bLanc.click(); await espera(430); }
       if (!D.querySelector('#lista .fin-lin'))

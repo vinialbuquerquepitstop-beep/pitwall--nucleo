@@ -484,7 +484,22 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v3.md` (31/08/2026, **a tela para de desenhar numero
+- topo: `handoff_financeiro_pitwall_v4.md` (31/08/2026, **dinheiro que so passa pela conta
+  deixa de parecer receita e despesa**). Sessao S1 do bloco 1, entrega do `P-W1-REPASSE`:
+  migration `20260831231416_fin_fatia3_repasse` com a categoria `repasse` (grupo Neutro
+  que ja existia), a coluna `fin_movimento.repasse_id`, a RPC `fin_repasse_marcar` com
+  seis recusas nomeadas e a chave `repasse` no `fin_painel`; na tela, a acao Marcar
+  repasse na barra de lote e a linha que DECLARA o valor excluido.
+  Antes da entrega, o dono importou o extrato de **7 meses**: a base foi de 181 para
+  **1.132 lancamentos** (01/02 a 31/08/2026, R$ 444.820,68), com o dedupe se provando
+  sozinho (total = contagem do arquivo, zero duplicata). Cobertura 2,11% -> **2,06% em
+  VALOR**, R$ 435.670,20 em 860 linhas pendentes, mas **47 linhas cobrem 50% do valor**.
+  Achado: o **par Ford (R$ 4.800,00) era a maior linha pendente da base** e nao era
+  gasto, era repasse. `fin_regra` nao tinha 0 linhas, tinha **5**, e elas classificaram
+  222 linhas na importacao. Suite **902 -> 917 assercoes, 0 falhas**; as 16 `fin_` batem
+  16 de 16 por corpo normalizado. Divergencia **D-8 nova**: `fin_config` devolve
+  `dominio_sugerido` sem leitor no `app.js`.
+- `handoff_financeiro_pitwall_v3.md` (31/08/2026, **a tela para de desenhar numero
   economico sobre base incompleta**, commit desta sessao). Entrega vertical do
   `P-W1-COBERTURA`: uma migration (`20260831180334_fin_fatia3_cobertura`) com
   `privado.fn_fin_cobertura`, `public.fin_cobertura`, `pct_julgado` no `fin_painel` e
