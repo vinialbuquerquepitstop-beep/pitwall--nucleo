@@ -484,7 +484,20 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v4.md` (31/08/2026, **dinheiro que so passa pela conta
+- topo: `handoff_financeiro_pitwall_v5.md` (31/08/2026, **conserto: o par de repasse
+  atravessa a virada do mes**). Nao e entrega nova, e conserto de portao na mesma sessao
+  S1. A v4 subiu dizendo que o dono podia marcar o par Ford, e **nao podia**: a janela e
+  de um mes calendario e trocar de mes apagava a selecao, entao nao existia clique que
+  juntasse a entrada de 30/07 com a saida de 06/08. A suite nao pegou porque o fixture
+  tinha os dois lados no MESMO mes e o stub do `fin_movimentos` ignorava `p_ini`/`p_fim`.
+  Consertado: `FIN_SEL` guarda o lancamento, `fin-mes` nao limpa mais a selecao, a barra
+  declara quantos estao fora do mes aberto, e `repasse.valor` passa a somar MODULOS da
+  janela (`20260831233621_fin_fatia3_repasse_janela`), senao um mes com uma perna so
+  declarava R$ 0,00. Provado com o par Ford real: julho e agosto declaram R$ 4.800,00
+  cada, os dois meses juntos R$ 9.600,00, e **a cobertura de agosto vai de 2,69% para
+  9,36% com um par marcado**. Suite **917 -> 922 assercoes, 0 falhas**; 17 de 17 `fin_`
+  por corpo normalizado.
+- `handoff_financeiro_pitwall_v4.md` (31/08/2026, **dinheiro que so passa pela conta
   deixa de parecer receita e despesa**). Sessao S1 do bloco 1, entrega do `P-W1-REPASSE`:
   migration `20260831231416_fin_fatia3_repasse` com a categoria `repasse` (grupo Neutro
   que ja existia), a coluna `fin_movimento.repasse_id`, a RPC `fin_repasse_marcar` com

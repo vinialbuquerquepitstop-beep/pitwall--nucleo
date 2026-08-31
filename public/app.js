@@ -797,9 +797,8 @@ return'<div class="estado"><strong>Nenhum lançamento nesta janela.</strong>'+
 function finRepasseLinha(rep){
 var n=Number(rep&&rep.n)||0;
 if(!n)return"";
-var pares=Math.round(n/2);
-return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+pares+
-(1===pares?" repasse":" repasses")+" ficaram fora de entrou e saiu. "+
+return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+n+
+(1===n?" lançamento de repasse ficou":" lançamentos de repasse ficaram")+" fora de entrou e saiu. "+
 "Dinheiro de terceiro que só passou pela conta: entrou e saiu no mesmo valor, "+
 "então somar os dois lados infla os dois números e o resultado só acerta por acidente.</p>"}
 function finVisao(pnl,jn,cob){
@@ -869,7 +868,7 @@ return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+'" data-lin
 function finLote(){
 var qt=Object.keys(FIN_SEL).length;
 return'<div class="fin-lote'+(qt?" aberto":"")+'" id="finLote" role="group" aria-label="Ação em lote">'+
-'<span class="fin-lote-n" id="finLoteN">'+qt+(1===qt?" selecionado":" selecionados")+"</span>"+
+'<span class="fin-lote-n" id="finLoteN">'+qt+(1===qt?" selecionado":" selecionados")+c(finForaDoMes())+"</span>"+
 '<select class="fin-lote-sel" id="finLoteCat" aria-label="Categoria para o lote">'+finOpcoesCat("",!0)+"</select>"+
 '<select class="fin-lote-sel" id="finLoteDom" aria-label="Domínio para o lote">'+finOpcoesDom("",!0)+"</select>"+
 '<button class="btn-cad" data-acao="fin-lote-ok">Aplicar</button>'+
@@ -1512,24 +1511,23 @@ if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};fin
 if("fin-dom"===acao){FIN_DOM=el.getAttribute("data-dom")||"tudo";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-mes"===acao){
 FIN_MES=vgMesMais(finMes(),parseInt(el.getAttribute("data-delta"),10)||0);
-FIN_SEL={};FIN_AVISO="";finRegFechar();return void renderFinanceiro()}
+FIN_AVISO="";finRegFechar();return void renderFinanceiro()}
 if("fin-ir-nc"===acao){FIN_SUB="movimentos";FIN_STATUS="nao_classificados";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-so-nc"===acao){
 FIN_STATUS="nao_classificados"===FIN_STATUS?"todos":"nao_classificados";
 FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-sel"===acao){
-if(el.checked)FIN_SEL[id]=1;else delete FIN_SEL[id];
+if(el.checked){
+var lx=((FIN_MOV&&FIN_MOV.itens)||[]).filter(function(y){return y.id===id})[0];
+FIN_SEL[id]={id:id,valor:lx?Number(lx.valor):0,data:lx?lx.data:""}}
+else delete FIN_SEL[id];
 var lin=el.closest?el.closest(".fin-lin"):null;
 if(lin)lin.className="fin-lin"+(el.checked?" sel":"")+(lin.className.indexOf(" nc")>=0?" nc":"");
 return void finPintarLote()}
 if("fin-repasse"===acao){
 var rids=Object.keys(FIN_SEL);
 if(2!==rids.length)return void I("Selecione os dois lançamentos do repasse",!0);
-var itens=(FIN_MOV&&FIN_MOV.itens)||[],a=null,b=null,ri;
-for(ri=0;ri<itens.length;ri++){
-if(itens[ri].id===rids[0])a=itens[ri];
-if(itens[ri].id===rids[1])b=itens[ri]}
-if(!a||!b)return void I("Selecione os dois lançamentos do repasse",!0);
+var a=FIN_SEL[rids[0]],b=FIN_SEL[rids[1]];
 var ent=Number(a.valor)>=0?a:b,sai=ent===a?b:a;
 el.disabled=!0;
 var rr=await t.rpc("fin_repasse_marcar",{payload:{entrada_id:ent.id,saida_id:sai.id}});
@@ -1638,12 +1636,23 @@ await finRegAplicar({ids:[id],alcance:"todos"},el);
 return}
 if("fin-reg-ok-fechar"===acao){FIN_REG_OK=null;return void renderFinanceiro(!0)}
 if("fin-apl-fechar"===acao){FIN_APL=null;return void renderFinanceiro(!0)}}
+// A selecao sobrevive a troca de mes, entao pode haver linha selecionada que
+// nao esta na tela. Contador que diz "2 selecionados" mostrando um so mente por
+// omissao, e este projeto ja pagou por isso na aba Conteudo, na v33.
+function finForaDoMes(){
+var itens=(FIN_MOV&&FIN_MOV.itens)||[],fora=0,k,i,achou;
+for(k in FIN_SEL){
+if(!FIN_SEL.hasOwnProperty(k))continue;
+achou=!1;
+for(i=0;i<itens.length;i++)if(itens[i].id===k){achou=!0;break}
+if(!achou)fora++}
+return fora?" · "+fora+" fora deste mês":""}
 function finPintarLote(){
 var caixa=E("finLote");
 if(!caixa)return;
 var qt=Object.keys(FIN_SEL).length,rot=E("finLoteN"),rep=E("finLoteRep");
 caixa.className="fin-lote"+(qt?" aberto":"");
-if(rot)rot.textContent=qt+(1===qt?" selecionado":" selecionados");
+if(rot)rot.textContent=qt+(1===qt?" selecionado":" selecionados")+finForaDoMes();
 // Repasse e PAR: com um ou com tres nao ha o que ligar, e botao que aceita
 // clique sem par so serve para produzir recusa que o dono nao pediu.
 if(rep)rep.hidden=2!==qt}

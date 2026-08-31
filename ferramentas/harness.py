@@ -366,7 +366,7 @@ var FIN_MOVS = [
     valor: 15.4, categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' },
   { id: 'f11', data: '2026-08-09', descricao: 'Pix recebido - AGENCY FORD SUL C MODELOS',
     valor: 4800, categoria_codigo: null, dominio: null, origem: 'extrato' },
-  { id: 'f12', data: '2026-08-08', descricao: 'Pix enviado - FORD MODELS SUL',
+  { id: 'f12', data: '2026-07-30', descricao: 'Pix enviado - FORD MODELS SUL',
     valor: -4800, categoria_codigo: null, dominio: null, origem: 'extrato' },
   { id: 'f13', data: '2026-08-07', descricao: 'Pix enviado - NAO E PAR DISSO',
     valor: -50, categoria_codigo: null, dominio: null, origem: 'extrato' }];
@@ -807,9 +807,13 @@ window.supabase = {
             // O valor conta so o lado POSITIVO do par: somar os dois dobraria o
             // numero e a tela declararia o triplo do que passou.
             repasse: (function () {
-              var rr = FIN_MOVS.filter(function (x) { return x.categoria_codigo === 'repasse'; });
+              var rr = FIN_MOVS.filter(function (x) {
+                if (x.categoria_codigo !== 'repasse') return false;
+                if (args.p_ini && x.data < args.p_ini) return false;
+                if (args.p_fim && x.data > args.p_fim) return false;
+                return true; });
               var rv = 0;
-              rr.forEach(function (x) { if (x.valor > 0) rv += x.valor; });
+              rr.forEach(function (x) { rv += Math.abs(x.valor); });
               return { valor: rv, n: rr.length };
             })(),
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
@@ -894,6 +898,8 @@ window.supabase = {
               ordem: args.p_ordem === 'valor' ? 'valor' : 'data',
               n: 0, total: 0, truncado: false, itens: [] }, error: null });
           var fmItens = FIN_MOVS.filter(function (x) {
+            if (args.p_ini && x.data < args.p_ini) return false;
+            if (args.p_fim && x.data > args.p_fim) return false;
             if (fmSo && x.dominio !== null) return false;
             if (fmDom && x.dominio !== fmDom) return false;
             return true;
@@ -5161,7 +5167,7 @@ async function rodar() {
   ok('fin: e ja chega com "so nao classificados" ligado',
      finQ('[data-acao="fin-so-nc"]').getAttribute('aria-pressed') === 'true');
   ok('fin: nesse modo so os lancamentos SEM dominio aparecem',
-     finQA('.fin-lin').length === 7 &&
+     finQA('.fin-lin').length === 6 &&
      finQA('.fin-lin').every(function (x) { return x.className.indexOf('nc') >= 0; }) &&
      /DEBITO NAO IDENTIFICADO/.test(finQ('.fin-lin-desc').textContent),
      'n=' + finQA('.fin-lin').length);
@@ -5175,8 +5181,8 @@ async function rodar() {
 
   finQ('[data-acao="fin-so-nc"]').click();
   await espera(340);
-  ok('fin: desligar o filtro devolve os 13 lancamentos da janela',
-     finQA('.fin-lin').length === 13, 'n=' + finQA('.fin-lin').length);
+  ok('fin: desligar o filtro devolve os 12 lancamentos da janela',
+     finQA('.fin-lin').length === 12, 'n=' + finQA('.fin-lin').length);
   ok('fin: a lista e newest-first',
      finQA('.fin-lin-data')[0].textContent === '20/08', finQA('.fin-lin-data')[0].textContent);
   ok('fin: saida na linha NAO sai em vermelho (gastar nao e falha)',
@@ -6021,10 +6027,26 @@ async function rodar() {
   await espera(200);
   ok('fin3: com UM selecionado tambem nao: repasse e par, nao linha solta',
      finQ('[data-acao="fin-repasse"]').hidden === true);
+  // O par REAL atravessa a virada do mes: o Ford entra em 30/07 e sai em 06/08.
+  // A lista mostra um mes por vez, entao sem a selecao sobreviver a troca de mes
+  // NAO EXISTE clique que marque esse par. Foi o defeito que subiu na primeira
+  // versao desta entrega, e esta e a assercao que faltava.
+  ok('fin3: o outro lado do par nao esta neste mes',
+     !finQ('.fin-chk[data-id="f12"]'));
+  finQ('[data-acao="fin-mes"][data-delta="-1"]').click();
+  await espera(520);
+  ok('fin3: trocar de mes NAO apaga o que ja estava selecionado',
+     Object.keys(window.FIN_SEL || {}).length !== 0 ||
+     finQ('[data-acao="fin-repasse"]') !== null,
+     'a selecao sobreviveu?');
   finQ('.fin-chk[data-id="f12"]').click();
-  await espera(200);
-  ok('fin3: com DOIS selecionados a acao aparece',
+  await espera(220);
+  ok('fin3: com DOIS selecionados a acao aparece, mesmo em meses diferentes',
      finQ('[data-acao="fin-repasse"]').hidden === false);
+  // Contador que diz "2 selecionados" mostrando um so mente por omissao.
+  ok('fin3: e a barra DECLARA que um deles nao esta neste mes',
+     /2 selecionados · 1 fora deste mês/.test(finQ('#finLoteN').textContent),
+     finQ('#finLoteN').textContent);
 
   // A entrada foi selecionada PRIMEIRO e a saida depois; embaralhar a ordem
   // aqui e de proposito, porque quem manda e o sinal, nao a ordem do clique.
@@ -6043,8 +6065,26 @@ async function rodar() {
       var sel = x.querySelector('[data-acao="fin-cat"]');
       return sel && sel.value === 'repasse'; }).length;
   }
-  ok('fin3: os dois lados do par viram categoria Repasse',
-     f3Rep() === 2, 'linhas em repasse=' + f3Rep());
+  // Julho tem so a perna de saida do par: a outra esta em agosto.
+  ok('fin3: o lado que esta neste mes vira categoria Repasse',
+     f3Rep() === 1, 'linhas em repasse=' + f3Rep());
+  // A linha responde "quanto deixou de entrar nos totais DESTA janela". Somar so
+  // o lado positivo daria R$ 0,00 em julho tendo tirado R$ 4.800,00 do saiu.
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+  ok('fin3: com uma perna so na janela, a declaracao mostra o valor dela',
+     !!finQ('.fin-repasse-lin') &&
+     /R\$\s*4\.800,00/.test(finQ('.fin-repasse-lin').textContent) &&
+     /em 1 lançamento de repasse ficou/.test(finQ('.fin-repasse-lin').textContent),
+     finQ('.fin-repasse-lin') ? finQ('.fin-repasse-lin').textContent.slice(0, 70) : 'sem linha');
+  finQ('[data-acao="fin-mes"][data-delta="1"]').click();
+  await espera(520);
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  ok('fin3: e o outro lado do par tambem virou Repasse, no mes dele',
+     f3Rep() === 1, 'linhas em repasse=' + f3Rep());
+  finQ('[data-acao="fin-lote-limpar"]').click();
+  await espera(420);
 
   // ---- a recusa do servidor, exibida COMO VEIO (C3) -----------------------
   // 2000 contra 4300 e 53,49% de diferenca. A tela nao decide isso: ela manda,
@@ -6060,7 +6100,7 @@ async function rodar() {
   ok('fin3: e a recusa exibida e a frase do servidor, com o numero',
      /Par desigual: a diferenca e de 53\.49%, acima dos 5% permitidos\./.test(document.body.textContent),
      'sem a frase do servidor na tela');
-  ok('fin3: e nada foi marcado nesse passo', f3Rep() === 2, 'linhas em repasse=' + f3Rep());
+  ok('fin3: e nada foi marcado nesse passo', f3Rep() === 1, 'linhas em repasse=' + f3Rep());
 
   // ---- par ja usado -------------------------------------------------------
   window.__finRepasse = [];
@@ -6087,8 +6127,9 @@ async function rodar() {
      !!f3L && /R\$\s*4\.800,00/.test(f3L.textContent) &&
      !/9\.600,00/.test(f3L.textContent),
      f3L ? f3L.textContent.slice(0, 80) : 'sem linha');
-  ok('fin3: e dizendo em quantos PARES, nao em quantos lancamentos',
-     !!f3L && /em 1 repasse /.test(f3L.textContent) && !/em 2 repasses/.test(f3L.textContent),
+  ok('fin3: contando LANCAMENTOS da janela, nao pares (par pode atravessar o mes)',
+     !!f3L && /em 1 lançamento de repasse ficou/.test(f3L.textContent) &&
+     !/repasses/.test(f3L.textContent),
      f3L ? f3L.textContent.slice(0, 80) : 'sem linha');
   ok('fin3: a declaracao explica POR QUE fica fora',
      !!f3L && /entrou e saiu no mesmo valor/.test(f3L.textContent),
