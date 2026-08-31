@@ -484,7 +484,18 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v2.md` (28/08/2026, **o git passa a descrever o banco
+- topo: `handoff_financeiro_pitwall_v3.md` (31/08/2026, **a tela para de desenhar numero
+  economico sobre base incompleta**, commit desta sessao). Entrega vertical do
+  `P-W1-COBERTURA`: uma migration (`20260831180334_fin_fatia3_cobertura`) com
+  `privado.fn_fin_cobertura`, `public.fin_cobertura`, `pct_julgado` no `fin_painel` e
+  `p_ordem` no `fin_movimentos`, mais o bloco `base incompleta: N% julgado · faltam
+  R$ X em Y lançamentos` que entra **no lugar** do placar, nunca ao lado dele.
+  Medido: **2,11% do VALOR julgado** (R$ 1.677,85 de R$ 79.619,86; faltam R$ 77.942,01
+  em 131 linhas). RLS exercitada com tres sessoes (dono, vendedor, uid inexistente).
+  Suite **882 -> 902 assercoes, 0 falhas**, EXIT 0 nas cinco larguras; a baseline real
+  era 882, nao os 885 que o `CLAUDE.md` declara. As 15 `fin_` batem 15 de 15 por corpo
+  normalizado. Divergencia **D-1 paga**; D-2 a D-7 seguem abertas, e a D-4 cresceu.
+- `handoff_financeiro_pitwall_v2.md` (28/08/2026, **o git passa a descrever o banco
   por CORPO, nao so por nome**). O portao de entrada reprovou no item 1 (tree suja) e,
   pelo `CONTRATO.md` 6.1, a entrega da vez virou fechar o portao: o `P-AUDITA` NAO saiu.
   Achado principal: `20260826_fin_fatia21_painel_abatimento.sql` carregava, sob aquele

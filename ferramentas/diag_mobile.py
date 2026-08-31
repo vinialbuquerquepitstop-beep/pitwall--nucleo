@@ -311,6 +311,20 @@ async function rodar(){
       if (!D.querySelector('#lista .fin-alerta'))
         window.__saida.erros.push('Financeiro: a faixa de nao classificado nao estava no DOM, '
           + 'entao o bloco do invariante 18 NAO foi medido nesta largura');
+      // Fatia 3: o bloco de base incompleta so existe no estado degradado, e e
+      // justamente ele que carrega quatro cortes com moeda numa grade. Sem
+      // ligar o interruptor, a largura de celular nunca o veria, e o pedaco
+      // mais apertado da Visao ficaria fora da medicao.
+      D.defaultView.__FIN_INCOMPLETA = 1;
+      var chV2 = D.querySelector('#lista .fin-sub .fin-chip[data-sub="visao"]');
+      if (chV2) { chV2.click(); await espera(460); }
+      if (!D.querySelector('#lista .fin-inc-cortes li'))
+        window.__saida.erros.push('Financeiro: o bloco de base incompleta (F3) nao estava no DOM, '
+          + 'entao ele NAO foi medido nesta largura');
+      medir('abaFinanceiro/base-incompleta');
+      D.defaultView.__FIN_INCOMPLETA = 0;
+      var chV3 = D.querySelector('#lista .fin-sub .fin-chip[data-sub="visao"]');
+      if (chV3) { chV3.click(); await espera(460); }
     }
     medir(abasIds[k]);
     if (abasIds[k] === 'abaVendas') window.__saida.painelVendas = medirPainelVendas();

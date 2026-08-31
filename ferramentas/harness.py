@@ -442,6 +442,8 @@ window.__finImportar = [];
 window.__finRegSalvar = [];
 window.__finRegAplicar = [];
 window.__finRegPrever = [];
+window.__finCobertura = [];
+window.__finMovArgs = [];
 window.__uploads = [];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
@@ -776,6 +778,7 @@ window.supabase = {
             return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
               hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
               ini_anterior: null, fim_anterior: null,
+              pct_julgado: 100,
               placar: { entrou: 0, saiu: 0, resultado: 0,
                         nao_classificado_valor: 0, nao_classificado_n: 0 },
               secoes: [], entradas: [] }, error: null });
@@ -785,6 +788,12 @@ window.supabase = {
           return Promise.resolve({ data: { ok: true,
             ini: args.p_ini, fim: args.p_fim, hoje: '2026-08-25',
             dominio: args.p_dominio || 'tudo',
+            // Fatia 3: quem decide se a Visao pode desenhar numero economico e
+            // o SERVIDOR. O padrao do fixture e base COMPLETA (98), senao as
+            // 143 assercoes de fin: e fin2: passariam a medir a tela bloqueada.
+            // __FIN_INCOMPLETA liga o estado degradado, que e o estado REAL de
+            // hoje no banco: 2,11%% julgado em VALOR.
+            pct_julgado: window.__FIN_INCOMPLETA ? 2.11 : 98,
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
             placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
                       nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length },
@@ -807,7 +816,28 @@ window.supabase = {
                 { codigo: 'venda_aparelho', rotulo: 'Venda de aparelho', total: 2000,
                   pct: 100, delta_pct: -8.2, n: 1 } ] } ] }, error: null });
         }
+        // Numeros REAIS do banco em 31/08/2026 (fin_cobertura('2026-07-01',
+        // '2026-08-31') rodada como dono): 181 linhas, R$ 79.619,86 de bruto,
+        // R$ 1.677,85 julgado, 2,11%%, R$ 77.942,01 em 131 linhas pendentes.
+        // Fixture inventado aqui cegaria a aritmetica: julgado + pendente tem
+        // que fechar no bruto, e a assercao confere isso.
+        if (nome === 'fin_cobertura') {
+          window.__finCobertura.push({ p_ini: args.p_ini, p_fim: args.p_fim });
+          return Promise.resolve({ data: { ok: true,
+            ini: args.p_ini, fim: args.p_fim, hoje: '2026-08-25',
+            teto: window.__FIN_TETO || 95,
+            valor_bruto_total: 79619.86, valor_bruto_julgado: 1677.85,
+            valor_pendente: 77942.01,
+            pct_julgado: window.__FIN_INCOMPLETA ? 2.11 : 98,
+            linhas_total: 181, linhas_pendentes: 131,
+            por_dominio: {
+              empresa:  { valor: 20,      n: 1 },
+              pessoal:  { valor: 1657.85, n: 49 },
+              neutro:   { valor: 0,       n: 0 },
+              pendente: { valor: 77942.01, n: 131 } } }, error: null });
+        }
         if (nome === 'fin_movimentos') {
+          window.__finMovArgs.push({ p_status: args.p_status, p_ordem: args.p_ordem });
           var fmSo = args.p_status === 'nao_classificados';
           var fmDom = args.p_dominio === 'tudo' ? null : (args.p_dominio || null);
           if (fmSo) fmDom = null;   // o servidor ignora o dominio nesse status
@@ -815,6 +845,7 @@ window.supabase = {
             return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
               hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
               status: fmSo ? 'nao_classificados' : 'todos',
+              ordem: args.p_ordem === 'valor' ? 'valor' : 'data',
               n: 0, total: 0, truncado: false, itens: [] }, error: null });
           var fmItens = FIN_MOVS.filter(function (x) {
             if (fmSo && x.dominio !== null) return false;
@@ -837,6 +868,7 @@ window.supabase = {
           return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
             hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
             status: fmSo ? 'nao_classificados' : 'todos',
+            ordem: args.p_ordem === 'valor' ? 'valor' : 'data',
             n: fmItens.length, total: fmTot,
             truncado: !!window.__FIN_TRUNCADO, itens: fmItens }, error: null });
         }
@@ -5818,6 +5850,117 @@ async function rodar() {
      !!finQ('.fin-imp-p') && /PADARIA/.test(finQ('.fin-imp-p').textContent) &&
      finQ('.fin-imp-p b').textContent === '1',
      finQ('.fin-imp-p') ? finQ('.fin-imp-p').textContent : 'sem regra');
+
+
+  // ======================================================================
+  // FATIA 3 — base incompleta nao vira numero (F3)            (31/08/2026)
+  // ======================================================================
+  // O invariante F3 e literal: a tela NUNCA exibe numero economico derivado de
+  // janela cuja base esteja abaixo de 95% do VALOR julgado, e o bloco entra NO
+  // LUGAR do numero, nunca ao lado dele. O que se prova aqui e o NO LUGAR:
+  // aviso ao lado passa em qualquer teste de presenca e falha no unico teste
+  // que importa, que e o dono nao conseguir ler o numero errado.
+  // Os numeros do fixture sao os REAIS do banco em 31/08/2026.
+  window.__FIN_INCOMPLETA = 1;
+  window.__finCobertura = [];
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+
+  ok('fin3: a Visao pergunta a cobertura da MESMA janela que pediu ao painel',
+     window.__finCobertura.length === 1 &&
+     !!window.__finCobertura[0].p_ini && !!window.__finCobertura[0].p_fim,
+     JSON.stringify(window.__finCobertura));
+  // O teste que separa "no lugar" de "ao lado". Se um dia alguem transformar
+  // isto em faixa por cima do placar, ESTA linha e a que reprova.
+  ok('fin3: com base incompleta o placar economico NAO chega na tela',
+     finQA('.fin-placar').length === 0 && finQA('.pb-num').length === 0,
+     'placar=' + finQA('.fin-placar').length + ' numeros=' + finQA('.pb-num').length);
+  ok('fin3: nem os dois blocos de proposito, que agregam so a fatia ja julgada',
+     finQA('.fin-sec').length === 0 && finQA('.fin-cat').length === 0,
+     'secoes=' + finQA('.fin-sec').length + ' categorias=' + finQA('.fin-cat').length);
+  ok('fin3: e nenhuma palavra de resultado sobrou na tela',
+     !/entrou menos saiu|Para onde o dinheiro foi|De onde o dinheiro veio/.test(finTxt()),
+     finTxt().slice(0, 120));
+  var f3B = finQ('.fin-inc');
+  ok('fin3: no lugar entra o bloco de base incompleta', !!f3B);
+  ok('fin3: com o percentual e o que falta, em valor e em linhas',
+     !!f3B && /base incompleta: 2,1% julgado/.test(finQ('.fin-inc-tit').textContent) &&
+     /R\$\s*77\.942,01/.test(finQ('.fin-inc-tit').textContent) &&
+     /131 lançamentos/.test(finQ('.fin-inc-tit').textContent),
+     f3B ? finQ('.fin-inc-tit').textContent : 'sem bloco');
+  // O teto e regra de negocio e vive no servidor: 95 chumbado no JS seria C2.
+  ok('fin3: o teto exibido e o que o servidor mandou, nao um numero do JS',
+     !!f3B && /95% do valor julgado/.test(finQ('.fin-inc-txt').textContent),
+     f3B ? finQ('.fin-inc-txt').textContent.slice(0, 90) : 'sem bloco');
+  ok('fin3: a conta fecha na tela: julgado + pendente = bruto',
+     !!f3B && /R\$\s*1\.677,85 julgados de R\$\s*79\.619,86/.test(finQ('.fin-inc-conta').textContent) &&
+     Math.abs((1677.85 + 77942.01) - 79619.86) < 0.005,
+     f3B ? finQ('.fin-inc-conta').textContent : 'sem bloco');
+  ok('fin3: e o bloco DECLARA a janela, em vez de mentir por omissao',
+     !!f3B && /de \d{2}\/\d{2} a \d{2}\/\d{2}/.test(finQ('.fin-inc-conta').textContent),
+     f3B ? finQ('.fin-inc-conta').textContent : 'sem bloco');
+  ok('fin3: os quatro cortes de dominio aparecem, e o pendente e o maior',
+     finQA('.fin-inc-cortes li').length === 4 &&
+     /sem domínio/.test(finQ('.fin-inc-cortes li.pend').textContent),
+     'cortes=' + finQA('.fin-inc-cortes li').length);
+  ok('fin3: o plural do corte respeita a contagem, sem "1 lançamentos"',
+     /1 lançamento$/.test(finQA('.fin-inc-cortes li')[0].textContent),
+     finQA('.fin-inc-cortes li')[0].textContent);
+  // Trabalho que falta, nao falha de sistema. Mesma decisao do D-o e do balde
+  // `Sem categoria`. Medido na cor COMPUTADA, nao no hex do CSS.
+  ok('fin3: o bloco cobra em --morno, nunca na cor de falha',
+     finCor(finQ('.fin-inc-tit')) === COR_MORNO &&
+     finCor(finQ('.fin-inc-tit')) !== COR_ERRO,
+     finCor(finQ('.fin-inc-tit')));
+  // A faixa do invariante 18 termina em "os numeros abaixo ignoram esse valor".
+  // Com o bloco na tela nao ha numero abaixo: manter as duas seria publicar uma
+  // frase falsa ao lado de uma verdadeira.
+  ok('fin3: a faixa do invariante 18 nao repete a mesma cobranca duas vezes',
+     finQA('.fin-alerta').length === 0 &&
+     !/os números abaixo ignoram/i.test(finTxt()),
+     'faixas=' + finQA('.fin-alerta').length);
+  ok('fin3: o bloco leva para o trabalho, em vez de so informar',
+     !!finQ('.fin-inc [data-acao="fin-ir-nc"]'),
+     f3B ? f3B.textContent.slice(-40) : 'sem bloco');
+
+  // ---- o atalho cai ordenado por VALOR ----------------------------------
+  // Julgar do maior para o menor e o que faz 2% virar 95% em tempo humano: o
+  // F3 mede em VALOR, entao 15 linhas grandes valem mais que 100 pequenas.
+  window.__finMovArgs = [];
+  finQ('.fin-inc [data-acao="fin-ir-nc"]').click();
+  await espera(460);
+  var f3M = window.__finMovArgs[window.__finMovArgs.length - 1] || {};
+  ok('fin3: o atalho pede so os nao classificados, ordenados por valor',
+     f3M.p_status === 'nao_classificados' && f3M.p_ordem === 'valor',
+     JSON.stringify(f3M));
+  // Ordenar no cliente seria mentira acima do limit 500 do servidor: a tela
+  // ordenaria as 500 que recebeu, nao as maiores da janela.
+  ok('fin3: e a tela DECLARA a ordem, em vez de reordenar em silencio',
+     /maior valor primeiro/.test(finQ('.fin-mov-cab .fin-bloco-pe').textContent),
+     finQ('.fin-mov-cab .fin-bloco-pe').textContent);
+  ok('fin3: fora da Visao nao se pergunta cobertura: nao ha numero a bloquear',
+     window.__finCobertura.length === 1, 'chamadas=' + window.__finCobertura.length);
+  finQ('[data-acao="fin-so-nc"]').click();
+  await espera(440);
+  ok('fin3: desligar o filtro devolve a ordem por data, e a tela diz isso',
+     (window.__finMovArgs[window.__finMovArgs.length - 1] || {}).p_ordem === 'data' &&
+     /mais recente primeiro/.test(finQ('.fin-mov-cab .fin-bloco-pe').textContent),
+     finQ('.fin-mov-cab .fin-bloco-pe').textContent);
+
+  // ---- e o bloqueio SAI quando a base fecha ------------------------------
+  // Guard-rail que nunca solta e guard-rail quebrado: a mesma tela tem que
+  // voltar a desenhar o numero assim que a base passar do teto.
+  window.__FIN_INCOMPLETA = 0;
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+  ok('fin3: acima do teto o placar economico volta inteiro',
+     finQA('.fin-placar').length === 1 && finQA('.pb-num').length === 4 &&
+     finQA('.fin-inc').length === 0,
+     'placar=' + finQA('.fin-placar').length + ' bloco=' + finQA('.fin-inc').length);
+  ok('fin3: e a faixa do invariante 18 volta a cobrar o que falta classificar',
+     finQA('.fin-alerta').length === 1 &&
+     /os números abaixo ignoram/i.test(finTxt()),
+     'faixas=' + finQA('.fin-alerta').length);
 
 
   fim();

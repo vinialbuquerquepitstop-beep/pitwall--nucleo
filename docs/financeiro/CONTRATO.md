@@ -167,6 +167,7 @@ Categoria desconhecida ou desativada: <codigo>
 Dominio invalido: use empresa ou pessoal.
 Informe o padrao a casar.
 Tipo de casamento invalido: use contem, comeca ou exato.
+Ordem invalida: use data ou valor.
 Prioridade fora da faixa: use de 0 a 9999.
 Regra arquivada: crie uma nova em vez de editar esta.
 Janela invertida.

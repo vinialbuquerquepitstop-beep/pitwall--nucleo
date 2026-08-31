@@ -628,7 +628,7 @@ e.innerHTML=topo+metTopo(d)+metOrigem(d)+metConteudo(d)}
 var FIN_SUBS=[["visao","Visão"],["movimentos","Movimentos"],["importar","Importar"],["regras","Regras"]];
 var FIN_DOMS=[["empresa","Empresa"],["pessoal","Pessoal"],["tudo","Tudo"]];
 var FIN_SUB="visao",FIN_DOM="tudo",FIN_MES="",FIN_STATUS="todos";
-var FIN_CFG=null,FIN_PAINEL=null,FIN_MOV=null,FIN_SEL={},FIN_AVISO="";
+var FIN_CFG=null,FIN_PAINEL=null,FIN_COB=null,FIN_MOV=null,FIN_SEL={},FIN_AVISO="";
 var FIN_LANC=!1,FIN_REPETIR=null,FIN_PREVIA=null,FIN_IMP=null;
 // Fatia 2. FIN_REG_FORM e o formulario ABERTO (um so por vez, seja na linha de
 // Movimentos, seja na lista de Regras); FIN_REG_PREV e a previa FRESCA daquele
@@ -740,7 +740,38 @@ return'<div class="fin-alerta" role="status">'+
 '<div class="fin-alerta-txt"><b>'+brlV(Math.abs(v))+" em "+qt+(1===qt?" lançamento":" lançamentos")+" ainda sem classificação.</b>"+
 '<span>Os números abaixo ignoram esse valor. É a soma com sinal ('+brlV(v)+', saídas e entradas juntas) e ela não muda com o filtro Empresa/Pessoal: sem domínio, não há lado.</span></div>'+
 '<button class="fin-alerta-btn" data-acao="fin-ir-nc">Classificar agora</button></div>'}
-function finTopo(jn,pnl){
+// O F3 do CONTRATO, na tela. A regra e literal: numero economico NAO se desenha
+// sobre janela cuja base esteja abaixo do teto de valor julgado, e o bloco
+// entra NO LUGAR do numero, nunca ao lado dele. Aviso ao lado vira decoracao e
+// o dono le o numero errado do mesmo jeito, que e exatamente como este projeto
+// ja publicou tres numeros errados sobre a contraparte BR IPHONES.
+// --morno e nao --erro, pelo mesmo motivo do D-o e do balde `Sem categoria`:
+// base incompleta e trabalho que falta, nao falha de sistema.
+// O teto vem do servidor (cob.teto). Chumbar 95 aqui seria dado de config
+// dentro do JS, que e o C2.
+// A janela e DECLARADA: tela que omite recorte mente por omissao.
+function finIncCorte(rot,x,pend){
+var n=Number(x&&x.n)||0;
+return'<li'+(pend?' class="pend"':"")+"><span>"+c(rot)+"</span><b>"+brlV(Number(x&&x.valor)||0)+"</b>"+
+'<i>'+n+(1===n?" lançamento":" lançamentos")+"</i></li>"}
+function finBaseIncompleta(cob){
+var pd=cob.por_dominio||{},pe=pd.pendente||{},em=pd.empresa||{},ps=pd.pessoal||{},nu=pd.neutro||{};
+var qt=Number(pe.n)||0,lt=Number(cob.linhas_total)||0;
+return'<section class="fin-bloco fin-inc"><div class="fin-inc-cab">'+
+'<svg class="fin-inc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2l8.6 15.3H3.4L12 4.2z" stroke-linejoin="round"></path><path d="M12 10.2v4.1M12 16.9v.2" stroke-linecap="round"></path></svg>'+
+'<h2 class="fin-inc-tit">base incompleta: '+finN1(cob.pct_julgado)+"% julgado · faltam "+brlV(Number(pe.valor)||0)+" em "+qt+(1===qt?" lançamento":" lançamentos")+"</h2></div>"+
+'<p class="fin-inc-txt">Entrou, saiu e resultado <b>não são desenhados</b> enquanto a janela não chegar a '+
+(Number(cob.teto)||95)+"% do valor julgado. Número de resultado sobre base incompleta já foi publicado errado três vezes neste projeto.</p>"+
+'<p class="fin-inc-conta">'+brlV(Number(cob.valor_bruto_julgado)||0)+" julgados de "+brlV(Number(cob.valor_bruto_total)||0)+
+" em "+lt+(1===lt?" lançamento":" lançamentos")+" · de "+c(fmtDiaCurto(cob.ini))+" a "+c(fmtDiaCurto(cob.fim))+"</p>"+
+'<ul class="fin-inc-cortes">'+
+finIncCorte("empresa",em)+finIncCorte("pessoal",ps)+finIncCorte("neutro",nu)+
+finIncCorte("sem domínio",pe,!0)+"</ul>"+
+'<button class="btn-cad" data-acao="fin-ir-nc">Classificar do maior valor</button></section>'}
+// semFaixa: quando o bloco do F3 esta na tela, ele JA diz quanto falta julgar, e
+// a faixa do invariante 18 diria a mesma coisa terminando em "os números abaixo
+// ignoram esse valor" com numero nenhum abaixo. Duas frases, uma delas falsa.
+function finTopo(jn,pnl,semFaixa){
 var travado=finMes()>=l().slice(0,7);
 var subs=FIN_SUBS.map(function(x){
 return'<button class="fin-chip" data-acao="fin-sub" data-sub="'+x[0]+'" aria-pressed="'+(FIN_SUB===x[0]?"true":"false")+'">'+c(x[1])+"</button>"}).join("");
@@ -754,7 +785,7 @@ return'<div class="fin-topo">'+
 '<span class="fin-mes-rot">'+c(vgMesLongo(jn.ym))+"</span>"+
 '<button class="fin-mes-b" data-acao="fin-mes" data-delta="1" aria-label="Próximo mês"'+(travado?" disabled":"")+">›</button>"+
 '<span class="fin-janela">de '+c(fmtDiaCurto(jn.ini))+" a "+c(fmtDiaCurto(jn.fim))+"</span></div></div>"+
-finFaixaNc(pnl.placar||{})}
+(semFaixa?"":finFaixaNc(pnl.placar||{}))}
 // Estado vazio. A primeira coisa que o dono vai ver e esta tela, com zero linha
 // no banco: ela precisa dizer o que fazer e LEVAR la, nao so informar que esta
 // vazia.
@@ -763,9 +794,15 @@ return'<div class="estado"><strong>Nenhum lançamento nesta janela.</strong>'+
 "Importe o extrato do seu banco em OFX para começar. Dinheiro vivo, que não aparece no extrato, entra à mão em Movimentos."+
 '<div class="fin-vazio-acoes"><button class="btn-cad" data-acao="fin-sub" data-sub="importar">Importar extrato</button>'+
 '<button class="btn-cad secundario" data-acao="fin-sub" data-sub="movimentos">Lançar à mão</button></div></div>'}
-function finVisao(pnl,jn){
+function finVisao(pnl,jn,cob){
 var pl=pnl.placar||{},secs=pnl.secoes||[],ents=pnl.entradas||[];
 if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finPlacar(pl)+finVazio();
+// cob so chega preenchido quando o servidor disse que a janela esta abaixo do
+// teto. Aqui o placar inteiro e os dois blocos de proposito NAO sao desenhados:
+// os tres numeros do placar (entrou, saiu, resultado) sao economicos, e os
+// blocos agregam so a fatia ja julgada, que e justamente a leitura que parece a
+// verdade do periodo sem ser.
+if(cob)return finBaseIncompleta(cob);
 var domRot="tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM;
 var rec="por grupo · "+domRot+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim);
 return finPlacar(pl)+
@@ -859,7 +896,8 @@ var itens=mv.itens||[],so="nao_classificados"===FIN_STATUS,qt=mv.n||0;
 // os que nao tem dominio). A tela DIZ isso, em vez de deixar o seletor de
 // Empresa parecendo aceso e sem efeito.
 var rec=qt+(1===qt?" lançamento":" lançamentos")+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim)+
-  " · "+(so?"sem domínio (o filtro Empresa/Pessoal não se aplica aqui)":"tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM);
+  " · "+(so?"sem domínio (o filtro Empresa/Pessoal não se aplica aqui)":"tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM)+
+  " · "+("valor"===mv.ordem?"maior valor primeiro":"mais recente primeiro");
 var trunc=mv.truncado?'<p class="fin-truncado">Mostrando as '+itens.length+" primeiras de "+qt+" linhas. Estreite o período para ver o resto.</p>":"";
 var aviso=FIN_AVISO?'<p class="fin-aviso" role="status">'+c(FIN_AVISO)+"</p>":"";
 var corpo=itens.length?itens.map(finMovLin).join(""):
@@ -1612,14 +1650,31 @@ var dc=rc.data;
 if(!dc||!1===dc.ok)return void(e.innerHTML='<div class="estado erro">'+c(dc&&dc.msg||"Financeiro indisponível.")+"</div>");
 FIN_CFG=dc}
 var jn=finJanela();
-var rp=await t.rpc("fin_painel",{p_ini:jn.ini,p_fim:jn.fim,p_dominio:FIN_DOM});
+// As duas leituras saem JUNTAS, nao em fila: quem decide se a Visao pode
+// desenhar numero economico e o servidor (pct_julgado contra o teto que ele
+// mesmo devolve), e perguntar isso depois custaria uma ida inteira de rede em
+// toda troca de mes. Em paralelo o custo de latencia e zero.
+// So na Visao: em Movimentos, Importar e Regras nao ha numero economico para
+// bloquear, entao nao ha o que perguntar.
+var vis="visao"===FIN_SUB;
+var par=await Promise.all([
+  t.rpc("fin_painel",{p_ini:jn.ini,p_fim:jn.fim,p_dominio:FIN_DOM}),
+  vis?t.rpc("fin_cobertura",{p_ini:jn.ini,p_fim:jn.fim}):Promise.resolve(null)]);
+var rp=par[0],rb=par[1];
 if(rp.error)return void(e.innerHTML=estadoErro("o financeiro",rp.error.message));
 var d=rp.data;
 if(!d||!1===d.ok)return void(e.innerHTML='<div class="estado erro">'+c(d&&d.msg||"Falha ao ler o financeiro.")+"</div>");
 FIN_PAINEL=d;
+// A comparacao usa o pct e o teto que vieram do MESMO lado: nada de 95 chumbado
+// aqui (C2). Cobertura que nao chegou (rede, recusa) nao bloqueia a tela: sem
+// medicao nao se inventa medicao, e a faixa do invariante 18 continua cobrando.
+FIN_COB=null;
+var db=rb&&!rb.error?rb.data:null;
+if(db&&!1!==db.ok&&null!=d.pct_julgado&&Number(d.pct_julgado)<Number(db.teto))FIN_COB=db;
 var corpo;
 if("movimentos"===FIN_SUB){
-var rm=await t.rpc("fin_movimentos",{p_ini:jn.ini,p_fim:jn.fim,p_dominio:FIN_DOM,p_status:FIN_STATUS});
+var rm=await t.rpc("fin_movimentos",{p_ini:jn.ini,p_fim:jn.fim,p_dominio:FIN_DOM,p_status:FIN_STATUS,
+  p_ordem:"nao_classificados"===FIN_STATUS?"valor":"data"});
 if(rm.error)corpo=estadoErro("os movimentos",rm.error.message);
 else{
 var dm=rm.data;
@@ -1639,8 +1694,8 @@ var dr=rr.data;
 if(!dr||!1===dr.ok)corpo='<div class="estado erro">'+c(dr&&dr.msg||"Falha ao ler as regras.")+"</div>";
 else FIN_REGRAS=dr}}
 if(!corpo)corpo=finRegrasView(FIN_REGRAS)}
-else corpo=finVisao(d,jn);
-e.innerHTML=finTopo(jn,d)+corpo;
+else corpo=finVisao(d,jn,FIN_COB);
+e.innerHTML=finTopo(jn,d,!!FIN_COB&&"visao"===FIN_SUB)+corpo;
 finLigar()}
 function rotCargaBarra(n){
 var mx=Math.max.apply(null,n.slice(1,8))||1,i=1,out="";

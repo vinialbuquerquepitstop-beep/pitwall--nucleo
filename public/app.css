@@ -3347,6 +3347,54 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 }
 .fin-alerta-btn:hover{opacity:.9}
 
+/* --- base incompleta (F3). Zero token novo: --morno inteiro, o mesmo par que
+       `Sem categoria` e o conflito de regra ja usam. Nao e --erro de proposito:
+       base incompleta e trabalho que falta, nao falha de sistema, e pintar de
+       vermelho ensinaria o dono a ignorar o vermelho.
+       Este bloco OCUPA o lugar do placar e dos dois blocos de proposito, entao
+       ele carrega sozinho a altura que eles tinham: sem isso a Visao encolhe e
+       parece que a aba quebrou. --- */
+.fin-inc{
+  border:1px solid var(--morno-linha);background:var(--morno-bg);
+  border-radius:var(--radius);padding:16px 16px 14px;margin-bottom:16px;
+}
+.fin-inc-cab{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+.fin-inc-ico{
+  width:20px;height:20px;flex:0 0 auto;margin-top:2px;
+  stroke:var(--morno-fg);fill:none;stroke-width:1.7;
+}
+.fin-inc-tit{
+  margin:0;flex:1 1 200px;min-width:0;
+  font-family:var(--body);font-size:16px;font-weight:600;line-height:1.35;
+  letter-spacing:-.01em;color:var(--morno-fg);
+}
+.fin-inc-txt{margin:0 0 10px;font-size:13px;line-height:1.55;color:var(--text)}
+.fin-inc-txt b{font-weight:600}
+.fin-inc-conta{
+  margin:0 0 12px;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--dim);
+}
+/* Grade e nao linha corrida: em 360px quatro cortes com moeda viram uma sopa,
+   e o diag_mobile mede exatamente isso. */
+.fin-inc-cortes{
+  list-style:none;margin:0 0 14px;padding:0;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;
+}
+.fin-inc-cortes li{
+  display:flex;flex-direction:column;gap:1px;
+  background:var(--bg);border:1px solid var(--morno-linha);
+  border-radius:var(--radius-p);padding:8px 10px;min-width:0;
+}
+.fin-inc-cortes span{font-size:11px;letter-spacing:.02em;color:var(--dim)}
+.fin-inc-cortes b{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text)}
+.fin-inc-cortes i{font-style:normal;font-size:11px;color:var(--dim)}
+.fin-inc-cortes li.pend b{color:var(--morno-fg);font-weight:600}
+.fin-inc>.btn-cad{width:auto}
+@media (max-width:420px){
+  .fin-inc{padding:14px 12px 12px}
+  .fin-inc-tit{font-size:15px}
+  .fin-inc>.btn-cad{width:100%}
+}
+
 /* --- placar. Reusa o pitboard e so encolhe o numero: aqui ele carrega moeda
        ("R$ 12.345,67"), nao um inteiro de dois digitos, e a 27px ele saia
        cortado pela reticencia numa coluna de celular. Dinheiro truncado parece
