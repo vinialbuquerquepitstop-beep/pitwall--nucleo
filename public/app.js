@@ -741,21 +741,37 @@ return'<div class="pitboard fin-placar">'+
 '<div class="pb-celula"><div class="pb-rot">entrou</div><div class="pb-num">'+brlV(pl.entrou)+'</div><div class="pb-pe">no período</div></div>'+
 '<div class="pb-celula"><div class="pb-rot">saiu</div><div class="pb-num">'+brlV(pl.saiu)+'</div><div class="pb-pe">no período</div></div>'+
 '<div class="pb-celula"><div class="pb-rot">resultado</div><div class="pb-num'+(res<0?" neg":"")+'">'+brlV(res)+'</div><div class="pb-pe">entrou menos saiu</div></div>'+
-'<div class="pb-celula"><div class="pb-rot">não classificado</div><div class="pb-num'+(ncn>0?" cobra":"")+'">'+brlV(Math.abs(Number(pl.nao_classificado_valor)||0))+'</div><div class="pb-pe">'+ncn+(1===ncn?" lançamento fora":" lançamentos fora")+"</div></div></div>"}
+// A celula do nao classificado carrega a CONTAGEM, nao dinheiro. Ate 01/09/2026
+// ela mostrava o modulo da soma com sinal (R$ 350,33 na base do dono) e a faixa
+// logo acima passou a mostrar os dois lados (R$ 35.148,38 entrando, R$
+// 34.798,05 saindo): dois numeros de dinheiro diferentes para as MESMAS 119
+// linhas, na mesma tela. O dinheiro vive na faixa, que tem largura para os dois
+// lados; a celula conta linhas, que e o que cabe em 20px sem truncar. Dinheiro
+// truncado parece outro numero, e a 4 colunas no celular ele truncaria.
+'<div class="pb-celula"><div class="pb-rot">não classificado</div><div class="pb-num'+(ncn>0?" cobra":"")+'">'+ncn+'</div><div class="pb-pe">'+(1===ncn?"lançamento fora de todo total":"lançamentos fora de todo total")+"</div></div></div>"}
 // A faixa do invariante 18. Nao e aviso decorativo: e a declaracao do que os
 // numeros abaixo estao IGNORANDO, e por isso vive nas tres sub-views, no topo,
 // e nao num rodape que ninguem le.
-// O valor vem do servidor como soma COM SINAL e NAO respeita o filtro de
-// dominio (sao justamente os que nao tem lado). As duas coisas sao ditas na
-// tela, senao o dono trocaria para Empresa e acharia que o numero encolheu.
+// Ela mostra OS DOIS LADOS, nao a diferenca entre eles. Ate 01/09/2026 a
+// manchete era o liquido: na base do dono, R$ 350,33 sobre 119 linhas que
+// somam R$ 35.148,38 de entrada e R$ 34.798,05 de saida. Entrada e saida do
+// mesmo valor se cancelam, entao o liquido declarava 100 vezes menos trabalho
+// do que existia, e trabalho que parece pequeno nao e feito. O liquido continua
+// na tela, um degrau abaixo, porque e a conta que o dono confere: o servidor
+// manda os dois lados com sinal, e entradas + saidas = valor fecha a olho.
+// O recorte NAO respeita o filtro de dominio (sao justamente os que nao tem
+// lado). Isso e dito na tela, senao o dono trocaria para Empresa e acharia que
+// o numero encolheu.
 function finFaixaNc(pl){
 var qt=pl.nao_classificado_n||0;
 if(!qt)return"";
 var v=Number(pl.nao_classificado_valor)||0;
+var en=Number(pl.nao_classificado_entradas)||0,sa=Number(pl.nao_classificado_saidas)||0;
 return'<div class="fin-alerta" role="status">'+
 '<svg class="fin-alerta-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2l8.6 15.3H3.4L12 4.2z" stroke-linejoin="round"></path><path d="M12 10.2v4.1M12 16.9v.2" stroke-linecap="round"></path></svg>'+
-'<div class="fin-alerta-txt"><b>'+brlV(Math.abs(v))+" em "+qt+(1===qt?" lançamento":" lançamentos")+" ainda sem classificação.</b>"+
-'<span>Os números abaixo ignoram esse valor. É a soma com sinal ('+brlV(v)+', saídas e entradas juntas) e ela não muda com o filtro Empresa/Pessoal: sem domínio, não há lado.</span></div>'+
+'<div class="fin-alerta-txt"><b>'+brlV(en)+" entraram e "+brlV(Math.abs(sa))+" saíram, em "+qt+(1===qt?" lançamento":" lançamentos")+" ainda sem classificação.</b>"+
+'<span class="fin-alerta-liq">Líquido '+brlV(v)+", a diferença entre os dois. Entrada e saída do mesmo valor se cancelam, então é o líquido que esconde o tamanho do trabalho.</span>"+
+'<span>Os números abaixo ignoram esse valor. Ele não muda com o filtro Empresa/Pessoal: sem domínio, não há lado.</span></div>'+
 '<button class="fin-alerta-btn" data-acao="fin-ir-nc">Classificar agora</button></div>'}
 // O F3 do CONTRATO, na tela. A regra e literal: numero economico NAO se desenha
 // sobre janela cuja base esteja abaixo do teto de valor julgado, e o bloco

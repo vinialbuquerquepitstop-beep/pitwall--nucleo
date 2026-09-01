@@ -3340,6 +3340,13 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fin-alerta-txt{flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:3px}
 .fin-alerta-txt b{font-size:14px;font-weight:600;color:var(--erro-fg);letter-spacing:-.01em}
 .fin-alerta-txt span{font-size:12px;line-height:1.5;color:var(--text)}
+/* O liquido, um degrau abaixo do par (01/09/2026). Ate aqui ele ERA a manchete,
+   em 14px, e era so ele: na base do dono declarava R$ 350,33 de trabalho
+   pendente onde entravam R$ 35.148,38 e saiam R$ 34.798,05 sem lado. Ele
+   continua na tela, porque entradas + saidas = liquido e a conta que o dono
+   confere, mas como pe da manchete, nao como ela. Zero token novo e zero cor
+   nova: so a escala do span, que ja e 12px, com os digitos alinhados. */
+.fin-alerta-liq{font-variant-numeric:tabular-nums}
 .fin-alerta-btn{
   flex:0 0 auto;background:var(--erro-fg);border:1px solid var(--erro-fg);color:var(--bg);
   border-radius:var(--radius-p);padding:8px 14px;

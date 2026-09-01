@@ -792,11 +792,19 @@ window.supabase = {
               pct_julgado: 100,
               repasse: { valor: 0, n: 0, orfao_valor: 0, orfao_n: 0 },
               placar: { entrou: 0, saiu: 0, resultado: 0,
-                        nao_classificado_valor: 0, nao_classificado_n: 0 },
+                        nao_classificado_valor: 0, nao_classificado_n: 0,
+                        nao_classificado_entradas: 0, nao_classificado_saidas: 0 },
               secoes: [], entradas: [] }, error: null });
           var fpNc = FIN_MOVS.filter(function (x) { return x.dominio === null; });
-          var fpVal = 0;
-          fpNc.forEach(function (x) { fpVal += x.valor; });
+          var fpVal = 0, fpEnt = 0, fpSai = 0;
+          // Os dois lados saem do MESMO fixture que o liquido, e nao de numero
+          // chumbado: a identidade entradas + saidas = valor tem que valer no
+          // stub tambem, senao a assercao que a prova na tela mede o stub.
+          // `saidas` sai NEGATIVO, como o servidor manda, e nao em modulo.
+          fpNc.forEach(function (x) {
+            fpVal += x.valor;
+            if (x.valor > 0) fpEnt += x.valor; else fpSai += x.valor;
+          });
           return Promise.resolve({ data: { ok: true,
             ini: args.p_ini, fim: args.p_fim, hoje: '2026-08-25',
             dominio: args.p_dominio || 'tudo',
@@ -823,7 +831,8 @@ window.supabase = {
             })(),
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
             placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
-                      nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length },
+                      nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length,
+                      nao_classificado_entradas: fpEnt, nao_classificado_saidas: fpSai },
             // secoes e entradas vao como FIXTURE constante: aqui se prova a
             // TELA (barra, delta, icone, grupo), nao a agregacao, que ja tem
             // prova propria no lado do banco. Os tres casos que a tela pode
@@ -5115,9 +5124,9 @@ async function rodar() {
   // ---- a faixa do invariante 18 ----------------------------------------
   var fxA = finQ('.fin-alerta');
   ok('fin: a faixa de nao classificado existe', !!fxA);
-  ok('fin: ela diz o VALOR e a CONTAGEM',
-     !!fxA && /R\\$ 245,20 em 7 lançamentos ainda sem classificação/.test(fxA.textContent),
-     fxA ? fxA.textContent.slice(0, 80) : 'sem faixa');
+  ok('fin: ela diz a CONTAGEM do que falta julgar',
+     !!fxA && /em 7 lançamentos ainda sem classificação/.test(fxA.textContent),
+     fxA ? fxA.textContent.slice(0, 90) : 'sem faixa');
   ok('fin: ela declara que os numeros abaixo IGNORAM esse valor',
      !!fxA && /Os números abaixo ignoram esse valor/.test(fxA.textContent));
   // O servidor devolve o nao classificado sem respeitar p_dominio. Sem esta
@@ -5127,6 +5136,47 @@ async function rodar() {
   ok('fin: e mostra a soma COM SINAL, nao so o modulo',
      !!fxA && fxA.textContent.indexOf('R$ -245,20') >= 0,
      fxA ? fxA.textContent.slice(60, 190) : 'sem faixa');
+
+  // ---- fatia 3: a faixa cobra o numero certo (01/09/2026) ---------------
+  // O liquido sozinho e o numero que faz o trabalho parecer pequeno. No
+  // fixture ele e R$ -245,20 sobre R$ 4.800,00 entrando e R$ 5.045,20 saindo:
+  // 20 vezes menos. Na base do dono, medido em 31/08/2026, sao R$ 350,33
+  // contra R$ 35.148,38 e R$ 34.798,05, ou seja 100 vezes menos, e foi por
+  // isso que as 119 linhas ficaram sem julgamento.
+  // Os dois numeros so podem vir dos campos NOVOS do servidor: o campo antigo
+  // vale -245,20 e nao produz nenhum dos dois. A assercao e, ao mesmo tempo, a
+  // prova de que nenhum dos dois campos ficou orfao.
+  var fxB = finQ('.fin-alerta-txt b'), fxL = finQ('.fin-alerta-liq');
+  ok('fin3: a faixa mostra os DOIS lados, nao a diferenca entre eles',
+     !!fxB && /R\\$ 4\\.800,00 entraram e R\\$ 5\\.045,20 saíram/.test(fxB.textContent),
+     fxB ? fxB.textContent : 'sem manchete');
+  ok('fin3: a saida vem em modulo na manchete: a palavra ja carrega o lado',
+     !!fxB && fxB.textContent.indexOf('-') < 0,
+     fxB ? fxB.textContent : 'sem manchete');
+  ok('fin3: o liquido saiu da manchete e desceu para a linha de baixo',
+     !!fxL && fxL.textContent.indexOf('R$ -245,20') >= 0 &&
+     !!fxB && fxB.textContent.indexOf('245,20') < 0,
+     fxL ? fxL.textContent.slice(0, 70) : 'sem linha de liquido');
+  ok('fin3: e ele e MENOR que o par, medido na fonte computada',
+     !!fxB && !!fxL &&
+     parseFloat(getComputedStyle(fxL).fontSize) < parseFloat(getComputedStyle(fxB).fontSize),
+     (fxL ? getComputedStyle(fxL).fontSize : '?') + ' vs ' +
+     (fxB ? getComputedStyle(fxB).fontSize : '?'));
+  // `nao_classificado_saidas` sai NEGATIVO do servidor de proposito, para que
+  // entradas + saidas = valor feche. Aqui a conta e conferida nos numeros que
+  // ESTAO na tela, nao nos que o stub mandou: e a tela que o dono le.
+  var fxVals = (fxA ? fxA.textContent : '').match(/R\\$ -?[\\d.]+,\\d\\d/g) || [];
+  function fxN(s) {
+    return parseFloat(String(s).replace('R$ ', '').replace(/\\./g, '').replace(',', '.'));
+  }
+  ok('fin3: a conta fecha na propria tela: entradas menos saidas = liquido',
+     fxVals.length === 3 &&
+     Math.abs((fxN(fxVals[0]) - fxN(fxVals[1])) - fxN(fxVals[2])) < 0.005,
+     fxVals.join(' | '));
+  ok('fin3: a faixa diz por que o liquido engana, em vez de so exibi-lo',
+     !!fxL && /se cancelam/.test(fxL.textContent) &&
+     /esconde o tamanho do trabalho/.test(fxL.textContent),
+     fxL ? fxL.textContent : 'sem linha de liquido');
   // --erro aqui e legitimo: dado incompleto e problema de INTEGRIDADE, nao
   // gasto. E o unico lugar da aba onde o vermelho aparece por dado do dono.
   ok('fin: a faixa usa a cor de ERRO (integridade), medida na cor computada',
@@ -5153,6 +5203,14 @@ async function rodar() {
   ok('fin: o nao classificado do placar cobra em --morno, nunca em --erro',
      finCor(finQ('.fin-placar .pb-num.cobra')) === COR_MORNO,
      finCor(finQ('.fin-placar .pb-num.cobra')));
+  // A celula conta LINHAS. Dinheiro do nao classificado e da faixa, que tem
+  // largura para os dois lados. Se a celula voltasse a exibir moeda, a tela
+  // teria dois valores diferentes para as MESMAS 7 linhas, um do lado do
+  // outro, e o dono nao teria como saber qual dos dois e o trabalho dele.
+  ok('fin3: a celula do placar conta linhas, sem repetir um dinheiro diferente',
+     finQA('.fin-placar .pb-num')[3].textContent === '7' &&
+     finQA('.fin-placar .pb-celula')[3].textContent.indexOf('R$') < 0,
+     finQA('.fin-placar .pb-celula')[3].textContent);
 
   ok('fin: as secoes de gasto vem por grupo, ordenadas pelo servidor',
      finQA('.fin-bloco')[0].querySelectorAll('.fin-sec').length === 3,

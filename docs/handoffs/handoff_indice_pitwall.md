@@ -484,7 +484,27 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v8.md` (31/08/2026, **o painel desconta devolucao e a
+- topo: `handoff_financeiro_pitwall_v9.md` (01/09/2026, **a faixa cobra o numero
+  certo**). Entrega `P-R2`, **ultimo prompt de construcao do bloco 1**, vertical
+  (migration + RPC + tela + suite num commit so). `fin_painel` devolvia so
+  `nao_classificado_valor`, a soma COM SINAL: uma entrada de 4.800 e uma saida de -4.800
+  se cancelam. Medido no banco como o proprio dono, janela de agosto: **119 linhas sem
+  dominio, R$ 35.148,38 entrando e R$ 34.798,05 saindo, e a faixa declarava R$ 350,33.
+  Subestimava o trabalho em 100 vezes.** Achado que o prompt nao previa: `fin_cobertura`
+  ja contava em valor absoluto e dizia **R$ 65.146,43 em 118 linhas** para a MESMA janela,
+  ou seja duas telas do Financeiro davam dois tamanhos para o mesmo trabalho, com duas
+  ordens de grandeza de diferenca. Migration `20260901_fin_fatia3_nc_dois_lados` acrescenta
+  `nao_classificado_entradas` e `nao_classificado_saidas` (nada removido); `saidas` sai
+  **NEGATIVO** de proposito, para que `entradas + saidas = valor` feche a olho na tela. A
+  faixa passa a manchetar os dois lados e o liquido desce para 12px, com a frase que diz
+  por que ele engana. A celula `não classificado` do placar passa a contar LINHAS, porque
+  senao a tela mostraria dois dinheiros diferentes para as mesmas 119 linhas, a poucos
+  pixels um do outro. Zero token de cor novo, uma regra de CSS de uma propriedade. Suite
+  **955 -> 962 assercoes, 0 falhas**; EXIT 0 nos 6 comandos e nas 5 larguras; **22 de 22
+  `fin_`**; RLS provada no banco como dono, como vendedor e sem sessao. Ressalva
+  registrada: com `pct_julgado` em 9,36 o F3 suprime a faixa na Visao, entao **hoje a
+  entrega se ve em Movimentos e em Importar**, nao na Visao.
+- `handoff_financeiro_pitwall_v8.md` (31/08/2026, **o painel desconta devolucao e a
   tela diz que descontou**). Entrega `P-R1` do bloco 1, **frontend puro, zero SQL**.
   `fin_painel` devolvia `bruto` e `abatido` por categoria desde a fatia 2.1 e o `app.js`
   nunca leu nenhum dos dois: dois campos ORFAOS, e por causa disso **Transporte caiu de
