@@ -32,6 +32,45 @@ corpo = re.sub(r'<script[^>]*></script>', '', corpo)
 corpo = re.sub(r'<script[^>]*>.*?</script>', '', corpo, flags=re.S)
 
 STUB = """
+// ---------------------------------------------------------------------------
+// RELOGIO CONGELADO. Tem que vir antes do app.js, senao ele ja leu o relogio.
+//
+// Em 31/08/2026 a suite deu EXIT 0 com 962 assercoes. Em 01/09/2026, sem ninguem
+// tocar em uma linha de codigo, ela caiu para EXIT 1 com 10 falhas e um crash
+// que abortou 178 assercoes. A unica coisa que mudou foi o dia.
+//
+// O motivo: a tela deriva a janela de `new Date()` (l() -> finMes() ->
+// finJanela(), e o mesmo no Dashboard), enquanto os fixtures tem 79 datas
+// chumbadas em julho e agosto de 2026. Enquanto o relogio da maquina estava em
+// agosto os dois casavam. No dia 1 de setembro a janela virou `01/09 a 01/09` e
+// os fixtures ficaram inteiros FORA dela.
+//
+// Redatar os fixtures a partir de hoje NAO resolve: o Financeiro precisa de 12
+// dias distintos DENTRO do mes corrente, e no dia 1 do mes esses 12 dias nao
+// existem. Nenhuma aritmetica de data cria dia que o calendario nao tem.
+//
+// Entao o congelado e o relogio, nao os dados. 25/08/2026 12:00 em Sao Paulo e
+// a data escolhida: cai depois da linha mais nova do FIN_MOVS (20/08), deixa o
+// mes ANTERIOR povoado (julho tem v1, v2 e v3 do VENDAS_STUB, que e o que as
+// assercoes dash/mes existem para cobrir) e mantem f12 (30/07) FORA da janela,
+// que e o caso de proposito do par de repasse que atravessa a virada do mes.
+//
+// So a construcao sem argumento e Date.now() sao interceptadas. new Date(x)
+// continua real, senao datas de fixture parariam de ser interpretadas.
+(function () {
+  var _FIXO = Date.UTC(2026, 7, 25, 15, 0, 0);   // 25/08/2026 12:00 -03
+  window.__RELOGIO_FIXO = _FIXO;
+  window.Date = new Proxy(Date, {
+    construct: function (Alvo, args) {
+      return args.length === 0 ? new Alvo(_FIXO) : new Alvo(...args);
+    },
+    apply: function (Alvo) { return new Alvo(_FIXO).toString(); },
+    get: function (Alvo, prop, receptor) {
+      if (prop === 'now') { return function () { return _FIXO; }; }
+      return Reflect.get(Alvo, prop, receptor);
+    }
+  });
+})();
 window.__PITWALL_SEM_INIT = 1;
 window.__log = [];
 var LEADS = %s, ROTULOS = %s, HIST = %s;
@@ -1310,6 +1349,16 @@ TESTE = """
 // telaTxt() le so #lista, que nao contem script nenhum.
 function telaTxt() { var l = document.getElementById('lista'); return l ? l.textContent : ''; }
 function ok(nome, cond, extra) { window.__log.push((cond ? 'PASSOU  ' : 'FALHOU  ') + nome + (extra ? '  <' + extra + '>' : '')); }
+// okRamo: mesma coisa que ok(), com UM significado a mais para o lado Python.
+// O lado Python exige que toda assercao declarada com ok() tenha executado, e
+// reprova nomeando as que faltaram. Mas existem ramos mutuamente exclusivos
+// (o mes corrente tem venda OU esta vazio), onde metade dos rotulos declarados
+// NAO PODE executar na mesma corrida. Marcar esses com okRamo e o jeito de dizer
+// isso no proprio ponto do codigo, em vez de manter uma lista de excecao longe
+// daqui, que e o tipo de lista que apodrece calada.
+// Regra: so vira okRamo quem esta dentro de um if/else cujo OUTRO lado tambem
+// afirma alguma coisa. Nao e para silenciar assercao que deixou de rodar.
+function okRamo(nome, cond, extra) { ok(nome, cond, extra); }
 function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 // Espiao de rolagem, instalado ANTES de tudo e para a suite inteira.
 // Duas razoes, e as duas doem se ele sair daqui:
@@ -1326,6 +1375,17 @@ Element.prototype.scrollIntoView = function () { window.__rolouEm.push(this.id |
 async function rodar() {
   window.PitWall.init();
   await espera(260);
+
+  // O guard-rail do relogio. Sem esta assercao, alguem tira o congelamento do
+  // STUB, a suite volta a depender do dia da maquina e ninguem descobre ate a
+  // proxima virada de mes, que foi exatamente como 178 assercoes sumiram calado.
+  // __HOJE_REAL__ e a data da MAQUINA, injetada pelo Python, fora do alcance do
+  // Proxy. Quando as duas diferem, esta assercao esta provando o mecanismo
+  // inteiro: a tela leu o relogio congelado, nao o do sistema.
+  ok('a suite mede com o relogio congelado, nao com o da maquina',
+     new Date().toISOString().slice(0, 10) === '2026-08-25' &&
+     Date.now() === window.__RELOGIO_FIXO,
+     'pagina=' + new Date().toISOString().slice(0, 10) + ' maquina=__HOJE_REAL__');
 
   // A aba de arranque passou a ser Hoje em 31/07/2026 (pedido do dono). Este
   // bloco testa a FILA, entao ele declara a propria precondicao com um clique
@@ -1425,7 +1485,9 @@ async function rodar() {
      getComputedStyle(cards[0]).boxShadow.indexOf('rgba(15, 21, 35, 0.06)') >= 0,
      getComputedStyle(cards[0]).boxShadow);
   var card = document.querySelector('.card[data-lead="LEAD-0005"]');
-  if (!card) { ok('LEAD-0005 na fila', false); return fim(); }
+  // okRamo: guarda de falha rapida. So existe para o caso de o card sumir, e
+  // nesse caso ela aborta a suite de proposito. No caminho bom nao executa.
+  if (!card) { okRamo('LEAD-0005 na fila', false); return fim(); }
 
   // ---- Respondeu mora no leque Desfecho (03/08/2026, pedido do dono) --------
   // Ele SO mudou de lugar. Sumir seria tirar o unico freio da regua:
@@ -3031,21 +3093,30 @@ async function rodar() {
   ok('todo rotulo da coluna de valores continua na tela em qualquer janela',
      ['vg-fat', 'vg-luc', 'vg-margem', 'vg-ticket', 'vg-vazamento'].every(function (k) {
        return !!document.querySelector('#lista .vg-valores [data-cel="' + k + '"] .pb-rot'); }));
+  // Os dois lados sao okRamo: com o relogio congelado em 25/08/2026 o mes
+  // corrente TEM venda (v4 e v5), entao o ramo vazio nao roda. Ele nao sumiu da
+  // contagem por descuido, esta declarado como ramo alternativo.
   var vgMesVazio = !document.querySelector('#lista .vg-mes');
   if (vgMesVazio) {
-    ok('janela vazia mantem o painel e mostra o travessao, nao some',
+    okRamo('janela vazia mantem o painel e mostra o travessao, nao some',
        vgCel('vg-fat').indexOf('—') >= 0 && !!document.querySelector('#lista .vg-vazio'), vgCel('vg-fat'));
-    ok('e o vazio oferece o caminho de saida (abrir para tudo)',
+    okRamo('e o vazio oferece o caminho de saida (abrir para tudo)',
        !!document.querySelector('#lista .vg-abrir[data-id="tudo"]'));
     // Na 1a passada o vazio engolia o painel inteiro. Agora ele ocupa so o lugar
     // dos graficos: o numero continua na tela, com travessao.
-    ok('e o aviso fica DENTRO da coluna de graficos, sem derrubar os valores',
-       !!document.querySelector('#lista .vg-graficos .vg-vazio') &&
+    // 01/09/2026: esta assercao procurava `.vg-graficos`, classe que NUNCA
+    // existiu, nem no app.js nem no app.css. A coluna de graficos e `.vg-graf`,
+    // e `vgVazio(a)` ja e desenhado dentro de `<div class="vg-graf g-meses">`.
+    // Ou seja a TELA sempre esteve certa e a PROVA e que estava quebrada; ela so
+    // nao aparecia vermelha porque este ramo nunca tinha sido alcancado. O
+    // seletor foi corrigido, nada foi mexido no app.js.
+    okRamo('e o aviso fica DENTRO da coluna de graficos, sem derrubar os valores',
+       !!document.querySelector('#lista .vg-graf .vg-vazio') &&
        !!document.querySelector('#lista .vg-valores [data-cel="vg-fat"]'));
   } else {
-    ok('janela do mes corrente tem venda: o painel mostra as barras',
+    okRamo('janela do mes corrente tem venda: o painel mostra as barras',
        !!document.querySelector('#lista .vg-meses') && !document.querySelector('#lista .vg-vazio'));
-    ok('e o faturamento do mes nao e o da base inteira',
+    okRamo('e o faturamento do mes nao e o da base inteira',
        vgCel('vg-fat').indexOf('R$ 9.200,00') < 0, vgCel('vg-fat'));
   }
 
@@ -4496,7 +4567,9 @@ async function rodar() {
     // sem explicacao. Quando ele silencia o alarme, tem que dizer por que.
     if (Math.abs(bruto) >= 25 && Math.abs(ritmo) < 25) {
       var cIns = insCom('A queda de ') || insCom('A alta de ');
-      ok('quando o card discorda da faixa do topo, ele EXPLICA a divergencia',
+      // okRamo: so existe quando o fixture produz queda bruta alta com ritmo
+      // baixo. Com o relogio congelado esse caso nao acontece.
+      okRamo('quando o card discorda da faixa do topo, ele EXPLICA a divergencia',
          !!cIns && cIns.txt.indexOf('ritmo por dia') >= 0,
          cIns ? cIns.tit + ' | ' + cIns.txt.slice(0, 70) : 'nao explicou');
     }
@@ -5274,23 +5347,36 @@ async function rodar() {
   ok('fin: o recorte declara que o filtro Empresa/Pessoal nao se aplica aqui',
      /o filtro Empresa\\/Pessoal não se aplica aqui/.test(finQ('.fin-mov-cab .fin-bloco-pe').textContent),
      finQ('.fin-mov-cab .fin-bloco-pe').textContent);
+  // Lista vazia aqui ABORTAVA a suite inteira (finQ volta null, .className
+  // estoura, rodar() cai no catch e as 178 assercoes seguintes nao rodam).
+  // Guardado: lista vazia agora e assercao VERMELHA, que e o que ela sempre foi.
   ok('fin: a linha sem dominio carrega a marca de pendencia',
-     finQ('.fin-lin').className.indexOf('nc') >= 0, finQ('.fin-lin').className);
+     !!finQ('.fin-lin') && finQ('.fin-lin').className.indexOf('nc') >= 0,
+     finQ('.fin-lin') ? finQ('.fin-lin').className : 'nenhuma linha na lista');
 
   finQ('[data-acao="fin-so-nc"]').click();
   await espera(340);
   ok('fin: desligar o filtro devolve os 12 lancamentos da janela',
      finQA('.fin-lin').length === 12, 'n=' + finQA('.fin-lin').length);
+  // [0] de lista vazia e undefined, e ler .textContent dele abortava a suite.
+  var fxData0 = finQA('.fin-lin-data')[0];
   ok('fin: a lista e newest-first',
-     finQA('.fin-lin-data')[0].textContent === '20/08', finQA('.fin-lin-data')[0].textContent);
+     !!fxData0 && fxData0.textContent === '20/08',
+     fxData0 ? fxData0.textContent : 'lista vazia');
   ok('fin: saida na linha NAO sai em vermelho (gastar nao e falha)',
      finCor(finQ('.fin-lin-val.neg')) === COR_TEXTO, finCor(finQ('.fin-lin-val.neg')));
 
   // ---- classificacao na linha: a chave PRESENTE e o que manda -----------
   window.__finClassificar = [];
   var fxCat = finQ('.fin-lin .fin-sel-cat');
-  fxCat.value = 'frete_envio';
-  fxCat.dispatchEvent(new Event('change', { bubbles: true }));
+  // Sem linha na lista nao ha seletor de categoria, e mexer nele abortava a
+  // suite. So o TOQUE fica condicional: as assercoes seguem executando e caem
+  // vermelhas sozinhas, que e o comportamento certo. Envolver as assercoes no
+  // if as faria sumir da contagem, trocando um jeito de mentir por outro.
+  if (fxCat) {
+    fxCat.value = 'frete_envio';
+    fxCat.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   await espera(360);
   var fxP1 = window.__finClassificar[0] || {};
   ok('fin: trocar a categoria na linha chama fin_classificar com UM id',
@@ -5302,8 +5388,10 @@ async function rodar() {
 
   window.__finClassificar = [];
   var fxDom = finQ('.fin-lin .fin-sel-dom');
-  fxDom.value = 'pessoal';
-  fxDom.dispatchEvent(new Event('change', { bubbles: true }));
+  if (fxDom) {
+    fxDom.value = 'pessoal';
+    fxDom.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   await espera(360);
   var fxP2 = window.__finClassificar[0] || {};
   ok('fin: trocar o dominio na linha manda SO dominio, sem categoria_codigo',
@@ -5315,8 +5403,10 @@ async function rodar() {
   // classificacao errada pela propria tela.
   window.__finClassificar = [];
   var fxLimpa = finQ('.fin-lin .fin-sel-cat');
-  fxLimpa.value = '';
-  fxLimpa.dispatchEvent(new Event('change', { bubbles: true }));
+  if (fxLimpa) {
+    fxLimpa.value = '';
+    fxLimpa.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   await espera(360);
   var fxP3 = window.__finClassificar[0] || {};
   ok('fin: escolher "sem categoria" manda a chave com null (limpa de verdade)',
@@ -5463,6 +5553,13 @@ async function rodar() {
 
   // Arquivo sem STMTTRN: dizer isso e melhor que importar zero calado.
   await finSoltar(finNL(['OFXHEADER:100', '<OFX><SIGNONMSGSRSV1></SIGNONMSGSRSV1></OFX>']), 'vazio.ofx');
+  // finSoltar espera por `.fin-previa` OU `.estado.erro`, que e generico demais
+  // aqui: medido em 01/09/2026, esta assercao caia em 1 de cada 3 corridas com
+  // "sem recado", porque a leitura terminava depois da medicao. A espera abaixo
+  // e pela condicao que a PROPRIA assercao afirma, e e limitada: se o recado
+  // nunca vier, a assercao continua vermelha. Nao mascara, so para de medir
+  // cedo demais.
+  await finAte(function () { return /Não encontrei lançamentos nesse arquivo/.test(finTxt()); }, 15);
   ok('fin: OFX sem lancamento diz o que houve, em vez de importar zero calado',
      /Não encontrei lançamentos nesse arquivo/.test(finTxt()),
      (finQ('.estado.erro') ? finQ('.estado.erro').textContent.slice(0, 60) : 'sem recado'));
@@ -6479,7 +6576,14 @@ setTimeout(function () {
 // subiram junto, pela terceira vez e pelo mesmo motivo de sempre: o relogio e
 // VIRTUAL, entao cada `await espera(...)` consome watchdog mesmo com a suite
 // levando poucos segundos reais. 100000 mantem 20s de folga abaixo de 120000.
-}, 100000);
+// 01/09/2026, QUARTA vez, e a primeira medida em serie: em 5 corridas seguidas
+// do mesmo commit, UMA travou na assercao 704, no bloco veredito:, com as
+// outras quatro indo ate 965. Ou seja o estouro nao era determinista, era
+// margem curta demais: bastava uma corrida em que o relogio virtual andasse mais
+// para o watchdog chegar antes do fim. Os dois subiram junto de novo, mantendo a
+// folga proporcional (50s em vez de 20s). Guard-rail que dispara sozinho em 20%
+// das corridas nao mede a suite, mede a sorte.
+}, 150000);
 window.addEventListener('error', function (e) { window.__log.push('FALHOU  erro de runtime: ' + e.message); });
 // Se rodar() estourar no meio, o <pre id=RESULTADO> nunca nascia e o lado
 // Python morria com IndexError, sem dizer ONDE parou. Agora o erro vira a
@@ -6491,6 +6595,11 @@ rodar().catch(function (e) {
   d.textContent = window.__log.join('\\n');
 });
 """
+
+# A data REAL da maquina entra aqui, DEPOIS do STUB ter congelado o relogio da
+# pagina, entao ela e a unica testemunha de que os dois relogios sao diferentes.
+import datetime as _dt
+TESTE = TESTE.replace('__HOJE_REAL__', _dt.date.today().isoformat())
 
 pagina = f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head>
 <body>{corpo}
@@ -6509,7 +6618,7 @@ out = subprocess.run([CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
                       # <pre id=RESULTADO>, o que o lado Python le como "nao
                       # chegou ao fim" (nao como falha de assercao). Orcamento e
                       # tempo VIRTUAL: subir nao deixa a suite mais lenta.
-                      f'--user-data-dir={perfil}', '--virtual-time-budget=120000',
+                      f'--user-data-dir={perfil}', '--virtual-time-budget=200000',
                       '--dump-dom', tmp.as_uri()],
                      capture_output=True, text=True, encoding='utf-8', timeout=300)
 dom = out.stdout or ''
@@ -6529,4 +6638,54 @@ res = H.unescape(res)
 print(res)
 n_falhou = res.count('FALHOU')
 print(f'\n{res.count("PASSOU")} passou, {n_falhou} falhou')
-sys.exit(1 if n_falhou else 0)
+
+# ---------------------------------------------------------------------------
+# A trava: DECLARADAS contra EXECUTADAS.
+#
+# Em 01/09/2026 a suite imprimiu "774 passou, 10 falhou" e saiu. Parecia uma
+# corrida quase inteira. Nao era: rodar() tinha ABORTADO na assercao 784 de 962,
+# e 178 assercoes nunca executaram, entre elas 73 das 80 fin3: da entrega que
+# tinha acabado de ser aprovada e as 56 fin2: de regras INTEIRAS. O rodape
+# contava so o que rodou, entao quanto mais cedo a suite morresse, melhor ela
+# parecia. Guard-rail que encolhe calado e pior que guard-rail vermelho.
+#
+# Daqui em diante o numero de assercoes que EXISTEM no arquivo faz parte do
+# criterio. Assercao declarada e nao executada reprova, com nome.
+import re as _re
+
+_i = TESTE.find('async function rodar()')
+_decl, _ramo = [], set()
+for _m in _re.finditer(r"\bok(Ramo)?\(\s*(['\"])((?:(?!\2).)*)\2", TESTE):
+    _nome = _m.group(3)
+    _decl.append(_nome)
+    if _m.group(1):
+        _ramo.add(_nome)
+# ordem do arquivo, sem repetir (um rotulo aparece duas vezes de proposito)
+_declaradas = list(dict.fromkeys(_decl))
+
+# Casar linha do log com rotulo declarado pelo PREFIXO mais longo: o extra sai
+# como '  <...>' no fim, e ha rotulo que contem '<'. Comparar por prefixo evita
+# depender de como o extra foi montado.
+_por_tam = sorted(_declaradas, key=len, reverse=True)
+_executadas = set()
+for _linha in res.splitlines():
+    if _linha.startswith('PASSOU  ') or _linha.startswith('FALHOU  '):
+        _corpo = _linha[8:]
+        for _n in _por_tam:
+            if _corpo.startswith(_n):
+                _executadas.add(_n)
+                break
+
+_faltando = [n for n in _declaradas if n not in _executadas and n not in _ramo]
+_ramo_falt = [n for n in _declaradas if n not in _executadas and n in _ramo]
+
+print(f'{len(_declaradas)} declaradas, {len(_executadas)} executadas, '
+      f'{len(_faltando)} nao executaram'
+      + (f' ({len(_ramo_falt)} de ramo alternativo, previstas)' if _ramo_falt else ''))
+if _faltando:
+    print(f'\nREPROVOU: {len(_faltando)} assercoes declaradas NAO executaram.')
+    print('A suite parou antes do fim e o rodape contou so o que rodou.')
+    for _n in _faltando:
+        print('  NAO EXECUTOU  ' + _n)
+
+sys.exit(1 if (n_falhou or _faltando) else 0)
