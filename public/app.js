@@ -794,13 +794,21 @@ return'<div class="estado"><strong>Nenhum lançamento nesta janela.</strong>'+
 "Importe o extrato do seu banco em OFX para começar. Dinheiro vivo, que não aparece no extrato, entra à mão em Movimentos."+
 '<div class="fin-vazio-acoes"><button class="btn-cad" data-acao="fin-sub" data-sub="importar">Importar extrato</button>'+
 '<button class="btn-cad secundario" data-acao="fin-sub" data-sub="movimentos">Lançar à mão</button></div></div>'}
+function finRepasseOrfao(rep){
+var qt=Number(rep&&rep.orfao_n)||0;
+if(!qt)return"";
+return'<p class="fin-repasse-lin orfao"><b>'+brlV(Number(rep.orfao_valor)||0)+"</b> em "+qt+
+(1===qt?" lançamento está marcado":" lançamentos estão marcados")+" como repasse <b>sem par</b>. "+
+"Esse valor saiu de entrou e saiu sem contraparte, então nada prova que ele voltou. "+
+"Marque o par, ou troque a categoria da linha.</p>"}
 function finRepasseLinha(rep){
 var n=Number(rep&&rep.n)||0;
-if(!n)return"";
+if(!n)return finRepasseOrfao(rep);
 return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+n+
 (1===n?" lançamento de repasse ficou":" lançamentos de repasse ficaram")+" fora de entrou e saiu. "+
 "Dinheiro de terceiro que só passou pela conta: entrou e saiu no mesmo valor, "+
-"então somar os dois lados infla os dois números e o resultado só acerta por acidente.</p>"}
+"então somar os dois lados infla os dois números e o resultado só acerta por acidente.</p>"+
+finRepasseOrfao(rep)}
 function finVisao(pnl,jn,cob){
 var pl=pnl.placar||{},secs=pnl.secoes||[],ents=pnl.entradas||[];
 if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finPlacar(pl)+finVazio();
@@ -827,6 +835,7 @@ finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta 
 function finOpcoesCat(sel,comLimpar,rotVazio){
 var cats=(FIN_CFG&&FIN_CFG.categorias)||[],ordem=[],mapa={},i,gr;
 for(i=0;i<cats.length;i++){
+if(!1===cats[i].atribuivel_manual&&sel!==cats[i].codigo)continue;
 gr=cats[i].grupo||"Outros";
 if(!mapa[gr]){mapa[gr]=[];ordem.push(gr)}
 mapa[gr].push(cats[i])}

@@ -3400,6 +3400,12 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   font-size:12px;line-height:1.55;color:var(--dim);
 }
 .fin-repasse-lin b{font-family:var(--mono);font-weight:500;color:var(--text)}
+/* Orfao e trabalho pendente, nao falha: --morno, o mesmo par do bloco de base
+   incompleta e do conflito de regra. Zero token novo. */
+.fin-repasse-lin.orfao{
+  background:var(--morno-bg);border-color:var(--morno-linha);color:var(--morno-fg);
+}
+.fin-repasse-lin.orfao b{color:var(--morno-fg);font-weight:600}
 @media (max-width:420px){
   .fin-inc{padding:14px 12px 12px}
   .fin-inc-tit{font-size:15px}

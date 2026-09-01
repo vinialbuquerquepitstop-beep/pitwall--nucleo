@@ -334,7 +334,8 @@ var FIN_CATS = [
   { codigo: 'aplicacao', rotulo: 'Aplicação', grupo: 'Neutro',
     natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 32 },
   { codigo: 'repasse', rotulo: 'Repasse', grupo: 'Neutro',
-    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 34 }];
+    natureza_esperada: 'neutro', dominio_sugerido: 'ambos', ordem: 34,
+    atribuivel_manual: false }];
 var FIN_MOVS = [
   { id: 'f1', data: '2026-08-20', descricao: 'PIX FORNECEDOR MP', valor: -4300,
     categoria_codigo: 'compra_aparelho', dominio: 'empresa', origem: 'extrato' },
@@ -788,7 +789,7 @@ window.supabase = {
               hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
               ini_anterior: null, fim_anterior: null,
               pct_julgado: 100,
-              repasse: { valor: 0, n: 0 },
+              repasse: { valor: 0, n: 0, orfao_valor: 0, orfao_n: 0 },
               placar: { entrou: 0, saiu: 0, resultado: 0,
                         nao_classificado_valor: 0, nao_classificado_n: 0 },
               secoes: [], entradas: [] }, error: null });
@@ -807,14 +808,17 @@ window.supabase = {
             // O valor conta so o lado POSITIVO do par: somar os dois dobraria o
             // numero e a tela declararia o triplo do que passou.
             repasse: (function () {
-              var rr = FIN_MOVS.filter(function (x) {
-                if (x.categoria_codigo !== 'repasse') return false;
+              function naJanela(x) {
                 if (args.p_ini && x.data < args.p_ini) return false;
                 if (args.p_fim && x.data > args.p_fim) return false;
-                return true; });
-              var rv = 0;
+                return true; }
+              var rr = FIN_MOVS.filter(function (x) { return x.repasse_id && naJanela(x); });
+              var oo = FIN_MOVS.filter(function (x) {
+                return x.categoria_codigo === 'repasse' && !x.repasse_id && naJanela(x); });
+              var rv = 0, ov = 0;
               rr.forEach(function (x) { rv += Math.abs(x.valor); });
-              return { valor: rv, n: rr.length };
+              oo.forEach(function (x) { ov += Math.abs(x.valor); });
+              return { valor: rv, n: rr.length, orfao_valor: ov, orfao_n: oo.length };
             })(),
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
             placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
@@ -927,6 +931,10 @@ window.supabase = {
         if (nome === 'fin_classificar') {
           var fcP = args.payload || {};
           window.__finClassificar.push(JSON.parse(JSON.stringify(fcP)));
+          var fcCat = FIN_CATS.filter(function (y) { return y.codigo === fcP.categoria_codigo; })[0];
+          if (fcCat && fcCat.atribuivel_manual === false)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Categoria nao pode ser escolhida a mao: ' + fcP.categoria_codigo }, error: null });
           var fcIds = fcP.ids || [], fcN = 0, fcAviso = null;
           var temCat = Object.prototype.hasOwnProperty.call(fcP, 'categoria_codigo');
           var temDom = Object.prototype.hasOwnProperty.call(fcP, 'dominio');
@@ -6140,6 +6148,54 @@ async function rodar() {
   // nao e problema ensina o dono a ignorar o vermelho.
   ok('fin3: a declaracao NAO usa a cor de falha',
      finCor(f3L) !== COR_ERRO, finCor(f3L));
+
+  // ---- repasse so se alcanca pelo PAR ------------------------------------
+  // Defeito REAL de producao, 31/08/2026: o dono escolheu `Repasse` no seletor
+  // de categoria de uma linha e o valor saiu de entrou/saiu sem par nenhum. A
+  // exclusao acontece por natureza `neutro`, que nao sabe nada de par, entao
+  // repasse orfao vira despesa escondida atras de uma categoria.
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  var f3S = finQ('.fin-lin [data-acao="fin-cat"]');
+  var f3Ops = [].slice.call(f3S.options).map(function (o) { return o.value; });
+  ok('fin3: Repasse NAO aparece no seletor de categoria da linha',
+     f3Ops.indexOf('repasse') < 0, 'opcoes=' + f3Ops.length);
+  ok('fin3: nem no seletor do lote',
+     [].slice.call(finQ('#finLoteCat').options).map(function (o) { return o.value; })
+       .indexOf('repasse') < 0);
+  // Sumir do seletor e CONFORTO. O payload da RPC e publico, entao a garantia
+  // tem que estar no servidor, e e isso que esta assercao mede.
+  window.__finClassificar = [];
+  var f3Rr = await window.supabase.createClient().rpc('fin_classificar',
+    { payload: { ids: ['f3'], categoria_codigo: 'repasse' } });
+  ok('fin3: e o SERVIDOR recusa mesmo se o payload vier com repasse',
+     f3Rr.data && f3Rr.data.ok === false &&
+     /Categoria nao pode ser escolhida a mao: repasse/.test(f3Rr.data.erro),
+     JSON.stringify(f3Rr.data));
+
+  // ---- o orfao aparece como PROBLEMA, nao como numero certo ---------------
+  // Estado que a producao chegou a ter: categoria de repasse, par nenhum.
+  FIN_MOVS.filter(function (x) { return x.id === 'f13'; })[0].categoria_codigo = 'repasse';
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+  var f3O = finQ('.fin-repasse-lin.orfao');
+  ok('fin3: repasse sem par e declarado como problema', !!f3O,
+     f3O ? f3O.textContent.slice(0, 60) : 'sem linha de orfao');
+  ok('fin3: dizendo o valor que saiu dos totais sem contraparte',
+     !!f3O && /R\$\s*50,00/.test(f3O.textContent) && /sem par/.test(f3O.textContent),
+     f3O ? f3O.textContent.slice(0, 90) : 'sem linha');
+  ok('fin3: e dizendo o que fazer, em vez de so acusar',
+     !!f3O && /Marque o par, ou troque a categoria/.test(f3O.textContent));
+  // Trabalho pendente, nao falha de sistema: mesmo par --morno do bloco de base
+  // incompleta e do conflito de regra.
+  ok('fin3: o orfao cobra em --morno, nunca na cor de falha',
+     finCor(f3O) === COR_MORNO && finCor(f3O) !== COR_ERRO, finCor(f3O));
+  // O par legitimo continua contado a parte: um nao contamina o outro.
+  ok('fin3: e o repasse com par segue declarado em separado',
+     !!finQ('.fin-repasse-lin:not(.orfao)') &&
+     /R\$\s*4\.800,00/.test(finQ('.fin-repasse-lin:not(.orfao)').textContent),
+     finQ('.fin-repasse-lin:not(.orfao)') ? finQ('.fin-repasse-lin:not(.orfao)').textContent.slice(0, 60) : 'sem linha');
+  FIN_MOVS.filter(function (x) { return x.id === 'f13'; })[0].categoria_codigo = null;
 
   fim();
 

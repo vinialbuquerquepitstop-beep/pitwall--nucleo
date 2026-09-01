@@ -484,7 +484,22 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v5.md` (31/08/2026, **conserto: o par de repasse
+- topo: `handoff_financeiro_pitwall_v6.md` (31/08/2026, **repasse so existe em par, e a
+  defesa vive no servidor**). Terceiro conserto de portao da sessao S1, disparado por
+  defeito medido EM PRODUCAO: o dono escolheu `Repasse` no seletor de categoria da linha
+  em vez do botao, e o valor saiu de `entrou`/`saiu` **sem par nenhum**, porque a
+  exclusao acontece por natureza `neutro`, que nao sabe nada de par. Consertado com
+  `fin_categoria.atribuivel_manual` (flag no servidor, C2), recusa no `fin_classificar`
+  (`Categoria nao pode ser escolhida a mao: <codigo>`), `fin_painel` contando repasse por
+  `repasse_id` e declarando o ORFAO em separado, e o seletor filtrado na tela.
+  **Registra tambem uma regressao minha, consertada na mesma sessao**: ao enxertar a
+  guarda eu reconstrui o corpo da `fin_classificar` de memoria e perdi quatro
+  comportamentos, entre eles o bloco `exception` inteiro com duas recusas nomeadas. Mesma
+  licao que o `P-AUDITA` desta sessao ja tinha dado: corpo de funcao se COPIA. Suite
+  **922 -> 930 assercoes, 0 falhas**; 20 de 20 `fin_` por corpo normalizado, e o arquivo
+  da migration da regressao conferido byte a byte contra o ledger (7616 chars,
+  `8bb691dc...`). Buraco aberto nomeado: **nao existe caminho para desmarcar um par**.
+- `handoff_financeiro_pitwall_v5.md` (31/08/2026, **conserto: o par de repasse
   atravessa a virada do mes**). Nao e entrega nova, e conserto de portao na mesma sessao
   S1. A v4 subiu dizendo que o dono podia marcar o par Ford, e **nao podia**: a janela e
   de um mes calendario e trocar de mes apagava a selecao, entao nao existia clique que
