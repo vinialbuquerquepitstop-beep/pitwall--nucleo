@@ -853,19 +853,31 @@ return out+'<option value="empresa"'+("empresa"===sel?" selected":"")+">Empresa<
 // data-atual e o mesmo truque do esc-prio: o delegado de #lista escuta click E
 // change, e um <select> dispara os dois. Sem comparar com o valor anterior, o
 // click chegaria com o valor VELHO e regravaria o que ja estava la.
+// A confirmacao vive no ESTADO, nao num confirm() do navegador: dialogo modal
+// trava o app inteiro e nao da para provar no headless.
+var FIN_DESF=null;
+function finDesfazerHTML(x){
+if(FIN_DESF!==x.id)return'<button class="fin-lin-acao" data-acao="fin-desf-abrir" data-id="'+c(x.id)+'">desfazer repasse</button>';
+return'<span class="fin-desf"><b>Desfazer este repasse?</b> '+
+"As duas linhas voltam para a fila de julgamento, sem categoria, e "+brlV(Math.abs(Number(x.valor)||0))+
+" volta a contar em entrou e saiu."+
+'<button class="btn-cad" data-acao="fin-desf-ok" data-id="'+c(x.id)+'">Desfazer o repasse</button>'+
+'<button class="btn-cad secundario" data-acao="fin-desf-nao">Manter</button></span>'}
 function finMovLin(x){
 var neg=Number(x.valor)<0,marcado=!!FIN_SEL[x.id],id=c(x.id);
-return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+'" data-lin="'+id+'">'+
+return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+(x.repasse_id?" par":"")+'" data-lin="'+id+'">'+
 '<input class="fin-chk" type="checkbox" data-acao="fin-sel" data-id="'+id+'"'+(marcado?" checked":"")+' aria-label="Selecionar '+c(x.descricao||"lançamento")+'">'+
 '<div class="fin-lin-txt"><div class="fin-lin-desc">'+c(x.descricao||x.descricao_original||"sem descrição")+"</div>"+
 '<div class="fin-lin-pe"><span class="fin-lin-data">'+c(fmtDiaCurto(x.data))+"</span>"+
 '<span class="fin-lin-conta">'+c(x.conta_rotulo||"")+"</span>"+
 (x.origem?'<span class="fin-lin-origem">'+c(x.origem)+"</span>":"")+
-(x.observacao?'<span class="fin-lin-obs">'+c(x.observacao)+"</span>":"")+"</div></div>"+
+(x.observacao?'<span class="fin-lin-obs">'+c(x.observacao)+"</span>":"")+
+(x.repasse_id?'<span class="fin-lin-par">em par de repasse</span>':"")+"</div></div>"+
 '<div class="fin-lin-val'+(neg?" neg":"")+'">'+brlV(x.valor)+"</div>"+
 '<div class="fin-lin-cls">'+
 '<select class="fin-sel-cat" data-acao="fin-cat" data-id="'+id+'" data-atual="'+c(x.categoria_codigo||"")+'" aria-label="Categoria de '+c(x.descricao||"lançamento")+'">'+finOpcoesCat(x.categoria_codigo||"",!1)+"</select>"+
 '<select class="fin-sel-dom" data-acao="fin-dom-lin" data-id="'+id+'" data-atual="'+c(x.dominio||"")+'" aria-label="Domínio de '+c(x.descricao||"lançamento")+'">'+finOpcoesDom(x.dominio||"",!1)+"</select>"+
+(x.repasse_id?finDesfazerHTML(x):"")+
 // O caminho principal da Fatia 2 comeca AQUI, na linha, e nao numa tela de
 // cadastro: o dono esta olhando a descricao que se repete e quer dizer
 // "sempre que aparecer isso, faz assim". Abrir um cadastro de regras para
@@ -1516,7 +1528,7 @@ renderFinanceiro(!0)}
 function finRegFechar(){
 FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_REG_ERRO="";FIN_SOBREPOR=null}
 async function finAcao(acao,id,el){
-if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};FIN_DESF=null;finRegFechar();return void renderFinanceiro()}
 if("fin-dom"===acao){FIN_DOM=el.getAttribute("data-dom")||"tudo";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-mes"===acao){
 FIN_MES=vgMesMais(finMes(),parseInt(el.getAttribute("data-delta"),10)||0);
@@ -1548,6 +1560,20 @@ var rd=rr.data;
 if(!rd||!1===rd.ok)return void I((rd&&(rd.erro||rd.msg))||"Repasse recusado",!0);
 FIN_SEL={};FIN_AVISO="";
 I(brlV(Number(rd.valor)||0)+" marcado como repasse");
+return void renderFinanceiro(!0)}
+if("fin-desf-abrir"===acao){FIN_DESF=id;return void renderFinanceiro(!0)}
+if("fin-desf-nao"===acao){FIN_DESF=null;return void renderFinanceiro(!0)}
+if("fin-desf-ok"===acao){
+el.disabled=!0;
+var rd=await t.rpc("fin_repasse_desmarcar",{payload:{id:id}});
+el.disabled=!1;
+if(rd.error){
+if(await pwSemSessao())return void pwSessaoCaiu();
+return void I("Falha: "+rd.error.message,!0)}
+var dd=rd.data;
+if(!dd||!1===dd.ok)return void I((dd&&(dd.erro||dd.msg))||"Não deu para desfazer",!0);
+FIN_DESF=null;FIN_SEL={};FIN_AVISO="";
+I(dd.msg||"Repasse desfeito");
 return void renderFinanceiro(!0)}
 if("fin-lote-limpar"===acao){FIN_SEL={};return void renderFinanceiro(!0)}
 if("fin-lote-ok"===acao){

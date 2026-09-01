@@ -3406,6 +3406,26 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   background:var(--morno-bg);border-color:var(--morno-linha);color:var(--morno-fg);
 }
 .fin-repasse-lin.orfao b{color:var(--morno-fg);font-weight:600}
+
+/* --- linha em par de repasse. Selo discreto e acao de desfazer. Zero token
+       novo: --dim para o selo (e informacao, nao alerta) e a mesma superficie
+       do resto da linha. --- */
+.fin-lin-par{
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+  border:1px solid var(--line);border-radius:99px;padding:1px 7px;
+}
+.fin-lin-acao{
+  background:none;border:1px solid var(--line);border-radius:var(--radius-p);
+  padding:5px 9px;font-family:var(--body);font-size:12px;color:var(--dim);cursor:pointer;
+}
+.fin-lin-acao:hover{border-color:var(--line-forte);color:var(--text)}
+.fin-desf{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  grid-column:1/-1;margin-top:6px;padding:9px 11px;
+  background:var(--morno-bg);border:1px solid var(--morno-linha);
+  border-radius:var(--radius-p);font-size:12px;line-height:1.5;color:var(--text);
+}
+.fin-desf b{color:var(--morno-fg);font-weight:600}
 @media (max-width:420px){
   .fin-inc{padding:14px 12px 12px}
   .fin-inc-tit{font-size:15px}

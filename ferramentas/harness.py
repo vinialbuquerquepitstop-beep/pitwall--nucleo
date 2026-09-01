@@ -454,6 +454,7 @@ window.__finRegPrever = [];
 window.__finCobertura = [];
 window.__finMovArgs = [];
 window.__finRepasse = [];
+window.__finDesmarcar = [];
 window.__uploads = [];
 window.__invocacoes = [];
 window.__rpcChamadas = [];
@@ -875,6 +876,27 @@ window.supabase = {
             entrada_id: rpE.id, saida_id: rpS.id,
             valor: Math.abs(rpE.valor), diferenca_pct: Number(rpPct.toFixed(2)) }, error: null });
         }
+        if (nome === 'fin_repasse_desmarcar') {
+          var rdP = args.payload || {};
+          window.__finDesmarcar.push(JSON.parse(JSON.stringify(rdP)));
+          var rdPar = rdP.repasse_id || null;
+          if (!rdPar && rdP.id) {
+            var rdL = FIN_MOVS.filter(function (x) { return x.id === rdP.id; })[0];
+            if (!rdL) return Promise.resolve({ data: { ok: false, erro: 'Lancamento nao encontrado.' }, error: null });
+            rdPar = rdL.repasse_id || null;
+          }
+          if (!rdP.repasse_id && !rdP.id)
+            return Promise.resolve({ data: { ok: false, erro: 'Informe o repasse a desfazer.' }, error: null });
+          if (!rdPar)
+            return Promise.resolve({ data: { ok: false,
+              erro: 'Este lancamento nao esta em nenhum repasse.' }, error: null });
+          var rdLados = FIN_MOVS.filter(function (x) { return x.repasse_id === rdPar; });
+          var rdVal = 0;
+          rdLados.forEach(function (x) { if (x.valor > 0) rdVal += x.valor; });
+          rdLados.forEach(function (x) { x.repasse_id = null; x.categoria_codigo = null; });
+          return Promise.resolve({ data: { ok: true, n: rdLados.length, valor: rdVal,
+            msg: rdLados.length + ' lancamentos voltaram para a fila de julgamento.' }, error: null });
+        }
         if (nome === 'fin_cobertura') {
           window.__finCobertura.push({ p_ini: args.p_ini, p_fim: args.p_fim });
           return Promise.resolve({ data: { ok: true,
@@ -916,6 +938,7 @@ window.supabase = {
                      grupo: cat ? cat.grupo : null,
                      natureza_esperada: cat ? cat.natureza_esperada : null,
                      dominio: x.dominio, origem: x.origem || 'extrato',
+                     repasse_id: x.repasse_id || null,
                      conta_rotulo: 'Conta principal', observacao: null,
                      venda_id: null, criado_em: x.data + 'T12:00:00Z' };
           });
@@ -6196,6 +6219,74 @@ async function rodar() {
      /R\$\s*4\.800,00/.test(finQ('.fin-repasse-lin:not(.orfao)').textContent),
      finQ('.fin-repasse-lin:not(.orfao)') ? finQ('.fin-repasse-lin:not(.orfao)').textContent.slice(0, 60) : 'sem linha');
   FIN_MOVS.filter(function (x) { return x.id === 'f13'; })[0].categoria_codigo = null;
+
+  // ---- desfazer o par -----------------------------------------------------
+  // Buraco nomeado no handoff v6: marcar ficou facil e desfazer nao existia.
+  // Pior, a tela nao sabia sequer QUEM estava em par, porque fin_movimentos nao
+  // devolvia repasse_id: o dono via duas linhas com categoria Repasse e nenhuma
+  // pista de que estavam ligadas, ainda mais com os lados em meses diferentes.
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  // Em agosto esta a perna de ENTRADA do par (f11, +4800); a de saida ficou em
+  // julho. Uma linha em par e todas as outras fora dele, na mesma lista.
+  ok('fin3: linha fora de par nao oferece desfazer',
+     finQA('.fin-lin').filter(function (x) {
+       return !/ par/.test(' ' + x.className) &&
+              !!x.querySelector('[data-acao="fin-desf-abrir"]'); }).length === 0);
+  var f3Par = finQA('.fin-lin.par');
+  ok('fin3: a linha em par se identifica na lista', f3Par.length === 1,
+     'linhas em par=' + f3Par.length);
+  ok('fin3: com selo que DIZ o que ela e, em vez de so pintar diferente',
+     /em par de repasse/.test(f3Par[0].textContent));
+  ok('fin3: e so a linha em par oferece desfazer',
+     finQA('.fin-lin [data-acao="fin-desf-abrir"]').length === 1);
+
+  // Desfazer mexe em entrou e saiu. Um sim generico nao diz ao dono quanto
+  // volta para os totais, e o D-k ja fechou essa questao para o sobrescrever.
+  window.__finDesmarcar = [];
+  finQ('.fin-lin [data-acao="fin-desf-abrir"]').click();
+  await espera(440);
+  ok('fin3: o primeiro clique so PERGUNTA, nao desfaz',
+     window.__finDesmarcar.length === 0 && !!finQ('.fin-desf'),
+     'chamadas=' + window.__finDesmarcar.length);
+  ok('fin3: e a pergunta carrega o valor que volta para os totais',
+     !!finQ('.fin-desf') && /R\$\s*4\.800,00/.test(finQ('.fin-desf').textContent) &&
+     /volta a contar em entrou e saiu/.test(finQ('.fin-desf').textContent),
+     finQ('.fin-desf') ? finQ('.fin-desf').textContent.slice(0, 110) : 'sem confirmacao');
+  ok('fin3: dizendo tambem que as linhas voltam sem categoria',
+     /voltam para a fila de julgamento, sem categoria/.test(finQ('.fin-desf').textContent));
+
+  // Manter e um caminho de verdade, nao enfeite: quem abriu por engano sai sem
+  // mexer em nada.
+  finQ('[data-acao="fin-desf-nao"]').click();
+  await espera(440);
+  ok('fin3: Manter fecha a pergunta e nao chama o servidor',
+     !finQ('.fin-desf') && window.__finDesmarcar.length === 0 &&
+     finQA('.fin-lin.par').length === 1);
+
+  finQ('.fin-lin [data-acao="fin-desf-abrir"]').click();
+  await espera(440);
+  finQ('[data-acao="fin-desf-ok"]').click();
+  await espera(560);
+  ok('fin3: confirmar manda o id da linha, e o servidor acha o par por ele',
+     window.__finDesmarcar.length === 1 && window.__finDesmarcar[0].id === 'f11',
+     JSON.stringify(window.__finDesmarcar));
+  ok('fin3: e o par sai da tela nos DOIS lados',
+     finQA('.fin-lin.par').length === 0 && f3Rep() === 0,
+     'em par=' + finQA('.fin-lin.par').length + ' repasse=' + f3Rep());
+  // Desfazer nao decide nada sobre o dinheiro: as linhas voltam para a fila,
+  // sem categoria e sem dominio. Deixar a categoria criaria o ORFAO que a
+  // migration anterior fechou.
+  ok('fin3: as duas voltam SEM categoria, senao viravam orfao',
+     FIN_MOVS.filter(function (x) { return x.id === 'f11' || x.id === 'f12'; })
+       .every(function (x) { return !x.categoria_codigo && !x.repasse_id; }));
+  ok('fin3: e sem dominio, porque desfazer par nao escolhe lado (Inv. 18)',
+     FIN_MOVS.filter(function (x) { return x.id === 'f11' || x.id === 'f12'; })
+       .every(function (x) { return x.dominio === null; }));
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(460);
+  ok('fin3: e a Visao para de declarar o repasse que nao existe mais',
+     !finQ('.fin-repasse-lin'), 'ainda declara?');
 
   fim();
 

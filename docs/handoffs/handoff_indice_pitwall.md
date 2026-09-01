@@ -484,7 +484,19 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v6.md` (31/08/2026, **repasse so existe em par, e a
+- topo: `handoff_financeiro_pitwall_v7.md` (31/08/2026, **par de repasse se desfaz, e a
+  tela mostra quem esta em par**). Entrega escolhida pelo dono contra a sequencia, para
+  fechar o buraco que o v6 nomeou como o pior do modulo. `fin_repasse_desmarcar` aceita o
+  id do par OU de um dos lados, desfaz pelos DOIS, limpa `repasse_id` e categoria juntos
+  (senao viraria orfao) e NAO toca `dominio` (Inv. 18). Achado no caminho:
+  **`fin_movimentos` nao devolvia `repasse_id`**, entao a tela nao sabia sequer quem
+  estava em par; passa a devolver, e a linha ganha o selo `em par de repasse`. A
+  confirmacao carrega o VALOR que volta para os totais (D-k) e vive no estado da tela,
+  nunca em `confirm()` do navegador, que trava o app e nao se prova no headless. Suite
+  **930 -> 943 assercoes, 0 falhas**; 21 de 21 `fin_` por corpo normalizado. Ressalva
+  registrada: o portao de entrada reprovou no HEAD (commit anterior nao empurrado) e a
+  entrega saiu no mesmo chat da S1, contra a regra de uma por sessao.
+- `handoff_financeiro_pitwall_v6.md` (31/08/2026, **repasse so existe em par, e a
   defesa vive no servidor**). Terceiro conserto de portao da sessao S1, disparado por
   defeito medido EM PRODUCAO: o dono escolheu `Repasse` no seletor de categoria da linha
   em vez do botao, e o valor saiu de `entrou`/`saiu` **sem par nenhum**, porque a

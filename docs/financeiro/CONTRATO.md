@@ -175,6 +175,8 @@ Entrada e saida invertidas: a entrada e o valor positivo e a saida e o negativo.
 Lancamento ja faz parte de outro repasse.
 Par desigual: a diferenca e de X%, acima dos 5% permitidos.
 Categoria nao pode ser escolhida a mao: <codigo>
+Informe o repasse a desfazer.
+Este lancamento nao esta em nenhum repasse.
 Prioridade fora da faixa: use de 0 a 9999.
 Regra arquivada: crie uma nova em vez de editar esta.
 Janela invertida.
