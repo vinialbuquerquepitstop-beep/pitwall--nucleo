@@ -484,7 +484,29 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v9.md` (01/09/2026, **a faixa cobra o numero
+- topo: `handoff_financeiro_pitwall_v10.md` (01/09/2026, **a suite para de mentir por
+  omissao**). Conserto de portao aberto por `P-AUDITA`, **nao e feature**: um arquivo de
+  codigo tocado (`ferramentas/harness.py`), `public/app.js` e `public/app.css` intactos.
+  Em 31/08 o harness deu EXIT 0 com 962 assercoes; em 01/09, sem ninguem tocar em uma
+  linha, a mesma arvore deu EXIT 1 com `774 passou, 10 falhou` e `rodar()` abortou na 784.
+  **O rodape contava so o que rodou: 178 assercoes nunca executaram**, entre elas 73 das
+  80 `fin3:` da entrega que o v9 tinha acabado de aprovar e as 56 `fin2:` inteiras. Causa
+  raiz: a tela deriva a janela de `new Date()` e os fixtures tem **79 datas chumbadas em
+  27 escopos, nenhuma depois de 31/08/2026**. Redatar fixture NAO resolvia (o Financeiro
+  precisa de 12 dias distintos dentro do mes corrente, e no dia 1 esses dias nao existem):
+  congelou-se o **relogio**, com um `Proxy` sobre `Date` no topo do STUB fixando a pagina
+  em 25/08/2026, so na construcao sem argumento e em `Date.now()`. O guard-rail da
+  entrega: o lado Python passa a comparar **declaradas contra executadas** e a reprovar
+  nomeando quem nao rodou; ramo mutuamente exclusivo se declara no proprio ponto do
+  codigo, com `okRamo`, nunca em lista de excecao. Achado que muda o diagnostico: a falha
+  `o aviso fica DENTRO da coluna de graficos` **nao era defeito da tela**, procurava
+  `.vg-graficos`, classe que nunca existiu no `app.js` nem no `app.css`; a prova e que
+  estava quebrada, e so nao aparecia vermelha porque o ramo nunca era alcancado. Suite
+  **967 declaradas, 962 executadas, 0 nao executaram, 0 falhas**; EXIT 0 nos 7 comandos e
+  nas 5 larguras; **6 corridas verdes em 6** (antes eram 4 em 5, com o watchdog travando
+  sozinho). Nenhum numero da tela mudou. Pendencia da v4 fechada: RLS das RPCs de repasse
+  provada como vendedor e sem sessao.
+- `handoff_financeiro_pitwall_v9.md` (01/09/2026, **a faixa cobra o numero
   certo**). Entrega `P-R2`, **ultimo prompt de construcao do bloco 1**, vertical
   (migration + RPC + tela + suite num commit so). `fin_painel` devolvia so
   `nao_classificado_valor`, a soma COM SINAL: uma entrada de 4.800 e uma saida de -4.800

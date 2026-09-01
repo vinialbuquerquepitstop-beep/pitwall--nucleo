@@ -103,12 +103,12 @@ Isso conserta os 27 escopos de uma vez, sem tocar em nenhuma das 79 datas.
 
 ### 3.4 A prova nova: uma assercao que vigia o mecanismo
 
-`a suite mede com o relogio congelado, nao com o da maquina`. O Python injeta a
+`suite: mede com o relogio congelado, nao com o da maquina`. O Python injeta a
 data REAL da maquina no `TESTE` (fora do alcance do `Proxy`) e a assercao compara
 os dois relogios. Hoje ela imprime:
 
 ```
-PASSOU  a suite mede com o relogio congelado, nao com o da maquina  <pagina=2026-08-25 maquina=2026-09-01>
+PASSOU  suite: mede com o relogio congelado, nao com o da maquina  <pagina=2026-08-25 maquina=2026-09-01>
 ```
 
 Sem ela, alguem tira o congelamento e a suite volta a depender do dia sem que
@@ -136,8 +136,14 @@ arquivo manda: watchdog `100000 -> 150000`, `--virtual-time-budget 120000 ->
 
 `fin: OFX sem lancamento diz o que houve` caia em 1 de cada 3 corridas com
 `<sem recado>`: `finSoltar` espera por `.fin-previa` **ou** `.estado.erro`, que e
-generico demais ali. Entrou uma espera limitada (15 tentativas) pela condicao que
-a propria assercao afirma. Se o recado nunca vier, ela continua vermelha.
+generico demais ali. Entrou uma espera pela condicao que a propria assercao
+afirma. Se o recado nunca vier, ela continua vermelha.
+
+O cap dessa espera comecou em 15 tentativas (900ms virtuais) e **voltou a falhar
+em 1 de 2 corridas** depois que os dois commits de conteudo (secao 8.3)
+acrescentaram 30 assercoes antes deste ponto. Voltou para o padrao da funcao, 40
+tentativas: espera limitada que desiste cedo demais nao e guard-rail, e outra
+fonte de vermelho falso. Medido depois disso: **4 corridas verdes em 4.**
 
 ---
 
@@ -265,11 +271,55 @@ vazio" nao tinha defeito para consertar.
 | 1 | SQL rodado no banco de verdade | **N/A.** Nenhum SQL nesta entrega |
 | 2 | RLS testada como dono E como vendedor | **N/A** aqui, mas provada na auditoria (secao 7) |
 | 3 | a tela le todo campo novo, zero campo orfao | **N/A.** Nenhum campo novo. Os 9 orfaos existentes estao na secao 7 |
-| 4 | assercao nova com prefixo de fatia | **1 assercao nova**, e ela e guard-rail, nao feature: `a suite mede com o relogio congelado, nao com o da maquina` |
+| 4 | assercao nova com prefixo de fatia | **NAO. REPROVA.** A assercao nova usa `suite:`, prefixo de prova de ferramenta, que o CONTRATO ainda nao admite. Ver 8.2 |
 | 5 | EXIT 0 nos comandos e nas 5 larguras | **SIM.** Secao 4.3 |
 | 6 | commit unico | **SIM** |
 | 7 | handoff atualizado | **SIM.** Este arquivo |
 | 8 | nenhuma recusa nova fora da secao 4 | **SIM.** Nenhuma recusa criada |
+
+### 8.3 O HEAD se moveu no meio desta entrega
+
+Entre o commit `d2a0d86` e o commit de fechamento, **dois commits de outra sessao
+entraram por cima**, na linha de conteudo:
+
+```
+dc2761a 01/09 05:06  feat(conteudo): atraso ignora a janela, e a coluna diz que ignora
+32740f9 01/09 04:56  feat(conteudo): peca que vence sai da etapa e cai sozinha em Atrasados
+d2a0d86 01/09 03:07  fix(ferramentas): a suite executava 784 de 962 assercoes  <- esta entrega
+```
+
+Eles trazem a coluna **Atrasados** do kanban e **30 assercoes novas**. Por isso o
+numero da suite muda conforme o commit em que se mede, e os dois numeros estao
+certos:
+
+| medido em | declaradas | executadas | falhas |
+|---|---|---|---|
+| `d2a0d86`, esta entrega | 967 | 962 | 0 |
+| HEAD com os dois commits de conteudo | **997** | **992** | **0** |
+
+Conferido: os dois commits **nao encostaram** na trava de declaradas x executadas,
+no `okRamo` nem no relogio congelado. E as 30 assercoes novas deles **executam
+todas**, o que quer dizer que o guard-rail desta entrega ja esta valendo para
+trabalho de outra sessao, que e exatamente para o que ele existe.
+
+### 8.2 O item 4 REPROVA, e fica escrito como reprovado
+
+**O portao de saida 6.2 do commit `d2a0d86` tem SETE itens que passam e UM que
+REPROVA: o item 4.**
+
+A entrega criou uma assercao nova e ela usa **`suite:`**, prefixo de prova de
+ferramenta, porque o arquivo tocado nao e do produto e `fin3:` seria rotulo falso:
+nada em `ferramentas/harness.py` tem prefixo `fin_`, e quem filtrar por `fin3:`
+amanha acharia uma prova que nao e do Financeiro.
+
+**O CONTRATO ainda nao admite `suite:` na secao 6.2, logo o item segue descumprido
+ao pe da letra e a divida esta ABERTA, nao resolvida.** Prefixo aplicado nao e o
+mesmo que portao fechado, e registrar como fechado seria o carimbo que a secao 7
+nomeia: portao nao passa por interpretacao de quem foi medido.
+
+Fechar essa divida e mudar a secao 6, que e **decisao do dono**, e sai na entrega
+da divida de documentacao, que abre `CLAUDE.md`, o handoff v9 e o `CONTRATO.md` no
+molde de duas fases, com a medicao na mao.
 
 ### 8.1 Portao de confianca
 

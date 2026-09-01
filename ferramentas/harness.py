@@ -1382,7 +1382,7 @@ async function rodar() {
   // __HOJE_REAL__ e a data da MAQUINA, injetada pelo Python, fora do alcance do
   // Proxy. Quando as duas diferem, esta assercao esta provando o mecanismo
   // inteiro: a tela leu o relogio congelado, nao o do sistema.
-  ok('a suite mede com o relogio congelado, nao com o da maquina',
+  ok('suite: mede com o relogio congelado, nao com o da maquina',
      new Date().toISOString().slice(0, 10) === '2026-08-25' &&
      Date.now() === window.__RELOGIO_FIXO,
      'pagina=' + new Date().toISOString().slice(0, 10) + ' maquina=__HOJE_REAL__');
@@ -5716,7 +5716,11 @@ async function rodar() {
   // e pela condicao que a PROPRIA assercao afirma, e e limitada: se o recado
   // nunca vier, a assercao continua vermelha. Nao mascara, so para de medir
   // cedo demais.
-  await finAte(function () { return /Não encontrei lançamentos nesse arquivo/.test(finTxt()); }, 15);
+  // O cap comecou em 15 tentativas (900ms virtuais) e voltou a falhar em 1 de 2
+  // corridas depois que a linha de conteudo acrescentou 30 assercoes antes deste
+  // ponto. Voltou para o padrao da funcao, 40 tentativas: espera limitada que
+  // desiste cedo demais nao e guard-rail, e outra fonte de vermelho falso.
+  await finAte(function () { return /Não encontrei lançamentos nesse arquivo/.test(finTxt()); });
   ok('fin: OFX sem lancamento diz o que houve, em vez de importar zero calado',
      /Não encontrei lançamentos nesse arquivo/.test(finTxt()),
      (finQ('.estado.erro') ? finQ('.estado.erro').textContent.slice(0, 60) : 'sem recado'));
