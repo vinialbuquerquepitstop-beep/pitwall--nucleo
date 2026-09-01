@@ -233,6 +233,15 @@ var CONT_COLUNAS=[
 // (contRotEtapa, em contCard). Sem ele a coluna esconderia o dado que o
 // kanban existe para mostrar.
 var CONT_ATRASADO={cod:"atrasado",rot:"Atrasados",vazio:"nada atrasado"};
+// A janela declarada no topo e a DO FUNIL. Desde 01/09/2026 a coluna Atrasados
+// nao obedece a ela: conteudo_periodo traz TODA peca vencida e nao publicada,
+// venha de quando vier, porque divida nao expira. Entao a coluna tem que DIZER
+// isso. Sem esta linha o topo declararia um recorte que uma das cinco colunas
+// nao cumpre, e mentir por omissao sobre recorte e exatamente o defeito que a
+// declaracao de janela veio consertar.
+// O aviso vem do servidor (`atraso_sem_janela`), nunca chumbado aqui: se um dia
+// a RPC voltar a recortar o atraso, a linha some sozinha em vez de mentir.
+var CONT_SEM_JANELA=!1;
 function contBucket(x){
 return"vencido"===nivelPeca(x.data,x.status_codigo)?"atrasado":x.status_codigo}
 // O rotulo vem do servidor (status_rotulo). CONT_COLUNAS e so o reserva para
@@ -352,7 +361,8 @@ var mvAtt=mover?' draggable="true" data-id="'+c(x.id)+'" data-col="'+c(x.status_
 // Atrasados e a MESMA coluna, so que a chave dela e derivada.
 function contColuna(col,itens){
 var meus=itens.filter(function(x){return contBucket(x)===col.cod}).sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0});
-return'<div class="cont-col" data-col="'+c(col.cod)+'"><div class="cont-col-cab"><span class="cont-col-rot">'+c(col.rot)+'</span><span class="cont-col-n">'+meus.length+"</span></div>"+(meus.length?meus.map(function(x){return contCard(x,true)}).join(""):'<div class="cont-col-vazio">'+c(col.vazio||"vazia")+"</div>")+"</div>"}
+var nota="atrasado"===col.cod&&CONT_SEM_JANELA?'<div class="cont-col-nota">sem recorte de janela</div>':"";
+return'<div class="cont-col" data-col="'+c(col.cod)+'"><div class="cont-col-cab"><span class="cont-col-rot">'+c(col.rot)+'</span><span class="cont-col-n">'+meus.length+"</span></div>"+nota+(meus.length?meus.map(function(x){return contCard(x,true)}).join(""):'<div class="cont-col-vazio">'+c(col.vazio||"vazia")+"</div>")+"</div>"}
 // ==========================================================================
 // Molde de conteudo: a grade oficial, lida do Notion (Fatia 1, 13/08/2026)
 // ==========================================================================
@@ -548,6 +558,7 @@ if(!d||!1===d.ok)return void(e.innerHTML=mol+'<div class="estado erro">'+c(d&&d.
 var itens=d.itens||[];
 var topo='<div class="cont-topo"><div class="cont-topo-esq"><span class="cont-janela">'+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+"</span>"+contUltimaPub(itens)+"</div>"+syncLinha(d.sync)+'<button class="btn-sync" data-acao="sync-agora">Sincronizar</button></div>';
 if(!itens.length)return void(e.innerHTML=topo+mol+'<div class="estado"><strong>Calendário vazio na janela.</strong>De '+c(fmtDia(d.ini))+" a "+c(fmtDia(d.fim))+", nenhuma peça com Data no Notion."+(null==(d.sync||{}).ok?" O sync nunca rodou: toque em Sincronizar.":"")+"</div>");
+CONT_SEM_JANELA=!0===d.atraso_sem_janela;
 var desc=itens.filter(function(x){return"descartado"===x.status_codigo});
 // Atrasados entra PRIMEIRO, e nao depois de Publicado: divida colocada no fim
 // da fila de leitura e divida que ninguem le. O funil segue intacto a direita.

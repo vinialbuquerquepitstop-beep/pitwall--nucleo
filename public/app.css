@@ -1169,6 +1169,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .cont-col[data-col="atrasado"]{border-color:var(--quente-linha)}
 .cont-col[data-col="atrasado"] .cont-col-cab{border-bottom-color:var(--quente-linha)}
 .cont-col[data-col="atrasado"] .cont-col-rot{color:var(--quente-fg)}
+/* O aviso de que esta coluna nao obedece a janela declarada no topo. Le em
+   --dim (5.43 sobre --surface) porque e RESSALVA DE LEITURA, nao urgencia:
+   quem carrega a urgencia e o rotulo em --quente logo acima. */
+.cont-col-nota{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--dim);padding:0 2px 8px;margin-top:-4px}
 /* A etapa real da peca atrasada. Fica em --dim porque e LEITURA de onde ela
    parou, nao urgencia: quem carrega a urgencia e o selo "vencida" e o tint
    do cartao. Dois laranjas no mesmo cartao seriam um so. */

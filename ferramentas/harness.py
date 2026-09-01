@@ -795,7 +795,7 @@ window.supabase = {
         if (nome === 'salvar_rotina_categoria') { ROT_CATS.push({ codigo: args.p_codigo, rotulo: args.p_rotulo, ordem: ROT_CATS.length + 1 }); return Promise.resolve({ data: { ok: true, msg: 'Categoria criada' }, error: null }); }
         if (nome === 'salvar_rotina_tarefa') { ROT_TAREFAS.push({ id: 'rt' + (ROT_TAREFAS.length + 1), categoria: args.p_categoria, titulo: args.p_titulo, dias_semana: args.p_dias_semana || null, ordem: 99, ativa: true }); return Promise.resolve({ data: { ok: true, msg: 'Tarefa do molde salva' }, error: null }); }
         if (nome === 'remover_rotina_tarefa') { ROT_TAREFAS.forEach(function (x) { if (x.id === args.p_id) x.ativa = false; }); return Promise.resolve({ data: { ok: true, msg: 'Tarefa removida do molde' }, error: null }); }
-        if (nome === 'conteudo_periodo') { return Promise.resolve({ data: { ok: true, ini: '2026-07-10', fim: '2026-08-14', itens: CONT.slice(), sync: SYNC }, error: null }); }
+        if (nome === 'conteudo_periodo') { return Promise.resolve({ data: { ok: true, ini: '2026-07-10', fim: '2026-08-14', atraso_sem_janela: !window.__SEM_AVISO_JANELA, itens: CONT.slice(), sync: SYNC }, error: null }); }
         // O molde vem de window.__MOLDE para o teste trocar de cena (cache
         // vazio, stale, tipo desconhecido) sem recarregar a pagina.
         if (nome === 'molde_semana') { return Promise.resolve({ data: window.__MOLDE, error: null }); }
@@ -1911,6 +1911,32 @@ async function rodar() {
   _cont0.forEach(function (x) { window.CONT.push(x); });
   await reabrirConteudo();
   ok('a base voltou ao estado de partida (2 atrasadas)', colN('atrasado') === '2', colN('atrasado'));
+
+  // ---- a coluna que nao obedece a janela tem que DIZER que nao obedece -----
+  // Desde 01/09/2026 conteudo_periodo traz toda peca vencida e nao publicada,
+  // fora do recorte de `ini`..`fim` que o topo declara. Sem o aviso, o topo
+  // declara uma janela que uma das cinco colunas nao cumpre: e a mesma mentira
+  // por omissao que a declaracao de janela veio consertar.
+  var nota = document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-nota');
+  ok('Atrasados avisa que nao obedece a janela declarada no topo',
+     !!nota && nota.textContent.trim() === 'sem recorte de janela',
+     nota ? nota.textContent.trim() : 'sem nota');
+  ok('e o aviso NAO vaza para as colunas de funil',
+     document.querySelectorAll('#lista .cont-col:not([data-col="atrasado"]) .cont-col-nota').length === 0,
+     String(document.querySelectorAll('#lista .cont-col:not([data-col="atrasado"]) .cont-col-nota').length));
+  ok('o aviso le em --dim: e ressalva de leitura, nao urgencia',
+     getComputedStyle(nota).color === 'rgb(92, 102, 117)', getComputedStyle(nota).color);
+  // A outra ponta: o aviso vem do servidor, nunca chumbado. Se a RPC voltar a
+  // recortar o atraso, a linha tem que sumir sozinha em vez de mentir.
+  window.__SEM_AVISO_JANELA = true;
+  await reabrirConteudo();
+  ok('backend que NAO manda atraso_sem_janela nao ganha o aviso de graca',
+     !document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-nota'));
+  ok('e a coluna Atrasados continua de pe sem o campo novo', colN('atrasado') === '2', colN('atrasado'));
+  window.__SEM_AVISO_JANELA = false;
+  await reabrirConteudo();
+  ok('com o campo de volta, o aviso volta',
+     !!document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-nota'));
 
   // ---- MOLDE DE CONTEUDO: a grade oficial, lida do Notion (Fatia 1) --------
   // A regra de ouro do dono: o app NUNCA declara grade. Le, e sem cache nao
