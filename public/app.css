@@ -1152,7 +1152,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 /* stretch, nao start: as 4 colunas ficam da MESMA altura (a da coluna mais alta),
    entao a coluna inteira e area de drop. Sem isso uma coluna curta so aceita drop
    la no topo, e o operador tem que rolar pra cima pra mirar num card. */
-.cont-kanban{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:stretch}
+.cont-kanban{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:stretch}
 /* A coluna vira BANDEJA, igual a secao do molde: uma gramatica so na aba.
    Ate 13/08/2026 era o contrario do molde (coluna branca com cartao tingido),
    e as duas metades da tela se contradiziam. */
@@ -1162,8 +1162,17 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    dono em 13/08/2026, nomeado na regra 11.1. Medido: 9.18 sobre a bandeja. */
 .cont-col-rot{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
 .cont-col-n{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--text)}
-.cont-col-venc{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:99px;padding:1px 6px;margin-left:auto}
 .cont-col-vazio{font-size:12px;color:var(--dim);padding:6px 2px}
+/* Atrasados nao e etapa do funil, e a faixa de divida: moldura e rotulo em
+   --quente, chao inalterado. Medidos: --quente-fg sobre --surface = 4.84;
+   --dim sobre --quente-bg (a etapa dentro do cartao vencido) = 5.21. */
+.cont-col[data-col="atrasado"]{border-color:var(--quente-linha)}
+.cont-col[data-col="atrasado"] .cont-col-cab{border-bottom-color:var(--quente-linha)}
+.cont-col[data-col="atrasado"] .cont-col-rot{color:var(--quente-fg)}
+/* A etapa real da peca atrasada. Fica em --dim porque e LEITURA de onde ela
+   parou, nao urgencia: quem carrega a urgencia e o selo "vencida" e o tint
+   do cartao. Dois laranjas no mesmo cartao seriam um so. */
+.cont-etapa{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-top:4px}
 /* Cartao BRANCO com sombra, pela mesma gramatica ja provada no Hoje e na Fila:
    chao tingido, cartao que flutua. Ate 13/08/2026 esta aba fazia o CONTRARIO
    na mesma tela (coluna branca, cartao tingido), e as duas metades se

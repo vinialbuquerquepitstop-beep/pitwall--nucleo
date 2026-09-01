@@ -1826,17 +1826,91 @@ async function rodar() {
   ok('título virou Conteúdo', document.getElementById('topoTit').textContent === 'Conteúdo');
   ok('pitboard de LEAD escondido no Conteúdo',
      getComputedStyle(document.getElementById('pitboard')).display === 'none');
-  // ---- kanban de funil: 4 colunas, e a DATA carrega o sinal de urgencia ----
+  // ---- kanban: 4 colunas de funil + Atrasados, a coluna DERIVADA ----------
+  // Atrasados entrou em 01/09/2026 e nao e status: ela e o resultado de
+  // nivelPeca() === 'vencido'. Por isso c1 (a_produzir, D-5) e c2 (em_producao,
+  // D-2) SAEM das colunas de etapa e caem nela sozinhas, sem ninguem mover.
+  // As contagens abaixo sao a prova de que o card PASSOU, e nao foi copiado: se
+  // Atrasados so somasse, a_produzir continuaria em 3 e em_producao em 1.
   var kcols = document.querySelectorAll('#lista .cont-col');
-  ok('kanban tem 4 colunas de funil', kcols.length === 4, String(kcols.length));
+  ok('kanban tem 5 colunas: Atrasados + as 4 do funil', kcols.length === 5, String(kcols.length));
+  ok('Atrasados e a PRIMEIRA (divida no fim da leitura ninguem le)',
+     kcols[0].getAttribute('data-col') === 'atrasado', kcols[0].getAttribute('data-col'));
+  ok('e o funil segue intacto a direita, na ordem do fluxo',
+     [].map.call(kcols, function (c) { return c.getAttribute('data-col'); }).join(',') ===
+     'atrasado,a_produzir,em_producao,pronto,publicado',
+     [].map.call(kcols, function (c) { return c.getAttribute('data-col'); }).join(','));
   function colN(cod) {
     var c = document.querySelector('#lista .cont-col[data-col="' + cod + '"]');
     return c ? c.querySelector('.cont-col-n').textContent : 'sem coluna';
   }
-  ok('a_produzir conta 3', colN('a_produzir') === '3', colN('a_produzir'));
-  ok('em_producao conta 1', colN('em_producao') === '1', colN('em_producao'));
+  ok('atrasado conta 2 (c1 e c2, as duas vencidas)', colN('atrasado') === '2', colN('atrasado'));
+  ok('a_produzir cai para 2: c1 SAIU, nao foi duplicada', colN('a_produzir') === '2', colN('a_produzir'));
+  ok('em_producao esvazia: c2 era a unica e estava atrasada', colN('em_producao') === '0', colN('em_producao'));
   ok('pronto conta 1', colN('pronto') === '1', colN('pronto'));
   ok('publicado conta 1', colN('publicado') === '1', colN('publicado'));
+  // A trava que impede a coluna nova de tragar quem nao deve: peca no ar nao
+  // esta atrasada, por mais velha que a data seja (c6 e D-6 e publicada).
+  ok('publicada NUNCA entra em Atrasados, mesmo com data velha',
+     !![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="publicado"] .cont-card'),
+       function (el) { return el.getAttribute('data-id') === 'c6'; })[0]);
+  // Descartada tambem nao: ela nem chega ao kanban, mora na gaveta.
+  ok('descartada tambem nao vira atrasada (c7, D-7, esta na gaveta)',
+     ![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="atrasado"] .cont-card'),
+       function (el) { return el.getAttribute('data-id') === 'c7'; })[0]);
+  // Dentro de Atrasados a POSICAO deixou de dizer a etapa. Se o cartao nao
+  // disser, o kanban perde exatamente o dado que ele existe para mostrar.
+  function etapaDe(id) {
+    var el = document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-card[data-id="' + id + '"]');
+    var e = el && el.querySelector('.cont-etapa');
+    return e ? e.textContent.trim() : 'sem etapa no cartao';
+  }
+  ok('o cartao atrasado NOMEIA a etapa real onde parou (c1)', etapaDe('c1') === 'A produzir', etapaDe('c1'));
+  ok('e c2 nomeia a dela, diferente: a coluna nao achatou as duas numa so',
+     etapaDe('c2') === 'Em produção', etapaDe('c2'));
+  var semEtapa = [].filter.call(
+    document.querySelectorAll('#lista .cont-col[data-col="atrasado"] .cont-card'),
+    function (el) { return !el.querySelector('.cont-etapa'); }).length;
+  ok('nenhum cartao atrasado fica sem etapa', semEtapa === 0, semEtapa + ' sem etapa');
+  // Fora de Atrasados a coluna ja diz a etapa: repetir seria ruido.
+  ok('e o rotulo de etapa NAO vaza para as colunas de funil',
+     document.querySelectorAll('#lista .cont-col:not([data-col="atrasado"]) .cont-etapa').length === 0,
+     String(document.querySelectorAll('#lista .cont-col:not([data-col="atrasado"]) .cont-etapa').length));
+  // A moldura e o rotulo em --quente, medidos: 4.84 sobre --surface. O CHAO
+  // continua sendo a bandeja: tingir a coluna apagaria a borda do cartao
+  // vencido, que ja e --quente-bg com borda --quente-linha.
+  var colAtr = document.querySelector('#lista .cont-col[data-col="atrasado"]');
+  ok('o rotulo de Atrasados le em --quente-fg, nao no azul do funil',
+     getComputedStyle(colAtr.querySelector('.cont-col-rot')).color === 'rgb(188, 71, 21)',
+     getComputedStyle(colAtr.querySelector('.cont-col-rot')).color);
+  // O literal, e nao a const CHAO: ela so e declarada la embaixo, no bloco da
+  // atmosfera, e aqui em cima ainda vale undefined pela icada do var.
+  ok('mas o CHAO dela continua a bandeja (o cartao vencido precisa da propria borda)',
+     getComputedStyle(colAtr).backgroundColor === 'rgb(246, 247, 250)',
+     getComputedStyle(colAtr).backgroundColor);
+  // Coluna vazia tem que DIZER que esta vazia de um jeito que sirva: 'vazia'
+  // numa etapa e cobranca; em Atrasados, 'nada atrasado' e boa noticia.
+  ok('coluna de etapa vazia continua dizendo "vazia"',
+     document.querySelector('#lista .cont-col[data-col="em_producao"] .cont-col-vazio').textContent === 'vazia',
+     document.querySelector('#lista .cont-col[data-col="em_producao"] .cont-col-vazio').textContent);
+  // Cena so para o vazio de Atrasados: sem ela, o dia em que o dono zera a
+  // divida e o unico dia em que ninguem testou a tela.
+  var _cont0 = JSON.parse(JSON.stringify(window.CONT));
+  window.CONT.forEach(function (x) {
+    if (x.id === 'c1' || x.id === 'c2') { x.status_codigo = 'publicado'; x.status_rotulo = 'Publicado'; } });
+  await reabrirConteudo();
+  ok('SEM ATRASO a coluna sobrevive e diz "nada atrasado"',
+     !!document.querySelector('#lista .cont-col[data-col="atrasado"]') &&
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-vazio').textContent === 'nada atrasado',
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-vazio')
+       ? document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-vazio').textContent : 'sem coluna');
+  ok('SEM ATRASO nenhum cartao carrega o selo vencida',
+     document.querySelectorAll('#lista .cont-venc').length === 0,
+     String(document.querySelectorAll('#lista .cont-venc').length));
+  window.CONT.length = 0;
+  _cont0.forEach(function (x) { window.CONT.push(x); });
+  await reabrirConteudo();
+  ok('a base voltou ao estado de partida (2 atrasadas)', colN('atrasado') === '2', colN('atrasado'));
 
   // ---- MOLDE DE CONTEUDO: a grade oficial, lida do Notion (Fatia 1) --------
   // A regra de ouro do dono: o app NUNCA declara grade. Le, e sem cache nao
@@ -2067,12 +2141,15 @@ async function rodar() {
      !!peca && getComputedStyle(peca).color !== AZUL,
      peca ? getComputedStyle(peca).color : 'sem peca');
 
-  var col0 = document.querySelector('#lista .cont-col');
+  var col0 = document.querySelector('#lista .cont-col[data-col="a_produzir"]');
   ok('a coluna do kanban tambem e bandeja (uma gramatica so na aba)',
      getComputedStyle(col0).backgroundColor === CHAO,
      getComputedStyle(col0).backgroundColor);
-  var rotC = document.querySelector('#lista .cont-col-rot');
-  ok('o cabecalho da coluna e azul', !!rotC && getComputedStyle(rotC).color === AZUL,
+  // A PRIMEIRA .cont-col-rot da tela e a de Atrasados, que le em --quente por
+  // desenho (01/09/2026). O azul e a regra do rotulo de ETAPA: a assercao mira
+  // uma coluna de funil, senao mede a excecao e chama de regra.
+  var rotC = document.querySelector('#lista .cont-col[data-col="a_produzir"] .cont-col-rot');
+  ok('o cabecalho da coluna de etapa e azul', !!rotC && getComputedStyle(rotC).color === AZUL,
      rotC ? getComputedStyle(rotC).color : 'sem rotulo de coluna');
 
   // O cartao branco do kanban NAO e estetica: medido em 13/08, com ele em
@@ -2138,7 +2215,7 @@ async function rodar() {
   ok('SEM CACHE nao ha bloco de regras (nem consulta o app inventa)',
      document.querySelectorAll('#lista .mol-regras').length === 0);
   ok('SEM CACHE o kanban continua vivo (molde nao derruba a aba)',
-     document.querySelectorAll('#lista .cont-col').length === 4,
+     document.querySelectorAll('#lista .cont-col').length === 5,
      'n=' + document.querySelectorAll('#lista .cont-col').length);
 
   // ---- Stale: a grade FICA, e a idade vai declarada junto ------------------
@@ -2230,7 +2307,7 @@ async function rodar() {
   await reabrirConteudo();
   ok('molde com ok:false mostra o erro, e o kanban sobrevive',
      telaTxt().indexOf('Falha ao ler o molde') >= 0 &&
-     document.querySelectorAll('#lista .cont-col').length === 4,
+     document.querySelectorAll('#lista .cont-col').length === 5,
      'colunas=' + document.querySelectorAll('#lista .cont-col').length);
 
   window.__MOLDE = JSON.parse(JSON.stringify(MOLDE_V3));
@@ -2255,11 +2332,17 @@ async function rodar() {
   ok('peca em 20 dias = frio', temNivel('Reels tutorial', 'nivel-frio'), nivelDe('Reels tutorial'));
   ok('publicada = ok, nao pede acao', temNivel('Story recap', 'nivel-ok'), nivelDe('Story recap'));
 
-  var colAP = document.querySelector('#lista .cont-col[data-col="a_produzir"]');
-  ok('a_produzir avisa 1 vencida', !!colAP && colAP.querySelector('.cont-col-venc') &&
-     colAP.querySelector('.cont-col-venc').textContent === '1 vencida',
-     colAP && colAP.querySelector('.cont-col-venc') ? colAP.querySelector('.cont-col-venc').textContent : 'sem aviso');
-  ok('publicado NAO conta vencida', !document.querySelector('#lista .cont-col[data-col="publicado"] .cont-col-venc'));
+  // O selo "N vencidas" no cabecalho de etapa morreu em 01/09/2026: ele existia
+  // para denunciar atraso ESCONDIDO dentro de uma coluna de etapa, e o atraso
+  // passou a ter coluna e contador proprios. Duas contas da mesma divida em
+  // dois lugares e o comeco de duas contas que divergem. O que fica provado
+  // aqui e que a conta velha sumiu de vez, e nao so das colunas onde deu zero.
+  ok('nenhuma coluna de etapa carrega mais o selo "N vencidas"',
+     document.querySelectorAll('#lista .cont-col-venc').length === 0,
+     String(document.querySelectorAll('#lista .cont-col-venc').length));
+  ok('quem carrega a conta agora e a coluna Atrasados, uma vez so',
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-n').textContent === '2',
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-n').textContent);
   // ---- tipo da peca: Story / Reels / Feed com cor e icone proprios ----
   ok('Story marcado como story', tipoDeCard('Story bastidores') === 'story', tipoDeCard('Story bastidores'));
   ok('Reels marcado como reels', tipoDeCard('Reels tutorial') === 'reels', tipoDeCard('Reels tutorial'));
@@ -4269,10 +4352,14 @@ async function rodar() {
   // ---- kanban: mover card escreve no Notion (Notion-first, via mover-conteudo) ----
   document.getElementById('abaConteudo').click();
   await espera(260);
+  // c5 (Reels tutorial, D+20) e a peca EM DIA da coluna A produzir. Ela e que
+  // serve para provar o mover comum: c1 esta atrasada desde 01/09/2026 e mora
+  // em Atrasados, entao usa-la aqui provaria outra coisa (e o atraso tem bloco
+  // proprio logo abaixo).
   var cardC1 = [].filter.call(
     document.querySelectorAll('#lista .cont-col[data-col="a_produzir"] .cont-card'),
-    function (el) { return el.getAttribute('data-id') === 'c1'; })[0];
-  ok('c1 nasce na coluna A produzir e e arrastavel', !!cardC1 && cardC1.getAttribute('draggable') === 'true');
+    function (el) { return el.getAttribute('data-id') === 'c5'; })[0];
+  ok('c5 nasce na coluna A produzir e e arrastavel', !!cardC1 && cardC1.getAttribute('draggable') === 'true');
   // drop na coluna inteira (sem mirar em card, sem rolar pra cima): no desktop as
   // colunas ficam da mesma altura via align-items:stretch. O harness roda em
   // viewport estreito (kanban empilha), entao a prova viewport-independente e que
@@ -4292,14 +4379,58 @@ async function rodar() {
   var chMover = window.__invocacoes.filter(function (x) { return x.nome === 'mover-conteudo'; })[0];
   ok('mover chamou a Edge Function mover-conteudo', !!chMover);
   ok('mover levou o id do card e a coluna destino',
-     !!chMover && chMover.opts && chMover.opts.body && chMover.opts.body.id === 'c1' && chMover.opts.body.para === 'pronto',
+     !!chMover && chMover.opts && chMover.opts.body && chMover.opts.body.id === 'c5' && chMover.opts.body.para === 'pronto',
      chMover ? JSON.stringify(chMover.opts.body) : 'sem chamada');
-  ok('apos mover, c1 aparece na coluna Pronto',
+  ok('apos mover, c5 aparece na coluna Pronto',
      !![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="pronto"] .cont-card'),
-       function (el) { return el.getAttribute('data-id') === 'c1'; })[0]);
+       function (el) { return el.getAttribute('data-id') === 'c5'; })[0]);
   ok('e some da coluna A produzir',
      ![].filter.call(document.querySelectorAll('#lista .cont-col[data-col="a_produzir"] .cont-card'),
-       function (el) { return el.getAttribute('data-id') === 'c1'; })[0]);
+       function (el) { return el.getAttribute('data-id') === 'c5'; })[0]);
+
+  // ---- Atrasados: coluna derivada, entao nao se move PARA ela nem DENTRO --
+  // Atrasar de proposito nao e uma acao que existe, e o Notion nao tem status
+  // 'Atrasado': se o menu oferecesse a coluna, o PATCH mandaria um valor que a
+  // base do Notion recusa.
+  var cardC2 = document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-card[data-id="c2"]');
+  ok('c2 mora em Atrasados e continua arrastavel (sair de la e permitido)',
+     !!cardC2 && cardC2.getAttribute('draggable') === 'true');
+  ok('o data-col do cartao atrasado guarda a ETAPA real, nao a coluna derivada',
+     cardC2.getAttribute('data-col') === 'em_producao', cardC2.getAttribute('data-col'));
+  cardC2.querySelector('[data-acao="cont-mover"]').click();
+  await espera(60);
+  ok('o menu Mover NUNCA oferece Atrasados',
+     !document.querySelector('#lista [data-acao="cont-mover-para"][data-col="atrasado"]'));
+  ok('e oferece as 3 etapas que nao sao a dele',
+     cardC2.querySelectorAll('[data-acao="cont-mover-para"]').length === 3 &&
+     !cardC2.querySelector('[data-acao="cont-mover-para"][data-col="em_producao"]'),
+     String(cardC2.querySelectorAll('[data-acao="cont-mover-para"]').length));
+  // Trocar a etapa de uma peca atrasada NAO apaga o atraso: ela continua
+  // devendo publicacao. O que muda e o rotulo da etapa dentro do cartao. Se
+  // este teste passasse a achar c2 em Pronto, a tela estaria perdoando divida.
+  cardC2.querySelector('[data-acao="cont-mover-para"][data-col="pronto"]').click();
+  await espera(280);
+  var c2Depois = document.querySelector('#lista .cont-card[data-id="c2"]');
+  ok('mover uma peca atrasada troca a ETAPA e ela SEGUE atrasada',
+     !!c2Depois && c2Depois.parentNode.getAttribute('data-col') === 'atrasado',
+     c2Depois ? c2Depois.parentNode.getAttribute('data-col') : 'sumiu');
+  ok('e o cartao passa a nomear a etapa nova',
+     c2Depois.querySelector('.cont-etapa').textContent.trim() === 'Pronto',
+     c2Depois.querySelector('.cont-etapa').textContent.trim());
+  ok('a coluna Pronto NAO ficou com uma copia de c2',
+     !document.querySelector('#lista .cont-col[data-col="pronto"] .cont-card[data-id="c2"]'));
+  // O unico jeito de sair de Atrasados sem remarcar a data no Notion: publicar.
+  var cardC1a = document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-card[data-id="c1"]');
+  cardC1a.querySelector('[data-acao="cont-mover"]').click();
+  await espera(60);
+  cardC1a.querySelector('[data-acao="cont-mover-para"][data-col="publicado"]').click();
+  await espera(300);
+  ok('publicar TIRA a peca de Atrasados (a divida se paga publicando)',
+     !document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-card[data-id="c1"]') &&
+     !!document.querySelector('#lista .cont-col[data-col="publicado"] .cont-card[data-id="c1"]'));
+  ok('e a coluna Atrasados cai de 2 para 1 sozinha',
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-n').textContent === '1',
+     document.querySelector('#lista .cont-col[data-col="atrasado"] .cont-col-n').textContent);
 
   // ================= v51: clique de acao nao recarrega a tela =================
   // Ate 11/08/2026 todo clique de acao chamava B(), a carga completa. Medido
