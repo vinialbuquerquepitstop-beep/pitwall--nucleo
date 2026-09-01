@@ -829,19 +829,28 @@ window.supabase = {
             // prova propria no lado do banco. Os tres casos que a tela pode
             // errar estao todos aqui: delta null (nao havia base anterior),
             // delta com base, e o grupo "Sem categoria".
+            // bruto/abatido sao da fatia 2.1 e o JS ignorava os dois. O
+            // fixture respeita a identidade do servidor, total = bruto -
+            // abatido: numero que nao fecha provaria uma conta que o banco nao
+            // produz. Os tres casos que a tela pode errar estao aqui:
+            //   compra_aparelho  abatido 0        -> nota NAO aparece
+            //   mercado          abatido, n 3     -> nota no plural
+            //   sem_categoria    campo AUSENTE    -> nao pode quebrar
+            //   venda_aparelho   entrada, n 1     -> palavra espelhada, singular
             secoes: [
               { grupo: 'Mercadoria', total: 4300, pct: 62.5, delta_pct: 12.4, categorias: [
                 { codigo: 'compra_aparelho', rotulo: 'Compra de aparelho', total: 4300,
-                  pct: 62.5, delta_pct: 12.4, n: 2 } ] },
+                  bruto: 4300, abatido: 0, pct: 62.5, delta_pct: 12.4, n: 2 } ] },
               { grupo: 'Casa', total: 2000, pct: 29.1, delta_pct: null, categorias: [
-                { codigo: 'mercado', rotulo: 'Mercado', total: 2000, pct: 29.1, delta_pct: null, n: 3 } ] },
+                { codigo: 'mercado', rotulo: 'Mercado', total: 2000,
+                  bruto: 2131.02, abatido: 131.02, pct: 29.1, delta_pct: null, n: 3 } ] },
               { grupo: 'Sem categoria', total: 580, pct: 8.4, delta_pct: null, categorias: [
                 { codigo: 'sem_categoria', rotulo: 'Sem categoria', total: 580,
                   pct: 8.4, delta_pct: null, n: 1 } ] } ],
             entradas: [
               { grupo: 'Receita', total: 2000, pct: 100, delta_pct: -8.2, categorias: [
                 { codigo: 'venda_aparelho', rotulo: 'Venda de aparelho', total: 2000,
-                  pct: 100, delta_pct: -8.2, n: 1 } ] } ] }, error: null });
+                  bruto: 2015.4, abatido: 15.4, pct: 100, delta_pct: -8.2, n: 1 } ] } ] }, error: null });
         }
         // Numeros REAIS do banco em 31/08/2026 (fin_cobertura('2026-07-01',
         // '2026-08-31') rodada como dono): 181 linhas, R$ 79.619,86 de bruto,
@@ -6287,6 +6296,101 @@ async function rodar() {
   await espera(460);
   ok('fin3: e a Visao para de declarar o repasse que nao existe mais',
      !finQ('.fin-repasse-lin'), 'ainda declara?');
+
+  // ---- a nota do abatimento (P-R1) ---------------------------------------
+  // fin_painel devolve `bruto` e `abatido` por categoria desde a fatia 2.1 e o
+  // JS ignorava os dois. Efeito na base viva: Transporte caiu de 624,95 para
+  // 493,93 e a tela nao dizia por que. Numero visivel que muda sem explicacao
+  // e exatamente o portao 6.3 do CONTRATO, e e ele que estas assercoes fecham.
+  function f3Cat(rot) {
+    return finQA('.fin-cat').filter(function (x) {
+      var r = x.querySelector('.fin-cat-rot');
+      return r && r.textContent === rot; })[0] || null; }
+  function f3Nota(rot) {
+    var e = f3Cat(rot); e = e && e.querySelector('.fin-cat-nota');
+    return e ? e.textContent : null; }
+
+  ok('fin3: categoria com devolucao explica o abatimento na propria linha',
+     f3Nota('Mercado') === '2.131,02 gastos menos 131,02 devolvidos · 3 linhas',
+     JSON.stringify(f3Nota('Mercado')));
+  // A prova de que a nota nao e texto decorativo: os dois numeros dela tem que
+  // produzir o valor que esta desenhado logo acima. Nota que nao fecha com o
+  // valor exibido seria uma segunda mentira em cima da primeira.
+  ok('fin3: e a conta da nota fecha com o valor exibido, 2.131,02 - 131,02',
+     /R\$\s*2\.000,00/.test(f3Cat('Mercado').querySelector('.fin-cat-val').textContent),
+     f3Cat('Mercado').querySelector('.fin-cat-val').textContent);
+  ok('fin3: o separador da nota e o ponto do meio U+00B7, nao um hifen',
+     f3Nota('Mercado').indexOf('·') > 0);
+  // Nota em toda categoria viraria ruido e ensinaria o dono a ignorar a nota,
+  // que e o oposto do que ela existe para fazer.
+  ok('fin3: categoria sem devolucao NAO ganha nota',
+     f3Nota('Compra de aparelho') === null && !!f3Cat('Compra de aparelho'),
+     JSON.stringify(f3Nota('Compra de aparelho')));
+  ok('fin3: e categoria em que o servidor nem mandou o campo tambem nao quebra',
+     f3Nota('Sem categoria') === null && !!f3Cat('Sem categoria'),
+     JSON.stringify(f3Nota('Sem categoria')));
+  // A conta e a MESMA nos dois blocos, a palavra nao: no bloco de entradas o
+  // abatido e estorno de receita. Chamar isso de "devolvido de gasto" seria a
+  // tela mentindo com numero certo, que e o erro mais caro de todos.
+  ok('fin3: no bloco de entradas a palavra espelha, e o singular respeita a contagem',
+     f3Nota('Venda de aparelho') === '2.015,40 recebidos menos 15,40 estornados · 1 linha',
+     JSON.stringify(f3Nota('Venda de aparelho')));
+  // A nota EXPLICA um numero, nao cobra trabalho: --dim. --morno aqui faria a
+  // Visao parecer ter pendencia onde nao ha nenhuma.
+  ok('fin3: a nota le em --dim: e explicacao, nao cobranca nem falha',
+     finCor(f3Cat('Mercado').querySelector('.fin-cat-nota')) === COR_DIM,
+     finCor(f3Cat('Mercado').querySelector('.fin-cat-nota')));
+
+  // ---- o selo na linha que PRODUZ o abatimento ---------------------------
+  // Mesma linha, mesmo valor positivo, so a NATUREZA da categoria muda. E o
+  // unico jeito de provar que o selo le o fin_config e nao o sinal do valor:
+  // positivo em categoria de entrada e receita normal, nao devolucao.
+  var f3Est = FIN_MOVS.filter(function (x) { return x.id === 'f10'; })[0];
+  f3Est.categoria_codigo = 'venda_aparelho';
+  f3Est.dominio = 'empresa';
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  function f3Lin(id) {
+    return finQA('.fin-lin').filter(function (x) {
+      return x.getAttribute('data-lin') === id; })[0] || null; }
+  ok('fin3: valor positivo em categoria de ENTRADA nao e devolucao',
+     !!f3Lin('f10') && !f3Lin('f10').querySelector('.fin-lin-dev'),
+     f3Lin('f10') ? 'tem selo?' : 'linha f10 sumiu');
+
+  f3Est.categoria_codigo = 'frete_envio';
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(420);
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  ok('fin3: a mesma linha em categoria de GASTO ganha o selo devolucao',
+     !!f3Lin('f10') && !!f3Lin('f10').querySelector('.fin-lin-dev') &&
+     f3Lin('f10').querySelector('.fin-lin-dev').textContent === 'devolução',
+     f3Lin('f10') && f3Lin('f10').querySelector('.fin-lin-dev')
+       ? f3Lin('f10').querySelector('.fin-lin-dev').textContent : 'sem selo');
+  // A regra e a mesma para todo mundo, nao um caso especial de f10. A base
+  // deste ponto da suite ja tem OUTRO positivo em categoria de gasto (f4, que
+  // o teste do seletor reclassificou), e ele TEM que carregar o selo tambem:
+  // selo que so aparece na linha do teste seria selo chumbado.
+  // O que nunca pode acontecer e o contrario: linha NEGATIVA com selo de
+  // devolucao, que e gasto se dizendo estorno.
+  var f3Sel = finQA('.fin-lin').filter(function (x) {
+    return !!x.querySelector('.fin-lin-dev'); });
+  ok('fin3: todo selo esta numa linha de valor POSITIVO, nunca num gasto',
+     f3Sel.length > 1 && f3Sel.every(function (x) {
+       return !x.querySelector('.fin-lin-val').className.match(/neg/); }),
+     'com selo=' + f3Sel.length + ' -> ' +
+     f3Sel.map(function (x) { return x.getAttribute('data-lin') + ' ' +
+          x.querySelector('.fin-lin-val').textContent; }).join(' | '));
+  ok('fin3: e nenhuma linha de categoria de ENTRADA carrega o selo',
+     f3Sel.every(function (x) {
+       var sel = x.querySelector('.fin-sel-cat');
+       return sel && sel.value !== 'venda_aparelho'; }),
+     f3Sel.map(function (x) { return x.querySelector('.fin-sel-cat').value; }).join(' | '));
+
+  // O selo e informacao sobre a linha, igual ao de par de repasse, e nao
+  // alerta: --dim, nunca --erro nem --morno. Zero token novo.
+  ok('fin3: o selo le em --dim, a mesma pilula do selo de par de repasse',
+     finCor(finQ('.fin-lin-dev')) === COR_DIM, finCor(finQ('.fin-lin-dev')));
 
   fim();
 

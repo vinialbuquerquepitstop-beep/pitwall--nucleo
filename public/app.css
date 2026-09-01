@@ -3410,7 +3410,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 /* --- linha em par de repasse. Selo discreto e acao de desfazer. Zero token
        novo: --dim para o selo (e informacao, nao alerta) e a mesma superficie
        do resto da linha. --- */
-.fin-lin-par{
+.fin-lin-par,.fin-lin-dev{
   font-family:var(--mono);font-size:11px;color:var(--dim);
   border:1px solid var(--line);border-radius:99px;padding:1px 7px;
 }
@@ -3484,6 +3484,13 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fin-cat-n{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .fin-cat-val{font-family:var(--mono);font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums}
 .fin-cat-pct{font-family:var(--mono);font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+/* A nota do abatimento quebra para a linha inteira (a .fin-cat ja e
+   flex-wrap:wrap) e le em --dim: e explicacao do numero acima, nao um segundo
+   numero disputando com ele. Zero token novo. */
+.fin-cat-nota{
+  flex:1 0 100%;font-family:var(--mono);font-size:10.5px;color:var(--dim);
+  line-height:1.5;margin-top:3px;font-variant-numeric:tabular-nums;
+}
 /* A variacao e NEUTRA: gasto que sobe nao e necessariamente ruim (comprar
    estoque sobe Mercadoria), e pintar de vermelho seria a tela julgando o que
    ela nao tem como saber. */

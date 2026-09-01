@@ -484,7 +484,22 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v7.md` (31/08/2026, **par de repasse se desfaz, e a
+- topo: `handoff_financeiro_pitwall_v8.md` (31/08/2026, **o painel desconta devolucao e a
+  tela diz que descontou**). Entrega `P-R1` do bloco 1, **frontend puro, zero SQL**.
+  `fin_painel` devolvia `bruto` e `abatido` por categoria desde a fatia 2.1 e o `app.js`
+  nunca leu nenhum dos dois: dois campos ORFAOS, e por causa disso **Transporte caiu de
+  624,95 para 493,93 sem explicacao na tela**, que e o portao 6.3 aberto. A linha de
+  categoria ganha a nota `2.131,02 gastos menos 131,02 devolvidos · 3 linhas` e a linha de
+  extrato que produz o abatimento ganha o selo `devolução`. O selo le a
+  `natureza_esperada` do `fin_config`, **nunca o sinal do valor**: positivo em categoria
+  de entrada e receita normal. Decisao declarada: no bloco de entradas a conta e a mesma e
+  so a PALAVRA espelha (`recebidos menos ... estornados`), porque a frase de gasto ali
+  seria a tela mentindo com numero certo. Zero token de cor novo (`--dim` nos dois, e
+  informacao, nao cobranca). Suite **943 -> 955 assercoes, 0 falhas**; EXIT 0 nos 6
+  comandos e nas 5 larguras; 21 de 21 `fin_` (nada foi ao banco). Ressalva registrada: o
+  `n` da nota conta gastos + devolucoes juntos, e alguem pode ler as "27 linhas" como 27
+  gastos.
+- `handoff_financeiro_pitwall_v7.md` (31/08/2026, **par de repasse se desfaz, e a
   tela mostra quem esta em par**). Entrega escolhida pelo dono contra a sequencia, para
   fechar o buraco que o v6 nomeou como o pior do modulo. `fin_repasse_desmarcar` aceita o
   id do par OU de um dos lados, desfaz pelos DOIS, limpa `repasse_id` e categoria juntos

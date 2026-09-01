@@ -697,15 +697,32 @@ function finBarra(pct){
 var v=Number(pct)||0;
 if(v>0&&v<2)v=2;
 return'<div class="fin-barra"><i style="width:'+v.toFixed(1)+'%"></i></div>'}
-function finCatLin(x){
+// finN2 e o formato de brlV SEM o "R$". A nota vive debaixo de um valor que ja
+// carrega a moeda, e repetir "R$" tres vezes na mesma linha e ruido.
+function finN2(x){return Number(x||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+// O total da categoria E bruto menos abatido, e a subtracao acontecia no
+// servidor sem aparecer em canto nenhum: Transporte caiu de 624,95 para 493,93
+// e a tela nao dizia por que. Numero visivel que muda sem explicacao e o portao
+// 6.3 do CONTRATO, e a nota existe para fechar esse portao, nao para enfeitar.
+// `ent` inverte a PALAVRA, nunca a conta: no bloco de entradas o abatido e
+// estorno de receita, e chamar isso de "devolvido de gasto" seria a tela
+// mentindo com numero certo.
+function finCatNota(x,ent){
+var ab=Number(x&&x.abatido)||0;
+if(!(ab>0))return"";
+var n=Number(x.n)||0;
+return'<span class="fin-cat-nota">'+finN2(x.bruto)+(ent?" recebidos menos ":" gastos menos ")+
+finN2(ab)+(ent?" estornados":" devolvidos")+" · "+n+(1===n?" linha":" linhas")+"</span>"}
+function finCatLin(x,ent){
 return'<div class="fin-cat"><span class="fin-cat-rot">'+c(x.rotulo||x.codigo||"")+"</span>"+
 '<span class="fin-cat-n">'+(x.n||0)+(1===x.n?" lançamento":" lançamentos")+"</span>"+
 '<span class="fin-cat-val">'+brlV(x.total)+"</span>"+
-'<span class="fin-cat-pct">'+finN1(x.pct)+"%</span>"+finDelta(x.delta_pct)+"</div>"}
+'<span class="fin-cat-pct">'+finN1(x.pct)+"%</span>"+finDelta(x.delta_pct)+
+finCatNota(x,ent)+"</div>"}
 // <details> e nao um toggle proprio: abre por teclado de graca, e o diag_mobile
 // abre toda gaveta antes de medir, entao o conteudo dela nunca escapa da prova
 // de celular.
-function finSecao(sc){
+function finSecao(sc,ent){
 var cob="Sem categoria"===sc.grupo;
 return'<details class="fin-sec'+(cob?" cobra":"")+'" open style="--tr:'+finTrilho(sc.grupo)+'">'+
 '<summary class="fin-sec-cab">'+finIconeGrupo(sc.grupo)+
@@ -713,11 +730,11 @@ return'<details class="fin-sec'+(cob?" cobra":"")+'" open style="--tr:'+finTrilh
 '<span class="fin-sec-val">'+brlV(sc.total)+"</span>"+
 '<span class="fin-sec-pct">'+finN1(sc.pct)+"%</span>"+finDelta(sc.delta_pct)+"</summary>"+
 finBarra(sc.pct)+
-'<div class="fin-cats">'+(sc.categorias||[]).map(finCatLin).join("")+"</div></details>"}
-function finBloco(tit,recorte,itens,vazio){
+'<div class="fin-cats">'+(sc.categorias||[]).map(function(ct){return finCatLin(ct,ent)}).join("")+"</div></details>"}
+function finBloco(tit,recorte,itens,vazio,ent){
 return'<section class="fin-bloco"><div class="fin-bloco-cab"><h2 class="fin-bloco-tit">'+c(tit)+"</h2>"+
 '<span class="fin-bloco-pe">'+c(recorte)+"</span></div>"+
-(itens.length?itens.map(finSecao).join(""):'<div class="estado">'+c(vazio)+"</div>")+"</section>"}
+(itens.length?itens.map(function(sc){return finSecao(sc,ent)}).join(""):'<div class="estado">'+c(vazio)+"</div>")+"</section>"}
 function finPlacar(pl){
 var res=Number(pl.resultado)||0,ncn=pl.nao_classificado_n||0;
 return'<div class="pitboard fin-placar">'+
@@ -822,7 +839,7 @@ var domRot="tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM;
 var rec="por grupo · "+domRot+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim);
 return finPlacar(pl)+finRepasseLinha(pnl.repasse||{})+
 finBloco("Para onde o dinheiro foi",rec,secs,"Nenhuma saída classificada nesta janela.")+
-finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta janela.")+
+finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta janela.",!0)+
 '<p class="fin-rodape">Categoria de natureza <b>neutro</b> (transferência entre contas, aplicação, resgate) fica fora dos dois blocos de propósito: aplicar dinheiro não é gastar dinheiro.</p>'}
 // ---- Movimentos: onde o dado vira classificado -----------------------------
 // Classificar um a um com 50 a 150 lancamentos por mes e trabalho abandonado na
@@ -863,6 +880,18 @@ return'<span class="fin-desf"><b>Desfazer este repasse?</b> '+
 " volta a contar em entrou e saiu."+
 '<button class="btn-cad" data-acao="fin-desf-ok" data-id="'+c(x.id)+'">Desfazer o repasse</button>'+
 '<button class="btn-cad secundario" data-acao="fin-desf-nao">Manter</button></span>'}
+// A linha que produz o `abatido` da Visao. Sem selo, ela le como "entrou
+// dinheiro" no meio de uma categoria de gasto, e quem for conferir a nota da
+// categoria nao acha a linha que a explica.
+// A natureza vem do fin_config, nunca do sinal do valor: valor positivo em
+// categoria de ENTRADA e receita normal, nao devolucao.
+function finNatDe(cod){
+var cats=(FIN_CFG&&FIN_CFG.categorias)||[],i;
+if(!cod)return"";
+for(i=0;i<cats.length;i++)if(cats[i].codigo===cod)return cats[i].natureza_esperada||"";
+return""}
+function finEhDevolucao(x){
+return Number(x.valor)>0&&"saida"===finNatDe(x.categoria_codigo||"")}
 function finMovLin(x){
 var neg=Number(x.valor)<0,marcado=!!FIN_SEL[x.id],id=c(x.id);
 return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+(x.repasse_id?" par":"")+'" data-lin="'+id+'">'+
@@ -872,7 +901,8 @@ return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+(x.repasse_
 '<span class="fin-lin-conta">'+c(x.conta_rotulo||"")+"</span>"+
 (x.origem?'<span class="fin-lin-origem">'+c(x.origem)+"</span>":"")+
 (x.observacao?'<span class="fin-lin-obs">'+c(x.observacao)+"</span>":"")+
-(x.repasse_id?'<span class="fin-lin-par">em par de repasse</span>':"")+"</div></div>"+
+(x.repasse_id?'<span class="fin-lin-par">em par de repasse</span>':"")+
+(finEhDevolucao(x)?'<span class="fin-lin-dev">devolução</span>':"")+"</div></div>"+
 '<div class="fin-lin-val'+(neg?" neg":"")+'">'+brlV(x.valor)+"</div>"+
 '<div class="fin-lin-cls">'+
 '<select class="fin-sel-cat" data-acao="fin-cat" data-id="'+id+'" data-atual="'+c(x.categoria_codigo||"")+'" aria-label="Categoria de '+c(x.descricao||"lançamento")+'">'+finOpcoesCat(x.categoria_codigo||"",!1)+"</select>"+
