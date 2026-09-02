@@ -507,9 +507,16 @@ nenhuma das duas batia com o repo.
   separado, a entrega irma do frontend: o `.conteudo` travava em 1080px e encostava na
   esquerda, deixando **608px de tela vazia a 1920px nas 14 abas** (1248px a 2560px);
   agora sobe por degrau e centra, e nasceu o `ferramentas/diag_largo.py`, que mede tela
-  SOBRANDO. Aberto, e e o primeiro movimento do proximo chat: **`migrations aplicadas ==
-  versionadas` NAO foi conferido via MCP** (os dois servidores fora do ar), entao o item
-  2 do portao 6.1 fica ABERTO com testemunho de documento, nao medida.
+  SOBRANDO. O item 2 do portao 6.1 foi FECHADO no mesmo dia, sem MCP (os dois servidores
+  estavam fora): o dono colou o ledger inteiro do SQL Editor, **171 linhas**, e a
+  comparacao contra os 39 arquivos deu **27 contra 27, zero divergencia, na era
+  financeira**. O mesmo levantamento expos divida antiga: **138 migrations aplicadas
+  antes de 26/08 nao tem arquivo no git** (Fase 2 a 6, as cinco de seguranca, scripts,
+  Escopo, motoboy), porque o habito de versionar so pegou na Fatia 1 do Financeiro.
+  Reconstruir o banco a partir do git hoje NAO funciona; o dump diario criptografado
+  cobre o risco, e a decisao de exportar uma linha de base e do dono. Proximo movimento:
+  medir `fin_cobertura`, porque o unico item que falta no portao da semana 3 e **95% do
+  valor julgado**, e esse e trabalho do dono, nao de codigo.
 
 - `handoff_financeiro_pitwall_v11.md` (01/09/2026, **a suite chega ao fim toda
   vez**). Entrega de ferramenta e documento, zero migration e zero mudanca em

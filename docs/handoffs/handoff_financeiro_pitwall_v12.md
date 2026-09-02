@@ -168,13 +168,12 @@ Sem essa mutacao, a assercao seria uma frase bonita sem prova de que morde.
 
 ## 6. O que NAO foi provado
 
-1. **`migrations aplicadas == migrations versionadas` NAO foi conferido via MCP nesta
-   sessao.** Os dois servidores MCP do Supabase estavam fora: o `claude.ai Supabase`
-   respondeu `not connected` nas duas tentativas, e o `supabase` (http) exige OAuth que
-   so o dono completa. O que existe e o cabecalho de cada uma das 4 migrations, escrito
-   pela sessao que as aplicou, com o md5 normalizado do corpo conferido contra o ledger
-   (`9d299c1e...`, `5439cdbb...`, `2cd78f63...`, `7219f124...`). **Isso e testemunho de
-   documento, nao medida.** E o item 2 do portao 6.1, e ele fica ABERTO.
+1. ~~`migrations aplicadas == versionadas` nao conferido~~ **CONFERIDO E FECHADO**, em
+   02/09/2026, depois do commit. Os dois MCP do Supabase estavam fora (`not connected`
+   e OAuth pendente), entao a medida veio pelo caminho que nao depende deles: o dono
+   rodou `select version, name from supabase_migrations.schema_migrations` no SQL Editor
+   e colou o ledger inteiro, **171 linhas**, comparado aqui contra os 39 arquivos de
+   `supabase/migrations/`. Ver secao 6.1.
 2. **RLS nao foi retestada nesta sessao** (dono, vendedor, tenant errado). As migrations
    nao criam tabela nova; `fin_movimentos` foi derrubada e recriada com os REVOKE/GRANT
    refeitos no proprio arquivo, mas a execucao como vendedor nao foi repetida aqui.
@@ -184,6 +183,39 @@ Sem essa mutacao, a assercao seria uma frase bonita sem prova de que morde.
 4. **A colisao da sentinela com um nome real `sem contraparte`** continua sem prova
    contra a base (ressalva 5 do handoff da vitrine). A normalizacao do servidor produz
    `SEM CONTRAPARTE`, que nao colide com `sem_contraparte` em minusculas com sublinhado.
+
+### 6.1 O ledger contra o git, medido
+
+**Era financeira, de 26/08/2026 em diante: 27 linhas no ledger, 27 arquivos no git,
+ZERO de cada lado sem par.** Nenhuma migration `fin_` aplicada e ausente do repo,
+nenhuma versionada e nao aplicada. O item 2 do portao 6.1 **FECHA** para o escopo que
+o CONTRATO governa.
+
+**Antes de 26/08/2026 o quadro e outro, e vale registrar com o numero:** o ledger tem
+**144 linhas** anteriores a essa data e o git tem **12 arquivos**. Cento e trinta e
+oito linhas nunca viraram arquivo: Fase 2, Fase 3 (regua e pg_cron), as cinco
+migrations de seguranca `seg_a` a `seg_e`, `b1_revoke_anon_execute_rpcs`, scripts de
+voz, Fase 4, 5 e 6, cliente e identidade, NF, Escopo, motoboy, molde de conteudo,
+etapa e pagamento de venda. Tudo aplicado por `apply_migration` antes de o habito de
+versionar existir, que so pegou de verdade na Fatia 1 do Financeiro, em 26/08.
+
+Consequencia pratica, dita sem drama e sem alarme falso: **reconstruir o banco a partir
+do git hoje nao funciona.** O schema nao esta perdido, porque o `backup_git.yml` grava
+dump completo e criptografado todo dia, mas o dump e binario e opaco, e o git nao
+conta a historia das mudancas de schema. Isso e divida antiga, nao regressao desta
+entrega, e esta declarada como pendencia 2.
+
+Dois detalhes menores do mesmo levantamento:
+
+- Os cinco arquivos de 19/08 tem par no ledger com nome DIFERENTE (o arquivo diz
+  `whatsapp_canonico_trava_por_sufixo`, o ledger diz
+  `whatsapp_canonico_trava_por_sufixo_e_fusao_lead_duplicado`). Casam por conteudo e por
+  dia, mas nao por string: e por isso que o cabecalho `-- migration aplicada: <versao>`
+  que as migrations do Financeiro carregam existe, e por isso ele deve continuar sendo
+  escrito em toda migration nova.
+- `20260721_calc_dados.sql` **nao tem linha nenhuma no ledger**. Foi aplicada fora do
+  `apply_migration` (SQL Editor), entao o git tem o arquivo e o banco nao tem o
+  registro. E o unico caso desse tipo em 39 arquivos.
 
 ---
 
@@ -201,7 +233,8 @@ Sem essa mutacao, a assercao seria uma frase bonita sem prova de que morde.
 | nenhuma recusa nova fora da secao 4 | **sim**, zero frase de recusa nova |
 
 Portao de entrada 6.1: `git status` limpo apos o commit, suite verde, frase da entrega
-escrita. **O item 2 (MCP) fica aberto e esta declarado na secao 6.1 acima.**
+escrita, e **o item 2 fechado com medida** (secao 6.1): 27 linhas do ledger contra 27
+arquivos, zero divergencia na era financeira.
 
 ---
 
@@ -233,7 +266,8 @@ passou de SEIS para SETE comandos de validacao.
 
 | # | Pendencia | Bloqueio ou nota |
 |---|---|---|
-| 1 | Conferir `migrations aplicadas == versionadas` via MCP | **Bloqueio**: OAuth do Supabase, so o dono completa. E a primeira coisa da proxima sessao |
+| 1 | ~~Conferir `migrations aplicadas == versionadas`~~ | **FECHADO** em 02/09, pelo SQL Editor, sem MCP. Secao 6.1 |
+| 1b | 138 migrations aplicadas antes de 26/08 sem arquivo no git | Divida antiga, nao regressao. Decisao do dono: exportar o schema de uma vez (`pg_dump --schema-only` numa migration de linha de base) ou aceitar declarado. Nao bloqueia a semana 3 |
 | 2 | Porcentagem de cobertura do pendente por contraparte | Bloqueio: exige campo novo na RPC (pendente TOTAL do recorte, antes do teto de 200). Decisao do dono |
 | 3 | Escrita de volta no Notion (kanban) | Bloqueio antigo, do v33: capability "Update content" na integracao |
 | 4 | Ultrawide acima de 2300px para em 1600px de conteudo | Nota: proposital. Se o dono usar 3440px e quiser mais, e subir um degrau |
@@ -242,11 +276,19 @@ passou de SEIS para SETE comandos de validacao.
 
 ## 10. Primeiro movimento do proximo chat
 
-Autenticar o MCP do Supabase e rodar `list_migrations`, comparando com
-`supabase/migrations/`. Se as quatro `20260902_fin_fatia4_*` estiverem no ledger com o
-md5 que o cabecalho de cada arquivo declara, o item 2 do portao 6.1 fecha e a Fatia 4
-esta encerrada de verdade. Se NAO estiverem, a entrega da vez passa a ser fechar esse
-item, e nada se constroi em cima ate la.
+O portao entre a semana 2 e a 3 do `PLANO.md` tem quatro itens. Tres estao fechados
+(repasse separado, contraparte gravada, git igual ao banco na era financeira). **O que
+falta e o unico que nao e trabalho de codigo: 95% do valor julgado.**
+
+Entao o primeiro movimento e MEDIR quanto ja esta julgado:
+
+```sql
+select * from fin_cobertura('2026-08-01', '2026-09-02');
+```
+
+Se estiver abaixo de 95%, a tarefa da vez e o dono julgar a base pelo painel novo,
+comecando pelas contrapartes de maior valor, e nao construir a Visao Pessoal por cima.
+O proprio PLANO diz: se o portao reprovar, a semana 3 nao comeca.
 
 ---
 
