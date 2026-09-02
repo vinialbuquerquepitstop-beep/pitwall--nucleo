@@ -677,6 +677,15 @@ e.innerHTML=topo+metTopo(d)+metOrigem(d)+metConteudo(d)}
 var FIN_SUBS=[["visao","Visão"],["movimentos","Movimentos"],["importar","Importar"],["regras","Regras"]];
 var FIN_DOMS=[["empresa","Empresa"],["pessoal","Pessoal"],["tudo","Tudo"]];
 var FIN_SUB="visao",FIN_DOM="tudo",FIN_MES="",FIN_STATUS="todos";
+// Fatia 4. O filtro de contraparte e um FILTRO DE LEITURA, nunca um caminho de
+// escrita: ele muda o que a lista mostra e nada mais. "" quer dizer sem filtro;
+// "sem_contraparte" e a SENTINELA do balde de nome nulo, testada pelo servidor
+// antes da normalizacao (string vazia e null no payload nao filtram nada, e o
+// balde ficaria clicavel sem efeito, que e beco sem saida).
+// O nome viaja como o dono ve: quem normaliza e o servidor, pela mesma helper
+// que gravou a coluna. Normalizar aqui seria a segunda implementacao da mesma
+// regra, e no dia em que divergissem a tela devolveria zero linha em silencio.
+var FIN_CP="";
 var FIN_CFG=null,FIN_PAINEL=null,FIN_COB=null,FIN_MOV=null,FIN_SEL={},FIN_AVISO="";
 var FIN_LANC=!1,FIN_REPETIR=null,FIN_PREVIA=null,FIN_IMP=null;
 // Fatia 2. FIN_REG_FORM e o formulario ABERTO (um so por vez, seja na linha de
@@ -957,12 +966,31 @@ for(i=0;i<cats.length;i++)if(cats[i].codigo===cod)return cats[i].natureza_espera
 return""}
 function finEhDevolucao(x){
 return Number(x.valor)>0&&"saida"===finNatDe(x.categoria_codigo||"")}
+// A frase da Fatia 4, na linha: cada linha sabe de quem veio ou para quem foi.
+// O ROTULO fica sempre visivel, inclusive quando nao ha nome. Renderizar so o
+// campo que tem dado e o defeito que ja fez tela sumir na base zerada: o vazio
+// tem que APARECER, dizendo que esta vazio, senao a linha parece completa
+// estando incompleta e ninguem vai atras do que falta.
+// A direcao vem do SINAL do valor, o mesmo criterio que a linha ja usa para
+// pintar entrada e saida, e nao de nenhuma inferencia sobre a contraparte: sai
+// dinheiro, foi PARA alguem; entra dinheiro, veio DE alguem. Sem nome nao ha
+// direcao a declarar, entao o rotulo vira o neutro `contraparte`.
+// O nome e um BOTAO porque o gesto que esta entrega existe para dar e "julgar
+// esta contraparte inteira": o dono esta olhando a linha, e obrigar a subir ate
+// o resumo para achar o mesmo nome e o atrito que faz ninguem usar.
+function finCpLin(x){
+var nm=null==x.contraparte?"":String(x.contraparte);
+var rot=nm?(Number(x.valor)<0?"foi para":"veio de"):"contraparte";
+return'<button class="fin-lin-cp" data-acao="fin-cp" data-cp="'+c(nm||"sem_contraparte")+'" aria-label="Filtrar por '+c(nm||"lançamentos sem contraparte")+'">'+
+'<i class="fin-lin-cp-rot">'+c(rot)+"</i>"+
+'<b class="fin-lin-cp-nome'+(nm?"":" vazia")+'">'+c(nm||"não identificada")+"</b></button>"}
 function finMovLin(x){
 var neg=Number(x.valor)<0,marcado=!!FIN_SEL[x.id],id=c(x.id);
 return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+(x.repasse_id?" par":"")+'" data-lin="'+id+'">'+
 '<input class="fin-chk" type="checkbox" data-acao="fin-sel" data-id="'+id+'"'+(marcado?" checked":"")+' aria-label="Selecionar '+c(x.descricao||"lançamento")+'">'+
 '<div class="fin-lin-txt"><div class="fin-lin-desc">'+c(x.descricao||x.descricao_original||"sem descrição")+"</div>"+
 '<div class="fin-lin-pe"><span class="fin-lin-data">'+c(fmtDiaCurto(x.data))+"</span>"+
+finCpLin(x)+
 '<span class="fin-lin-conta">'+c(x.conta_rotulo||"")+"</span>"+
 (x.origem?'<span class="fin-lin-origem">'+c(x.origem)+"</span>":"")+
 (x.observacao?'<span class="fin-lin-obs">'+c(x.observacao)+"</span>":"")+
@@ -981,6 +1009,82 @@ return'<div class="fin-lin'+(marcado?" sel":"")+(x.dominio?"":" nc")+(x.repasse_
 "</div>"+
 (FIN_REG_FORM&&FIN_REG_FORM.movimento_id===x.id?'<div class="fin-lin-form">'+finRegForm()+"</div>":"")+
 "</div>"}
+// ---- resumo por contraparte: a alavanca da Fatia 4 ------------------------
+// Julgar o pendente linha a linha, do maior para o menor, exige 290 decisoes
+// para cobrir 95% do valor. Julgar POR CONTRAPARTE exige 68. Mesma cobertura,
+// um quarto do trabalho. Por isso o resumo NAO e enfeite de cabecalho: ele e o
+// controle, e um controle que esconde o valor nao entrega alavanca nenhuma.
+// Por isso valor_pendente e n_pendente aparecem em CADA entrada, e nao so a
+// contagem: 6 linhas de R$ 26.000,00 valem mais atencao que 32 de R$ 900,00, e
+// contagem sozinha inverte essa ordem na cabeca de quem le.
+//
+// O que este bloco NAO e, e nao pode virar: nao e saldo, nao e netting, nao e
+// "quanto fulano me deve" (F4). `bruto` e soma de valor ABSOLUTO, entrada e
+// saida somam em vez de se cancelar. O erro de netting sobre janela ja foi
+// cometido neste projeto, na contraparte BR IPHONES, e produziu tres numeros
+// publicados errados. A nota do rodape existe para que a palavra "movimentado"
+// nunca seja lida como "saldo".
+//
+// A lista vem PRONTA do servidor, ordenada por bruto desc. A tela nao reordena
+// e nao corta: reordenar aqui seria mentira assim que o teto de 200 cortasse,
+// porque a tela ordenaria as 200 que recebeu, nao as maiores da janela.
+function finCpChave(x){
+var nm=x&&null!=x.nome?String(x.nome):"";
+return nm||"sem_contraparte"}
+function finCpItem(x,ativa){
+var nm=x&&null!=x.nome?String(x.nome):"";
+var chave=finCpChave(x),n=Number(x&&x.n)||0,np=Number(x&&x.n_pendente)||0;
+return'<button class="fin-cp-item'+(np?" cobra":"")+'" data-acao="fin-cp" data-cp="'+c(chave)+'" aria-pressed="'+(ativa===chave?"true":"false")+'">'+
+'<span class="fin-cp-nome'+(nm?"":" vazia")+'">'+c(nm||"sem contraparte")+"</span>"+
+'<span class="fin-cp-bruto">'+brlV(x&&x.bruto)+"</span>"+
+'<span class="fin-cp-n">'+n+(1===n?" lançamento":" lançamentos")+"</span>"+
+'<span class="fin-cp-pend">'+(np?brlV(x&&x.valor_pendente)+" a julgar em "+np:"tudo julgado")+"</span></button>"}
+// contrapartes_truncado obriga a tela a DECLARAR o recorte, pela mesma regra que
+// fez a aba Conteudo declarar a janela: tela que omite recorte mente por
+// omissao. Aqui sao 200 grupos de 364, e "e mais..." nao e declaracao.
+// O que se declara e o que o payload PROVA: quantas vieram, quantas existem, e
+// quanto de pendente as que estao na tela somam. A porcentagem de cobertura do
+// pendente NAO e desenhada porque a RPC nao manda o pendente total do recorte:
+// calcular sobre o que chegou daria 100% sempre, e chumbar o numero medido de
+// hoje seria dado de config dentro do JS, que e o C2.
+function finCpCorte(lista,mv){
+var mostr=lista.length,tot=Number(mv&&mv.contrapartes_n)||0,soma=0,i;
+for(i=0;i<lista.length;i++)soma+=Number(lista[i].valor_pendente)||0;
+if(!mostr)return'<p class="fin-cp-corte">Nenhuma contraparte nesta janela. O nome vem do extrato: linha importada sem nome cai no balde <b>sem contraparte</b>.</p>';
+var fora=tot-mostr;
+if(mv&&mv.contrapartes_truncado&&fora>0)
+  return'<p class="fin-cp-corte">Mostrando as <b>'+mostr+" de "+tot+"</b> contrapartes desta janela, as de maior valor movimentado. As "+mostr+" na tela somam <b>"+
+    brlV(soma)+"</b> ainda a julgar. As "+fora+(1===fora?" de fora é a menor":" de fora são as menores")+" desta janela: estreite o período para alcançá-la"+(1===fora?"":"s")+".</p>";
+return'<p class="fin-cp-corte"><b>'+tot+(1===tot?" contraparte":" contrapartes")+"</b> nesta janela, todas na tela. Somam <b>"+brlV(soma)+"</b> ainda a julgar.</p>"}
+function finCpPainel(mv){
+var lista=(mv&&mv.contrapartes)||[],ativa=null==mv.contraparte?"":String(mv.contraparte),i,out="";
+for(i=0;i<lista.length;i++)out+=finCpItem(lista[i],ativa);
+return'<details class="fin-cp" open><summary class="fin-cp-cab">'+
+'<span class="fin-cp-tit">Por contraparte</span>'+
+'<span class="fin-cp-pe">'+lista.length+" na tela · maior valor movimentado primeiro</span></summary>"+
+finCpCorte(lista,mv)+
+(out?'<div class="fin-cp-lista">'+out+"</div>":"")+
+'<p class="fin-cp-nota"><b>Movimentado</b> é a soma dos valores em módulo: entrada e saída somam, não se cancelam. Não é saldo e não é o que alguém deve. <b>A julgar</b> é o que ainda está sem domínio e fora de todo total.</p></details>'}
+// A barra do filtro ativo le o ECO do servidor (`contraparte` na raiz), nunca o
+// estado local: o servidor normaliza o nome pela helper que gravou a coluna, e e
+// o nome dele que prova o que foi filtrado. Mostrar o texto local aqui seria
+// mostrar o pedido, nao a resposta.
+// O botao de selecionar tudo e o que fecha a frase da entrega: uma contraparte
+// inteira julgada num gesto, pela fin_classificar que ja existe. Ele NAO e um
+// caminho novo de escrita, e so marca as caixas que o dono marcaria a mao.
+// Ele conta o que ESTA NA TELA (itens), nao o `n` do recorte: com a lista
+// truncada em 500 o `n` seria maior do que da para selecionar, e o botao
+// prometeria o que nao cumpre.
+function finCpBarra(mv,itens){
+var eco=null==mv.contraparte?"":String(mv.contraparte);
+if(!eco)return"";
+var sem="sem_contraparte"===eco.toLowerCase(),n=itens.length;
+return'<div class="fin-cp-ativa" role="status">'+
+'<span class="fin-cp-ativa-rot">filtrando por</span>'+
+'<b class="fin-cp-ativa-nome'+(sem?" vazia":"")+'">'+c(sem?"sem contraparte":eco)+"</b>"+
+'<span class="fin-cp-ativa-pe">'+n+(1===n?" lançamento na tela":" lançamentos na tela")+"</span>"+
+(n?'<button class="btn-cad" data-acao="fin-cp-todos">Selecionar '+(1===n?"o lançamento":"os "+n)+"</button>":"")+
+'<button class="btn-cad secundario" data-acao="fin-cp-limpar">Ver todas as contrapartes</button></div>'}
 function finLote(){
 var qt=Object.keys(FIN_SEL).length;
 return'<div class="fin-lote'+(qt?" aberto":"")+'" id="finLote" role="group" aria-label="Ação em lote">'+
@@ -1016,15 +1120,26 @@ return'<div class="fin-form"><p class="cad-grupo">Lançamento manual</p>'+
 '<div class="fin-erro" id="finLancErro" role="alert"></div></div>'}
 function finMovimentos(mv,jn){
 var itens=mv.itens||[],so="nao_classificados"===FIN_STATUS,qt=mv.n||0;
+var eco=null==mv.contraparte?"":String(mv.contraparte);
+var ecoRot="sem_contraparte"===eco.toLowerCase()?"sem contraparte":eco;
 // Em nao_classificados o SERVIDOR ignora o filtro de dominio (sao justamente
 // os que nao tem dominio). A tela DIZ isso, em vez de deixar o seletor de
 // Empresa parecendo aceso e sem efeito.
+// O recorte tambem declara a contraparte: sem isso a contagem do cabecalho cai
+// de 290 para 22 sem dizer por que, e numero que encolhe sem explicacao e o
+// portao 6.3 do CONTRATO.
 var rec=qt+(1===qt?" lançamento":" lançamentos")+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim)+
   " · "+(so?"sem domínio (o filtro Empresa/Pessoal não se aplica aqui)":"tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM)+
-  " · "+("valor"===mv.ordem?"maior valor primeiro":"mais recente primeiro");
+  " · "+("valor"===mv.ordem?"maior valor primeiro":"mais recente primeiro")+
+  (eco?" · contraparte "+ecoRot:"");
 var trunc=mv.truncado?'<p class="fin-truncado">Mostrando as '+itens.length+" primeiras de "+qt+" linhas. Estreite o período para ver o resto.</p>":"";
 var aviso=FIN_AVISO?'<p class="fin-aviso" role="status">'+c(FIN_AVISO)+"</p>":"";
+// Estado vazio com filtro de contraparte ligado NAO pode cair no finVazio(), que
+// manda importar o extrato: a janela nao esta vazia, o FILTRO e que esta. Estado
+// vazio que aponta para a acao errada faz o dono desfazer o que estava certo.
 var corpo=itens.length?itens.map(finMovLin).join(""):
+  eco?'<div class="estado"><strong>Nenhum lançamento de '+c(ecoRot)+" nesta janela.</strong>O filtro continua ligado. Troque o mês ou volte para todas as contrapartes."+
+      '<div class="fin-vazio-acoes"><button class="btn-cad" data-acao="fin-cp-limpar">Ver todas as contrapartes</button></div></div>':
   so?'<div class="estado"><strong>Nada sem classificação nesta janela.</strong>Todo lançamento do período já tem domínio.</div>':finVazio();
 return'<section class="fin-mov"><div class="fin-mov-cab"><h2 class="fin-bloco-tit">Movimentos</h2>'+
 '<span class="fin-bloco-pe">'+c(rec)+"</span>"+
@@ -1033,7 +1148,7 @@ return'<section class="fin-mov"><div class="fin-mov-cab"><h2 class="fin-bloco-ti
 // e oferecido logo depois de criar a regra, que acontece NA LINHA. Sem isto o
 // dono aplicava e nao via `classificados`, `conflitos` nem `por_regra`, que e
 // exatamente o silencio que faz perder a confianca no automatico.
-aviso+finRegOkHTML()+finAplHTML()+finLote()+'<div class="fin-lista">'+corpo+"</div>"+trunc+
+aviso+finRegOkHTML()+finAplHTML()+finCpPainel(mv)+finCpBarra(mv,itens)+finLote()+'<div class="fin-lista">'+corpo+"</div>"+trunc+
 '<div class="fin-mov-pe">'+finFormLanc()+"</div></section>"}
 // ---- Importar: o OFX e lido no NAVEGADOR ----------------------------------
 // OFX 1.x e SGML raso, nao XML: tag de folha frequentemente NAO fecha
@@ -1623,15 +1738,42 @@ renderFinanceiro(!0)}
 function finRegFechar(){
 FIN_REG_FORM=null;FIN_REG_PREV=null;FIN_REG_ERRO="";FIN_SOBREPOR=null}
 async function finAcao(acao,id,el){
-if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};FIN_DESF=null;finRegFechar();return void renderFinanceiro()}
+// Sair da sub-view zera o filtro de contraparte: ele e um recorte de trabalho,
+// nao uma preferencia. Voltar em Movimentos dias depois e achar a lista cortada
+// por um nome que ninguem lembra de ter clicado e a mesma armadilha do
+// formulario preso a uma linha que nao existe mais.
+// Trocar de MES nao zera: o dono persegue a mesma contraparte pelos meses, e a
+// barra do filtro fica na tela declarando que ele esta ligado, com o estado
+// vazio proprio quando aquela contraparte nao tem linha no mes novo.
+if("fin-sub"===acao){FIN_SUB=el.getAttribute("data-sub")||"visao";FIN_SEL={};FIN_CP="";FIN_DESF=null;finRegFechar();return void renderFinanceiro()}
 if("fin-dom"===acao){FIN_DOM=el.getAttribute("data-dom")||"tudo";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
 if("fin-mes"===acao){
 FIN_MES=vgMesMais(finMes(),parseInt(el.getAttribute("data-delta"),10)||0);
 FIN_AVISO="";finRegFechar();return void renderFinanceiro()}
-if("fin-ir-nc"===acao){FIN_SUB="movimentos";FIN_STATUS="nao_classificados";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+if("fin-ir-nc"===acao){FIN_SUB="movimentos";FIN_STATUS="nao_classificados";FIN_SEL={};FIN_CP="";finRegFechar();return void renderFinanceiro()}
 if("fin-so-nc"===acao){
 FIN_STATUS="nao_classificados"===FIN_STATUS?"todos":"nao_classificados";
 FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+// Clicar na contraparte ja ativa DESLIGA o filtro: o mesmo botao que entra e o
+// que sai, e o aria-pressed diz em qual dos dois estados ele esta. Sem isso o
+// unico caminho de volta seria um segundo botao, e caminho de volta escondido e
+// como o dono fica preso num recorte sem perceber.
+// A selecao e zerada na troca de filtro de proposito: classificar em lote uma
+// linha que saiu da tela e escrita as cegas.
+if("fin-cp"===acao){
+var cpv=el.getAttribute("data-cp")||"";
+FIN_CP=FIN_CP===cpv?"":cpv;
+FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+if("fin-cp-limpar"===acao){FIN_CP="";FIN_SEL={};finRegFechar();return void renderFinanceiro()}
+// O gesto que a entrega inteira existe para dar: marcar de uma vez tudo o que
+// esta na tela daquela contraparte, para a fin_classificar que ja existe julgar
+// os 22 num movimento so. Nenhum caminho novo de escrita nasce aqui: isto
+// preenche FIN_SEL, exatamente como marcar as caixas a mao, e quem grava
+// continua sendo o `fin-lote-ok`.
+if("fin-cp-todos"===acao){
+var cpn=(FIN_MOV&&FIN_MOV.itens)||[],cpi;
+for(cpi=0;cpi<cpn.length;cpi++)FIN_SEL[cpn[cpi].id]={id:cpn[cpi].id,valor:Number(cpn[cpi].valor),data:cpn[cpi].data};
+return void renderFinanceiro(!0)}
 if("fin-sel"===acao){
 if(el.checked){
 var lx=((FIN_MOV&&FIN_MOV.itens)||[]).filter(function(y){return y.id===id})[0];
@@ -1844,8 +1986,11 @@ var db=rb&&!rb.error?rb.data:null;
 if(db&&!1!==db.ok&&null!=d.pct_julgado&&Number(d.pct_julgado)<Number(db.teto))FIN_COB=db;
 var corpo;
 if("movimentos"===FIN_SUB){
+// p_contraparte vai NULO quando nao ha filtro: string vazia nao e "sem filtro"
+// para o servidor, e mandar "" faria a normalizacao rodar sobre nada.
 var rm=await t.rpc("fin_movimentos",{p_ini:jn.ini,p_fim:jn.fim,p_dominio:FIN_DOM,p_status:FIN_STATUS,
-  p_ordem:"nao_classificados"===FIN_STATUS?"valor":"data"});
+  p_ordem:"nao_classificados"===FIN_STATUS?"valor":"data",
+  p_contraparte:FIN_CP||null});
 if(rm.error)corpo=estadoErro("os movimentos",rm.error.message);
 else{
 var dm=rm.data;

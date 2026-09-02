@@ -382,7 +382,12 @@ var FIN_MOVS = [
     categoria_codigo: 'mercado', dominio: 'pessoal', origem: 'extrato' },
   { id: 'f3', data: '2026-08-17', descricao: 'DEBITO NAO IDENTIFICADO', valor: -105.5,
     categoria_codigo: null, dominio: null, origem: 'extrato' },
-  { id: 'f4', data: '2026-08-16', descricao: 'PIX RECEBIDO CLIENTE', valor: 2000,
+  // A descricao carrega o nome mais longo que a base viva do dono tem
+  // (52 chars, medido em 02/09/2026). Fixture com nome curto nao mede a quebra
+  // de linha do painel em 360px, que e onde ela quebra.
+  { id: 'f4', data: '2026-08-16',
+    descricao: 'Pix recebido - MERCADOLIVRE PAGAMENTOS SERVICOS DE CONVENIENCIA LTDA',
+    valor: 2000,
     categoria_codigo: 'venda_aparelho', dominio: 'empresa', origem: 'extrato' },
   { id: 'f5', data: '2026-08-15', descricao: 'SEM CATEGORIA MAS COM LADO', valor: -580,
     categoria_codigo: null, dominio: 'empresa', origem: 'extrato' },
@@ -483,6 +488,63 @@ function finAplicarRegras(ids, alvo, alcance) {
 function finRestam() {
   return { dom: FIN_MOVS.filter(function (m) { return !m.dominio; }).length,
            cat: FIN_MOVS.filter(function (m) { return !m.categoria_codigo; }).length };
+}
+// ---- Fatia 4 (02/09/2026): a contraparte -----------------------------------
+// A coluna e FIXTURE, nao derivada aqui: quem extrai o nome da descricao e
+// privado.fn_fin_contraparte, que tem prova propria no banco. Reimplementar a
+// regex aqui seria a segunda implementacao do C1, e no dia em que divergissem a
+// suite estaria provando o stub, nao o produto.
+//
+// Os quatro casos que a tela pode errar estao todos representados:
+//   f3, f5, f6                -> balde de nome NULO (a linha existe, o nome nao)
+//   f7-f10                    -> a mesma contraparte repetida, com um lado ja
+//                                julgado (f10 tem dominio) e tres pendentes
+//   f4                        -> nome de 52 chars, o mais longo da base viva
+//   f12                       -> fora da janela de agosto, entao nao entra no
+//                                resumo, que e o que prova que ele respeita a
+//                                janela
+var FIN_CP_FX = {
+  f1: 'MP', f2: 'SUPERMERCADO PRINCESA', f3: null,
+  f4: 'MERCADOLIVRE PAGAMENTOS SERVICOS DE CONVENIENCIA LTDA',
+  f5: null, f6: null,
+  f7: 'UBER DO BRASIL TECNOLOGIA LTDA', f8: 'UBER DO BRASIL TECNOLOGIA LTDA',
+  f9: 'UBER DO BRASIL TECNOLOGIA LTDA', f10: 'UBER DO BRASIL TECNOLOGIA LTDA',
+  f11: 'AGENCY FORD SUL C MODELOS', f12: 'FORD MODELS SUL',
+  f13: 'NAO E PAR DISSO' };
+FIN_MOVS.forEach(function (m) {
+  m.contraparte = FIN_CP_FX[m.id] === undefined ? null : FIN_CP_FX[m.id]; });
+// O resumo do servidor, no mesmo molde do SQL de
+// 20260902_fin_fatia4_movimentos_contraparte.sql: agrupa por nome, soma valor
+// ABSOLUTO (bruto, nunca saldo, F4), conta o pendente pela definicao literal do
+// F3 (sem dominio E categoria que nao seja de natureza neutro), ordena por bruto
+// desc e corta em 200.
+//
+// O DETALHE QUE DECIDE SE A TELA PRESTA: este resumo respeita janela, dominio e
+// status, e IGNORA a contraparte filtrada. Se respeitasse, a lista encolheria
+// para uma linha no instante em que o dono clicasse numa delas, e o caminho de
+// volta sumiria. O stub reproduz isso de proposito, senao a assercao que prova
+// o comportamento estaria provando a si mesma.
+function finCpResumo(ini, fim, dom, soNc) {
+  var g = {};
+  FIN_MOVS.forEach(function (m) {
+    if (ini && m.data < ini) return;
+    if (fim && m.data > fim) return;
+    if (soNc && m.dominio !== null) return;
+    if (dom && m.dominio !== dom) return;
+    var nome = m.contraparte == null ? null : String(m.contraparte);
+    // o balde de nome nulo precisa de uma chave que nenhum nome real produza.
+    // Prefixo com dois-pontos: contraparte vem do extrato em maiuscula, e a
+    // helper do banco nunca devolve nome comecando por pontuacao.
+    var chave = nome === null ? '::nulo' : nome;
+    var cat = FIN_CATS.filter(function (y) { return y.codigo === m.categoria_codigo; })[0];
+    var pend = m.dominio === null && (!cat || cat.natureza_esperada !== 'neutro');
+    if (!g[chave]) g[chave] = { nome: nome, n: 0, bruto: 0, n_pendente: 0, valor_pendente: 0 };
+    g[chave].n++;
+    g[chave].bruto += Math.abs(Number(m.valor) || 0);
+    if (pend) { g[chave].n_pendente++; g[chave].valor_pendente += Math.abs(Number(m.valor) || 0); }
+  });
+  return Object.keys(g).map(function (k) { return g[k]; })
+    .sort(function (a, b) { return b.bruto - a.bruto; });
 }
 window.__finClassificar = [];
 window.__finLancar = [];
@@ -970,7 +1032,14 @@ window.supabase = {
               pendente: { valor: 77942.01, n: 131 } } }, error: null });
         }
         if (nome === 'fin_movimentos') {
-          window.__finMovArgs.push({ p_status: args.p_status, p_ordem: args.p_ordem });
+          window.__finMovArgs.push({ p_status: args.p_status, p_ordem: args.p_ordem,
+                                     p_contraparte: args.p_contraparte });
+          // Fatia 4. O sentinela e testado ANTES de normalizar, como no SQL:
+          // 'sem_contraparte' e chave de balde, nao nome de ninguem.
+          var fmCpRaw = args.p_contraparte == null ? '' : String(args.p_contraparte).trim();
+          var fmCpSem = !!fmCpRaw && fmCpRaw.toLowerCase() === 'sem_contraparte';
+          var fmCp = (fmCpRaw && !fmCpSem) ? finNorm(fmCpRaw) : null;
+          var fmCpEco = fmCpSem ? 'sem_contraparte' : fmCp;
           var fmSo = args.p_status === 'nao_classificados';
           var fmDom = args.p_dominio === 'tudo' ? null : (args.p_dominio || null);
           if (fmSo) fmDom = null;   // o servidor ignora o dominio nesse status
@@ -979,12 +1048,17 @@ window.supabase = {
               hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
               status: fmSo ? 'nao_classificados' : 'todos',
               ordem: args.p_ordem === 'valor' ? 'valor' : 'data',
-              n: 0, total: 0, truncado: false, itens: [] }, error: null });
+              contraparte: fmCpEco,
+              n: 0, total: 0, truncado: false, itens: [],
+              contrapartes: [], contrapartes_n: 0, contrapartes_truncado: false },
+              error: null });
           var fmItens = FIN_MOVS.filter(function (x) {
             if (args.p_ini && x.data < args.p_ini) return false;
             if (args.p_fim && x.data > args.p_fim) return false;
             if (fmSo && x.dominio !== null) return false;
             if (fmDom && x.dominio !== fmDom) return false;
+            if (fmCpSem && x.contraparte != null) return false;
+            if (fmCp && finNorm(x.contraparte) !== fmCp) return false;
             return true;
           }).map(function (x) {
             var cat = FIN_CATS.filter(function (y) { return y.codigo === x.categoria_codigo; })[0];
@@ -996,17 +1070,27 @@ window.supabase = {
                      natureza_esperada: cat ? cat.natureza_esperada : null,
                      dominio: x.dominio, origem: x.origem || 'extrato',
                      repasse_id: x.repasse_id || null,
+                     contraparte: x.contraparte == null ? null : x.contraparte,
                      conta_rotulo: 'Conta principal', observacao: null,
                      venda_id: null, criado_em: x.data + 'T12:00:00Z' };
           });
           var fmTot = 0;
           fmItens.forEach(function (x) { fmTot += x.valor; });
+          // O resumo NAO recebe fmCp de proposito: ele ignora o proprio filtro,
+          // igual ao SQL. __FIN_CP_TRUNC simula o corte de 200 em 364 grupos que
+          // a base viva produz: sem ele a frase que DECLARA o recorte nunca seria
+          // desenhada, e tela que omite recorte mente por omissao.
+          var fmCps = finCpResumo(args.p_ini, args.p_fim, fmDom, fmSo);
+          var fmCpsN = window.__FIN_CP_TRUNC ? 364 : fmCps.length;
           return Promise.resolve({ data: { ok: true, ini: args.p_ini, fim: args.p_fim,
             hoje: '2026-08-25', dominio: args.p_dominio || 'tudo',
             status: fmSo ? 'nao_classificados' : 'todos',
             ordem: args.p_ordem === 'valor' ? 'valor' : 'data',
+            contraparte: fmCpEco,
             n: fmItens.length, total: fmTot,
-            truncado: !!window.__FIN_TRUNCADO, itens: fmItens }, error: null });
+            truncado: !!window.__FIN_TRUNCADO, itens: fmItens,
+            contrapartes: fmCps, contrapartes_n: fmCpsN,
+            contrapartes_truncado: fmCpsN > fmCps.length }, error: null });
         }
         if (nome === 'fin_classificar') {
           var fcP = args.payload || {};
@@ -6747,6 +6831,282 @@ async function rodar() {
   // alerta: --dim, nunca --erro nem --morno. Zero token novo.
   ok('fin3: o selo le em --dim, a mesma pilula do selo de par de repasse',
      finCor(finQ('.fin-lin-dev')) === COR_DIM, finCor(finQ('.fin-lin-dev')));
+
+  // ======================================================================
+  // Fatia 4: a contraparte na linha e o resumo por contraparte.
+  //
+  // A frase da entrega: "cada linha sabe de quem veio ou para quem foi, e da
+  // para julgar uma contraparte inteira de uma vez".
+  //
+  // O numero que justifica a entrega, medido na base viva em 02/09/2026:
+  // julgar o pendente linha a linha custa 290 decisoes para cobrir 95% do
+  // valor; por contraparte custa 68. Por isso o resumo NAO e enfeite de
+  // cabecalho, e o controle, e um controle que esconde o valor nao entrega
+  // alavanca nenhuma.
+  // ======================================================================
+  function f4Item(nome) {
+    return finQA('.fin-cp-item').filter(function (x) {
+      var e = x.querySelector('.fin-cp-nome');
+      return e && e.textContent === nome; })[0] || null; }
+  function f4Txt(nome, sel) {
+    var e = f4Item(nome); e = e && e.querySelector(sel);
+    return e ? e.textContent : null; }
+  function f4Lin(id) {
+    return finQA('.fin-lin').filter(function (x) {
+      return x.getAttribute('data-lin') === id; })[0] || null; }
+  function f4Cp(id, sel) {
+    var e = f4Lin(id); e = e && e.querySelector(sel);
+    return e ? e.textContent : null; }
+  // 'R$ 4.995,50' -> 4995.5. Sem regex com escape: o TESTE e string Python.
+  function f4Num(s) {
+    return Number(String(s == null ? '' : s).replace(/[^0-9,-]/g, '').replace(',', '.')); }
+  var f4Args = function () { return window.__finMovArgs[window.__finMovArgs.length - 1] || {}; };
+
+  // ---- a contraparte NA LINHA -------------------------------------------
+  // A direcao vem do SINAL do valor, o mesmo criterio que a linha ja usa para
+  // separar entrada de saida, e nao de inferencia sobre quem e a contraparte.
+  ok('fin4: a linha de saida diz para quem o dinheiro foi',
+     f4Cp('f1', '.fin-lin-cp-rot') === 'foi para' &&
+     f4Cp('f1', '.fin-lin-cp-nome') === 'MP',
+     f4Cp('f1', '.fin-lin-cp-rot') + ' / ' + f4Cp('f1', '.fin-lin-cp-nome'));
+  ok('fin4: e a linha de entrada diz de quem veio, pelo sinal do valor',
+     f4Cp('f11', '.fin-lin-cp-rot') === 'veio de' &&
+     f4Cp('f11', '.fin-lin-cp-nome') === 'AGENCY FORD SUL C MODELOS',
+     f4Cp('f11', '.fin-lin-cp-rot') + ' / ' + f4Cp('f11', '.fin-lin-cp-nome'));
+  // Campo vazio tem que APARECER. Renderizar so o que tem dado faz a linha
+  // parecer completa estando incompleta, e ninguem vai atras do que falta.
+  ok('fin4: linha sem nome mantem o rotulo visivel e diz que nao identificou',
+     f4Cp('f3', '.fin-lin-cp-rot') === 'contraparte' &&
+     f4Cp('f3', '.fin-lin-cp-nome') === 'não identificada',
+     f4Cp('f3', '.fin-lin-cp-rot') + ' / ' + f4Cp('f3', '.fin-lin-cp-nome'));
+  ok('fin4: e o vazio le em --dim, porque e ausencia de dado, nao alerta',
+     finCor(f4Lin('f3').querySelector('.fin-lin-cp-nome')) === COR_DIM,
+     finCor(f4Lin('f3').querySelector('.fin-lin-cp-nome')));
+  // O nome e BOTAO porque o gesto que a entrega existe para dar comeca na
+  // linha que o dono esta olhando: obrigar a subir ate o resumo para achar o
+  // mesmo nome e o atrito que faz ninguem usar.
+  ok('fin4: o nome da linha e botao de filtro, com a sentinela no lugar do vazio',
+     f4Lin('f1').querySelector('.fin-lin-cp').getAttribute('data-cp') === 'MP' &&
+     f4Lin('f3').querySelector('.fin-lin-cp').getAttribute('data-cp') === 'sem_contraparte',
+     f4Lin('f3').querySelector('.fin-lin-cp').getAttribute('data-cp'));
+
+  // ---- o resumo por contraparte -----------------------------------------
+  var f4Itens = finQA('.fin-cp-item');
+  ok('fin4: o resumo desenha uma entrada por contraparte da janela',
+     f4Itens.length === 7, 'itens=' + f4Itens.length);
+  // A lista vem PRONTA do servidor, ordenada por bruto desc. Reordenar aqui
+  // seria mentira assim que o teto de 200 cortasse: a tela ordenaria as 200
+  // que recebeu, nao as maiores da janela.
+  var f4Brutos = f4Itens.map(function (x) {
+    return f4Num(x.querySelector('.fin-cp-bruto').textContent); });
+  ok('fin4: na ordem que o servidor mandou, maior movimentado primeiro',
+     f4Brutos.every(function (v, i) { return i === 0 || f4Brutos[i - 1] >= v; }),
+     f4Brutos.join(' > '));
+  ok('fin4: o valor movimentado sai em BRL, nao em numero cru',
+     f4Txt('MP', '.fin-cp-bruto') === 'R$ 4.300,00',
+     f4Txt('MP', '.fin-cp-bruto'));
+  // Balde que aparece na tela e nao pode ser clicado e beco sem saida.
+  ok('fin4: o balde de nome nulo aparece como sem contraparte, em vez de sumir',
+     !!f4Item('sem contraparte') &&
+     f4Txt('sem contraparte', '.fin-cp-n') === '5 lançamentos',
+     f4Txt('sem contraparte', '.fin-cp-n'));
+  ok('fin4: e ele e clicavel pela sentinela, igual a qualquer outra entrada',
+     f4Item('sem contraparte').getAttribute('data-cp') === 'sem_contraparte',
+     f4Item('sem contraparte').getAttribute('data-cp'));
+  // Contagem sozinha inverte a ordem de atencao na cabeca de quem le: 1 linha
+  // de R$ 4.800,00 vale mais que 4 de R$ 26,00. Por isso o VALOR pendente
+  // aparece em cada entrada, e nao so o numero de linhas.
+  ok('fin4: quem tem pendente mostra quanto falta e em quantas linhas',
+     f4Txt('AGENCY FORD SUL C MODELOS', '.fin-cp-pend') === 'R$ 4.800,00 a julgar em 1',
+     f4Txt('AGENCY FORD SUL C MODELOS', '.fin-cp-pend'));
+  ok('fin4: e quem nao tem diz tudo julgado, em vez de um zero mudo',
+     f4Txt('MP', '.fin-cp-pend') === 'tudo julgado',
+     f4Txt('MP', '.fin-cp-pend'));
+  // Aplicacao e resgate nao tem lado a decidir (F3): a linha de f6, categoria
+  // de natureza neutro, nao pode entrar no que a tela cobra.
+  ok('fin4: o pendente segue a definicao do F3, e nao conta a categoria neutra',
+     f4Txt('sem contraparte', '.fin-cp-pend') === 'R$ 145,50 a julgar em 2',
+     f4Txt('sem contraparte', '.fin-cp-pend'));
+  var f4Cobra = finQA('.fin-cp-item.cobra');
+  ok('fin4: so quem tem pendente ganha a marca de cobranca',
+     f4Cobra.length === 3 && f4Cobra.every(function (x) {
+       return x.querySelector('.fin-cp-pend').textContent !== 'tudo julgado'; }),
+     'cobra=' + f4Cobra.length);
+  // Trabalho pendente COBRA (--morno), nao e falha de sistema (--erro). Zero
+  // token novo: e o mesmo morno de .fin-sec.cobra e .fin-lin.nc.
+  ok('fin4: a cobranca le em --morno-fg, nunca em --erro',
+     finCor(f4Cobra[0].querySelector('.fin-cp-pend')) === COR_MORNO,
+     finCor(f4Cobra[0].querySelector('.fin-cp-pend')));
+  // F4: o erro de netting sobre janela ja custou tres numeros publicados
+  // errados sobre a BR IPHONES. A palavra na tela e movimentado, e a nota
+  // existe para que ela nunca seja lida como saldo.
+  ok('fin4: a nota diz que movimentado nao e saldo nem divida de ninguem',
+     finQ('.fin-cp-nota').textContent.indexOf('Não é saldo') > 0 &&
+     finQ('.fin-cp-nota').textContent.indexOf('não se cancelam') > 0,
+     finQ('.fin-cp-nota').textContent.slice(0, 60));
+  // Tela que omite recorte mente por omissao. Sem truncar, a frase diz que
+  // esta tudo ali, e declara quanto falta julgar no que esta na tela.
+  ok('fin4: sem corte, o recorte declara o total e quanto ainda falta julgar',
+     finQ('.fin-cp-corte').textContent ===
+       '7 contrapartes nesta janela, todas na tela. Somam R$ 4.995,50 ainda a julgar.',
+     finQ('.fin-cp-corte').textContent);
+  // A soma declarada tem que fechar com as entradas desenhadas. Numero de
+  // rodape que nao fecha com a lista acima e uma segunda mentira em cima da
+  // primeira.
+  var f4Soma = 0;
+  f4Itens.forEach(function (x) {
+    var t = x.querySelector('.fin-cp-pend').textContent;
+    if (t !== 'tudo julgado') f4Soma += f4Num(t); });
+  ok('fin4: e a soma declarada fecha com as entradas da propria lista',
+     Math.abs(f4Soma - 4995.5) < 0.005, 'somei ' + f4Soma);
+
+  // ---- o corte de 200: a tela DECLARA o recorte --------------------------
+  // Na base viva sao 364 contrapartes e a RPC devolve 200. "e mais..." nao e
+  // declaracao: e omissao com cara de gentileza. O que se declara e o que o
+  // payload PROVA, e por isso a porcentagem de cobertura NAO e desenhada (a
+  // RPC nao manda o pendente total do recorte, e dividir o que chegou por si
+  // mesmo daria 100% sempre).
+  window.__FIN_CP_TRUNC = 1;
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(420);
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  var f4Corte = finQ('.fin-cp-corte').textContent;
+  ok('fin4: com o corte, a tela diz quantas vieram de quantas existem',
+     f4Corte.indexOf('Mostrando as 7 de 364 contrapartes') === 0, f4Corte.slice(0, 70));
+  ok('fin4: e diz o que fazer para alcancar as que ficaram de fora',
+     f4Corte.indexOf('357 de fora são as menores') > 0 &&
+     f4Corte.indexOf('estreite o período') > 0, f4Corte.slice(-90));
+  ok('fin4: a lista continua com as 7 que chegaram, sem inventar as 357',
+     finQA('.fin-cp-item').length === 7, 'itens=' + finQA('.fin-cp-item').length);
+  window.__FIN_CP_TRUNC = 0;
+
+  // ---- o filtro por contraparte -----------------------------------------
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(420);
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  var f4Todas = finQA('.fin-lin').length;
+  ok('fin4: sem filtro, p_contraparte vai NULO, nunca string vazia',
+     f4Args().p_contraparte === null, JSON.stringify(f4Args().p_contraparte));
+  f4Item('UBER DO BRASIL TECNOLOGIA LTDA').click();
+  await espera(460);
+  ok('fin4: clicar na contraparte manda o nome para o servidor',
+     f4Args().p_contraparte === 'UBER DO BRASIL TECNOLOGIA LTDA',
+     JSON.stringify(f4Args().p_contraparte));
+  ok('fin4: e a lista encolhe para as linhas daquela contraparte',
+     finQA('.fin-lin').length === 4 && f4Todas > 4,
+     finQA('.fin-lin').length + ' de ' + f4Todas);
+  // O detalhe que decide se a tela presta: o resumo IGNORA o proprio filtro.
+  // Se encolhesse junto, a lista viraria uma linha no instante do clique e o
+  // caminho de volta sumiria da tela.
+  ok('fin4: mas o resumo NAO encolhe, senao o caminho de volta sumia',
+     finQA('.fin-cp-item').length === 7, 'itens=' + finQA('.fin-cp-item').length);
+  ok('fin4: o item ativo se declara pressionado, e so ele',
+     f4Item('UBER DO BRASIL TECNOLOGIA LTDA').getAttribute('aria-pressed') === 'true' &&
+     finQA('.fin-cp-item[aria-pressed="true"]').length === 1,
+     'pressionados=' + finQA('.fin-cp-item[aria-pressed="true"]').length);
+  // A barra le o ECO do servidor, nunca o estado local: o servidor normaliza o
+  // nome, e e o nome dele que prova o que foi filtrado. Mostrar o texto local
+  // seria mostrar o pedido, nao a resposta.
+  ok('fin4: a barra declara por quem esta filtrando e quantas linhas ficaram',
+     finQ('.fin-cp-ativa-nome').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA' &&
+     finQ('.fin-cp-ativa-pe').textContent === '4 lançamentos na tela',
+     finQ('.fin-cp-ativa-pe').textContent);
+  ok('fin4: e o recorte do cabecalho tambem declara a contraparte',
+     finQ('.fin-mov-cab .fin-bloco-pe').textContent
+       .indexOf('· contraparte UBER DO BRASIL TECNOLOGIA LTDA') > 0,
+     finQ('.fin-mov-cab .fin-bloco-pe').textContent.slice(-60));
+
+  // ---- o gesto que a entrega existe para dar ----------------------------
+  // Marcar de uma vez tudo o que esta na tela daquela contraparte, para a
+  // fin_classificar que JA EXISTE julgar o grupo num movimento so. Nenhum
+  // caminho novo de escrita nasce aqui: isto preenche a mesma selecao que o
+  // dono preencheria clicando caixa por caixa.
+  var f4Grav = window.__finClassificar.length;
+  finQ('[data-acao="fin-cp-todos"]').click();
+  await espera(300);
+  ok('fin4: selecionar a contraparte marca exatamente as linhas da tela',
+     finQA('.fin-lin.sel').length === 4 &&
+     finQA('.fin-chk:checked').length === 4,
+     'sel=' + finQA('.fin-lin.sel').length + ' checked=' + finQA('.fin-chk:checked').length);
+  ok('fin4: e nao grava nada: quem grava continua sendo o botao do lote',
+     window.__finClassificar.length === f4Grav,
+     'escritas=' + (window.__finClassificar.length - f4Grav));
+  // Trocar de MES nao zera o filtro: o dono persegue a mesma contraparte pelos
+  // meses. Julho so tem a linha do FORD MODELS SUL, entao o UBER fica sem
+  // nenhuma linha, que e exatamente o caso do estado vazio proprio.
+  finQ('[data-acao="fin-mes"][data-delta="-1"]').click();
+  await espera(500);
+  ok('fin4: trocar de mes NAO zera o filtro, e ele continua declarado na tela',
+     !!finQ('.fin-cp-ativa') &&
+     finQ('.fin-cp-ativa-nome').textContent === 'UBER DO BRASIL TECNOLOGIA LTDA',
+     finQ('.fin-cp-ativa') ? finQ('.fin-cp-ativa-nome').textContent : 'barra sumiu');
+  // Estado vazio que aponta para a acao errada faz o dono desfazer o que estava
+  // certo: aqui a janela nao esta vazia, o FILTRO e que esta, e mandar importar
+  // o extrato seria o conselho oposto do necessario.
+  var f4Vaz = finQ('.fin-lista .estado') || finQ('.estado');
+  ok('fin4: contraparte sem linha no mes cai em estado vazio PROPRIO do filtro',
+     !!f4Vaz && f4Vaz.textContent.indexOf('Nenhum lançamento de UBER DO BRASIL TECNOLOGIA LTDA') === 0,
+     f4Vaz ? f4Vaz.textContent.slice(0, 70) : 'sem estado');
+  ok('fin4: e ele nao manda importar extrato, manda voltar para todas',
+     f4Vaz.textContent.indexOf('importar') < 0 &&
+     !!f4Vaz.querySelector('[data-acao="fin-cp-limpar"]'),
+     f4Vaz.textContent.slice(-70));
+  finQ('[data-acao="fin-mes"][data-delta="1"]').click();
+  await espera(500);
+
+  // ---- os dois caminhos de volta ----------------------------------------
+  // O mesmo botao que liga e o que desliga, e o aria-pressed diz em qual dos
+  // dois estados ele esta. Sem isso o unico caminho de volta seria um segundo
+  // botao, e caminho de volta escondido e como o dono fica preso num recorte
+  // sem perceber.
+  f4Item('UBER DO BRASIL TECNOLOGIA LTDA').click();
+  await espera(460);
+  ok('fin4: clicar de novo na contraparte ativa desliga o filtro',
+     !finQ('.fin-cp-ativa') &&
+     f4Item('UBER DO BRASIL TECNOLOGIA LTDA').getAttribute('aria-pressed') === 'false',
+     (finQ('.fin-cp-ativa') ? 'barra ficou' : 'barra saiu') + ', pressed=' +
+     f4Item('UBER DO BRASIL TECNOLOGIA LTDA').getAttribute('aria-pressed'));
+  ok('fin4: e a lista volta inteira, com p_contraparte nulo de novo',
+     finQA('.fin-lin').length === f4Todas && f4Args().p_contraparte === null,
+     finQA('.fin-lin').length + ' linhas, p_contraparte=' + JSON.stringify(f4Args().p_contraparte));
+  // A sentinela e testada ANTES da normalizacao, no molde do sem_categoria que
+  // o fin_painel ja usa: string vazia nao filtra nada, e o balde ficaria
+  // clicavel sem efeito.
+  f4Item('sem contraparte').click();
+  await espera(460);
+  ok('fin4: a sentinela traz so as linhas que nao tem nome nenhum',
+     f4Args().p_contraparte === 'sem_contraparte' &&
+     finQA('.fin-lin').length === 5 &&
+     finQA('.fin-lin .fin-lin-cp-nome.vazia').length === 5,
+     finQA('.fin-lin').length + ' linhas, ' +
+     finQA('.fin-lin .fin-lin-cp-nome.vazia').length + ' sem nome');
+  ok('fin4: e a barra chama o balde pelo nome que a tela usa, nao pela chave',
+     finQ('.fin-cp-ativa-nome').textContent === 'sem contraparte',
+     finQ('.fin-cp-ativa-nome').textContent);
+  finQ('[data-acao="fin-cp-limpar"]').click();
+  await espera(460);
+  ok('fin4: ver todas as contrapartes limpa o filtro e some com a barra',
+     !finQ('.fin-cp-ativa') && finQA('.fin-lin').length === f4Todas,
+     (finQ('.fin-cp-ativa') ? 'barra ficou' : 'barra saiu') + ', ' +
+     finQA('.fin-lin').length + ' linhas');
+  // Sair da sub-view zera: o filtro e recorte de trabalho, nao preferencia.
+  // Voltar dias depois e achar a lista cortada por um nome que ninguem lembra
+  // de ter clicado e a armadilha do formulario preso a uma linha que morreu.
+  f4Item('MP').click();
+  await espera(460);
+  ok('fin4: o filtro sobrevive dentro da sub-view',
+     !!finQ('.fin-cp-ativa') && f4Args().p_contraparte === 'MP',
+     JSON.stringify(f4Args().p_contraparte));
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(420);
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  ok('fin4: mas sair da sub-view zera o filtro, sem deixar recorte esquecido',
+     !finQ('.fin-cp-ativa') && f4Args().p_contraparte === null &&
+     finQA('.fin-lin').length === f4Todas,
+     JSON.stringify(f4Args().p_contraparte) + ', ' + finQA('.fin-lin').length + ' linhas');
 
   fim();
 

@@ -485,7 +485,33 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v11.md` (01/09/2026, **a suite chega ao fim toda
+- topo: `handoff_financeiro_pitwall_v12.md` (02/09/2026, **cada linha sabe de quem veio
+  ou para quem foi**). Fecha a Fatia 4 INTEIRA num commit so, pelo C6: as 4 migrations
+  de 02/09 (helper unica de extracao, backfill idempotente, importacao gravando pela
+  MESMA helper, e `fin_movimentos` devolvendo a contraparte, filtrando por ela e
+  resumindo o recorte POR contraparte), a tela (linha dizendo `veio de` / `foi para`,
+  painel Por contraparte com valor pendente por nome, filtro clicavel e o recorte
+  `200 de 364` DECLARADO) e a Etapa 3, que e o motivo do handoff existir. O numero que
+  justifica, medido na base viva: julgar o pendente linha a linha custa **290 decisoes**
+  para 95% do valor; por contraparte custa **68**. A Etapa 3 fechou a ressalva que o
+  handoff da vitrine tinha deixado escrita, de que o painel **nunca fora medido
+  populado**, e pegou DOIS defeitos: o `<b>` do recorte cobrindo **100%** do valor em
+  360px (mesma quebra inline que a Etapa 2 ja consertara no vizinho) e o painel inteiro
+  invisivel para o guard-rail de celular. O `diag_mobile.py` ganhou `retVis()`, o
+  retangulo cortado por todo ancestral que clipa: ele so olhava `overflowX`, e com o
+  painel populado acusou de 8 a 14 sobreposicoes por largura que o olho nao ve. **Isso
+  aperta, nao afrouxa**, e a prova de que a ferramenta continua mordendo esta na secao 4
+  do handoff, por mutacao. Suite: **1037 passou, 0 falhou, 1042 declaradas, 1037
+  executadas**, com **40 assercoes `fin4:`** novas; a que mais importa (`o resumo NAO
+  encolhe quando o filtro liga`) foi provada por mutacao. No MESMO push, em commit
+  separado, a entrega irma do frontend: o `.conteudo` travava em 1080px e encostava na
+  esquerda, deixando **608px de tela vazia a 1920px nas 14 abas** (1248px a 2560px);
+  agora sobe por degrau e centra, e nasceu o `ferramentas/diag_largo.py`, que mede tela
+  SOBRANDO. Aberto, e e o primeiro movimento do proximo chat: **`migrations aplicadas ==
+  versionadas` NAO foi conferido via MCP** (os dois servidores fora do ar), entao o item
+  2 do portao 6.1 fica ABERTO com testemunho de documento, nao medida.
+
+- `handoff_financeiro_pitwall_v11.md` (01/09/2026, **a suite chega ao fim toda
   vez**). Entrega de ferramenta e documento, zero migration e zero mudanca em
   `public/`. Tres defeitos da mesma familia: (1) a trava da v10 so enxerga rotulo
   LITERAL, e o laco de `dash/mes` montava o rotulo por concatenacao, entao CINCO

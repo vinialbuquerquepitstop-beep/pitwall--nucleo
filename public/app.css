@@ -3557,6 +3557,85 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   border:1px solid var(--morno-linha);border-radius:var(--radius-p);
   padding:8px 11px;margin-top:10px;line-height:1.45;
 }
+/* --- resumo por contraparte (fatia 4) ---
+   Contraparte NAO e trilho e NAO e sinal: e nome. Por isso zero token de cor
+   novo e zero matiz proprio aqui. O unico uso de cor e o --morno do que ainda
+   falta julgar, que e o mesmo token de .fin-sec.cobra e .fin-lin.nc: trabalho
+   pendente cobra, nao e falha de sistema.
+   O azul entra so pelo aria-pressed, papel MECANICO (estado pressionado de
+   filtro), a mesma familia do .fin-chip logo acima. */
+.fin-cp{
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px 12px;margin-bottom:10px;background:var(--bg);
+}
+.fin-cp-cab{cursor:pointer;line-height:1.4}
+.fin-cp-cab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.fin-cp-tit{font-size:14px;font-weight:600;letter-spacing:-.01em}
+/* inline-block, e nao inline puro: em 360px o recorte quebra em duas linhas, e
+   um <span> inline que quebra tem UM retangulo cobrindo as duas, entao ele
+   passava por cima do titulo na medida do diag_mobile. Como caixa, ele desce
+   inteiro para a linha de baixo quando nao cabe. */
+.fin-cp-pe{
+  display:inline-block;max-width:100%;overflow-wrap:anywhere;
+  font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:8px;
+}
+/* A declaracao do recorte. Mesma regra que fez a aba Conteudo declarar a
+   janela: 200 de 364 dito com numero, nunca um "e mais...". */
+.fin-cp-corte{font-size:12px;color:var(--dim);line-height:1.5;margin:8px 0 0}
+/* inline-block pelo MESMO motivo do .fin-cp-pe, e medido do mesmo jeito: em
+   360px o `7 contrapartes` quebra entre as duas palavras, e um <b> inline que
+   quebra tem UM retangulo cobrindo as duas linhas. Em 02/09/2026 esse
+   retangulo cobria 100% do `R$ 5.045,20` na medida do diag_mobile. Como caixa
+   atomica, o trecho desce inteiro para a linha de baixo quando nao cabe. */
+.fin-cp-corte b{
+  display:inline-block;color:var(--text);font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+/* overflow-x FICA em hidden, nao em auto: com auto o diag_mobile passaria a
+   classificar qualquer estouro daqui como "rola por desenho" e pararia de
+   acusa-lo. Guard-rail nao se afrouxa para caber conteudo. */
+.fin-cp-lista{
+  display:flex;flex-direction:column;margin-top:8px;
+  max-height:264px;overflow-y:auto;overflow-x:hidden;
+  border:1px solid var(--line);border-radius:var(--radius-p);
+}
+.fin-cp-item{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;
+  align-items:baseline;width:100%;text-align:left;cursor:pointer;
+  background:var(--bg);border:0;border-bottom:1px solid var(--line);
+  padding:8px 10px;font-family:var(--body);color:var(--text);
+}
+.fin-cp-item:last-child{border-bottom:0}
+.fin-cp-item:hover{background:var(--surface)}
+.fin-cp-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.fin-cp-item[aria-pressed="true"]{background:var(--accent-tint)}
+.fin-cp-item[aria-pressed="true"] .fin-cp-nome{color:var(--accent)}
+.fin-cp-nome{font-size:13px;line-height:1.35;overflow-wrap:anywhere;min-width:0}
+/* o balde de nome nulo TEM que ser clicavel: sao 19 linhas e o terceiro maior
+   bloco da base. Balde que aparece e nao se abre e beco sem saida. */
+.fin-cp-nome.vazia{color:var(--dim);font-style:normal}
+.fin-cp-bruto{
+  font-family:var(--mono);font-size:12.5px;font-weight:500;
+  font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
+}
+.fin-cp-n{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.fin-cp-pend{
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);
+  font-variant-numeric:tabular-nums;text-align:right;overflow-wrap:anywhere;
+}
+.fin-cp-item.cobra .fin-cp-pend{color:var(--morno-fg);font-weight:500}
+.fin-cp-nota{font-size:11.5px;color:var(--dim);line-height:1.5;margin:8px 0 0}
+.fin-cp-nota b{color:var(--text);font-weight:500}
+/* a barra do filtro ativo: o caminho de volta fica SEMPRE na tela. */
+.fin-cp-ativa{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  border:1px solid var(--line-forte);background:var(--surface);
+  border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;
+}
+.fin-cp-ativa-rot{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--dim)}
+.fin-cp-ativa-nome{font-size:13.5px;font-weight:600;letter-spacing:-.01em;overflow-wrap:anywhere;min-width:0}
+.fin-cp-ativa-nome.vazia{color:var(--dim);font-weight:500}
+.fin-cp-ativa-pe{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .fin-lote{display:none}
 .fin-lote.aberto{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -3588,6 +3667,24 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fin-lin-pe{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .fin-lin-data{font-variant-numeric:tabular-nums}
 .fin-lin-conta,.fin-lin-origem,.fin-lin-obs{opacity:.85}
+/* A contraparte na linha. O ROTULO fica sempre visivel, com nome ou sem nome:
+   campo que so aparece quando tem dado faz a tela sumir na base zerada.
+   Botao, e nao texto: o gesto de julgar a contraparte inteira comeca na linha
+   que o dono esta olhando. Herda o tom mono de .fin-lin-pe e nao ganha cor
+   propria, porque contraparte e nome, nao categoria nem urgencia. */
+.fin-lin-cp{
+  display:inline-flex;align-items:baseline;gap:4px;min-width:0;
+  background:none;border:0;padding:0;margin:0;cursor:pointer;
+  font-family:var(--mono);font-size:10.5px;line-height:1.45;color:var(--dim);
+  text-align:left;overflow-wrap:anywhere;
+}
+.fin-lin-cp:hover .fin-lin-cp-nome{color:var(--text);text-decoration:underline}
+.fin-lin-cp:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+/* nowrap no ROTULO: sem ele "foi para" quebrava entre as duas palavras quando o
+   nome era longo, e o rotulo do campo virava duas linhas soltas. */
+.fin-lin-cp-rot{font-style:normal;opacity:.85;white-space:nowrap}
+.fin-lin-cp-nome{font-weight:500;color:var(--text);overflow-wrap:anywhere;min-width:0}
+.fin-lin-cp-nome.vazia{color:var(--dim);font-weight:400}
 .fin-lin-val{
   font-family:var(--mono);font-size:13.5px;font-weight:500;
   font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
@@ -3668,6 +3765,16 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fin-placar .pb-num{font-size:17px}
   .fin-placar .pb-num.fin-num-p{font-size:11.5px}
   .fin-prev-cab,.fin-prev-lin{grid-template-columns:48px minmax(0,1fr) auto;gap:8px;padding:7px 9px}
+  /* No celular a lista de contrapartes divide a tela com a lista de
+     lancamentos: 200 entradas abertas empurrariam o trabalho para fora da
+     primeira dobra. A gaveta continua aberta (o controle precisa ser visto),
+     mas rola dentro de si mesma. */
+  .fin-cp-lista{max-height:216px}
+  .fin-cp-item{padding:10px}
+  /* alvo de toque: na linha densa o nome da contraparte e o unico controle de
+     10.5px, e dedo nao acerta linha de texto. */
+  .fin-lin-cp{min-height:24px;align-items:center}
+  .fin-cp-ativa .btn-cad{flex:1 1 100%}
 }
 
 /* ==========================================================================

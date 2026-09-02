@@ -97,6 +97,36 @@ function flutua(el){
   return false;
 }
 
+// Retangulo VISIVEL: o rect do elemento CORTADO por todo ancestral que esconde
+// o que passa dele (overflow hidden, auto ou scroll), nos dois eixos.
+//
+// Por que existe, medido em 02/09/2026: o resumo por contraparte (Fatia 4) mora
+// num .fin-cp-lista com max-height:264px e overflow-y:auto. Item que fica ABAIXO
+// desses 264px esta clipado na tela, mas o getBoundingClientRect dele continua
+// devolvendo a posicao real, la embaixo, em cima da nota e da barra de lote. Com
+// o painel populado isso produziu 8 a 14 "sobreposicoes" por largura, nas cinco,
+// todas de coisa que o olho NAO ve.
+//
+// Isto NAO afrouxa o guard-rail, aperta: elemento parcialmente visivel passa a
+// ser comparado pela parte que aparece, em vez de pelo retangulo inteiro. O que
+// deixa de acusar e exatamente o que esta escondido, e o que esta escondido nao
+// pode cobrir letra nenhuma. O estouro horizontal continua medido pelo rect
+// cheio, com a regra de rolaDentro() intacta.
+function retVis(el){
+  var r = el.getBoundingClientRect();
+  var l = r.left, d2 = r.right, t = r.top, b = r.bottom;
+  for (var p = el.parentElement; p && p.nodeType === 1; p = p.parentElement){
+    var s = W().getComputedStyle(p);
+    var cx = s.overflowX !== 'visible', cy = s.overflowY !== 'visible';
+    if (!cx && !cy) continue;
+    var q = p.getBoundingClientRect();
+    if (cx) { l = Math.max(l, q.left); d2 = Math.min(d2, q.right); }
+    if (cy) { t = Math.max(t, q.top); b = Math.min(b, q.bottom); }
+  }
+  return { left: l, right: d2, top: t, bottom: b,
+           width: Math.max(0, d2 - l), height: Math.max(0, b - t) };
+}
+
 function medir(rotulo){
   var raiz = D.getElementById('telaApp');
   var todos = [].slice.call(raiz.querySelectorAll('*'));
@@ -108,7 +138,8 @@ function medir(rotulo){
     for (var j = i + 1; j < alvos.length; j++){
       var a = alvos[i], b = alvos[j];
       if (a.contains(b) || b.contains(a)) continue;
-      var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      var ra = retVis(a), rb = retVis(b);
+      if (ra.width <= 0 || ra.height <= 0 || rb.width <= 0 || rb.height <= 0) continue;
       var w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
       var h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (w <= 1 || h <= 1) continue;

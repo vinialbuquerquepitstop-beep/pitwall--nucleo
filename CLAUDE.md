@@ -275,14 +275,15 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   for w in 1500 1920 2560; do python ferramentas/diag_largo.py $w; done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
-  cor computada. Estado atual medido em 01/09/2026, em 12 corridas seguidas, todas
-  EXIT 0: **997 linhas impressas** (contador `passou`, uma por chamada de `ok()` que
-  rodou), **1002 rotulos declarados**, **997 rotulos distintos executados**, 0 nao
-  executaram (5 de ramo alternativo, previstas), e EXIT 0 nas cinco larguras.
-  Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v11.md`.
+  cor computada. Estado atual medido em 02/09/2026, com a Fatia 4 fechada: **1037
+  linhas impressas** (contador `passou`, uma por chamada de `ok()` que rodou), **1042
+  rotulos declarados**, **1037 rotulos distintos executados**, 0 nao executaram (5 de
+  ramo alternativo, previstas), EXIT 0 nas cinco larguras do celular e nas tres do
+  monitor grande. As 40 novas sao as `fin4:` da contraparte.
+  Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v12.md`.
   Os dois contadores contam coisas diferentes e os dois ficam: `passou` conta CHAMADA
-  em execucao, `executadas` conta ROTULO DECLARADO distinto. Ate 01/09 este bloco dizia
-  885, numero de 26/08 que ja estava vencido; antes dele, 133, de antes da v33.
+  em execucao, `executadas` conta ROTULO DECLARADO distinto. Ate 02/09 este bloco dizia
+  997, numero de 01/09; antes dele 885, de 26/08; antes, 133, de antes da v33.
   **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
   quem nao rodar as cinco nao esta olhando para o celular.
   **`diag_largo.py` e o irmao do outro lado**, criado em 02/09/2026 porque nenhuma
