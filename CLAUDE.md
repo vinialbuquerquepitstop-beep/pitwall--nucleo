@@ -260,9 +260,10 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   causa raiz de corrupcao no historico do projeto.
 - Frontend: a suite de validacao e PYTHON, da raiz do repo (nao acorn nem jsdom, que a
   v32 afirmava por engano e nao existem aqui). Ate a v55 este bloco listava TRES
-  provas; sao SEIS comandos, e os tres que faltavam sao justamente os que pegaram
+  provas; sao SETE comandos, e os que faltavam sao justamente os que pegaram
   regressao real (o `diag_mobile` achou o botao fora da tela em 360px, o
-  `prova_grafico` achou os dois degraus indistinguiveis):
+  `prova_grafico` achou os dois degraus indistinguiveis, o `diag_largo` achou
+  608px de tela vazia a 1920px):
   ```
   python ferramentas/validar.py          # sintaxe, via esprima, + regra 11.1 do azul
   python ferramentas/harness.py          # comportamento, Chrome headless (assere cor computada)
@@ -271,6 +272,7 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   python ferramentas/prova_atmosfera.py  # contraste da aba Conteudo nos dois chaos
   node --check public/app.js
   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
+  for w in 1500 1920 2560; do python ferramentas/diag_largo.py $w; done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
   cor computada. Estado atual medido em 01/09/2026, em 12 corridas seguidas, todas
@@ -283,6 +285,13 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   885, numero de 26/08 que ja estava vencido; antes dele, 133, de antes da v33.
   **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
   quem nao rodar as cinco nao esta olhando para o celular.
+  **`diag_largo.py` e o irmao do outro lado**, criado em 02/09/2026 porque nenhuma
+  ferramenta olhava acima de 1440px: ele mede tela SOBRANDO, nao estourando. O defeito
+  que motivou: o `.conteudo` travava em 1080px e encostava na esquerda, entao um monitor
+  de 1920px mostrava 608px de vazio a direita nas 14 abas (2560px: 1248px), com a suite
+  inteira verde. Ele cobra o teto por degrau (>=1500px pede 1280, >=1800px pede 1440,
+  >=2300px pede 1600, sempre limitado pela coluna que sobra depois da barra lateral) e
+  a centragem do bloco na coluna.
   **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
   linhas verdes e pode terminar em `REPROVOU:`; ler o texto por cima ja fez commitar
   vermelho. Ao assertar UI, consultar o DOM RENDERIZADO (so `#lista`), nunca
