@@ -267,7 +267,8 @@ passou de SEIS para SETE comandos de validacao.
 | # | Pendencia | Bloqueio ou nota |
 |---|---|---|
 | 1 | ~~Conferir `migrations aplicadas == versionadas`~~ | **FECHADO** em 02/09, pelo SQL Editor, sem MCP. Secao 6.1 |
-| 1b | 138 migrations aplicadas antes de 26/08 sem arquivo no git | Divida antiga, nao regressao. Decisao do dono: exportar o schema de uma vez (`pg_dump --schema-only` numa migration de linha de base) ou aceitar declarado. Nao bloqueia a semana 3 |
+| 1b | 138 migrations aplicadas antes de 26/08 sem arquivo no git | **Encaminhado**: `.github/workflows/schema_baseline.yml` tira o retrato num clique. Falta o dono rodar. Secao 12 |
+| 1c | O backup diario nao restaurava o SISTEMA | **Corrigido no codigo, falta rodar**: `backup_git.yml` agora leva `privado` e os grants, e o drill ganhou um segundo juiz. Secao 12 |
 | 2 | Porcentagem de cobertura do pendente por contraparte | Bloqueio: exige campo novo na RPC (pendente TOTAL do recorte, antes do teto de 200). Decisao do dono |
 | 3 | Escrita de volta no Notion (kanban) | Bloqueio antigo, do v33: capability "Update content" na integracao |
 | 4 | Ultrawide acima de 2300px para em 1600px de conteudo | Nota: proposital. Se o dono usar 3440px e quiser mais, e subir um degrau |
@@ -311,3 +312,72 @@ O proprio PLANO diz: se o portao reprovar, a semana 3 nao comeca.
   sem nome, e o painel tem estado vazio proprio.
 - **Guard-rail nao se cala**: a ferramenta que incomodou ficou mais exata, e a prova de
   que ela continua mordendo esta na secao 4.
+
+---
+
+## 12. Achado de infraestrutura: o backup salvava o dado, nao o sistema
+
+Encontrado em 02/09/2026 enquanto se procurava um caminho para exportar o schema
+sem `pg_dump` na maquina do dono (ele nao tem `pg_dump`, `psql` nem Docker; tem node
+e Python).
+
+O `backup_git.yml` rodava:
+
+```
+pg_dump --schema=public --no-privileges
+```
+
+Duas omissoes, as duas estruturais:
+
+1. **O schema `privado` ficava de fora.** E onde moram `fn_tenant_atual` e
+   `fn_papel_atual` (invariante 8), e TODA policy de RLS chama as duas. O restore
+   devolvia as tabelas com as policies apontando para funcao que nao existe.
+2. **`--no-privileges` jogava fora GRANT e REVOKE**, que sao literalmente o conteudo
+   das cinco migrations de seguranca `seg_a` a `seg_e` e do
+   `b1_revoke_anon_execute_rpcs`. No restore, `authenticated` ficava sem acesso a nada.
+
+E o `restore_drill.yml`, que existe para pegar isso, contava linhas em `lead`,
+`tenant` e `dicionario_rotulos`, tolerava erro no `pg_restore` (`|| true`) e nunca
+conferia schema, funcao helper, policy ou grant. **Ele provava que o dado volta, nao
+que o sistema volta**, e ficava verde enquanto a rede de seguranca estava furada.
+
+### O que foi feito
+
+| Arquivo | Mudanca |
+|---|---|
+| `.github/workflows/backup_git.yml` | `--schema=privado` entra, `--no-privileges` sai. `--no-owner` fica (o dono original nao existe no destino) |
+| `.github/workflows/restore_drill.yml` | segundo juiz: exige schema `privado`, as DUAS helpers, RLS ligada em `lead`, >=10 policies em public, >=10 funcoes executaveis por `authenticated`, `anon` executando MENOS que `authenticated`, e `authenticated` SEM TRUNCATE em `lead` (invariante 9) |
+| `.github/workflows/schema_baseline.yml` | novo, manual: `pg_dump --schema-only` de public + privado COM os grants, mais um registro do `pg_cron`, dos buckets de Storage e das extensoes, com varredura de segredo antes de commitar |
+
+**Consequencia que precisa ser dita:** o drill endurecido vai **REPROVAR** contra
+qualquer dump anterior a 02/09/2026, porque aqueles dumps de fato nao restauram um
+sistema funcionando. Isso e o comportamento certo. A ordem para ficar verde e:
+rodar `backup-git` uma vez a mao, depois o drill.
+
+### O retrato NAO vai para `supabase/migrations/`
+
+Vai para `supabase/baseline/`. Nesta mesma sessao foi provado que migrations
+aplicadas == versionadas na era do Financeiro (27 contra 27). Um arquivo dentro de
+`migrations/` que nunca vai existir no ledger quebraria essa igualdade e faria a
+proxima auditoria perseguir um fantasma. `baseline/` diz o que a coisa e: retrato,
+nao migration para aplicar.
+
+### O que continua fora, declarado
+
+O dump diario continua sem a agenda do `pg_cron` (e DADO na tabela `cron.job`, de
+outro schema) e sem os buckets de Storage. Os dois saem no retrato em claro do
+`schema_baseline.yml`, que nao tem PII por ser `--schema-only`. Perder a agenda e
+perder o motor da regua sem perceber, porque as funcoes continuam todas la, so que
+ninguem as chama.
+
+### Prova
+
+Nao ha prova de execucao: os tres workflows rodam no GitHub Actions, com um secret que
+esta la e nao aqui. O que foi provado nesta maquina, e o maximo que da:
+
+| O que | Como | Resultado |
+|---|---|---|
+| os tres YAML sao validos | `yaml.safe_load` | ok nos tres (5, 8 e 6 passos) |
+| os 16 blocos `run:` sao shell valido | `bash -n` em cada um | 16 ok, 0 falha |
+
+**O verde de verdade so existe depois de o dono clicar em Run workflow nos dois.**

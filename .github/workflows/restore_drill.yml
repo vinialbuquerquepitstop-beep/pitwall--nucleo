@@ -134,6 +134,63 @@ jobs:
           fi
           echo "DRILL APROVADO: o backup real decifra, restaura e traz os dados intactos."
 
+      - name: Conferir o SISTEMA restaurado (segundo juiz, 02/09/2026)
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          q() { psql "$SCRATCH_URL" -tAc "$1"; }
+
+          # POR QUE ESTE PASSO EXISTE. Ate 02/09/2026 o drill contava linhas em
+          # lead, tenant e dicionario_rotulos e dava verde. Isso prova que o
+          # DADO volta, e nao que o SISTEMA volta. Naquele dia foi medido que o
+          # backup nao levava o schema `privado` (onde moram fn_tenant_atual e
+          # fn_papel_atual, que TODA policy de RLS chama) nem os GRANT/REVOKE
+          # (--no-privileges). Ou seja: o restore devolvia tabelas com policy
+          # apontando para funcao inexistente e sem acesso nenhum concedido, e
+          # o drill aplaudia.
+          #
+          # Este juiz olha a MECANICA: o schema privado, as duas helpers, a RLS
+          # ligada, as policies, quem pode executar funcao e quem nao pode.
+          #
+          # ESPERADO: dump gerado ANTES de 02/09/2026 REPROVA aqui. Isso e o
+          # certo, nao defeito do drill: aqueles dumps nao restauram um sistema
+          # funcionando. Rode o workflow backup-git uma vez para gerar um dump
+          # no formato novo e rode o drill de novo.
+          PRIVADO="$(q "select count(*) from pg_namespace where nspname='privado'")"
+          HELPERS="$(q "select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname='privado' and p.proname in ('fn_tenant_atual','fn_papel_atual')")"
+          RLS="$(q "select relrowsecurity from pg_class where oid = 'public.lead'::regclass")"
+          POL="$(q "select count(*) from pg_policies where schemaname='public'")"
+          EXEC_AUTH="$(q "select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname='public' and has_function_privilege('authenticated', p.oid, 'execute')")"
+          EXEC_ANON="$(q "select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname='public' and has_function_privilege('anon', p.oid, 'execute')")"
+          TRUNC="$(q "select has_table_privilege('authenticated','public.lead','truncate')")"
+
+          echo "----------------------------------------"
+          echo "schema privado          : $PRIVADO   (esperado = 1)"
+          echo "helpers de RLS no privado: $HELPERS  (esperado = 2)"
+          echo "RLS ligada em lead      : $RLS       (esperado = t)"
+          echo "policies em public      : $POL       (esperado >= 10)"
+          echo "funcoes executaveis por authenticated: $EXEC_AUTH (esperado >= 10)"
+          echo "funcoes executaveis por anon         : $EXEC_ANON (esperado < authenticated)"
+          echo "authenticated pode TRUNCATE lead     : $TRUNC     (esperado = f, invariante 9)"
+          echo "----------------------------------------"
+
+          fail=0
+          [ "$PRIVADO" -eq 1 ] || { echo "FALHA: o schema privado nao veio no dump. Toda policy de RLS chama funcao dele."; fail=1; }
+          [ "$HELPERS" -eq 2 ] || { echo "FALHA: fn_tenant_atual e/ou fn_papel_atual ausentes ($HELPERS de 2)."; fail=1; }
+          [ "$RLS" = "t" ]     || { echo "FALHA: RLS desligada em public.lead."; fail=1; }
+          [ "$POL" -ge 10 ]    || { echo "FALHA: so $POL policies em public; o dump nao trouxe as regras de isolamento."; fail=1; }
+          [ "$EXEC_AUTH" -ge 10 ] || { echo "FALHA: authenticated executa so $EXEC_AUTH funcoes; os GRANT nao vieram no dump."; fail=1; }
+          [ "$EXEC_ANON" -lt "$EXEC_AUTH" ] || { echo "FALHA: anon executa tanto quanto authenticated ($EXEC_ANON x $EXEC_AUTH); as revogacoes nao vieram."; fail=1; }
+          [ "$TRUNC" = "f" ]   || { echo "FALHA: authenticated tem TRUNCATE em lead, contra o invariante 9."; fail=1; }
+
+          if [ "$fail" -ne 0 ]; then
+            echo "DRILL REPROVADO: o backup devolve o DADO, mas nao o SISTEMA."
+            echo "Se este dump e anterior a 02/09/2026, e isso mesmo: rode o"
+            echo "workflow backup-git uma vez e repita o drill."
+            exit 1
+          fi
+          echo "SEGUNDO JUIZ APROVADO: schema privado, helpers, RLS e grants voltaram."
+
       - name: Apagar o claro temporario
         if: always()
         run: rm -f /tmp/pitwall.dump

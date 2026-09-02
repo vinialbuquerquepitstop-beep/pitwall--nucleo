@@ -18,6 +18,16 @@
 #
 # ATENCAO: o dump vira backups/pitwall_AAAAMMDD_HHMMSS.dump.gpg. Pra
 # restaurar, veja RESTAURAR mais abaixo. Sem a senha nao ha restore.
+#
+# O QUE ENTRA (corrigido em 02/09/2026): schemas public E privado, com os
+# GRANT/REVOKE. Ate essa data entrava so public e sem privilegio, e por isso
+# NENHUM dump anterior a 02/09/2026 restaura um sistema funcionando: eles
+# devolvem o dado, nao o sistema. O drill endurecido vai REPROVAR contra esses
+# dumps velhos, e isso e o comportamento certo, nao um defeito do drill.
+#
+# O que continua de fora, declarado: a agenda do pg_cron (cron.job e DADO de
+# outro schema) e os buckets de Storage. Os dois saem no retrato em claro do
+# schema_baseline.yml, que nao tem PII.
 # =====================================================================
 
 name: backup-git
@@ -72,12 +82,34 @@ jobs:
           STAMP="$(date -u +%Y%m%d_%H%M%S)"
           echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
 
-          # dump custom format do schema public inteiro (dados, RLS, funcoes, triggers)
+          # dump custom format: public E privado, com dados, RLS, funcoes,
+          # triggers e os GRANT/REVOKE.
+          #
+          # CONSERTADO EM 02/09/2026, e as duas faltas eram estruturais:
+          #
+          # 1. Faltava --schema=privado. E la que moram fn_tenant_atual e
+          #    fn_papel_atual (invariante 8), e TODA policy de RLS chama as
+          #    duas. Sem esse schema o restore devolve as tabelas com as
+          #    policies apontando para funcao que nao existe: ou tudo nega,
+          #    ou tudo estoura. O dump parecia completo porque a tabela
+          #    voltava.
+          #
+          # 2. --no-privileges jogava fora GRANT e REVOKE, que sao exatamente
+          #    o conteudo das cinco migrations de seguranca seg_a a seg_e e do
+          #    b1_revoke_anon_execute_rpcs. No restore, `authenticated` ficava
+          #    sem acesso a nada e `anon` sem as revogacoes.
+          #
+          # Ou seja: ate 02/09/2026 este backup salvava o DADO e nao salvava
+          # o SISTEMA, e o drill passava verde porque so contava linhas.
+          #
+          # --no-owner FICA: o dono original nao existe no destino de um
+          # restore, e OWNER TO quebraria a restauracao sem acrescentar
+          # seguranca nenhuma.
           pg_dump "$SUPABASE_DB_URL" \
             --schema=public \
+            --schema=privado \
             --format=custom \
             --no-owner \
-            --no-privileges \
             --file="pitwall_${STAMP}.dump"
 
           # mapeamento leve de usuarios (id + email), tambem criptografado

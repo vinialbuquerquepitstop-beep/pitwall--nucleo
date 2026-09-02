@@ -1,0 +1,181 @@
+# =====================================================================
+# Pit Wall 2.0 (Nucleo) - Linha de base do schema, EM CLARO, no repo
+# Caminho no repo: .github/workflows/schema_baseline.yml
+#
+# POR QUE EXISTE, medido em 02/09/2026: o ledger do banco
+# (supabase_migrations.schema_migrations) tem 171 linhas e a pasta
+# supabase/migrations/ tem 39 arquivos. Cento e trinta e oito mudancas de
+# schema, entre elas as cinco migrations de seguranca seg_a a seg_e e o
+# b1_revoke_anon_execute_rpcs, foram aplicadas por apply_migration antes de o
+# habito de versionar existir, e nunca viraram arquivo. Ou seja: reconstruir o
+# banco a partir do git NAO funciona hoje.
+#
+# Este workflow tira o retrato do schema atual e commita em claro, para o git
+# voltar a descrever o banco. Roda SO quando voce clica.
+#
+# ONDE O ARQUIVO CAI, e por que nao em supabase/migrations/:
+#   supabase/baseline/<data>_schema_baseline.sql
+# Em 02/09/2026 foi provado que migrations aplicadas == migrations versionadas
+# na era do Financeiro (27 contra 27). Um arquivo dentro de migrations/ que
+# nunca vai existir no ledger quebraria essa igualdade e faria a proxima
+# auditoria perseguir um fantasma. baseline/ diz o que a coisa e: RETRATO, nao
+# migration para aplicar.
+#
+# O QUE ENTRA, e por que:
+#   --schema=public --schema=privado
+#       o privado guarda fn_tenant_atual e fn_papel_atual (invariante 8), que
+#       TODA policy de RLS chama. Retrato sem ele descreve um banco que nao
+#       funciona.
+#   SEM --no-privileges
+#       GRANT e REVOKE sao o conteudo das migrations de seguranca. Um retrato
+#       sem ACL apaga justamente o trabalho que mais custou.
+#   --schema-only
+#       zero linha de dado, entao zero PII. E por isso que este arquivo pode ir
+#       em claro, ao contrario do backup diario, que leva dado de cliente e vai
+#       criptografado.
+#
+# Secret exigido (o mesmo que o backup diario ja usa):
+#   SUPABASE_DB_URL   connection string do SESSION POOLER com senha
+# =====================================================================
+
+name: Linha de base do schema
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: schema-baseline
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout do repo
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Instalar cliente Postgres 17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Dump do schema (public + privado, COM os grants)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          # o binario 17 vai na frente do PATH pelo mesmo motivo do backup
+          # diario: o pg_dump 16 nativo do Ubuntu aborta com "server version
+          # mismatch" contra o Postgres do Supabase.
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          mkdir -p supabase/baseline
+          STAMP="$(date -u +%Y%m%d)"
+          echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
+          ALVO="supabase/baseline/${STAMP}_schema_baseline.sql"
+          echo "ALVO=${ALVO}" >> "$GITHUB_ENV"
+
+          pg_dump "$SUPABASE_DB_URL" \
+            --schema-only \
+            --schema=public \
+            --schema=privado \
+            --no-owner \
+            --file="$ALVO"
+
+          echo "linhas no retrato: $(wc -l < "$ALVO")"
+
+      - name: Estado operacional (pg_cron e Storage), que nao sai no pg_dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          REG="supabase/baseline/${STAMP}_estado_operacional.txt"
+          echo "REG=${REG}" >> "$GITHUB_ENV"
+
+          # A regua de cadencia roda por pg_cron, e a AGENDA e DADO na tabela
+          # cron.job, nao schema: pg_dump --schema-only nao a traz. Perder a
+          # agenda e perder o motor sem perceber, porque as funcoes continuam
+          # todas la, so que ninguem as chama.
+          # Buckets e policies de Storage vivem no schema `storage`, que e da
+          # Supabase e nao entra no retorno acima pelo mesmo motivo.
+          {
+            echo "# Estado operacional do Pit Wall, tirado em $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "# REGISTRO, nao script: nada aqui se aplica de volta rodando o arquivo."
+            echo
+            echo "## pg_cron (cron.job)"
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -P pager=off \
+              -c "select jobid, jobname, schedule, active, command from cron.job order by jobid" \
+              2>&1 || echo "(sem acesso a cron.job)"
+            echo
+            echo "## Storage: buckets"
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -P pager=off \
+              -c "select id, name, public, file_size_limit from storage.buckets order by id" \
+              2>&1 || echo "(sem acesso a storage.buckets)"
+            echo
+            echo "## Storage: policies em storage.objects"
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -P pager=off \
+              -c "select policyname, cmd, roles::text from pg_policies where schemaname='storage' and tablename='objects' order by policyname" \
+              2>&1 || echo "(sem acesso a pg_policies de storage)"
+            echo
+            echo "## Extensoes instaladas"
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -P pager=off \
+              -c "select extname, extversion from pg_extension order by extname" \
+              2>&1 || echo "(sem acesso a pg_extension)"
+          } > "$REG"
+
+          wc -l "$REG"
+
+      - name: Varredura de segredo (este arquivo vai em CLARO)
+        run: |
+          set -euo pipefail
+          # --schema-only nao leva dado, mas CORPO DE FUNCAO leva, e funcao que
+          # chama servico externo pode ter token chumbado dentro. Se tiver, o
+          # arquivo NAO pode ser commitado em claro: aborta aqui.
+          #
+          # A palavra `service_role` sozinha NAO conta: ela aparece em todo
+          # GRANT legitimo, e barrar por ela reprovaria todo retrato. O que se
+          # procura e MATERIAL DE CHAVE.
+          PADRAO='eyJ[A-Za-z0-9_-]{20,}|sbp_[A-Za-z0-9]{20,}|sk_(live|test)_[A-Za-z0-9]{10,}|Bearer[[:space:]]+[A-Za-z0-9._-]{20,}|postgres(ql)?://[^[:space:]:]+:[^[:space:]@]+@'
+          achou=0
+          for f in "$ALVO" "$REG"; do
+            if grep -nEI "$PADRAO" "$f" > /tmp/achados.txt 2>/dev/null; then
+              echo "SEGREDO POSSIVEL em $f:"
+              # imprime so o numero da linha e o padrao que casou, nunca o valor
+              cut -d: -f1 /tmp/achados.txt | sed "s|^|  linha |"
+              achou=1
+            fi
+          done
+          rm -f /tmp/achados.txt
+          if [ "$achou" -ne 0 ]; then
+            echo
+            echo "ABORTADO: o retrato tem material de chave e NAO foi commitado."
+            echo "Tire o segredo do corpo da funcao (use vault ou variavel de"
+            echo "ambiente) e rode este workflow de novo."
+            exit 1
+          fi
+          echo "varredura limpa: nenhum material de chave nos dois arquivos."
+
+      - name: Commit e push do retrato
+        run: |
+          set -euo pipefail
+          git config user.name  "pitwall-backup-bot"
+          git config user.email "actions@github.com"
+          git add supabase/baseline/
+          if git diff --cached --quiet; then
+            echo "O schema nao mudou desde o ultimo retrato; sem commit."
+            exit 0
+          fi
+          git commit -m "baseline: retrato do schema em ${STAMP} (public + privado, com grants)"
+          git push
