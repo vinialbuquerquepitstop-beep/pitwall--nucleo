@@ -370,14 +370,59 @@ outro schema) e sem os buckets de Storage. Os dois saem no retrato em claro do
 perder o motor da regua sem perceber, porque as funcoes continuam todas la, so que
 ninguem as chama.
 
-### Prova
+### Prova, com os tres workflows RODADOS
 
-Nao ha prova de execucao: os tres workflows rodam no GitHub Actions, com um secret que
-esta la e nao aqui. O que foi provado nesta maquina, e o maximo que da:
+Estatica, nesta maquina, antes de subir:
 
 | O que | Como | Resultado |
 |---|---|---|
 | os tres YAML sao validos | `yaml.safe_load` | ok nos tres (5, 8 e 6 passos) |
 | os 16 blocos `run:` sao shell valido | `bash -n` em cada um | 16 ok, 0 falha |
 
-**O verde de verdade so existe depois de o dono clicar em Run workflow nos dois.**
+E de execucao, disparada daqui pelo `gh` (que ESTA instalado e autenticado nesta
+maquina, com escopos `gist, read:org, repo`, ao contrario do que a memoria do projeto
+afirmava), em 02/09/2026:
+
+| Workflow | Run | Conclusao |
+|---|---|---|
+| `backup-git` | 33692600882 | **success** |
+| Drill de restauracao | 33692676952 | **success** |
+| Linha de base do schema | 33692751210 | **success** |
+
+O segundo juiz do drill, contra o dump NOVO, imprimiu:
+
+```
+schema privado          : 1   (esperado = 1)
+helpers de RLS no privado: 2  (esperado = 2)
+RLS ligada em lead      : t   (esperado = t)
+policies em public      : 75  (esperado >= 10)
+funcoes executaveis por authenticated: 62 (esperado >= 10)
+funcoes executaveis por anon         : 0  (esperado < authenticated)
+authenticated pode TRUNCATE lead     : f  (esperado = f, invariante 9)
+APROVADO: schema privado, helpers, RLS e grants voltaram.
+```
+
+`anon` executando **0** funcoes e a medida de que as revogacoes das migrations de
+seguranca sobreviveram ao ciclo dump/restore, que era exatamente o que nao acontecia
+antes. O primeiro juiz seguiu verde no mesmo run (34 leads, 45 rotulos).
+
+O retrato commitado (`d149273`) tem **410.755 bytes** e descreve:
+
+| Objeto | Quantidade |
+|---|---|
+| `CREATE TABLE` | 40 |
+| `CREATE FUNCTION` | 94 |
+| `CREATE POLICY` | 75 |
+| `CREATE TRIGGER` | 34 |
+| `GRANT` | 261 |
+| `REVOKE` | 91 |
+
+E o `20260902_estado_operacional.txt` registrou o que nenhum `pg_dump --schema-only`
+traz: os **3 jobs do pg_cron** (`regua_pitwall_diaria` 08:00 UTC, `rotina-semear`
+08:10, `conteudo-sync` 08:30, os tres ativos), os **2 buckets** privados (`extrato`
+10MB, `nf` 15MB) com suas 4 policies, e as **7 extensoes** instaladas.
+
+A divida das 138 migrations esta fechada como retrato: o git voltou a descrever o
+banco. Ela NAO esta fechada como historia, e nunca vai estar: as mudancas de Fase 2 a
+6 continuam sem um arquivo cada uma. O retrato diz onde o banco esta, nao como ele
+chegou la.
