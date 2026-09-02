@@ -7,7 +7,18 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v68.md` (26/08/2026, **a Fatia 2 do modulo
+- topo: `handoff_migracao_pitwall_v69.md` (02/09/2026, **ponte, nao repeticao**).
+  Arquivo curto de proposito: a linha migracao estava parada no v68, de 26/08, e quem
+  abrisse sessao lendo so ele perderia SETE dias, entre eles duas fatias do Financeiro
+  e o conserto da rede de backup. Ele mapeia o que aconteceu entre 26/08 e 02/09 e da o
+  estado do sistema em uma pagina: banco (171 no ledger, 27 contra 27 na era
+  financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
+  de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
+  workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
+  linha financeiro. Unico item aberto, e nao e de codigo: a cobertura da base esta em
+  **18,55%** e o portao pede 95%.
+
+- `handoff_migracao_pitwall_v68.md` (26/08/2026, **a Fatia 2 do modulo
   Financeiro: regras de classificacao automatica, 6 migrations e a quarta sub-view**).
   Sessao de retomada, disparada por "retorne o processo de financas, app caiu". O
   arranque achou DUAS linhas do v67 ja vencidas: a Fatia 1 estava commitada E publicada

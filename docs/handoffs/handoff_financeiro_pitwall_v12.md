@@ -426,3 +426,62 @@ A divida das 138 migrations esta fechada como retrato: o git voltou a descrever 
 banco. Ela NAO esta fechada como historia, e nunca vai estar: as mudancas de Fase 2 a
 6 continuam sem um arquivo cada uma. O retrato diz onde o banco esta, nao como ele
 chegou la.
+
+---
+
+## 13. A medida do portao, tirada no fim da sessao
+
+Primeira vez que a cobertura da base foi medida. Veio pelo SQL Editor, chamando a
+helper privada direto, porque a RPC publica `fin_cobertura` recusa com
+`Sessao invalida.` fora de uma sessao com JWT (`privado.fn_tenant_atual()` volta nulo
+para o papel `postgres`), e isso e o comportamento CERTO, nao um defeito:
+
+```sql
+select privado.fn_fin_cobertura(
+  '00000000-0000-0000-0000-000000000001', '1900-01-01', '2100-01-01');
+```
+
+| | |
+|---|---|
+| valor bruto total | R$ 444.820,68 |
+| ja julgado | R$ 82.521,33 (**18,55%**) |
+| **pendente** | **R$ 362.299,35 em 785 linhas** de 1.132 |
+| empresa | R$ 22.533,00 em 16 linhas |
+| pessoal | R$ 16.100,33 em 292 linhas |
+| neutro (aplicacao e resgate) | R$ 43.888,00 em 39 linhas |
+
+**O portao pede 95%. A base esta em 18,55%.** A semana 3 nao comeca.
+
+### As 25 maiores contrapartes pendentes cobrem 78,3%
+
+Somadas, as 25 primeiras dao **R$ 283.653,99** de R$ 362.299,35 pendentes. Julgar so
+essas 25 leva a cobertura de 18,55% para cerca de **82%**. Para cruzar os 95% faltam
+mais ~R$ 60,5 mil, que vem das contrapartes seguintes da mesma lista.
+
+Isso confirma, na base viva, o numero que a migration da Fatia 4 tinha medido: o
+trabalho por contraparte e uma ordem de grandeza menor do que linha a linha.
+
+### Tres achados da lista, e os tres mudam o trabalho
+
+1. **`BR IPHONES IMPORTACAO LTDA` (R$ 44.287, 16 linhas) e `BR IPHONES IMP LTDA`
+   (R$ 7.110, 5 linhas) sao a MESMA empresa.** Juntas somam R$ 51.397 em 21 linhas, o
+   maior bloco da base, partido em dois lugares da lista. E exatamente a fraqueza
+   declarada da Fatia 4: o nome vem do texto do extrato e nao tem chave. **Nao unificar
+   sozinho** (a mesma regra de `fornecedores-mesma-pessoa`): uma regra com padrao
+   `BR IPHONES` do tipo `contem` pega as duas grafias sem precisar de apelido nenhum.
+2. **`VINICIUS DE ALBUQUERQUE BATISTA` (R$ 7.399, 15 linhas) e o proprio dono.**
+   Transferencia entre contas dele nao e gasto nem receita. Classificar como despesa
+   infla o custo sem que dinheiro nenhum tenha saido. Candidato a repasse ou a neutro,
+   e quem decide e ele.
+3. **`(sem contraparte)`, R$ 19.900 em 12 linhas**, e o quarto maior bloco e nao tem
+   nome para agrupar. Essas 12 se olham uma a uma; nao ha atalho.
+
+### O conselho: regras, nao cliques
+
+O painel novo resolve o PASSADO de um nome num gesto. Uma **regra** da Fatia 2 resolve
+o passado E todo mes que vem, porque o extrato de outubro vai ter BR IPHONES de novo.
+Os nomes do topo da lista sao exatamente a pauta de quais regras criar. Julgar 68
+contrapartes a mao e uma noite de trabalho que se repete todo mes; escrever ~30 regras
+e uma noite so.
+
+Recomendacao registrada, decisao do dono.
