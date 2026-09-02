@@ -268,6 +268,7 @@ passou de SEIS para SETE comandos de validacao.
 |---|---|---|
 | 1 | ~~Conferir `migrations aplicadas == versionadas`~~ | **FECHADO** em 02/09, pelo SQL Editor, sem MCP. Secao 6.1 |
 | 1b | 138 migrations aplicadas antes de 26/08 sem arquivo no git | **Encaminhado**: `.github/workflows/schema_baseline.yml` tira o retrato num clique. Falta o dono rodar. Secao 12 |
+| 1d | `20260902_fin_fatia4_regra_recusa_categoria_nao_manual.sql` ESCRITA e **NAO APLICADA** | Bloqueio: os dois MCP do Supabase fora. Aplicar pelo SQL Editor nao gera linha no ledger e quebraria a igualdade 27 contra 27 provada hoje, entao fica para a primeira sessao com `apply_migration` vivo. **E a primeira coisa a fazer.** Enquanto isso o furo so e alcancavel por quem criar regra com categoria `repasse` a mao, e a pauta de regras nao tem nenhuma. Prova pronta em `ferramentas/prova_regra_repasse.sql`, para rodar logo depois de aplicar |
 | 1c | O backup diario nao restaurava o SISTEMA | **Corrigido no codigo, falta rodar**: `backup_git.yml` agora leva `privado` e os grants, e o drill ganhou um segundo juiz. Secao 12 |
 | 2 | Porcentagem de cobertura do pendente por contraparte | Bloqueio: exige campo novo na RPC (pendente TOTAL do recorte, antes do teto de 200). Decisao do dono |
 | 3 | Escrita de volta no Notion (kanban) | Bloqueio antigo, do v33: capability "Update content" na integracao |

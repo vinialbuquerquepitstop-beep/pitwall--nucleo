@@ -63,6 +63,23 @@ por decisao do proprio plano. Detalhe, lista de contrapartes e o caminho recomen
 
 ---
 
+## O que a proxima sessao faz PRIMEIRO
+
+Aplicar `supabase/migrations/20260902_fin_fatia4_regra_recusa_categoria_nao_manual.sql`
+por `apply_migration` (nao pelo SQL Editor, que nao gera linha no ledger e quebraria a
+igualdade 27 contra 27), e em seguida rodar `ferramentas/prova_regra_repasse.sql`.
+
+Ela fecha um furo achado em 02/09 lendo o codigo: a trava de categoria nao atribuivel
+a mao existia so no `fin_classificar`, e o `fin_regra_salvar` aceitava criar regra com
+categoria `repasse`, que carimbaria repasse em lote sem par. Nao houve incidente, e a
+pauta de regras de 02/09 nao tem nenhuma regra assim.
+
+Depois disso, o trabalho e do dono: aplicar as 19 regras de
+`docs/financeiro/pauta_regras_20260902.md` e parear os repasses das quatro
+contrapartes, o que leva a cobertura de 18,55% para ~72,4%.
+
+---
+
 ## Onde continuam os bloqueios antigos
 
 - **Notion "Update content"**: escrever de volta no kanban continua parado na capability
