@@ -668,8 +668,16 @@ nenhuma das duas batia com o repo.
   substitui os espalhados em `plano_de_prompts_financeiro_v1` e
   `plano_mestre_financeiro_v1`), `PLANO.md` (o plano mestre, revisao 2),
   `guia_de_uso_dos_prompts.md` (operacao e calendario, com as tres citacoes da numeracao
-  morta trocadas por F2, F3 e F1-F4 no ato da copia) e `PRD-ESTADO.md` (o PRD de estado
-  medido em 26/08, que ate 27/08 era o `doc.md` solto na raiz do repo, sem versionar).
+  morta trocadas por F2, F3 e F1-F4 no ato da copia) e `PRD-ESTADO.md` (o PRD de estado,
+  que ate 27/08 era o `doc.md` solto na raiz do repo, sem versionar).
+- **`PRD-ESTADO.md` remedido em 02/09/2026** contra o banco vivo e contra o remoto real.
+  O que mudou desde a medicao de 26/08: a base foi de **181 para 1.132 lancamentos**
+  (segunda importacao, janela 01/02 a 31/08), a Fatia 3 entrou (14 RPCs publicas, nao
+  11; `fin_movimento` com 20 colunas, nao 19), e as duas dividas graves FECHARAM (12.1,
+  o push, e 12.2, a tela que nao lia o abatimento). O gargalo hoje e humano e piorou:
+  **4,22% do valor bruto julgado** na base inteira, 9,36% em agosto, contra os 95% que o
+  F3 exige, ou **858 linhas e R$ 426.070,20** fora de todo total. Aberto e novo: a aba
+  abre no mes corrente, que hoje esta vazio (12.11).
 
 ## Linhas ainda sem agente proprio
 

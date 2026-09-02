@@ -1,43 +1,46 @@
-# PRD — Aba Financeiro (Pit Wall 2.0), estado atual
+# PRD - Aba Financeiro (Pit Wall 2.0), estado atual
 
-**Data da medicao:** 26/08/2026
-**Reconferido:** 26/08/2026, secao 12.1 e as quatro linhas que a repetiam. A divida
-mudou de forma: nao e commit faltando, e push pendente. Medido com `git ls-files`,
-`git status -sb` e `git show --name-only`.
+**Data da medicao:** 02/09/2026
+**Reconferido:** 02/09/2026, contra o banco vivo (`fin_movimento`, `fin_categoria`,
+`fin_regra`, `information_schema`, `pg_policies`) e contra o remoto real
+(`git fetch github main`). Substitui a medicao de 26/08/2026, que descrevia uma base de
+181 lancamentos e duas dividas que hoje estao fechadas (12.1 e 12.2).
 **Escopo:** ponta a ponta, do arquivo OFX no disco do dono ate o numero na tela.
 **Natureza deste documento:** PRD de ESTADO, nao de intencao. Todo numero abaixo foi
-medido no banco vivo, no git e na suite rodando nesta sessao. Onde algo nao foi medido,
-esta escrito que nao foi.
+medido no banco vivo, no git e na suite rodando. Onde algo nao foi medido, esta escrito
+que nao foi.
 
 ---
 
 ## 1. Resumo executivo em dez linhas
 
-1. A aba existe, esta publicada e tem dado real dentro: **181 lancamentos**, de
-   **28/07/2026 a 26/08/2026**, soma liquida **-R$ 29,06**.
-2. Foram entregues **duas fatias e meia**: Fatia 1 (captura e classificacao manual),
-   Fatia 2 (regras automaticas) e **so a Task 1 de 8** da Fatia 2.1.
-3. Banco: **5 tabelas**, **11 RPCs publicas**, **5 funcoes helper privadas**,
-   **13 migrations aplicadas**, 1 bucket de Storage.
+1. A aba existe, esta publicada e tem dado real dentro: **1.132 lancamentos**, de
+   **01/02/2026 a 31/08/2026**, **2 importacoes**, R$ 444.820,68 de valor bruto.
+   Em 26/08 eram 181 lancamentos de um mes so.
+2. Foram entregues **tres fatias e meia**: Fatia 1 (captura e classificacao manual),
+   Fatia 2 (regras automaticas), **so a Task 1 de 8 da Fatia 2.1**, e a **Fatia 3**
+   (cobertura, repasse em par, devolucao abatida, faixa de entrada e saida).
+3. Banco: **5 tabelas**, **14 RPCs publicas** (eram 11; a Fatia 3 acrescentou
+   `fin_cobertura`, `fin_repasse_marcar` e `fin_repasse_desmarcar`), 5 helpers privadas,
+   **22 migrations `fin_` versionadas**, 1 bucket de Storage.
 4. Tela: 1 aba com **4 sub-views** por chip (`Visão · Movimentos · Importar · Regras`).
-5. O dono usou de verdade: importou o extrato dele, criou **5 regras**, e as regras ja
-   classificaram **47 linhas sozinhas**.
-6. **72% da base segue sem julgamento**: 131 de 181 movimentos sem `dominio`, somando
-   **R$ 1.386,75** que, pelo invariante 18, ficam fora de todo total.re
-7. Suite verde, medida em 01/09/2026 em 12 corridas seguidas, todas EXIT 0: **997
-   linhas impressas** (contador `passou`), **1002 rotulos declarados**, **997 rotulos
-   distintos executados**, 0 nao executaram, EXIT 0 nos 6 comandos e nas 5 larguras.
-   Dessas, **223 sao da aba Financeiro** (87 `fin:`, 56 `fin2:`, 80 `fin3:`).
-   Ate 01/09 esta linha dizia 885 e 143, numeros de 26/08 que ja estavam vencidos.
-   Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v11.md`.
-8. Seguranca: dono-only nas 11 RPCs, RLS ligada nas 5 tabelas, zero grant para `anon`,
-   zero DELETE e zero TRUNCATE para `authenticated`. `get_advisors` nao acusa nada em
-   `fin_*`.
-9. **Divergencia aberta:** a migration da Fatia 2.1 esta **commitada e nao empurrada**
-   (commit `0fa9ed4`; local `ahead 1` de `origin/main`). O repo desta maquina ja
-   descreve o banco, o remoto ainda nao. Secao 12.1.
-10. **Defeito visivel:** o servidor ja devolve o abatimento e a tela **nao le**. Um numero
-    da Visao encolheu R$ 131,02 sem nenhuma explicacao na tela. Secao 12.2.
+5. O dono usou de verdade: importou dois extratos, criou **5 regras**, e as regras ja
+   classificaram centenas de linhas sozinhas (181 linhas so em `Transporte`).
+6. **O gargalo e o julgamento, e ele PIOROU com a segunda importacao.** Pela conta do F3
+   (tem `dominio`, ou tem categoria de natureza `neutro`), a base inteira esta
+   **4,22% julgada em VALOR**; agosto sozinho, **9,36%**. Sao **858 linhas pendentes** e
+   **R$ 426.070,20** fora de todo total, pelo invariante 18.
+7. Suite verde, medida em 01/09/2026 em 12 corridas seguidas, todas EXIT 0: **997 linhas
+   impressas** (contador `passou`), **1002 rotulos declarados**, **997 rotulos distintos
+   executados**, 0 nao executaram, EXIT 0 nos 6 comandos e nas 5 larguras. Dessas,
+   **223 sao da aba Financeiro** (87 `fin:`, 56 `fin2:`, 80 `fin3:`). Medicao de record:
+   `docs/handoffs/handoff_financeiro_pitwall_v11.md`.
+8. Seguranca: dono-only nas RPCs, RLS ligada nas 5 tabelas, zero grant para `anon`, zero
+   DELETE e zero TRUNCATE para `authenticated`. `get_advisors` nao acusa nada em `fin_*`.
+9. **A divergencia de git FECHOU.** `HEAD`, `github/main` e o app publicado estao no
+   mesmo commit `a3e7e7c`: 0 a frente, 0 atras, working tree limpa. Secao 12.1.
+10. **O defeito visivel da 12.2 FECHOU**: a tela le `abatido` e escreve a nota da
+    devolucao (commit `51226d2`). O que sobra de defeito e o da secao 12.3 em diante.
 
 ---
 
@@ -86,8 +89,11 @@ e em `fin_regra`.
 |---|---|---|
 | **1** (25-26/08) | schema, seed, bucket, importacao de OFX, classificacao manual, lancamento manual, painel, lista | **no ar**, commit `78be994` |
 | **2** (26/08) | regras de classificacao automatica, motor unico, 4a sub-view | **no ar**, commit `9649124` |
-| **2.1** (26/08) | 8 tarefas planejadas | **1 de 8 feita**, commit `0fa9ed4`, **ainda nao empurrado** |
-| 3 a 6 | teto e alerta, metas e provisao, conciliacao venda x caixa, canal externo | **nao comecaram** |
+| **2.1** (26/08) | 8 tarefas planejadas | **1 de 8 feita**, commit `0fa9ed4`. A Task 6 (nota do abatimento na tela) veio depois, por fora do plano 2.1, no commit `51226d2` |
+| **3** (31/08 a 01/09) | `fin_cobertura` e o estado degradado (a tela recusa numero economico sobre base incompleta), repasse so em par com defesa no servidor, desmarcar par, nao classificado dos dois lados, devolucao abatida com nota, faixa mostrando entrada e saida | **no ar**, commits `15ab208` `46fa983` `a702501` `c02fbfb` `1f25394` `51226d2` `33676f3` |
+| 4 | metas e provisao | **nao comecou** |
+| 5 | conciliacao venda x caixa | **nao comecou.** Proxima entrega escolhida pelo dono (secao 13) |
+| 6 | canal externo de alerta | **nao comecou**, e bloqueado por decisao, nao por codigo |
 
 ---
 
@@ -130,7 +136,7 @@ Conta bancaria ou carteira. `codigo`, `rotulo`, `banco`, `tipo`, `dominio_padrao
 
 **Estado: 1 conta.**
 
-### 6.2 `fin_categoria` (12 colunas)
+### 6.2 `fin_categoria` (13 colunas)
 
 `codigo` (a chave, invariante 12), `rotulo` (display, editavel), `grupo`,
 `natureza_esperada` (`saida` / `entrada` / `neutro`), `dominio_sugerido`, `ordem`, `ativo`.
@@ -162,16 +168,18 @@ Append-only (invariante 6). `arquivo`, `banco`, `periodo_ini`, `periodo_fim`,
 
 **Estado: 1 importacao.** 181 lidas, 181 novas, 0 duplicadas, em 26/08/2026 10:14 BRT.
 
-### 6.4 `fin_movimento` (19 colunas)
+### 6.4 `fin_movimento` (20 colunas)
 
 O fato. `data`, `descricao`, `descricao_original`, `valor` (com sinal: saida e negativa),
 `categoria_codigo`, `dominio`, `origem`, `fitid`, `hash_dedupe`, `importacao_id`,
-`venda_id`, `observacao`, `arquivado_em`.
+`venda_id`, `observacao`, `arquivado_em`, e **`repasse_id`** (Fatia 3: o par de
+repasse, que so existe aos pares e nao entra em receita nem em despesa).
 
 Dedupe: indice unico em `hash_dedupe` e outro em `fitid`. O hash carrega ocorrencia, entao
 dois cafes identicos no mesmo dia sao possiveis, mas exigem confirmacao.
 
-**Estado: 181 linhas, nenhuma arquivada, nenhuma manual, nenhuma ligada a venda.**
+**Estado em 02/09/2026: 1.132 linhas, nenhuma arquivada, nenhuma manual, nenhuma
+ligada a venda, 2 em par de repasse.**
 
 ### 6.5 `fin_regra` (15 colunas)
 
@@ -209,8 +217,8 @@ deixam o dominio em aberto. Isso e legitimo pelo desenho, mas significa que essa
 
 ## 7. Contratos de RPC
 
-11 RPCs publicas, todas `security invoker`, todas com `search_path` fixo, todas
-dono-only. Convencao de chave de erro: **leitura devolve `msg`, escrita devolve `erro`**.
+**14 RPCs publicas** (eram 11 ate a Fatia 2.1), todas `security invoker`, todas com
+`search_path` fixo, todas dono-only. Convencao de chave de erro: **leitura devolve `msg`, escrita devolve `erro`**.
 
 ### 7.1 Leitura (3)
 
@@ -246,7 +254,15 @@ Desenhar `0%` inventaria uma comparacao que nunca existiu.
 | `fin_regra_salvar(payload)` | cria (sem id) ou edita (com id). `arquivar: true` faz soft delete, **nunca DELETE** |
 | `fin_regra_aplicar(payload)` | `{ids}` ausente = todas as ativas. `alcance` default `nao_classificados`; `todos` sobrescreve |
 
-### 7.4 Helpers privadas (5)
+### 7.4 Leitura e escrita da Fatia 3 (3)
+
+| RPC | O que faz |
+|---|---|
+| `fin_cobertura(payload)` | a conta do F3 na janela: bruto, julgado, pendente, `pct_julgado`, e o recorte por dominio. E o que a tela le no **estado degradado**, quando se recusa a desenhar numero economico. Implementacao unica em `privado.fn_fin_cobertura`, a mesma que o `fin_painel` passou a usar |
+| `fin_repasse_marcar(payload)` | marca duas linhas como o mesmo dinheiro entrando e saindo. **So aceita PAR**, e a defesa vive no servidor: valor oposto, janela que atravessa a virada do mes, e recusa nomeada quando nao casa |
+| `fin_repasse_desmarcar(payload)` | desfaz o par, e devolve quantos lancamentos voltaram para a conta normal |
+
+### 7.5 Helpers privadas (5)
 
 Vivem em `privado`, invisiveis ao PostgREST (invariante 8).
 
@@ -255,7 +271,7 @@ Vivem em `privado`, invisiveis ao PostgREST (invariante 8).
 `fn_fin_aplicar_regras(tenant, regra_ids, mov_ids, alcance)` — o motor unico.
 `fn_fin_importacao_fechar(id, lidas, novas, dup)` — a unica `security definer` do modulo.
 
-### 7.5 As recusas nomeadas
+### 7.6 As recusas nomeadas
 
 A tela nunca inventa texto de erro. As que o dono pode ler:
 
@@ -296,7 +312,17 @@ que os numeros abaixo estao IGNORANDO. Diz duas coisas que a tela seria tentada 
 o valor e soma COM SINAL, e **nao respeita o filtro de dominio** (sao justamente os que
 nao tem lado), senao o dono trocaria para `Empresa` e acharia que o numero encolheu.
 
-**Hoje ela diz: 131 lancamentos, R$ 1.386,75.**
+Desde a v9 ela mostra **quanto entrou e quanto saiu separados**, nao a diferenca: uma
+entrada de 4.800 e uma saida de -4.800 se cancelavam e a faixa declarava quase zero de
+trabalho com duas linhas esperando julgamento.
+
+**Na base inteira ela cobraria hoje 860 lancamentos e R$ 435.670,20.** Na janela de
+agosto, 118 linhas e R$ 65.146,43.
+
+Acima dela, desde a Fatia 3, existe o **estado degradado**: com a cobertura abaixo do
+piso do F3, no lugar do placar a tela escreve `base incompleta: X% julgado · faltam
+R$ Y em N lançamentos`. Hoje esse e o estado normal da aba, porque a cobertura esta em
+4,22%.
 
 ### 8.2 Visão
 
@@ -366,7 +392,7 @@ generico.
 | Grant `PUBLIC` | **zero** |
 | DELETE / TRUNCATE para `authenticated` | **zero** (invariante 9) |
 | `security definer` no modulo | **1 sozinha** (`fn_fin_importacao_fechar`), privada |
-| `search_path` | fixo em todas as 11 RPCs; VAZIO nas 3 helpers de casamento |
+| `search_path` | fixo em todas as 14 RPCs; VAZIO nas 3 helpers de casamento |
 | `get_advisors` (security) | **0 achado em `fin_*`** |
 | Bucket `extrato` | privado, teto de 10 MB |
 | Path do arquivo | prefixado com `tenant_id`, recusa fora da pasta |
@@ -406,171 +432,173 @@ Outras 2 assercoes usam `suite:` e provam a propria ferramenta, nao o Financeiro
 
 ## 11. O estado real do dado, hoje
 
+Medido em 02/09/2026, ignorando arquivados (nao ha nenhum).
+
 ### 11.1 Volume
 
 | | |
 |---|---|
-| Movimentos | **181** (0 arquivados, 0 manuais, 0 ligados a venda) |
-| Janela | 28/07/2026 a 26/08/2026 |
-| Soma com sinal | **-R$ 29,06** |
-| Entradas brutas | R$ 39.795,40 |
-| Saidas brutas | -R$ 39.824,46 |
-| Importacoes | 1 |
+| Movimentos | **1.132** (0 arquivados, 0 manuais, **0 ligados a venda**) |
+| Janela | **01/02/2026 a 31/08/2026** |
+| Valor bruto | **R$ 444.820,68** |
+| Importacoes | **2** |
 | Contas | 1 |
-| Categorias | 33, em 9 grupos |
-| Regras | 5 (4 ativas) |
-| Arquivo no bucket | 1, 53.676 bytes, dono como owner |
+| Categorias | **34** |
+| Regras | 5 |
+| Movimentos em par de repasse | **2** (R$ 9.600,00 brutos, soma zero, natureza `neutro`) |
+| Vendas registradas na aba Vendas | **14** |
 
 ### 11.2 O julgamento, que e o que falta
 
-| | n | % |
-|---|---|---|
-| Sem `categoria_codigo` | **128** | 70,7% |
-| Sem `dominio` | **131** | 72,4% |
-| Classificados nos dois campos | **49** | 27,1% |
+Conta do F3, a mesma de `privado.fn_fin_cobertura`: JULGADO e ter `dominio` **ou** ter
+categoria de natureza `neutro`.
 
-**R$ 1.386,75 estao fora de todo total** por falta de `dominio`.
+| Janela | Linhas | Bruto | % julgado em VALOR | Linhas pendentes | Valor pendente |
+|---|---|---|---|---|---|
+| base inteira | 1.132 | R$ 444.820,68 | **4,22%** | **858** | **R$ 426.070,20** |
+| agosto/2026 | 175 | R$ 71.877,01 | **9,36%** | 118 | R$ 65.146,43 |
+
+Por contagem de linha o numero parece melhor (272 de 1.132 com `dominio`, 24%), e **e por
+isso que a conta do F3 e em valor**: as linhas grandes sao justamente as que ninguem
+julgou.
+
+**O alvo do medidor semanal do `PLANO.md` e 95% do valor bruto.** Estamos a 90 pontos
+dele. A segunda importacao afundou o indicador em termos absolutos: em 31/08, antes dela,
+a mesma conta dava 2,11% sobre 181 linhas; hoje da 4,22% sobre 1.132, com seis vezes mais
+trabalho humano pendente.
 
 ### 11.3 O que ja foi classificado
 
-| Categoria | Bruto gasto | Devolvido | Liquido | n |
-|---|---|---|---|---|
-| `Alimentação fora` | R$ 518,08 | — | R$ 518,08 | 19 |
-| `Transporte` | R$ 624,95 | **R$ 131,02** | **R$ 493,93** | 27 |
-| `Moradia` | R$ 219,00 | — | R$ 219,00 | 3 |
-| `Motoboy` | — | — | — | 1 |
-| `Outro (pessoal)` | — | — | — | 2 |
+Por dominio:
 
-Caixa por dominio: **empresa -R$ 20,00**, **pessoal -R$ 1.395,81**.
+| Dominio | n | Bruto | Com sinal |
+|---|---|---|---|
+| `pessoal` | 271 | R$ 9.130,48 | -R$ 7.433,28 |
+| `empresa` | **1** | R$ 20,00 | -R$ 20,00 |
+| **sem dominio** | **860** | **R$ 435.670,20** | +R$ 7.135,02 |
 
-Vale ler esse `-R$ 20,00` com atencao: a loja aparece com vinte reais de movimento num
-mes de R$ 39.795,40 de entradas. Nao e o resultado da loja, e **a medida de quanto do
-extrato ainda nao foi julgado**. E exatamente o que o invariante 18 promete: nao mentir.
+Por categoria (so as que tem linha):
+
+| Categoria | n | Bruto | Com sinal |
+|---|---|---|---|
+| `Transporte` | 181 | R$ 6.414,00 | -R$ 4.716,80 |
+| `Alimentação fora` | 87 | R$ 2.332,68 | -R$ 2.332,68 |
+| `Repasse` | 2 | R$ 9.600,00 | R$ 0,00 |
+| `Moradia` | 8 | R$ 554,00 | -R$ 554,00 |
+| `Outro (pessoal)` | 2 | R$ 106,98 | -R$ 106,98 |
+| `Motoboy` | 1 | R$ 55,00 | -R$ 55,00 |
+| **sem categoria** | **851** | - | - |
+
+Vale ler o `empresa` com atencao: **a loja aparece com UM movimento de vinte reais** numa
+base de R$ 444.820,68. Nao e o resultado da loja, e a medida de quanto do extrato ainda
+nao foi julgado. E exatamente o que o invariante 18 promete: nao mentir.
+
+A diferenca entre `Transporte` bruto (R$ 6.414,00) e com sinal (-R$ 4.716,80) e o
+abatimento de devolucao que a Fatia 2.1 introduziu e que a tela hoje explica.
 
 ---
 
 ## 12. Divergencias e divida aberta
 
-Esta secao e o motivo de o documento existir. As duas primeiras sao de hoje.
+As duas primeiras estao FECHADAS e ficam registradas com a prova de fechamento, porque
+divida que some sem registro volta.
 
-### 12.1 O commit existe, o remoto nao tem (aberta)
+### 12.1 O commit existe, o remoto nao tem, FECHADA em 02/09/2026
 
-**Reconferido depois de esta secao ser escrita, no mesmo dia.** O que ela descrevia mudou
-de forma, e a versao antiga dela ficaria aqui como divida que nao existe mais: **nao e
-mais falta de commit, e falta de push.**
-
-Os quatro arquivos que esta secao listava como sem versionar, medidos um a um com
-`git ls-files --error-unmatch`:
-
-| Arquivo | Antes | Agora |
-|---|---|---|
-| `supabase/migrations/20260826_fin_fatia21_painel_abatimento.sql` | untracked | **versionado**, commit `0fa9ed4` |
-| `docs/superpowers/specs/2026-08-26-financeiro-fatia21-design.md` | untracked | **versionado**, commit `0fa9ed4` |
-| `docs/superpowers/plans/2026-08-26-financeiro-fatia21.md` | untracked | **versionado**, commit `0fa9ed4` |
-| `docs/superpowers/plans/2026-08-19-segundo-lojista-tenant.md` | untracked | **segue untracked**, divida propria |
-
-Sobra um degrau so, e ele e real:
+O push saiu. Medido hoje com `git fetch github main`:
 
 ```
-$ git status -sb
-## main...origin/main [ahead 1]
-
-$ git rev-parse --short HEAD origin/main
-0fa9ed4    <- tem a migration da Fatia 2.1
-9649124    <- nao tem
+HEAD        a3e7e7c
+github/main a3e7e7c
+a frente: 0 · atras: 0 · working tree limpa (--untracked-files=all)
 ```
 
-Entao a frase "quem restaurar o repo do zero reconstroi um `fin_painel` **com o defeito do
-reembolso de volta**" **continua verdadeira, mas so a partir do REMOTO**. Restaurar desta
-maquina reconstroi certo. E o remoto e exatamente o que sobrevive a perda da maquina, que
-e o unico cenario para o qual backup existe. O pipeline diz que **git e a fonte da
-verdade**; hoje a fonte da verdade e um disco so.
+Nota de armadilha, que continua valendo: o remoto `origin` desta maquina aponta para
+`http://local_proxy@127.0.0.1:41729/...`, que esta **morto**, e o ref local `origin/main`
+esta congelado em `08dfcb9` de 21/07/2026. Quem comparar contra `origin` vai ver 200
+commits de atraso que nao existem. **O remoto real e `github`.**
 
-O que **nao** e consequencia disso: `0fa9ed4` nao tocou nenhum arquivo em `public/`
-(conferido com `git show --name-only`), entao o app publicado **nao** esta atrasado por
-causa dele. O deploy da Cloudflare dispara no push, e nao ha frontend neste commit para
-subir. O defeito de tela da 12.2 continua de pe pelo motivo dela, nao por este.
+### 12.2 O servidor conserta e a tela nao conta, FECHADA
 
-**Custo de fechar: `git push origin main`.**
+A tela passou a ler `abatido` e a escrever a nota da devolucao (commit `51226d2`, handoff
+v8). Medido em `public/app.js`: 4 ocorrencias de `abatido`, 22 de `devolv`.
 
-### 12.2 O servidor conserta e a tela nao conta (grave)
-
-A Task 1 da Fatia 2.1 mudou `fin_painel` para tratar entrada em categoria de gasto como
-**abatimento**, nao como receita. O calculo esta certo: `Transporte` caiu de R$ 624,95
-para R$ 493,93, e os R$ 131,02 de reembolso do Uber sairam do bloco de entradas.
-
-O `fin_painel` passou a devolver `bruto` e `abatido` por categoria, exatamente para a tela
-poder escrever a nota que a spec exige:
-
-```
-Transporte        R$ 493,93
-                  624,95 gastos menos 131,02 devolvidos · 27 linhas
-```
-
-**`app.js` nao contem uma unica ocorrencia de `abatido`.** Medido. A Task 6 (a nota do
-abatimento e o selo de `devolução`) e da Fatia 2.1 e nao foi feita.
-
-Efeito pratico: **um numero da Visao mudou sozinho R$ 131,02 e a tela nao explica por que.**
-Para o dono, que estava olhando 624,95 ontem, isso le como a tela ter passado a errar.
-Numero que muda sem explicacao gasta a confianca que a aba inteira depende de ter.
-
-### 12.3 A Fatia 2.1 esta 1/8 feita
-
-O plano em `docs/superpowers/plans/2026-08-26-financeiro-fatia21.md` tem 8 tarefas:
+### 12.3 A Fatia 2.1 esta 1/8 feita (2/8 contando a Task 6 fora de ordem)
 
 | # | Tarefa | Estado |
 |---|---|---|
-| 1 | Abatimento derivado no `fin_painel` | **feita**, commit `0fa9ed4` (nao empurrado) |
-| 2 | Procedencia gravada (`regra_id` em `fin_movimento`) | nao |
-| 3 | As tres categorias pedidas (`iFood`, obra da casa, obra da loja) | nao |
-| 4 | `fin_categoria_salvar` | nao |
+| 1 | Abatimento derivado no `fin_painel` | **feita**, `0fa9ed4` |
+| 2 | Procedencia gravada (`regra_id` em `fin_movimento`) | **nao.** Coluna nao existe, medido hoje |
+| 3 | As tres categorias pedidas (`iFood`, obra da casa, obra da loja) | **nao.** Zero categoria com `ifood` ou `obra` no codigo |
+| 4 | `fin_categoria_salvar` | **nao.** RPC nao existe |
 | 5 | `fin_movimentos` com filtro de categoria e procedencia | nao |
-| 6 | Tela: a nota do abatimento e o selo de devolucao | nao |
+| 6 | Tela: a nota do abatimento e o selo de devolucao | **feita** por fora, `51226d2` |
 | 7 | Tela: o detalhe da categoria | nao |
 | 8 | Tela: `+ Nova categoria` | nao |
 
-Confirmado no banco: **nao existe categoria `ifood` nem `obra`**, e **nao existe a coluna
-`regra_id`** nem a RPC `fin_categoria_salvar`.
+### 12.4 Nao ha caminho para criar categoria (aberta)
 
-### 12.4 Nao ha caminho para criar categoria
+Os tres bloqueios de 26/08 seguem identicos, remedidos hoje:
 
-Tres bloqueios independentes, todos medidos:
-
-1. nao existe RPC de escrita de categoria;
-2. `fin_categoria` nao tem policy de INSERT (so `fin_categoria_sel`);
-3. `authenticated` tem **so SELECT** em `fin_categoria`.
+1. nao existe RPC de escrita de categoria (`fin_categoria_salvar` = 0);
+2. `fin_categoria` nao tem policy de INSERT (0 em `pg_policies`);
+3. `authenticated` nao tem grant de INSERT em `fin_categoria` (0).
 
 O pedido do dono (`crie categorias de ifood, obra`) segue sem atendimento, e hoje so se
-resolve por migration.
+resolve por migration. **Custa caro agora**: com 851 linhas sem categoria para julgar, a
+falta de vocabulario e parte do gargalo da secao 11.2.
 
-### 12.5 Nao ha caminho para remover ou arquivar um movimento errado
+### 12.5 Nao ha caminho para remover ou arquivar um movimento errado (aberta)
 
-`fin_movimento.arquivado_em` **existe como coluna** e e usada como filtro em toda leitura.
-**Nada nunca escreve nela.** Verificado: o unico `set arquivado_em` do modulo esta em
-`fin_regra`, nao em `fin_movimento`. E nao ha DELETE para `authenticated`.
+`fin_movimento.arquivado_em` existe e e usada como filtro em toda leitura, inclusive na
+conta do F3. **Nada nunca escreve nela**: o unico `set arquivado_em` do modulo esta em
+`fin_regra`. Nao ha DELETE para `authenticated`. Um lancamento errado que entre na base
+nao tem como sair.
 
-Ou seja: **um lancamento errado que entre na base nao tem como sair.** Metade da queixa
-original do dono ("nao tendo onde corrigir a entrada equivocada vista") foi respondida
-pelo abatimento; esta metade nao foi, e nao esta em nenhuma das 8 tarefas do plano 2.1.
+### 12.6 O saldo do extrato e guardado e nunca conferido (aberta)
 
-### 12.6 O saldo do extrato e guardado e nunca conferido
+`saldo_final_informado` recebe o `LEDGERBAL` do OFX e nenhuma RPC compara com a soma dos
+movimentos. **Com duas importacoes na base, essa conferencia deixou de ser barata de
+adiar**: e ela que pega importacao incompleta ou linha duplicada entre os dois arquivos.
 
-`saldo_final_informado` recebe o `LEDGERBAL` do OFX e **nenhuma RPC compara com a soma dos
-movimentos**. E justamente a conferencia que pega importacao incompleta. Herdado do v67,
-ainda aberto, e barato de fechar.
+### 12.7 Categoria que zerou some da secao (aberta)
 
-### 12.7 Categoria que zerou some da secao
+Parar de gastar tambem e um fato, e a Visao nao o mostra.
 
-Parar de gastar tambem e um fato, e a Visao nao o mostra. Herdado, ainda aberto.
+### 12.8 Duas regras ativas sem `dominio` (aberta)
 
-### 12.8 Duas regras ativas sem `dominio`
+Remedido hoje: **2 regras ativas com `dominio` nulo**. Classificam categoria e deixam o
+dominio em aberto, entao as linhas que elas pegam continuam fora de todo total. A tela nao
+chama atencao para "regra que classifica pela metade".
 
-`ESTRELA MAR DA FREGUES` e `MAR ESTRELA MATERIAL D` classificam categoria e deixam o
-dominio em aberto. Legitimo, mas as linhas que elas pegam continuam fora de todo total. A
-tela hoje nao chama atencao para "regra que classifica pela metade".
+### 12.9 `fin_movimento.venda_id`, o decimo campo orfao (aberta)
 
-Alem disso, `ESTRELA MAR DA FREGUES` esta com **`aplicada_n = 0`**: foi criada e nunca
-pegou nada. Vale conferir se e padrao errado ou se a regra irma ja tinha levado as linhas.
+Existe desde a Fatia 1, com FK e indice parcial, e e devolvido pela RPC `fin_movimentos`
+desde entao. **Nao tem um unico leitor na aba Financeiro.** Medido hoje: **0 de 1.132
+movimentos com `venda_id` preenchido**, contra **14 vendas** registradas. E o gancho da
+Fatia 5, pronto e nunca usado.
+
+### 12.10 Divida da ferramenta, herdada do handoff v11 (aberta)
+
+1. **Flake `DOM: 0 chars`**, 1 em 10 medido em 01/09, sempre na primeira corrida da
+   sessao, sem diagnostico.
+2. **O extrator da trava conta `ok()` escrito dentro de COMENTARIO**, e reprova a suite
+   sem defeito nenhum no produto.
+3. **63 sitios de `finQ(...).click()` ou `.value =` sem guarda de espera**, todos no bloco
+   do Financeiro. So os 3 da previa do OFX foram protegidos.
+4. **Migrations aplicadas contra versionadas: 167 contra 35.** Dessas 138 de diferenca,
+   **ZERO sao do perimetro `fin_`**: os 129 objetos `fin_` vivos sao reconstruiveis a
+   partir de `supabase/migrations/`. 6 arquivos tem nome divergente do nome gravado no
+   banco, entao comparacao por nome de arquivo da falso positivo.
+
+### 12.11 A aba abre no mes corrente, que hoje esta vazio (aberta, achada em 02/09/2026)
+
+`function finMes(){return FIN_MES||l().slice(0,7)}` e `FIN_MES` nasce `""` a cada
+carga: nao ha persistencia. Como o ultimo movimento da base e **31/08/2026**, quem abrir
+a aba hoje cai em **setembro/2026 com zero linha** e precisa clicar para tras uma vez
+para ver qualquer coisa. Nao e defeito de calculo, e de primeira impressao: a aba mais
+nova do sistema abre em branco no dia 1 de todo mes, ate a primeira importacao do mes
+entrar.
 
 ---
 
@@ -578,16 +606,22 @@ pegou nada. Vale conferir se e padrao errado ou se a regra irma ja tinha levado 
 
 | Fatia | Assunto | Nota |
 |---|---|---|
-| 3 | teto e alerta | desenho previsto: `fin_teto` e limite (seguranca), `fin_meta` e alvo; a confirmar |
-| 4 | metas e provisao | — |
-| 5 | conciliacao venda x caixa | `fin_movimento.venda_id` ja existe e esta 100% nulo: o gancho esta pronto e nao foi usado |
+| 4 | metas e provisao | `fin_provisao`, `fin_meta`, meta reversa. **Barrada pelo F3 enquanto a cobertura estiver em 4%**: meta sobre base nao julgada e numero economico inventado |
+| **5** | **conciliacao venda x caixa** | **e a proxima entrega, ja escolhida pelo dono.** Sao duas frases, e a segunda depende da primeira: (a) `a linha do extrato mostra a qual venda ela pertence, e o dono liga e desliga esse vinculo na propria linha` (mata o orfao da 12.9); (b) `o sistema propoe quais entradas casam com quais vendas, e o dono aprova em lote`. Nenhuma das duas soma caixa com resultado, pelo corolario do Inv. 18. **Ressalva:** vinculo linha a linha NAO esbarra no F3; qualquer TOTAL de "recebido de vendas" esbarra |
 | 6 | canal externo de alerta | **bloqueado por decisao, nao por codigo.** O dono pediu WhatsApp; a Cloud API exige numero dedicado que sai do celular, e nao pode ser o numero de venda. Recomendacao segue sendo PWA push |
+
+Fora do roadmap de fatia, e competindo com ele por prioridade: **o julgamento da base**
+(secao 11.2) e as dividas 12.4, 12.5 e 12.6, que sao justamente as ferramentas de julgar.
+Construir a Fatia 4 antes de julgar a base entrega uma tela que o proprio F3 vai recusar a
+desenhar.
 
 ---
 
 ## 14. A leitura de uma frase so
 
-**A aba esta construida, provada e no ar; o commit que faltava ja existe e o que falta e
-um `git push`; e o produto esta esperando julgamento humano em 72% da propria base.**
-O gargalo hoje nao e capacidade de software, e as 131 linhas que so o dono pode decidir
-se sao da loja ou da casa.
+**A aba esta construida, provada, no ar e sincronizada com o remoto; o que falta nao e
+software, e julgamento: 858 linhas e R$ 426.070,20, ou 95,8% do valor bruto, ainda nao
+tem dominio, e por isso a aba se recusa (corretamente) a desenhar numero economico.**
+A segunda importacao multiplicou a base por seis e o trabalho humano por seis junto. A
+proxima entrega escolhida (Fatia 5, conciliacao venda x caixa) cabe porque vinculo linha a
+linha nao depende de cobertura; qualquer total dela depende.
