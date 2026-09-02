@@ -4,7 +4,7 @@
 Qualquer outra copia deste arquivo (projeto do Claude, chat, drive) e copia de leitura.
 Divergiu do repo? O repo ganha, e a copia se descarta.
 
-Revisao 1, 27/08/2026.
+Revisao 2, 01/09/2026.
 
 ---
 
@@ -238,7 +238,9 @@ Nao sao invariantes, sao decisoes ja tomadas. Reabrir exige decisao explicita do
 - [ ] SQL rodado no banco de verdade, nao revisado no olho
 - [ ] RLS testada como dono E como vendedor
 - [ ] a tela le TODO campo novo que o servidor passou a devolver, zero campo orfao
-- [ ] assercao nova na suite, com prefixo de fatia (`fin3:`)
+- [ ] assercao nova na suite, com prefixo que identifica o ALVO da prova
+      (`fin:`, `fin2:`, `fin3:` e as fatias seguintes para o produto;
+      `suite:` para prova da propria ferramenta de validacao)
 - [ ] EXIT 0 nos 7 comandos e nas 5 larguras
 - [ ] commit unico, incluindo spec e plano
 - [ ] `docs/handoffs/handoff_financeiro_pitwall_v<N>.md` atualizado
@@ -300,3 +302,4 @@ Item desta lista que voltar a ser pedido entra pelo portao como qualquer outro, 
 | Rev | Data | Mudanca |
 |---|---|---|
 | 1 | 27/08/2026 | Primeira versao completa. Consolida os invariantes herdados com numero global, cria F1 a F4, corrige a numeracao 13-16 que colidia com a global, registra D-q (nao existe aporte) |
+| 2 | 01/09/2026 | Item 4 do portao 6.2 deixa de cravar `fin3:` e passa a exigir prefixo que identifica o alvo da prova, admitindo `suite:` para prova de ferramenta. A redacao antiga reprovava toda entrega que nao fosse a Fatia 3 |
