@@ -1,0 +1,155 @@
+# =====================================================================
+# Pit Wall 2.0 (Nucleo) - Medidor do Financeiro, sob demanda
+# Caminho no repo: .github/workflows/medir_financeiro.yml
+#
+# POR QUE EXISTE: o portao entre a semana 2 e a 3 do PLANO pede 95% do valor
+# julgado, e esse numero so existe consultando o banco. Os dois MCP do Supabase
+# estao fora, a maquina do dono nao tem psql, e pedir para ele colar saida de SQL
+# a cada pergunta ja aconteceu tres vezes num dia so. Aqui a consulta roda onde a
+# senha ja mora, e o resultado sai no log.
+#
+# O QUE ELE EXPOE, dito na cara: numeros do Financeiro (valores agregados e nomes
+# de contraparte) aparecem no log do Actions. O repo e privado, nao ha PII de
+# cliente final aqui alem de nomes que ja vem do extrato, e o log retem por 90
+# dias. PRATICA RECOMENDADA: depois de ler, apagar a corrida com
+#   gh run delete <id> --repo vinialbuquerquepitstop-beep/pitwall--nucleo
+# Isso reduz a exposicao a minutos em vez de meses.
+#
+# O QUE ELE NAO FAZ: nao escreve nada. Toda consulta aqui e SELECT. Nenhuma
+# classificacao, nenhum dominio, nenhuma regra e criada por este workflow
+# (invariante 18: quem decide o lado e o dono).
+#
+# Secret exigido: SUPABASE_DB_URL, o mesmo do backup.
+# =====================================================================
+
+name: Medir o Financeiro
+
+on:
+  workflow_dispatch:
+    inputs:
+      ini:
+        description: "Data inicial (AAAA-MM-DD). Vazio = base inteira."
+        required: false
+        default: "1900-01-01"
+      fim:
+        description: "Data final (AAAA-MM-DD). Vazio = base inteira."
+        required: false
+        default: "2100-01-01"
+
+permissions:
+  contents: read
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TENANT: "00000000-0000-0000-0000-000000000001"
+      INI: ${{ inputs.ini }}
+      FIM: ${{ inputs.fim }}
+
+    steps:
+      - name: Instalar cliente Postgres 17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Cobertura (a helper do sistema, nao uma segunda implementacao)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          # C1: chama privado.fn_fin_cobertura, a MESMA funcao que a tela usa.
+          # Reescrever a conta aqui seria a segunda implementacao da regra, e no
+          # dia em que divergissem este medidor mentiria com numero preciso.
+          echo "=== COBERTURA (${INI} a ${FIM}) ==="
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X -tA \
+            -c "select privado.fn_fin_cobertura('${TENANT}'::uuid, '${INI}'::date, '${FIM}'::date)"
+
+      - name: Quantas contrapartes ate 80% e ate 95% do pendente
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          echo "=== ESFORCO ==="
+          # `pendente` e a definicao literal do F3, a mesma de fn_fin_cobertura:
+          # sem dominio E categoria que nao seja de natureza neutro.
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X --csv <<SQL
+          with b as (
+            select m.contraparte as nome, abs(m.valor) as bruto,
+                   (m.dominio is null and coalesce(c.natureza_esperada,'') <> 'neutro') as pendente
+              from public.fin_movimento m
+              left join public.fin_categoria c
+                on c.tenant_id = m.tenant_id and c.codigo = m.categoria_codigo
+             where m.tenant_id = '${TENANT}'::uuid
+               and m.arquivado_em is null
+               and m.data between '${INI}'::date and '${FIM}'::date
+          ), g as (
+            select coalesce(nome, '(sem contraparte)') as cp,
+                   count(*) filter (where pendente) as linhas,
+                   sum(bruto) filter (where pendente) as valor
+              from b group by 1
+             having count(*) filter (where pendente) > 0
+          ), o as (
+            select *, row_number() over (order by valor desc) as pos,
+                   sum(valor) over (order by valor desc rows unbounded preceding) as acum,
+                   sum(valor) over () as tot
+              from g
+          )
+          select min(pos) filter (where acum >= tot * 0.50) as ate_50pct,
+                 min(pos) filter (where acum >= tot * 0.80) as ate_80pct,
+                 min(pos) filter (where acum >= tot * 0.95) as ate_95pct,
+                 count(*) as contrapartes_com_pendente,
+                 sum(linhas) as linhas_pendentes,
+                 round(max(tot), 2) as valor_pendente
+            from o;
+          SQL
+
+      - name: A pauta de regras (nomes ate cruzar 95%, com exemplo de descricao)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          echo "=== PAUTA ==="
+          # A descricao de exemplo importa: a regra casa contra o TEXTO do
+          # extrato, nao contra a contraparte. Sem ver o texto real, o padrao
+          # sugerido seria chute.
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X --csv <<SQL
+          with b as (
+            select m.contraparte as nome, m.descricao, abs(m.valor) as bruto, m.valor as valor_com_sinal,
+                   (m.dominio is null and coalesce(c.natureza_esperada,'') <> 'neutro') as pendente
+              from public.fin_movimento m
+              left join public.fin_categoria c
+                on c.tenant_id = m.tenant_id and c.codigo = m.categoria_codigo
+             where m.tenant_id = '${TENANT}'::uuid
+               and m.arquivado_em is null
+               and m.data between '${INI}'::date and '${FIM}'::date
+          ), g as (
+            select coalesce(nome, '(sem contraparte)') as cp,
+                   count(*) filter (where pendente) as linhas,
+                   sum(bruto) filter (where pendente) as valor,
+                   count(*) filter (where pendente and valor_com_sinal > 0) as n_entradas,
+                   count(*) filter (where pendente and valor_com_sinal < 0) as n_saidas,
+                   min(descricao) filter (where pendente) as exemplo
+              from b group by 1
+             having count(*) filter (where pendente) > 0
+          ), o as (
+            select *, row_number() over (order by valor desc) as pos,
+                   sum(valor) over (order by valor desc rows unbounded preceding) as acum,
+                   sum(valor) over () as tot
+              from g
+          )
+          select pos, cp, linhas, n_entradas, n_saidas, round(valor, 2) as valor,
+                 round(100 * acum / tot, 1) as pct_acumulado, exemplo
+            from o
+           where acum - valor < tot * 0.95
+           order by pos;
+          SQL
