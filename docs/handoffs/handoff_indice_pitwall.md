@@ -28,7 +28,8 @@ nenhuma das duas batia com o repo.
   alcance default `nao_classificados` e sobrescrever exige confirmacao **com o numero**;
   previa obrigatoria que EXPIRA se a regra mudar; padrao que casa mais de 60% da base e
   recusado com o numero na cara e so passa com `forcar`; **nunca DELETE** (pausar e
-  arquivar). **885 assercoes, 0 falhas** (piso 829), os 6 comandos e as 5 larguras em
+  arquivar). **885 assercoes, 0 falhas** (piso 829, medido no commit `9649124`), os 6
+  comandos e as 5 larguras em
   EXIT 0, rodados pela Torre na retomada. Isolamento PROVADO, nao so lido: o vendedor
   Brendon ve **0 linhas** em `fin_regra` e `fin_movimento` e leva `Financeiro e restrito
   ao dono.` nas 5 RPCs. **Commitado e publicado.** O que fica aberto: `fin_regra` tem
@@ -484,7 +485,28 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v10.md` (01/09/2026, **a suite para de mentir por
+- topo: `handoff_financeiro_pitwall_v11.md` (01/09/2026, **a suite chega ao fim toda
+  vez**). Entrega de ferramenta e documento, zero migration e zero mudanca em
+  `public/`. Tres defeitos da mesma familia: (1) a trava da v10 so enxerga rotulo
+  LITERAL, e o laco de `dash/mes` montava o rotulo por concatenacao, entao CINCO
+  assercoes contavam como UMA; provado por mutacao com contra-prova no HEAD, onde
+  matar quatro delas deixava o rodape dizendo `0 nao executaram` e o numero
+  `992 executadas` nem se movia. (2) A suite abortava **1 em 6** com
+  `Cannot read properties of null (reading 'click')`, corrida de tempo entre a previa
+  do OFX e o botao; pre-existente, conferido na versao do HEAD; consertado com espera
+  pela condicao sob **EXCECAO NOMEADA** ao escopo. (3) Sete linhas em cinco arquivos
+  versionados declaravam numero que a suite nao media. Guard-rail novo `suite:` conta
+  rotulos montados por concatenacao e exige zero, e pegou um caso na primeira corrida:
+  um comentario. Medicao de record: **12 corridas seguidas, todas EXIT 0, 997 linhas
+  impressas, 1002 rotulos declarados, 997 executados, 0 nao executaram**; doze e nao
+  seis porque seis verdes acontecem por sorte em 33% das vezes contra um flake de 1 em
+  6. O item 4 do portao 6.2 **PASSA**, pela revisao 2 do CONTRATO (`ccc3668`, decisao
+  do dono, commit separado). Nenhum numero de tela mudou. Aberto: o flake
+  `DOM: 0 chars` (1 em 10, sem diagnostico), o extrator que conta `ok()` dentro de
+  comentario, 63 `.click()` sem guarda, e `fin_movimento.venda_id`, o DECIMO campo
+  orfao (0 de 1132 preenchidos, sem leitor na aba).
+
+- `handoff_financeiro_pitwall_v10.md` (01/09/2026, **a suite para de mentir por
   omissao**). Conserto de portao aberto por `P-AUDITA`, **nao e feature**: um arquivo de
   codigo tocado (`ferramentas/harness.py`), `public/app.js` e `public/app.css` intactos.
   Em 31/08 o harness deu EXIT 0 com 962 assercoes; em 01/09, sem ninguem tocar em uma
@@ -502,7 +524,8 @@ nenhuma das duas batia com o repo.
   `o aviso fica DENTRO da coluna de graficos` **nao era defeito da tela**, procurava
   `.vg-graficos`, classe que nunca existiu no `app.js` nem no `app.css`; a prova e que
   estava quebrada, e so nao aparecia vermelha porque o ramo nunca era alcancado. Suite
-  **967 declaradas, 962 executadas, 0 nao executaram, 0 falhas**; EXIT 0 nos 7 comandos e
+  **967 declaradas, 962 executadas, 0 nao executaram, 0 falhas** (medido no commit
+  `d2a0d86`); EXIT 0 nos 7 comandos e
   nas 5 larguras; **6 corridas verdes em 6** (antes eram 4 em 5, com o watchdog travando
   sozinho). Nenhum numero da tela mudou. Pendencia da v4 fechada: RLS das RPCs de repasse
   provada como vendedor e sem sessao.

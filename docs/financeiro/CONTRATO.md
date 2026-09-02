@@ -45,7 +45,7 @@ O que existe hoje. Serve para o Claude Code saber o que NAO precisa criar.
 | Storage | 1 bucket `extrato`, privado, teto 10 MB, path prefixado por `tenant_id` |
 | Tela | 1 aba, 4 sub-views por chip: `Visão · Movimentos · Importar · Regras` |
 | Categorias | 33 ativas em 9 grupos |
-| Suite | 143 assercoes do Financeiro (87 `fin:`, 56 `fin2:`) dentro de 885 totais |
+| Suite | 223 assercoes do Financeiro (87 `fin:`, 56 `fin2:`, 80 `fin3:`) dentro de 997 linhas impressas, medidas em 01/09/2026 em 12 corridas EXIT 0 (1002 rotulos declarados, 997 rotulos distintos executados). Mais 2 `suite:`, que provam a ferramenta, nao o Financeiro. Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v11.md` |
 
 **As 11 RPCs, por nome:**
 

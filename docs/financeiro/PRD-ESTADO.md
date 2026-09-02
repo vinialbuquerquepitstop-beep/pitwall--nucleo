@@ -24,8 +24,12 @@ esta escrito que nao foi.
    classificaram **47 linhas sozinhas**.
 6. **72% da base segue sem julgamento**: 131 de 181 movimentos sem `dominio`, somando
    **R$ 1.386,75** que, pelo invariante 18, ficam fora de todo total.re
-7. Suite verde, medida agora: **885 assercoes, 0 falhas**, EXIT 0 nos 6 comandos e nas
-   5 larguras. Dessas, **143 sao da aba Financeiro**.
+7. Suite verde, medida em 01/09/2026 em 12 corridas seguidas, todas EXIT 0: **997
+   linhas impressas** (contador `passou`), **1002 rotulos declarados**, **997 rotulos
+   distintos executados**, 0 nao executaram, EXIT 0 nos 6 comandos e nas 5 larguras.
+   Dessas, **223 sao da aba Financeiro** (87 `fin:`, 56 `fin2:`, 80 `fin3:`).
+   Ate 01/09 esta linha dizia 885 e 143, numeros de 26/08 que ja estavam vencidos.
+   Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v11.md`.
 8. Seguranca: dono-only nas 11 RPCs, RLS ligada nas 5 tabelas, zero grant para `anon`,
    zero DELETE e zero TRUNCATE para `authenticated`. `get_advisors` nao acusa nada em
    `fin_*`.
@@ -378,7 +382,9 @@ EXIT CODE conferido, nao texto de saida.
 
 ```
 python ferramentas/validar.py          EXIT 0
-python ferramentas/harness.py          EXIT 0    885 passou, 0 falhou
+python ferramentas/harness.py          EXIT 0    997 passou, 0 falhou
+                                                 1002 declaradas, 997 executadas, 0 nao executaram
+                                                 (medido em 01/09/2026, 12 corridas)
 python ferramentas/prova_trilho.py     EXIT 0
 python ferramentas/prova_grafico.py    EXIT 0
 python ferramentas/prova_atmosfera.py  EXIT 0
@@ -390,9 +396,11 @@ python ferramentas/diag_mobile.py 360  EXIT 0
                                  1440  EXIT 0
 ```
 
-Das 885 assercoes, **143 sao do Financeiro**: 87 com prefixo `fin:` (Fatia 1) e 56 com
-prefixo `fin2:` (Fatia 2). **A Fatia 2.1 nao acrescentou assercao nenhuma**, o que e
-coerente com ela ter mexido so no servidor.
+Das 997 linhas impressas (medicao de 01/09/2026), **223 sao do Financeiro**: 87 com
+prefixo `fin:` (Fatia 1), 56 com `fin2:` (Fatia 2) e 80 com `fin3:` (Fatia 3).
+**A Fatia 2.1 nao acrescentou assercao nenhuma**, o que e coerente com ela ter mexido
+so no servidor. Ate 01/09 este paragrafo dizia 885 e 143, de 26/08, antes da Fatia 3.
+Outras 2 assercoes usam `suite:` e provam a propria ferramenta, nao o Financeiro.
 
 ---
 

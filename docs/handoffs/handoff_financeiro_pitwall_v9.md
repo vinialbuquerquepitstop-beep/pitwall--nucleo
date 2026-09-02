@@ -1,5 +1,14 @@
 # Handoff Financeiro v9 — a faixa cobra o numero certo
 
+> **NOTA DE CORRECAO, acrescentada em 01/09/2026 pela v11.** A secao 5 deste arquivo
+> declara `962 assercoes, 0 falhas, EXIT 0`. **Esse numero era FALSO na propria data
+> em que foi escrito**: no mesmo 01/09 a suite dava `774 passou, 10 falhou`, EXIT 1,
+> abortando na assercao 784 de 962. O rodape contava so o que rodou, entao 178
+> assercoes declaradas nunca executaram e o numero impresso nao dizia isso.
+> A causa e o conserto estao em `handoff_financeiro_pitwall_v10.md`.
+> **O corpo abaixo NAO foi reescrito: historico e append-only.** Leia o numero da
+> secao 5 como o que ele era, uma leitura de um contador que mentia por omissao.
+
 Data: 01/09/2026. Linha: financeiro. Substitui o `handoff_financeiro_pitwall_v8.md`
 como topo da linha.
 

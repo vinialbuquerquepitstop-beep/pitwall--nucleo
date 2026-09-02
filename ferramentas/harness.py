@@ -1387,6 +1387,15 @@ async function rodar() {
      Date.now() === window.__RELOGIO_FIXO,
      'pagina=' + new Date().toISOString().slice(0, 10) + ' maquina=__HOJE_REAL__');
 
+  // O segundo guard-rail do mesmo tipo. A trava de declaradas x executadas
+  // enxerga rotulo LITERAL: um rotulo montado por concatenacao vira UMA entrada
+  // declarada por mais linhas que imprima, e ai a suite pode encolher calada
+  // dentro dele. __CONCAT_N__ e a contagem, feita pelo Python com o MESMO regex
+  // da trava, de rotulos montados assim. Tem que ser zero.
+  ok('suite: nenhum rotulo e montado por concatenacao, senao a trava conta 1 por N',
+     Number('__CONCAT_N__') === 0,
+     'rotulos concatenados=__CONCAT_N__');
+
   // A aba de arranque passou a ser Hoje em 31/07/2026 (pedido do dono). Este
   // bloco testa a FILA, entao ele declara a propria precondicao com um clique
   // em vez de herda-la do padrao do app: teste que depende de qual aba abre
@@ -5276,17 +5285,27 @@ async function rodar() {
     // porque vem depois no arquivo. Assertar `.neg` teria passado com o numero
     // ainda VERDE na tela.
     var VERM2 = 'rgb(220, 38, 38)';
-    var negs = [['luc', '#lista [data-kpi="luc"] .kp-num'],
-                ['lucmed', '#lista [data-kpi="lucmed"] .kp-num'],
-                ['margem', '#lista [data-kpi="margem"] .kp-num'],
-                ['resumo/lucro liquido', '#lista .c-fin .l-total b'],
-                ['resumo/margem bruta', '#lista .c-fin .l-sub b']];
-    for (var z = 0; z < negs.length; z++) {
-      var el = document.querySelector(negs[z][1]);
-      ok('dash/mes: ' + negs[z][0] + ' negativo pinta de vermelho',
-         !!el && getComputedStyle(el).color === VERM2,
-         el ? el.textContent + ' -> ' + getComputedStyle(el).color : 'sem elemento');
+    // Rotulo LITERAL por assercao, um para cada. Antes isto era um laco com o
+    // rotulo montado por concatenacao (o prefixo literal mais negs[z][0]), e o
+    // regex do lado Python capturava so o pedaco literal: as CINCO contavam como
+    // UMA na trava de declaradas x executadas. Com quatro delas mortas a trava
+    // seguia imprimindo "0 nao executaram", justamente na familia dash/mes, que
+    // e a das 8 falhas do incidente de 01/09. A trava so enxerga rotulo literal.
+    function negV(sel) {
+      var el = document.querySelector(sel);
+      return { v: !!el && getComputedStyle(el).color === VERM2,
+               x: el ? el.textContent + ' -> ' + getComputedStyle(el).color : 'sem elemento' };
     }
+    var nA = negV('#lista [data-kpi="luc"] .kp-num');
+    ok('dash/mes: luc negativo pinta de vermelho', nA.v, nA.x);
+    var nB = negV('#lista [data-kpi="lucmed"] .kp-num');
+    ok('dash/mes: lucmed negativo pinta de vermelho', nB.v, nB.x);
+    var nC = negV('#lista [data-kpi="margem"] .kp-num');
+    ok('dash/mes: margem negativo pinta de vermelho', nC.v, nC.x);
+    var nD = negV('#lista .c-fin .l-total b');
+    ok('dash/mes: resumo/lucro liquido negativo pinta de vermelho', nD.v, nD.x);
+    var nE = negV('#lista .c-fin .l-sub b');
+    ok('dash/mes: resumo/margem bruta negativo pinta de vermelho', nE.v, nE.x);
     // As linhas de CUSTO nao sao resultado negativo, sao despesa normal: se
     // sangrarem tambem, a cor deixa de significar prejuizo em duas semanas.
     var custoLin = document.querySelectorAll('#lista .c-fin li:not(.l-sub):not(.l-total) b');
@@ -5789,6 +5808,13 @@ async function rodar() {
 
   window.__uploads = [];
   window.__finImportar = [];
+  // Espera pela CONDICAO que a assercao seguinte afirma, em vez de confiar no
+  // sono fixo de 80ms do finSoltar: a previa podia estar no DOM sem o botao
+  // ainda existir, e o click caia em null, matando a corrida no meio. Media 1
+  // em 6, nas duas versoes. Cap PADRAO do finAte (40 x 60ms): espera curta
+  // demais e outra fonte de vermelho falso. Se o botao nunca vier, a assercao
+  // seguinte cai vermelha sozinha, que e o certo.
+  await finAte(function () { return !!finQ('[data-acao="fin-imp-ok"]'); });
   finQ('[data-acao="fin-imp-ok"]').click();
   await espera(520);
   ok('fin: confirmar sobe o arquivo ORIGINAL para o balde privado extrato',
@@ -5821,6 +5847,13 @@ async function rodar() {
   window.__uploads = [];
   window.__finImportar = [];
   await finSoltar(finLatin1(OFX), 'agosto2.ofx');
+  // Espera pela CONDICAO que a assercao seguinte afirma, em vez de confiar no
+  // sono fixo de 80ms do finSoltar: a previa podia estar no DOM sem o botao
+  // ainda existir, e o click caia em null, matando a corrida no meio. Media 1
+  // em 6, nas duas versoes. Cap PADRAO do finAte (40 x 60ms): espera curta
+  // demais e outra fonte de vermelho falso. Se o botao nunca vier, a assercao
+  // seguinte cai vermelha sozinha, que e o certo.
+  await finAte(function () { return !!finQ('[data-acao="fin-imp-ok"]'); });
   finQ('[data-acao="fin-imp-ok"]').click();
   await espera(520);
   var fxImp2 = window.__finImportar[0] || {};
@@ -6248,6 +6281,13 @@ async function rodar() {
   await espera(430);
   window.__finImportar = [];
   await finSoltar(finLatin1(OFX), 'agosto3.ofx');
+  // Espera pela CONDICAO que a assercao seguinte afirma, em vez de confiar no
+  // sono fixo de 80ms do finSoltar: a previa podia estar no DOM sem o botao
+  // ainda existir, e o click caia em null, matando a corrida no meio. Media 1
+  // em 6, nas duas versoes. Cap PADRAO do finAte (40 x 60ms): espera curta
+  // demais e outra fonte de vermelho falso. Se o botao nunca vier, a assercao
+  // seguinte cai vermelha sozinha, que e o certo.
+  await finAte(function () { return !!finQ('[data-acao="fin-imp-ok"]'); });
   finQ('[data-acao="fin-imp-ok"]').click();
   await espera(560);
   ok('fin2: a importacao mostra quantos ja nasceram classificados pelas regras',
@@ -6761,6 +6801,13 @@ rodar().catch(function (e) {
 # pagina, entao ela e a unica testemunha de que os dois relogios sao diferentes.
 import datetime as _dt
 TESTE = TESTE.replace('__HOJE_REAL__', _dt.date.today().isoformat())
+
+# Mesmo regex da trava de declaradas x executadas, so que procurando o rotulo
+# SEGUIDO DE '+': e a forma que colapsa N assercoes em 1 declarada.
+import re as _re0
+_concat_n = (len(_re0.findall(r"\bok(?:Ramo)?\(\s*'[^']*'\s*\+", TESTE))
+             + len(_re0.findall(r'\bok(?:Ramo)?\(\s*"[^"]*"\s*\+', TESTE)))
+TESTE = TESTE.replace('__CONCAT_N__', str(_concat_n))
 
 pagina = f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</style></head>
 <body>{corpo}

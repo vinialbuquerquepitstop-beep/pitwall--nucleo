@@ -273,8 +273,14 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
-  cor computada. Estado atual medido em 26/08/2026: **885 assercoes, 0 falhas**, e
-  EXIT 0 nas cinco larguras. O numero 133 que estava aqui era de antes da v33.
+  cor computada. Estado atual medido em 01/09/2026, em 12 corridas seguidas, todas
+  EXIT 0: **997 linhas impressas** (contador `passou`, uma por chamada de `ok()` que
+  rodou), **1002 rotulos declarados**, **997 rotulos distintos executados**, 0 nao
+  executaram (5 de ramo alternativo, previstas), e EXIT 0 nas cinco larguras.
+  Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v11.md`.
+  Os dois contadores contam coisas diferentes e os dois ficam: `passou` conta CHAMADA
+  em execucao, `executadas` conta ROTULO DECLARADO distinto. Ate 01/09 este bloco dizia
+  885, numero de 26/08 que ja estava vencido; antes dele, 133, de antes da v33.
   **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
   quem nao rodar as cinco nao esta olhando para o celular.
   **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
