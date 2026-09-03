@@ -1,3 +1,6 @@
+-- migration aplicada: 20260903010231 (name: fin_fatia4_regra_recusa_categoria_nao_manual)
+-- O `version` do ledger e UTC do momento da aplicacao, por isso 0903 e nao 0902.
+-- O casamento arquivo x ledger se sustenta pelo `name`, nunca pelo `version`.
 -- =====================================================================
 -- Fatia 4, conserto de portao. A trava de categoria nao atribuivel a mao
 -- estava em UM caminho de escrita so.
@@ -221,7 +224,7 @@ GRANT ALL ON FUNCTION public.fin_regra_salvar(payload jsonb) TO authenticated;
 GRANT ALL ON FUNCTION public.fin_regra_salvar(payload jsonb) TO service_role;
 
 -- Conferencia depois de aplicar (deve devolver 0 linhas):
---   select id, padrao, categoria_codigo
+--   select r.id, r.padrao, r.categoria_codigo   -- qualificado: fin_categoria tambem tem `id`
 --     from public.fin_regra r
 --     join public.fin_categoria c
 --       on c.tenant_id = r.tenant_id and c.codigo = r.categoria_codigo
