@@ -15,8 +15,10 @@ nenhuma das duas batia com o repo.
   financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
   de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
   workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
-  linha financeiro. Unico item aberto, e nao e de codigo: a cobertura da base esta em
-  **18,55%** e o portao pede 95%.
+  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v13.md`:
+  a cobertura saiu de 18,55% para 95,51% e o portao do PLANO abriu.** O que continua
+  aberto e outro portao: o F3, que mede a JANELA da tela e nao a base, e trava 4 dos
+  7 meses.
 
 - `handoff_migracao_pitwall_v68.md` (26/08/2026, **a Fatia 2 do modulo
   Financeiro: regras de classificacao automatica, 6 migrations e a quarta sub-view**).
@@ -496,7 +498,21 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v12.md` (02/09/2026, **cada linha sabe de quem veio
+- topo: `handoff_financeiro_pitwall_v13.md` (03/09/2026, **a base saiu de 18,55% e o
+  portao abriu**). Sessao sem tela nova e sem migration de produto: a entrega e o DADO.
+  Aplicou a migration que estava escrita e nao aplicada desde 02/09 (ledger 27x27 ->
+  28x28, casado por NOME), depois levou a cobertura de **18,55% para 95,51%** em oito
+  etapas, com ~40 regras, 16 pares de repasse e `conflitos: 0` em todas. Cinco achados
+  que valem mais que o percentual: a raiz do CNPJ e a unica chave real de contraparte
+  (a `BR IPHONES` tem DUAS filiais); a previa pegou dois falsos casamentos por nome
+  (`S IMPORT` casando 23 em vez de 1, `EBANX` casando 74 em vez de 12); a categoria
+  `transferencia_interna` estava em TERCEIRO tirando R$ 24.380 de todos os totais com o
+  portao verde; repasse e PAR no sistema mas RELACAO na cabeca do dono, e divergiu 4
+  vezes; e fluxo assimetrico NAO prova custo (correcao do dono sobre o Bruno). Aberto: o
+  F3 mede a JANELA, e 4 dos 7 meses ainda travam, faltando R$ 4.614,60 no total.
+  Documento de trabalho: `docs/financeiro/mapa_pendentes_20260903.md`.
+
+- `handoff_financeiro_pitwall_v12.md` (02/09/2026, **cada linha sabe de quem veio
   ou para quem foi**). Fecha a Fatia 4 INTEIRA num commit so, pelo C6: as 4 migrations
   de 02/09 (helper unica de extracao, backfill idempotente, importacao gravando pela
   MESMA helper, e `fin_movimentos` devolvendo a contraparte, filtrando por ela e
