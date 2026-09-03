@@ -793,20 +793,122 @@ function finBloco(tit,recorte,itens,vazio,ent){
 return'<section class="fin-bloco"><div class="fin-bloco-cab"><h2 class="fin-bloco-tit">'+c(tit)+"</h2>"+
 '<span class="fin-bloco-pe">'+c(recorte)+"</span></div>"+
 (itens.length?itens.map(function(sc){return finSecao(sc,ent)}).join(""):'<div class="estado">'+c(vazio)+"</div>")+"</section>"}
-function finPlacar(pl){
-var res=Number(pl.resultado)||0,ncn=pl.nao_classificado_n||0;
-return'<div class="pitboard fin-placar">'+
-'<div class="pb-celula"><div class="pb-rot">entrou</div><div class="pb-num">'+brlV(pl.entrou)+'</div><div class="pb-pe">no período</div></div>'+
-'<div class="pb-celula"><div class="pb-rot">saiu</div><div class="pb-num">'+brlV(pl.saiu)+'</div><div class="pb-pe">no período</div></div>'+
-'<div class="pb-celula"><div class="pb-rot">resultado</div><div class="pb-num'+(res<0?" neg":"")+'">'+brlV(res)+'</div><div class="pb-pe">entrou menos saiu</div></div>'+
+// ---- as DUAS verdades: caixa e resultado (03/09/2026) ----------------------
+//
+// Ate hoje o placar tinha uma celula chamada `resultado` que exibia CAIXA
+// (entrou menos saiu). Agosto/2026 desenhava -R$ 9.351,21 num mes que deu
+// LUCRO de R$ 2.925,98 em 7 vendas, e o dono leu a tela e perguntou "fechei o
+// mes com 9 mil de despesa?". Nao fechou. O numero estava certo; quem mentia
+// era a PALAVRA. Caixa se chama caixa, saldo se chama saldo, e resultado e so
+// o que as vendas deixaram.
+//
+// A chave `resultado` SUMIU do payload de proposito: campo orfao tem que
+// quebrar alto na tela, nao continuar mentindo em silencio. Quem ocupou o
+// lugar dela foi `saldo`.
+//
+// Os dois numeros vivem em CARTOES separados, cada um declarando a propria
+// fonte, com a nota da divergencia entre eles. Colados no mesmo placar eles
+// leem como duas metades de um numero so, que e exatamente o defeito que o
+// corolario do invariante 18 existe para impedir: caixa e resultado sao
+// verdades separadas e NUNCA se somam.
+function finCel(rot,num,pe,cls){
+return'<div class="pb-celula"><div class="pb-rot">'+rot+'</div><div class="pb-num'+(cls?" "+cls:"")+'">'+num+'</div><div class="pb-pe">'+pe+"</div></div>"}
+// O pe do `saiu`, que e o coracao desta entrega. Sem ele R$ 16.054,00 le como
+// dezesseis mil de despesa, e foi essa a leitura do dono: R$ 15.400,00 daquilo
+// viraram iPhone na prateleira e voltam a ser dinheiro quando vender.
+// Quando nao houve estoque na janela (o lado pessoal nunca compra mercadoria),
+// repetir "R$ 0,00 em estoque" seria ruido: a frase muda, mas os dois campos
+// novos do servidor continuam com leitor nos dois ramos.
+function finSaiuPe(pl){
+var es=Number(pl.estoque)||0;
+if(!(es>0))return"tudo gasto, nada em estoque";
+return brlV(es)+" em estoque · "+brlV(Number(pl.gasto)||0)+" de gasto"}
+function finCaixaComp(pl){
+var es=Number(pl.estoque)||0;
+if(!(es>0))return'<p class="fin-caixa-comp">Nada desta janela virou estoque: os <b>'+
+brlV(Number(pl.gasto)||0)+"</b> que saíram foram gasto.</p>";
+return'<p class="fin-caixa-comp">Dos <b>'+brlV(pl.saiu)+"</b> que saíram, <b>"+brlV(es)+
+"</b> viraram <b>estoque</b> e <b>"+brlV(Number(pl.gasto)||0)+"</b> foram <b>gasto</b>. "+
+"Estoque não é despesa: virou aparelho na prateleira e volta a ser dinheiro quando vender.</p>"}
+function finCaixaCol(rot,pl){
+var sd=Number(pl.saldo)||0;
+return'<div class="fin-caixa-col"><div class="fin-caixa-rot">'+c(rot)+"</div>"+
+'<div class="fin-placar fin-cels">'+
+finCel("entrou",brlV(pl.entrou),"no período","")+
+finCel("saiu",brlV(pl.saiu),finSaiuPe(pl),"")+
+finCel("saldo",brlV(sd),"entrou menos saiu",sd<0?"neg":"")+"</div>"+
+finCaixaComp(pl)+"</div>"}
 // A celula do nao classificado carrega a CONTAGEM, nao dinheiro. Ate 01/09/2026
 // ela mostrava o modulo da soma com sinal (R$ 350,33 na base do dono) e a faixa
 // logo acima passou a mostrar os dois lados (R$ 35.148,38 entrando, R$
 // 34.798,05 saindo): dois numeros de dinheiro diferentes para as MESMAS 119
 // linhas, na mesma tela. O dinheiro vive na faixa, que tem largura para os dois
 // lados; a celula conta linhas, que e o que cabe em 20px sem truncar. Dinheiro
-// truncado parece outro numero, e a 4 colunas no celular ele truncaria.
-'<div class="pb-celula"><div class="pb-rot">não classificado</div><div class="pb-num'+(ncn>0?" cobra":"")+'">'+ncn+'</div><div class="pb-pe">'+(1===ncn?"lançamento fora de todo total":"lançamentos fora de todo total")+"</div></div></div>"}
+// truncado parece outro numero.
+// Ela e desenhada UMA vez, no recorte geral, e nunca dentro dos sub-placares:
+// os dois lados repetem exatamente o mesmo numero (linha sem dominio nao
+// pertence a nenhum deles), e desenhar tres vezes contaria a mesma pendencia
+// em triplicado.
+function finNcCel(pl){
+var n=pl.nao_classificado_n||0;
+return'<div class="fin-placar fin-cels fin-nc">'+
+finCel("não classificado",n,(1===n?"lançamento fora de todo total":"lançamentos fora de todo total"),n>0?"cobra":"")+"</div>"}
+var FIN_ICO_CAIXA='<svg class="fin-verdade-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="6" width="17.6" height="12.8" rx="2.2"/><path d="M3.2 10.2h17.6" stroke-linecap="round"/><circle cx="16.8" cy="14.8" r="1.1"/></svg>';
+var FIN_ICO_VENDA='<svg class="fin-verdade-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.4l5.1-5.1 3.1 3.1L20 8.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.9 8.6H20V13.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// A FONTE fica no cabecalho de cada cartao porque e ela que separa as duas
+// verdades. Titulo bonito nao separa nada: o que separa e "de onde este numero
+// veio", e os dois vem de lugares diferentes do banco.
+function finVerdade(cls,ico,tit,fonte,recorte,corpo){
+return'<section class="fin-verdade '+cls+'"><div class="fin-verdade-cab">'+ico+
+'<h2 class="fin-verdade-tit">'+c(tit)+"</h2>"+
+'<span class="fin-verdade-fonte">'+c(fonte)+"</span>"+
+'<span class="fin-verdade-pe">'+c(recorte)+"</span></div>"+corpo+"</section>"}
+// Com o filtro em "tudo" o servidor manda os DOIS sub-placares e a tela desenha
+// os dois lado a lado. Saldo combinado NAO existe: -9.351,21 e a soma de
+// -9.575,00 da loja com +223,79 da casa, e somar as duas e o defeito que o
+// invariante 18 existe para impedir. Quando o filtro ja e um dominio so, os
+// sub-placares vem nulos e o placar unico ja E daquele lado.
+function finCaixa(pnl,jn){
+var pl=pnl.placar||{},pe=pnl.placar_empresa,pp=pnl.placar_pessoal;
+var dm=String(pnl.dominio||FIN_DOM||"tudo");
+var cols=(pe&&pp)?finCaixaCol("Empresa",pe)+finCaixaCol("Pessoal",pp):
+finCaixaCol("empresa"===dm?"Empresa":"pessoal"===dm?"Pessoal":"Empresa e pessoal",pl);
+return finVerdade("fin-caixa",FIN_ICO_CAIXA,"Caixa desta conta",
+"fonte: o extrato da conta",
+"de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim),
+'<div class="fin-caixa-cols">'+cols+"</div>"+finNcCel(pl))}
+// O resultado de VERDADE. A unica fonte dele e a tabela de vendas, nunca o
+// extrato: lucro calculado a partir do caixa e o que a secao 9 do CONTRATO
+// recusa por escrito.
+// Ele chega nulo quando o filtro e Pessoal, e ai o bloco nao e desenhado. Bloco
+// que some sem explicacao e numero que muda sozinho com outra roupa, entao a
+// nota diz por que sumiu, em vez de deixar um buraco.
+function finResultadoVenda(rv,jn){
+if(!rv)return'<p class="fin-divergem">O resultado da loja não é desenhado no filtro <b>Pessoal</b>: venda é da loja, e atribuir lucro ao lado pessoal seria inventar um vínculo que não existe.</p>';
+var n=Number(rv.n)||0,lu=Number(rv.lucro)||0;
+return finVerdade("fin-venda",FIN_ICO_VENDA,"Resultado da loja",
+"fonte: as vendas registradas",
+"de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim),
+'<div class="fin-placar fin-cels">'+
+finCel("vendas",n,(1===n?"concluída no período":"concluídas no período"),"")+
+finCel("faturado",brlV(rv.faturado),"soma das vendas","")+
+// finDelta ja resolve o D-n: delta nulo escreve `novo`, nunca `0%`, porque
+// desenhar zero inventaria uma comparacao que nunca existiu.
+finCel("lucro",brlV(lu),finDelta(rv.delta_pct_lucro),lu<0?"neg":"")+"</div>")}
+// A nota da divergencia. Dois dinheiros diferentes na mesma tela, sem esta
+// linha, leem como erro de um dos dois. Ela vive ENTRE os cartoes porque e ali
+// que a pergunta nasce.
+function finDivergem(){
+return'<p class="fin-divergem">Os dois blocos medem coisas diferentes e <b>não se somam</b>. '+
+"O caixa é o dinheiro que passou por esta conta: venda recebida no cartão ou em outra conta não aparece aqui, "+
+"e a compra de estoque sai dela inteira no mês em que foi paga. "+
+"O resultado é o que as vendas deixaram, no mês da venda, independente de quando o dinheiro entrou.</p>"}
+// A ordem importa: caixa, a nota que explica a divergencia, e so entao o
+// resultado. A nota entre os dois e a costura, e sem ela os dois cartoes leem
+// como um contradizendo o outro.
+function finVerdades(pnl,jn){
+var rv=pnl.resultado_venda;
+return finCaixa(pnl,jn)+(rv?finDivergem():"")+finResultadoVenda(rv,jn)}
 // A faixa do invariante 18. Nao e aviso decorativo: e a declaracao do que os
 // numeros abaixo estao IGNORANDO, e por isso vive nas tres sub-views, no topo,
 // e nao num rodape que ninguem le.
@@ -851,8 +953,8 @@ var qt=Number(pe.n)||0,lt=Number(cob.linhas_total)||0;
 return'<section class="fin-bloco fin-inc"><div class="fin-inc-cab">'+
 '<svg class="fin-inc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2l8.6 15.3H3.4L12 4.2z" stroke-linejoin="round"></path><path d="M12 10.2v4.1M12 16.9v.2" stroke-linecap="round"></path></svg>'+
 '<h2 class="fin-inc-tit">base incompleta: '+finN1(cob.pct_julgado)+"% julgado · faltam "+brlV(Number(pe.valor)||0)+" em "+qt+(1===qt?" lançamento":" lançamentos")+"</h2></div>"+
-'<p class="fin-inc-txt">Entrou, saiu e resultado <b>não são desenhados</b> enquanto a janela não chegar a '+
-(Number(cob.teto)||95)+"% do valor julgado. Número de resultado sobre base incompleta já foi publicado errado três vezes neste projeto.</p>"+
+'<p class="fin-inc-txt">Entrou, saiu e saldo <b>não são desenhados</b> enquanto a janela não chegar a '+
+(Number(cob.teto)||95)+"% do valor julgado. Número econômico sobre base incompleta já foi publicado errado três vezes neste projeto.</p>"+
 '<p class="fin-inc-conta">'+brlV(Number(cob.valor_bruto_julgado)||0)+" julgados de "+brlV(Number(cob.valor_bruto_total)||0)+
 " em "+lt+(1===lt?" lançamento":" lançamentos")+" · de "+c(fmtDiaCurto(cob.ini))+" a "+c(fmtDiaCurto(cob.fim))+"</p>"+
 '<ul class="fin-inc-cortes">'+
@@ -898,20 +1000,24 @@ if(!n)return finRepasseOrfao(rep);
 return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+n+
 (1===n?" lançamento de repasse ficou":" lançamentos de repasse ficaram")+" fora de entrou e saiu. "+
 "Dinheiro de terceiro que só passou pela conta: entrou e saiu no mesmo valor, "+
-"então somar os dois lados infla os dois números e o resultado só acerta por acidente.</p>"+
+"então somar os dois lados infla os dois números e o saldo só acerta por acidente.</p>"+
 finRepasseOrfao(rep)}
 function finVisao(pnl,jn,cob){
 var pl=pnl.placar||{},secs=pnl.secoes||[],ents=pnl.entradas||[];
-if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finPlacar(pl)+finVazio();
+if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finCaixa(pnl,jn)+finVazio();
 // cob so chega preenchido quando o servidor disse que a janela esta abaixo do
-// teto. Aqui o placar inteiro e os dois blocos de proposito NAO sao desenhados:
-// os tres numeros do placar (entrou, saiu, resultado) sao economicos, e os
-// blocos agregam so a fatia ja julgada, que e justamente a leitura que parece a
-// verdade do periodo sem ser.
+// teto. Aqui os dois cartoes de verdade e os dois blocos de proposito NAO sao
+// desenhados: os tres numeros do caixa (entrou, saiu, saldo) sao economicos, e
+// os blocos agregam so a fatia ja julgada, que e justamente a leitura que
+// parece a verdade do periodo sem ser.
+// O resultado da loja cai junto por decisao consciente. A base dele e a tabela
+// de vendas, que nao depende do julgamento do extrato, mas desenhar um lucro
+// sozinho debaixo de "base incompleta" seria pedir para o dono ler o mes por um
+// numero so, e o F3 e literal: no LUGAR do numero, nunca ao lado.
 if(cob)return finBaseIncompleta(cob)+finRepasseLinha(pnl.repasse||{});
 var domRot="tudo"===FIN_DOM?"empresa e pessoal":FIN_DOM;
 var rec="por grupo · "+domRot+" · de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim);
-return finPlacar(pl)+finRepasseLinha(pnl.repasse||{})+
+return finVerdades(pnl,jn)+finRepasseLinha(pnl.repasse||{})+
 finBloco("Para onde o dinheiro foi",rec,secs,"Nenhuma saída classificada nesta janela.")+
 finBloco("De onde o dinheiro veio",rec,ents,"Nenhuma entrada classificada nesta janela.",!0)+
 '<p class="fin-rodape">Categoria de natureza <b>neutro</b> (transferência entre contas, aplicação, resgate) fica fora dos dois blocos de propósito: aplicar dinheiro não é gastar dinheiro.</p>'}

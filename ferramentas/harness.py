@@ -892,12 +892,22 @@ window.supabase = {
               ini_anterior: null, fim_anterior: null,
               pct_julgado: 100,
               repasse: { valor: 0, n: 0, orfao_valor: 0, orfao_n: 0 },
-              placar: { entrou: 0, saiu: 0, resultado: 0,
+              placar: { entrou: 0, saiu: 0, estoque: 0, gasto: 0, saldo: 0,
                         nao_classificado_valor: 0, nao_classificado_n: 0,
                         nao_classificado_entradas: 0, nao_classificado_saidas: 0 },
+              placar_empresa: { entrou: 0, saiu: 0, estoque: 0, gasto: 0, saldo: 0,
+                        nao_classificado_valor: 0, nao_classificado_n: 0,
+                        nao_classificado_entradas: 0, nao_classificado_saidas: 0 },
+              placar_pessoal: { entrou: 0, saiu: 0, estoque: 0, gasto: 0, saldo: 0,
+                        nao_classificado_valor: 0, nao_classificado_n: 0,
+                        nao_classificado_entradas: 0, nao_classificado_saidas: 0 },
+              resultado_venda: { n: 0, faturado: 0, lucro: 0, delta_pct_lucro: null },
               secoes: [], entradas: [] }, error: null });
           var fpNc = FIN_MOVS.filter(function (x) { return x.dominio === null; });
           var fpVal = 0, fpEnt = 0, fpSai = 0;
+          // 'tudo' (ou ausente) e o unico caso em que o servidor manda os dois
+          // sub-placares. Com um dominio ja escolhido eles vem nulos.
+          var fpTudo = !args.p_dominio || args.p_dominio === 'tudo';
           // Os dois lados saem do MESMO fixture que o liquido, e nao de numero
           // chumbado: a identidade entradas + saidas = valor tem que valer no
           // stub tambem, senao a assercao que a prova na tela mede o stub.
@@ -931,9 +941,37 @@ window.supabase = {
               return { valor: rv, n: rr.length, orfao_valor: ov, orfao_n: oo.length };
             })(),
             ini_anterior: '2026-07-07', fim_anterior: '2026-07-31',
-            placar: { entrou: 2000, saiu: 205.5, resultado: 1794.5,
+            // Fatia 5 (03/09/2026). A chave `resultado` NAO existe mais: virou
+            // `saldo`, e nasceram `estoque`, `gasto`, os dois sub-placares e o
+            // `resultado_venda`. O fixture respeita as tres identidades que o
+            // guard-rail da migration cobra no banco, senao ele provaria uma
+            // conta que o servidor nao produz:
+            //   saldo   = entrou - saiu
+            //   gasto   = saiu - estoque
+            //   tudo    = empresa + pessoal, campo a campo
+            // Os dois lados sao DIFERENTES de proposito: empresa tem estoque
+            // (frase de composicao) e pessoal nao tem (frase do ramo alternativo,
+            // que na base viva e o caso do lado pessoal todo mes). O saldo do
+            // lado pessoal e NEGATIVO, que e o unico jeito de medir a cor do
+            // numero negativo sem inventar um estado que nao acontece.
+            placar: { entrou: 2000, saiu: 205.5, estoque: 130, gasto: 75.5, saldo: 1794.5,
                       nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length,
                       nao_classificado_entradas: fpEnt, nao_classificado_saidas: fpSai },
+            // Preenchidos SO quando o filtro e 'tudo': com um dominio ja
+            // escolhido a tela desenharia dois blocos identicos.
+            placar_empresa: fpTudo ? { entrou: 2000, saiu: 150, estoque: 130, gasto: 20, saldo: 1850,
+                      nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length,
+                      nao_classificado_entradas: fpEnt, nao_classificado_saidas: fpSai } : null,
+            placar_pessoal: fpTudo ? { entrou: 0, saiu: 55.5, estoque: 0, gasto: 55.5, saldo: -55.5,
+                      nao_classificado_valor: fpVal, nao_classificado_n: fpNc.length,
+                      nao_classificado_entradas: fpEnt, nao_classificado_saidas: fpSai } : null,
+            // Vem da tabela de vendas, nunca do extrato, e e NULO no filtro
+            // pessoal. __FIN_VENDA_NOVA liga o caso do D-n: sem base anterior o
+            // delta e null e a tela escreve `novo`, nunca um zero por cento que
+            // inventaria uma comparacao que nunca existiu.
+            resultado_venda: args.p_dominio === 'pessoal' ? null :
+              { n: 3, faturado: 12500, lucro: 1840.55,
+                delta_pct_lucro: window.__FIN_VENDA_NOVA ? null : 22.4 },
             // secoes e entradas vao como FIXTURE constante: aqui se prova a
             // TELA (barra, delta, icone, grupo), nao a agregacao, que ja tem
             // prova propria no lado do banco. Os tres casos que a tela pode
@@ -5519,31 +5557,42 @@ async function rodar() {
      !!finQ('.fin-alerta-btn[data-acao="fin-ir-nc"]'));
 
   // ---- Visao: placar e secoes ------------------------------------------
-  ok('fin: o placar tem as 4 celulas do pitboard',
-     finQA('.fin-placar .pb-celula').length === 4,
-     'n=' + finQA('.fin-placar .pb-celula').length);
-  ok('fin: o placar nomeia entrou, saiu, resultado e nao classificado',
-     finQA('.fin-placar .pb-rot').map(function (x) { return x.textContent; }).join('|') ===
-       'entrou|saiu|resultado|não classificado',
-     finQA('.fin-placar .pb-rot').map(function (x) { return x.textContent; }).join('|'));
+  // Fatia 5 (03/09/2026) reformou este bloco: o pitboard de 4 celulas com uma
+  // celula chamada `resultado` deixou de existir. As celulas de caixa agora
+  // vivem em .fin-caixa-col (uma por dominio) e o nao classificado em .fin-nc.
+  // As assercoes abaixo continuam provando a MESMA coisa que provavam, sobre a
+  // estrutura nova: quantas celulas, que rotulos, e que a saida nao e vermelha.
+  function f5Col(i) { return finQA('.fin-caixa-col')[i] || null; }
+  function f5Rots(el) {
+    return (el ? [].slice.call(el.querySelectorAll('.pb-rot')) : [])
+      .map(function (x) { return x.textContent; }).join('|'); }
+  function f5Num(el, i) {
+    var n = el ? el.querySelectorAll('.pb-num')[i] : null;
+    return n ? n.textContent : null; }
+  ok('fin: o placar tem as 3 celulas de caixa em cada lado',
+     !!f5Col(0) && f5Col(0).querySelectorAll('.pb-celula').length === 3,
+     'n=' + (f5Col(0) ? f5Col(0).querySelectorAll('.pb-celula').length : 'sem coluna'));
+  ok('fin: o placar nomeia entrou, saiu e saldo, e o nao classificado a parte',
+     f5Rots(f5Col(0)) === 'entrou|saiu|saldo' &&
+     f5Rots(finQ('.fin-nc')) === 'não classificado',
+     f5Rots(f5Col(0)) + ' + ' + f5Rots(finQ('.fin-nc')));
   ok('fin: saiu vem POSITIVO (modulo), como o servidor manda',
-     finQA('.fin-placar .pb-num')[1].textContent === 'R$ 205,50',
-     finQA('.fin-placar .pb-num')[1].textContent);
+     f5Num(f5Col(0), 1) === 'R$ 150,00', f5Num(f5Col(0), 1));
   // Gasto NAO e vermelho: --erro e falha de sistema, e gastar nao e bug.
   ok('fin: o total de SAIDA nao sai em vermelho',
-     finCor(finQA('.fin-placar .pb-num')[1]) !== COR_ERRO,
-     finCor(finQA('.fin-placar .pb-num')[1]));
+     finCor(f5Col(0).querySelectorAll('.pb-num')[1]) !== COR_ERRO,
+     finCor(f5Col(0).querySelectorAll('.pb-num')[1]));
   ok('fin: o nao classificado do placar cobra em --morno, nunca em --erro',
-     finCor(finQ('.fin-placar .pb-num.cobra')) === COR_MORNO,
-     finCor(finQ('.fin-placar .pb-num.cobra')));
+     finCor(finQ('.fin-nc .pb-num.cobra')) === COR_MORNO,
+     finCor(finQ('.fin-nc .pb-num.cobra')));
   // A celula conta LINHAS. Dinheiro do nao classificado e da faixa, que tem
   // largura para os dois lados. Se a celula voltasse a exibir moeda, a tela
   // teria dois valores diferentes para as MESMAS 7 linhas, um do lado do
   // outro, e o dono nao teria como saber qual dos dois e o trabalho dele.
   ok('fin3: a celula do placar conta linhas, sem repetir um dinheiro diferente',
-     finQA('.fin-placar .pb-num')[3].textContent === '7' &&
-     finQA('.fin-placar .pb-celula')[3].textContent.indexOf('R$') < 0,
-     finQA('.fin-placar .pb-celula')[3].textContent);
+     finQ('.fin-nc .pb-num').textContent === '7' &&
+     finQ('.fin-nc .pb-celula').textContent.indexOf('R$') < 0,
+     finQ('.fin-nc .pb-celula').textContent);
 
   ok('fin: as secoes de gasto vem por grupo, ordenadas pelo servidor',
      finQA('.fin-bloco')[0].querySelectorAll('.fin-sec').length === 3,
@@ -5962,7 +6011,7 @@ async function rodar() {
   finQ('.fin-sub .fin-chip[data-sub="visao"]').click();
   await espera(420);
   ok('fin: com o banco vazio a tela NAO quebra e continua com o placar',
-     finQA('.fin-placar .pb-celula').length === 4,
+     finQA('.fin-placar .pb-celula').length === 7,
      'n=' + finQA('.fin-placar .pb-celula').length);
   ok('fin: sem nada classificado a faixa de cobranca some',
      !finQ('.fin-alerta'));
@@ -6485,10 +6534,14 @@ async function rodar() {
   window.__FIN_INCOMPLETA = 0;
   finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
   await espera(460);
+  // 3 grades de .fin-placar (empresa, pessoal, nao classificado) mais a do
+  // resultado da loja = 4; 10 numeros = 3 + 3 de caixa, 1 de nao classificado,
+  // 3 de venda.
   ok('fin3: acima do teto o placar economico volta inteiro',
-     finQA('.fin-placar').length === 1 && finQA('.pb-num').length === 4 &&
+     finQA('.fin-placar').length === 4 && finQA('.pb-num').length === 10 &&
      finQA('.fin-inc').length === 0,
-     'placar=' + finQA('.fin-placar').length + ' bloco=' + finQA('.fin-inc').length);
+     'placar=' + finQA('.fin-placar').length + ' numeros=' + finQA('.pb-num').length +
+     ' bloco=' + finQA('.fin-inc').length);
   ok('fin3: e a faixa do invariante 18 volta a cobrar o que falta classificar',
      finQA('.fin-alerta').length === 1 &&
      /os números abaixo ignoram/i.test(finTxt()),
@@ -6615,7 +6668,8 @@ async function rodar() {
      !!f3L && /entrou e saiu no mesmo valor/.test(f3L.textContent),
      f3L ? f3L.textContent.slice(-90) : 'sem linha');
   ok('fin3: e o placar continua inteiro ao lado dela: repasse nao apaga numero',
-     finQA('.fin-placar').length === 1 && finQA('.pb-num').length === 4);
+     finQA('.fin-placar').length === 4 && finQA('.pb-num').length === 10,
+     'placar=' + finQA('.fin-placar').length + ' numeros=' + finQA('.pb-num').length);
   // A linha e nota de rodape do placar, nao alerta: cobrar em vermelho o que
   // nao e problema ensina o dono a ignorar o vermelho.
   ok('fin3: a declaracao NAO usa a cor de falha',
@@ -7107,6 +7161,255 @@ async function rodar() {
      !finQ('.fin-cp-ativa') && f4Args().p_contraparte === null &&
      finQA('.fin-lin').length === f4Todas,
      JSON.stringify(f4Args().p_contraparte) + ', ' + finQA('.fin-lin').length + ' linhas');
+
+  // ======================================================================
+  // Fatia 5: o Financeiro para de chamar caixa de resultado.
+  //
+  // A frase da entrega: "mostra o lucro do mes ao lado do caixa, separa o que
+  // virou estoque, e para de acusar linha neutra como nao classificada".
+  //
+  // O defeito que a gerou tem data e frase. O dono abriu a aba e perguntou
+  // "fechei o mes com 9 mil de despesa?". Nao fechou: agosto/2026 deu LUCRO de
+  // R$ 2.925,98 em 7 vendas. O -R$ 9.351,21 que ele leu era CAIXA sob a palavra
+  // `resultado`. O numero estava certo o tempo todo; quem mentia era a palavra.
+  //
+  // Por isso este bloco assere PALAVRA e ESTRUTURA, nao so numero: um teste que
+  // so conferisse valores teria passado verde no dia do defeito.
+  // ======================================================================
+  // A precondicao e declarada, nao herdada: o bloco anterior deixou a tela em
+  // Movimentos, e herdar estado e como um teste comeca a medir a sorte.
+  finQ('[data-acao="fin-dom"][data-dom="tudo"]').click();
+  await espera(460);
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(480);
+
+  function f5Cx() { return finQ('.fin-verdade.fin-caixa'); }
+  function f5Vd() { return finQ('.fin-verdade.fin-venda'); }
+  function f5Lado(i) { return finQA('.fin-caixa-col')[i] || null; }
+  function f5T(el, sel) { var e = el && el.querySelector(sel); return e ? e.textContent : null; }
+  function f5Cels(el) {
+    return (el ? [].slice.call(el.querySelectorAll('.pb-num')) : [])
+      .map(function (x) { return x.textContent; }).join('|'); }
+  function f5Rot(el) {
+    return (el ? [].slice.call(el.querySelectorAll('.pb-rot')) : [])
+      .map(function (x) { return x.textContent; }).join('|'); }
+  // 'R$ 16.054,00' -> 16054. Sem regex com escape: o TESTE e string Python.
+  function f5N(s) {
+    return Number(String(s == null ? '' : s).replace(/[^0-9,-]/g, '').replace(',', '.')); }
+
+  // ---- 1. a palavra: caixa nao se chama resultado ------------------------
+  // ESTA e a assercao que teria reprovado a tela de ontem. Se um dia alguem
+  // voltar a rotular caixa de resultado, e aqui que vermelha.
+  var f5Rots = finQA('.pb-rot').map(function (x) { return x.textContent; });
+  ok('fin5: nenhuma celula da aba se chama resultado',
+     f5Rots.length > 0 && f5Rots.indexOf('resultado') < 0,
+     f5Rots.join('|'));
+  ok('fin5: e o cartao do caixa nao usa a palavra resultado em canto nenhum',
+     !!f5Cx() && f5Cx().textContent.toLowerCase().indexOf('resultado') < 0,
+     f5Cx() ? f5Cx().textContent.slice(0, 90) : 'sem cartao de caixa');
+  ok('fin5: a palavra sobra so onde ela e verdade, no titulo da venda',
+     f5T(f5Vd(), '.fin-verdade-tit') === 'Resultado da loja',
+     f5T(f5Vd(), '.fin-verdade-tit'));
+  // Cada cartao DECLARA de onde o numero dele veio. Titulo separa pouco; o que
+  // separa duas verdades e a fonte, e as duas vem de lugares diferentes do
+  // banco (extrato x tabela de venda).
+  ok('fin5: o caixa declara que le o extrato',
+     f5T(f5Cx(), '.fin-verdade-fonte') === 'fonte: o extrato da conta',
+     f5T(f5Cx(), '.fin-verdade-fonte'));
+  ok('fin5: e o resultado declara que le a venda, nunca o extrato',
+     f5T(f5Vd(), '.fin-verdade-fonte') === 'fonte: as vendas registradas',
+     f5T(f5Vd(), '.fin-verdade-fonte'));
+
+  // ---- 2. saldo desenha o numero certo -----------------------------------
+  ok('fin5: o lado empresa desenha entrou, saiu e saldo do servidor',
+     f5Cels(f5Lado(0)) === 'R$ 2.000,00|R$ 150,00|R$ 1.850,00',
+     f5Cels(f5Lado(0)));
+  ok('fin5: e o saldo fecha na propria tela: entrou menos saiu',
+     Math.abs((f5N(f5Cels(f5Lado(0)).split('|')[0]) - f5N(f5Cels(f5Lado(0)).split('|')[1]))
+              - f5N(f5Cels(f5Lado(0)).split('|')[2])) < 0.005,
+     f5Cels(f5Lado(0)));
+  ok('fin5: o pe do saldo diz de onde ele sai, em vez de aparecer sozinho',
+     f5T(f5Lado(0), '.pb-celula:nth-child(3) .pb-pe') === 'entrou menos saiu',
+     f5T(f5Lado(0), '.pb-celula:nth-child(3) .pb-pe'));
+  ok('fin5: saldo negativo chega com sinal na tela, nao em modulo',
+     f5Cels(f5Lado(1)).split('|')[2] === 'R$ -55,50',
+     f5Cels(f5Lado(1)));
+  ok('fin5: e o negativo se pinta, em vez de passar como qualquer numero',
+     !!f5Lado(1).querySelectorAll('.pb-num')[2].className.match(/neg/),
+     f5Lado(1).querySelectorAll('.pb-num')[2].className);
+
+  // ---- 3. o saiu DECLARA estoque e gasto ---------------------------------
+  // Sem isto, R$ 16.054,00 le como dezesseis mil de despesa. Foi essa a
+  // leitura do dono, e ela estava errada por R$ 15.400,00 que viraram iPhone
+  // na prateleira.
+  ok('fin5: o saiu do lado empresa declara estoque e gasto no proprio pe',
+     f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe') ===
+       'R$ 130,00 em estoque · R$ 20,00 de gasto',
+     f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe'));
+  // A conta fecha na TELA, com os numeros que o dono le, nao com os que o stub
+  // mandou: estoque + gasto tem que dar o proprio saiu.
+  var f5Pe = String(f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe') || '').split('·');
+  ok('fin5: e a composicao fecha: estoque mais gasto e o proprio saiu',
+     f5Pe.length === 2 &&
+     Math.abs((f5N(f5Pe[0]) + f5N(f5Pe[1])) - f5N(f5Cels(f5Lado(0)).split('|')[1])) < 0.005,
+     f5Pe.join(' + ') + ' vs ' + f5Cels(f5Lado(0)).split('|')[1]);
+  var f5Comp = f5T(f5Lado(0), '.fin-caixa-comp') || '';
+  ok('fin5: a nota diz que estoque NAO e despesa, com os tres numeros na frente',
+     f5Comp.indexOf('R$ 150,00') >= 0 && f5Comp.indexOf('R$ 130,00') >= 0 &&
+     f5Comp.indexOf('R$ 20,00') >= 0 && f5Comp.indexOf('não é despesa') >= 0,
+     f5Comp);
+  ok('fin5: e explica por que: virou aparelho e volta a ser dinheiro na venda',
+     f5Comp.indexOf('volta a ser dinheiro quando vender') >= 0, f5Comp);
+  // O lado pessoal nunca compra mercadoria. Escrever "R$ 0,00 em estoque" ali
+  // seria ruido todo mes, e ruido que se repete e ruido que ninguem le.
+  ok('fin5: o lado sem estoque nao repete um R$ 0,00 em estoque',
+     f5T(f5Lado(1), '.pb-celula:nth-child(2) .pb-pe') === 'tudo gasto, nada em estoque',
+     f5T(f5Lado(1), '.pb-celula:nth-child(2) .pb-pe'));
+  ok('fin5: e a nota dele diz isso por extenso, sem deixar o campo mudo',
+     String(f5T(f5Lado(1), '.fin-caixa-comp') || '').indexOf('Nada desta janela virou estoque') >= 0,
+     f5T(f5Lado(1), '.fin-caixa-comp'));
+
+  // ---- 4. o bloco da venda -----------------------------------------------
+  ok('fin5: o resultado da loja nomeia vendas, faturado e lucro',
+     f5Rot(f5Vd()) === 'vendas|faturado|lucro', f5Rot(f5Vd()));
+  ok('fin5: e desenha os tres numeros que vieram da tabela de venda',
+     f5Cels(f5Vd()) === '3|R$ 12.500,00|R$ 1.840,55', f5Cels(f5Vd()));
+  ok('fin5: o delta do lucro sai do servidor, com sinal e comparacao',
+     f5T(f5Vd(), '.fin-delta') === '+22,4% vs anterior',
+     f5T(f5Vd(), '.fin-delta'));
+  // O lucro NAO e o saldo. Sao dois numeros diferentes na mesma tela, e e por
+  // isso que a nota da divergencia existe.
+  ok('fin5: lucro e saldo sao numeros DIFERENTES, e a tela mostra os dois',
+     f5N(f5Cels(f5Vd()).split('|')[2]) !== f5N(f5Cels(f5Lado(0)).split('|')[2]),
+     'lucro=' + f5Cels(f5Vd()).split('|')[2] + ' saldo=' + f5Cels(f5Lado(0)).split('|')[2]);
+
+  // ---- 5. as duas verdades sao DUAS ---------------------------------------
+  ok('fin5: caixa e resultado sao dois cartoes, nao duas metades de um placar',
+     finQA('.fin-verdade').length === 2 && !!f5Cx() && !!f5Vd(),
+     'cartoes=' + finQA('.fin-verdade').length);
+  var f5Div = finQ('.fin-divergem');
+  ok('fin5: entre os dois vive a nota que diz por que eles divergem',
+     !!f5Div && f5Div.textContent.indexOf('não se somam') >= 0 &&
+     f5Div.textContent.indexOf('cartão') >= 0 &&
+     f5Div.textContent.indexOf('compra de estoque') >= 0,
+     f5Div ? f5Div.textContent.slice(0, 120) : 'sem nota');
+  // ENTRE, nao no rodape: a pergunta nasce na costura dos dois numeros, e nota
+  // de rodape e nota que ninguem le.
+  ok('fin5: a nota fica ENTRE os dois cartoes, na ordem do documento',
+     !!f5Cx() && f5Cx().nextElementSibling === f5Div &&
+     f5Div.nextElementSibling === f5Vd(),
+     f5Cx() ? (f5Cx().nextElementSibling ? f5Cx().nextElementSibling.className : 'nada') +
+       ' -> ' + (f5Div && f5Div.nextElementSibling ? f5Div.nextElementSibling.className : 'nada')
+       : 'sem cartao');
+  ok('fin5: e ela nao usa a cor de falha: divergir e o certo, nao um defeito',
+     finCor(f5Div) !== COR_ERRO, finCor(f5Div));
+  // Truncamento e mentira silenciosa: "R$ 16.054,00" cortado em "R$ 16.05…" le
+  // como outro numero e passa em qualquer teste de presenca.
+  var f5Trunc = finQA('.fin-cels .pb-num').filter(function (x) {
+    return x.scrollWidth > x.clientWidth + 1; });
+  ok('fin5: nenhum numero do caixa sai cortado pela reticencia',
+     f5Trunc.length === 0,
+     f5Trunc.map(function (x) { return x.textContent + ' ' + x.scrollWidth + '>' +
+       x.clientWidth; }).join(' | '));
+
+  // ---- 6. em "tudo", DOIS placares e nenhum saldo combinado ---------------
+  // -9.351,21 na base viva e a soma de -9.575,00 da loja com +223,79 da casa.
+  // Somar as duas verdades e exatamente o que o invariante 18 existe para
+  // impedir, e aqui o fixture repete a mesma armadilha em miniatura: o
+  // combinado seria R$ 1.794,50, e ele nao pode existir na tela.
+  ok('fin5: com o filtro em tudo saem DOIS placares de caixa, um por lado',
+     finQA('.fin-caixa-col').length === 2 &&
+     f5T(f5Lado(0), '.fin-caixa-rot') === 'Empresa' &&
+     f5T(f5Lado(1), '.fin-caixa-rot') === 'Pessoal',
+     finQA('.fin-caixa-col').map(function (x) {
+       return x.querySelector('.fin-caixa-rot').textContent; }).join('|'));
+  ok('fin5: e o saldo combinado dos dois NAO e desenhado em lugar nenhum',
+     finTxt().indexOf('R$ 1.794,50') < 0,
+     finTxt().indexOf('R$ 1.794,50') < 0 ? 'ausente' : 'o combinado vazou para a tela');
+  // Zero campo orfao (portao 6.2): cada campo que o servidor passou a devolver
+  // tem que virar numero na tela. Um por um, pelo valor que so ele produz.
+  var f5Tela = (f5Cx() ? f5Cx().textContent : '') + (f5Vd() ? f5Vd().textContent : '');
+  ok('fin5: os seis campos novos do servidor tem leitor, nenhum ficou orfao',
+     f5Tela.indexOf('R$ 130,00') >= 0 &&      // estoque
+     f5Tela.indexOf('R$ 20,00') >= 0 &&       // gasto
+     f5Tela.indexOf('R$ 1.850,00') >= 0 &&    // saldo
+     f5Tela.indexOf('R$ 2.000,00') >= 0 &&    // placar_empresa
+     f5Tela.indexOf('R$ -55,50') >= 0 &&      // placar_pessoal
+     f5Tela.indexOf('R$ 1.840,55') >= 0,      // resultado_venda
+     f5Tela.slice(0, 140));
+
+  // ---- 7. nao classificado UMA vez so -------------------------------------
+  // Os sub-placares recebem o MESMO nao_classificado (linha sem dominio nao
+  // pertence a nenhum dos dois lados). Desenhar nos tres contaria a mesma
+  // pendencia em triplicado, e pendencia inflada e pendencia que ninguem
+  // acredita.
+  ok('fin5: o nao classificado e desenhado UMA vez, no recorte geral',
+     finQA('.fin-nc').length === 1 &&
+     finQA('.pb-rot').filter(function (x) {
+       return x.textContent === 'não classificado'; }).length === 1,
+     'blocos=' + finQA('.fin-nc').length + ' rotulos=' +
+     finQA('.pb-rot').filter(function (x) {
+       return x.textContent === 'não classificado'; }).length);
+  ok('fin5: e nunca dentro dos sub-placares, que repetiriam a mesma pendencia',
+     finQA('.fin-caixa-col .pb-rot').every(function (x) {
+       return x.textContent !== 'não classificado'; }),
+     finQA('.fin-caixa-col .pb-rot').map(function (x) { return x.textContent; }).join('|'));
+
+  // ---- 8. delta nulo escreve `novo` (D-n) ---------------------------------
+  window.__FIN_VENDA_NOVA = 1;
+  finQ('[data-acao="fin-sub"][data-sub="movimentos"]').click();
+  await espera(460);
+  finQ('[data-acao="fin-sub"][data-sub="visao"]').click();
+  await espera(480);
+  ok('fin5: sem base anterior o lucro escreve novo, nunca um zero por cento',
+     f5T(f5Vd(), '.fin-delta') === 'novo' &&
+     String(f5T(f5Vd(), '.fin-delta')).indexOf('0,0') < 0,
+     f5T(f5Vd(), '.fin-delta'));
+  window.__FIN_VENDA_NOVA = 0;
+
+  // ---- 9. filtro num dominio so: placar unico, e o que sai declarado -------
+  finQ('[data-acao="fin-dom"][data-dom="empresa"]').click();
+  await espera(480);
+  ok('fin5: com o filtro num dominio so, o placar de caixa volta a ser UM',
+     finQA('.fin-caixa-col').length === 1 &&
+     f5T(f5Lado(0), '.fin-caixa-rot') === 'Empresa',
+     'colunas=' + finQA('.fin-caixa-col').length + ' rotulo=' +
+     f5T(f5Lado(0), '.fin-caixa-rot'));
+  ok('fin5: e o resultado da loja continua desenhado no filtro Empresa',
+     !!f5Vd() && f5Cels(f5Vd()) === '3|R$ 12.500,00|R$ 1.840,55',
+     f5Vd() ? f5Cels(f5Vd()) : 'sem bloco de venda');
+  finQ('[data-acao="fin-dom"][data-dom="pessoal"]').click();
+  await espera(480);
+  ok('fin5: no filtro Pessoal o resultado da loja NAO e desenhado',
+     !f5Vd(), 'o bloco de venda apareceu debaixo do chip Pessoal');
+  // Bloco que some calado e numero que muda sozinho com outra roupa: o portao
+  // 6.3 vale para o desaparecimento tambem.
+  ok('fin5: e a tela DIZ por que ele sumiu, em vez de deixar um buraco',
+     finTxt().indexOf('não é desenhado no filtro') >= 0 &&
+     finTxt().indexOf('venda é da loja') >= 0,
+     finTxt().indexOf('não é desenhado no filtro') >= 0 ? 'declarado' : 'sumiu calado');
+  ok('fin5: o caixa do lado pessoal continua inteiro, com o rotulo do lado',
+     finQA('.fin-caixa-col').length === 1 &&
+     f5T(f5Lado(0), '.fin-caixa-rot') === 'Pessoal',
+     'colunas=' + finQA('.fin-caixa-col').length + ' rotulo=' +
+     f5T(f5Lado(0), '.fin-caixa-rot'));
+
+  // ---- 10. o liquido do placar NAO encosta no pendente da cobertura -------
+  // Sao contas diferentes sobre as MESMAS linhas: o do placar e LIQUIDO, o da
+  // cobertura e ABSOLUTO. Na janela do ano da -30,00 contra 630,00 sobre as
+  // mesmas 2 linhas. A contagem concorda, o valor nao, e postos lado a lado os
+  // dois parecem defeito sem ser.
+  window.__FIN_INCOMPLETA = 1;
+  finQ('[data-acao="fin-dom"][data-dom="tudo"]').click();
+  await espera(480);
+  ok('fin5: o bloco de base incompleta e a celula do nao classificado nao coexistem',
+     finQA('.fin-inc').length === 1 && finQA('.fin-nc').length === 0,
+     'inc=' + finQA('.fin-inc').length + ' nc=' + finQA('.fin-nc').length);
+  ok('fin5: e o bloco do F3 tambem nao chama caixa de resultado',
+     finQ('.fin-inc-txt').textContent.toLowerCase().indexOf('resultado') < 0 &&
+     finQ('.fin-inc-txt').textContent.indexOf('Entrou, saiu e saldo') >= 0,
+     finQ('.fin-inc-txt').textContent.slice(0, 90));
+  window.__FIN_INCOMPLETA = 0;
 
   fim();
 

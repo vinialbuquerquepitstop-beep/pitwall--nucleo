@@ -3359,7 +3359,12 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 }
 .fin-mes-b:hover{background:var(--surface)}
 .fin-mes-b:disabled{opacity:.35;cursor:default}
-.fin-mes-rot{font-size:14px;font-weight:600;letter-spacing:-.01em;text-transform:capitalize}
+/* ::first-letter e nao capitalize: capitalize sobe TODA palavra, e
+   "agosto de 2026" virava "Agosto De 2026", com a preposicao maiuscula no meio
+   da frase. Achado na foto de 1280px de 03/09/2026, e o mesmo defeito que o
+   navegador de mes do Dashboard corrigiu no mesmo dia. */
+.fin-mes-rot{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.fin-mes-rot::first-letter{text-transform:uppercase}
 /* A janela DECLARADA. Tela que omite recorte mente: sem esta linha o mes
    corrente, que para em hoje, leria como mes fechado. */
 .fin-janela{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.02em}
@@ -3491,6 +3496,88 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fin-placar .pb-celula:has(.pb-num.cobra) .pb-pe{color:var(--morno-fg)}
 /* periodo, saldo e banco da previa nao sao numero grande: sao texto curto. */
 .fin-placar .pb-num.fin-num-p{font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:0}
+
+/* --- as DUAS verdades: caixa e resultado (03/09/2026) ---
+       Caixa e resultado NUNCA se somam (corolario do invariante 18). Colados no
+       mesmo pitboard de 4 celulas eles leem como quatro metades do mesmo
+       numero, e foi assim que a palavra `resultado` acabou rotulando caixa por
+       um mes inteiro. Cada verdade vira um CARTAO proprio, com icone, titulo e
+       a FONTE declarada, e entre os dois vive a nota que diz por que divergem.
+
+       ZERO token de cor novo (C5). O que separa os dois cartoes e a
+       SUPERFICIE, invertida: o caixa e uma placa cinza com celulas brancas, o
+       resultado e uma placa branca com celulas cinzas. Figura e fundo trocados
+       leem como dois objetos diferentes sem gastar matiz nenhum, e matiz aqui
+       seria mentira: nenhum dos dois blocos e mais urgente que o outro. --- */
+.fin-verdade{
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px 14px 12px;margin-bottom:12px;background:var(--bg);
+}
+.fin-verdade.fin-caixa{background:var(--surface)}
+.fin-verdade.fin-venda .pb-celula{background:var(--surface)}
+.fin-verdade-cab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+/* Icone e DECORACAO, igual ao .pb-ico: fica em --dim, nao compete com o titulo,
+   e some do leitor de tela por aria-hidden. */
+.fin-verdade-ico{
+  width:17px;height:17px;flex:0 0 auto;stroke:var(--dim);fill:none;stroke-width:1.6;
+}
+.fin-verdade-tit{
+  margin:0;font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:-.015em;
+}
+.fin-verdade-fonte{font-size:11.5px;color:var(--dim)}
+.fin-verdade-pe{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:auto}
+
+/* Os dois lados lado a lado. minmax(380px) e medido, nao chutado: abaixo disso
+   cada lado ficaria com celulas de ~170px e "R$ 16.054,00" a 20px encostaria na
+   reticencia. Dinheiro truncado parece outro numero. */
+.fin-caixa-cols{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:8px 20px;
+}
+.fin-caixa-col{min-width:0}
+/* O rotulo do lado e uma REGUA, nao um texto solto. Medido na foto de 1280px:
+   com o rotulo pequeno e o mesmo respiro de 8px entre colunas e dentro delas,
+   os dois lados liam como um placar unico de seis celulas, que e exatamente o
+   saldo combinado que o invariante 18 proibe, desenhado com outra roupa. A
+   linha embaixo do rotulo declara onde um lado comeca e o outro acaba. */
+.fin-caixa-rot{
+  font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);
+  margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--line-forte);
+}
+/* As celulas de dentro do cartao: mesma .pb-celula, outra grade. O pitboard de
+   4 colunas fixas nao serve aqui porque sao 3 numeros por lado, e coluna vazia
+   no fim le como dado faltando. */
+.fin-cels{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;
+}
+.fin-placar.fin-cels{margin-bottom:0}
+/* O nao classificado e UMA celula, no recorte geral. Sozinha numa grade
+   auto-fit ela esticaria pela largura toda e o numero de duas casas ficaria
+   perdido no meio de um cartao de mil pixels. */
+/* A regua em cima e o que tira a celula de dentro do lado Empresa. Sem ela, na
+   foto de 1280px, o nao classificado encostava embaixo da primeira coluna e
+   lia como se fosse dela, quando ele e justamente o que NAO pertence a lado
+   nenhum. */
+.fin-placar.fin-cels.fin-nc{
+  grid-template-columns:minmax(150px,260px);
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--line-forte);
+}
+.fin-caixa-comp{
+  margin:8px 0 0;font-size:11.5px;line-height:1.55;color:var(--dim);
+}
+/* nowrap medido, nao preventivo: a 390px o diag_mobile acusou 4 sobreposicoes
+   de 100 por cento porque "R$ 20,00" quebrava entre o "R$" e o numero, e o retangulo do
+   <b> passava a cobrir duas linhas inteiras. Dinheiro partido em duas linhas
+   tambem le como dois numeros, entao a correcao serve as duas coisas. */
+.fin-caixa-comp b{font-family:var(--mono);font-weight:500;color:var(--text);white-space:nowrap}
+/* A costura entre as duas verdades. Nao e alerta e nao e faixa: e a mesma nota
+   de rodape do .fin-repasse-lin, no mesmo tom. Zero token novo. */
+.fin-divergem{
+  margin:-4px 0 12px;padding:10px 12px;
+  background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-p);
+  font-size:12px;line-height:1.55;color:var(--dim);
+}
+.fin-divergem b{color:var(--text);font-weight:600}
 
 /* --- secoes de gasto e de entrada --- */
 .fin-bloco{margin-bottom:22px}
@@ -3764,6 +3851,19 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fin-mes-b{width:34px;height:34px}
   .fin-placar .pb-num{font-size:17px}
   .fin-placar .pb-num.fin-num-p{font-size:11.5px}
+  /* No celular a grade auto-fit de 150px cairia para UMA coluna e a Visao
+     abriria com dez cartoes empilhados antes do primeiro grupo de gasto. Duas
+     colunas fixas com o numero a 15px cabem: "R$ 16.054,00" mede ~90px numa
+     celula de ~124px uteis a 360px, medido, nao estimado. O ultimo numero de
+     cada bloco (saldo, lucro) ocupa a linha inteira em vez de ficar sozinho
+     numa metade. */
+  .fin-caixa-cols{grid-template-columns:1fr}
+  .fin-cels{grid-template-columns:repeat(2,1fr)}
+  .fin-cels>.pb-celula:last-child{grid-column:1/-1}
+  .fin-cels .pb-celula{padding:9px 10px}
+  .fin-placar.fin-cels .pb-num{font-size:15px}
+  .fin-verdade{padding:12px 11px 11px}
+  .fin-verdade-pe{margin-left:0;flex:1 0 100%}
   .fin-prev-cab,.fin-prev-lin{grid-template-columns:48px minmax(0,1fr) auto;gap:8px;padding:7px 9px}
   /* No celular a lista de contrapartes divide a tela com a lista de
      lancamentos: 200 entradas abertas empurrariam o trabalho para fora da

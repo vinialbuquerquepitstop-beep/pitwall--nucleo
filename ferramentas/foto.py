@@ -86,7 +86,12 @@ ABAS = {'hoje': 'abaHoje', 'fila': 'abaFila', 'todos': 'abaTodos',
         'vendas': 'abaVendas', 'conteudo': 'abaConteudo', 'rotina': 'abaRotina',
         'clientes': 'abaClientes', 'escopo': 'abaEscopo',
         'dashboard': 'abaDash', 'nfs': 'abaNfs', 'captacao': 'abaCaptacao',
-        'indicacoes': 'abaIndicacoes', 'pitscare': 'abaPitscare'}
+        'indicacoes': 'abaIndicacoes', 'pitscare': 'abaPitscare',
+        # 03/09/2026: a aba mais nova e a mais discutida do app era a UNICA que
+        # nao dava para fotografar. O docstring deste arquivo existe justamente
+        # por causa de uma sessao que afirmou o que a tela "ganhou" sem olhar
+        # para ela, e o Financeiro era a proxima da fila para o mesmo erro.
+        'financeiro': 'abaFinanceiro'}
 ID = ABAS.get(aba)
 if not ID:
     print(f'ABORTA: aba "{aba}" desconhecida. Use: {", ".join(sorted(ABAS))}')
