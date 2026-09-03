@@ -702,3 +702,48 @@ Os quatro primeiros somam **~34 pontos com 17 decisoes**.
 3. Tres linhas descritas `Aplicação RDB` carregam categoria `resgate` (11/08, 18/08,
    21/08). Continuam contando como julgadas porque as duas categorias sao neutras, mas o
    rotulo esta trocado.
+
+---
+
+## FECHAMENTO DA CAUDA — 03/09/2026, fim do dia
+
+O bloco G ("o que sobra sem atalho", ~300 decisoes linha a linha) **nao foi feito linha
+a linha.** O dono julgou a cauda inteira em bloco:
+
+> *"valores ainda em abertos sao pequenezas do cotidiano, rodrigo alves de 300 e 330 foi
+> repasse. coloque tudo que ainda nao foi julgado, em outros (pessoal) e acabe com o
+> gargalo de valores nao classificados."*
+
+**A leitura dele foi medida antes de aplicar e estava certa:** das 198 linhas pendentes,
+mediana R$ 50,00, media R$ 95,87, maior de todas R$ 800,00. Nao havia valor grande
+escondido na cauda.
+
+| Etapa | Cobertura | Pendentes |
+|---|---|---|
+| Fim da sessao de regras (v13) | 95,51% | 199 linhas |
+| + varredura da cauda (196 linhas) | **99,86%** | **2 linhas, R$ 630,00** |
+
+Aplicado por `fin_classificar` (pela porta da tela, com RLS ligada), em duas chamadas:
+162 saidas para `outro_pessoal` e 34 entradas para `outro_pessoal_entrada`, todas
+`dominio = pessoal`, todas carimbadas com a `observacao`
+
+```
+Varredura de 03/09/2026: cauda miuda julgada em bloco pelo dono como pessoal.
+```
+
+**Nenhuma regra foi criada**, de proposito: regra classificaria a importacao FUTURA
+sozinha, que e o default silencioso do Inv. 18.
+
+**O Rodrigo nao virou repasse.** `fin_repasse_marcar` recusou o par +300 / -330 com
+`Par desigual: a diferenca e de 9.09%, acima dos 5% permitidos`. As 2 linhas ficaram
+pendentes de proposito e sao 100% do que resta.
+
+**O F3 abriu em todos os nove meses** (so 07/2026 fica abaixo de 100%, em 98,54%, por
+causa do Rodrigo). A tabela do F3 por mes acima, desta data, esta superada.
+
+**Fica anotado para inverter:** 11 entradas de gateway (`DLOCAL` 8, `ADYEN` 3,
+R$ 1.300,67) foram para `pessoal` junto com a cauda, contra a leitura que este proprio
+mapa registrou de que gateway e recebimento de venda. Comando de inversao pronto na
+secao 6 do `handoff_financeiro_pitwall_v14.md`.
+
+Registro de record desta varredura: **`docs/handoffs/handoff_financeiro_pitwall_v14.md`**.

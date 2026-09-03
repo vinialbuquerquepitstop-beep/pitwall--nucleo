@@ -15,10 +15,10 @@ nenhuma das duas batia com o repo.
   financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
   de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
   workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
-  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v13.md`:
-  a cobertura saiu de 18,55% para 95,51% e o portao do PLANO abriu.** O que continua
-  aberto e outro portao: o F3, que mede a JANELA da tela e nao a base, e trava 4 dos
-  7 meses.
+  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v14.md`:
+  a cobertura saiu de 18,55% para 99,86% no mesmo dia, e os DOIS portoes abriram.** O
+  F3, que mede a JANELA da tela e nao a base, passou a aprovar os nove meses; sobram
+  R$ 630,00 em 2 linhas.
 
 - `handoff_migracao_pitwall_v68.md` (26/08/2026, **a Fatia 2 do modulo
   Financeiro: regras de classificacao automatica, 6 migrations e a quarta sub-view**).
@@ -498,7 +498,24 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v13.md` (03/09/2026, **a base saiu de 18,55% e o
+- topo: `handoff_financeiro_pitwall_v14.md` (03/09/2026, **a cauda acabou: 99,86%, e
+  todo mes passa no F3**). O dono julgou a cauda em bloco (*"pequenezas do cotidiano"*),
+  e a medicao provou que ele estava certo antes de aplicar: mediana R$ 50,00, maior
+  linha R$ 800,00. 196 linhas por `fin_classificar` (162 saidas em `outro_pessoal`, 34
+  entradas em `outro_pessoal_entrada`, todas `pessoal`), carimbadas com `observacao`
+  para a decisao em bloco ficar auditavel e reversivel numa consulta. **Nenhuma regra
+  criada, de proposito**: regra classificaria a importacao futura sozinha, que e o
+  default silencioso do Inv. 18. Cobertura 95,51% -> **99,86%**, pendente R$ 19.962,89
+  -> **R$ 630,00**, e o **portao F3 abriu nos NOVE meses** (era 4 de 7 reprovando).
+  Os R$ 630 que restam sao o par do Rodrigo: o dono disse que era repasse e
+  `fin_repasse_marcar` recusou com `Par desigual: a diferenca e de 9.09%` (+300 contra
+  -330 em 20 dias nao e tarifa). Repasse continua sendo RELACAO na cabeca dele e PAR no
+  sistema. Anotado para inverter: 11 entradas de gateway (`DLOCAL`, `ADYEN`,
+  R$ 1.300,67) foram para `pessoal` junto com a cauda, contra a leitura de que gateway
+  e recebimento de venda; comando pronto na secao 6. Aberto de verdade: **o dono ainda
+  nao abriu a aba uma unica vez** depois de a base ir de 18,55% a 99,86% num dia.
+
+- `handoff_financeiro_pitwall_v13.md` (03/09/2026, **a base saiu de 18,55% e o
   portao abriu**). Sessao sem tela nova e sem migration de produto: a entrega e o DADO.
   Aplicou a migration que estava escrita e nao aplicada desde 02/09 (ledger 27x27 ->
   28x28, casado por NOME), depois levou a cobertura de **18,55% para 95,51%** em oito
