@@ -2208,6 +2208,26 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   border:0;border-radius:7px;padding:6px 12px;cursor:pointer}
 .dh-seg-b[aria-pressed="true"]{background:var(--d-azul-bg);color:var(--d-azul);font-weight:500}
 
+/* Navegador de mes do dashboard (03/09/2026). Mesmo gesto do .fin-mes, caixa
+   propria: o header do dashboard corre na paleta importada --d-*, e reusar a
+   classe do Financeiro traria os tokens do resto do app para dentro dela.
+   ZERO token novo: caixa, borda e o realce de hover ja existem no bloco.
+   min-width no rotulo porque "setembro de 2026" e "maio de 2026" tem larguras
+   diferentes, e sem piso as setas pulariam de lugar a cada toque, que e a
+   maneira mais barata de fazer o dedo errar o alvo. */
+.dh-mes{display:flex;align-items:center;gap:6px;background:var(--bg);
+  border:1px solid var(--d-linha);border-radius:9px;padding:3px}
+.dh-mes-b{font-family:var(--body);font-size:16px;line-height:1;color:var(--d-txt);
+  background:none;border:0;border-radius:7px;width:30px;height:30px;cursor:pointer}
+.dh-mes-b:hover{background:var(--d-azul-bg);color:var(--d-azul)}
+.dh-mes-b:disabled{opacity:.35;cursor:default;background:none;color:var(--d-txt)}
+/* ::first-letter e nao capitalize: capitalize sobe TODA palavra, e
+   "agosto de 2026" virava "Agosto De 2026", com a preposicao maiuscula no meio
+   da frase. Aqui so a primeira letra sobe. */
+.dh-mes-rot{font-family:var(--body);font-size:12.5px;color:var(--d-txt);
+  min-width:112px;text-align:center}
+.dh-mes-rot::first-letter{text-transform:uppercase}
+
 /* ---- faixa de KPI (dashboard) ---- */
 /* auto-fit + minmax, e NAO um repeat(5,1fr) com media query: media query mede o
    VIEWPORT, e o dashboard vive numa coluna de ~1030px ao lado da barra lateral
@@ -2411,6 +2431,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .dash-l2,.dash-l3{grid-template-columns:1fr}
   .dash{padding:12px}
   .dh-per,.dh-seg{width:100%}
+  /* No celular o navegador ocupa a linha inteira e as setas vao para as
+     pontas: alvo de toque longe do centro e mais facil de acertar com o
+     polegar do que tres coisas espremidas no meio. */
+  .dh-mes{width:100%;justify-content:space-between}
 }
 /* Uma coluna abaixo de 520px. Em duas, o card tem ~116px de texto util e
    "R$ 2.800,00" so cabia cortado pela reticencia: dinheiro truncado e pior que

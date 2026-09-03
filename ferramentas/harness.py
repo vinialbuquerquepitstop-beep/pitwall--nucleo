@@ -5439,6 +5439,83 @@ async function rodar() {
        'linhas=' + custoLin.length + ' vermelhas=' + sangrou);
   }
 
+  // ----- navegacao de mes no dashboard                       (03/09/2026) ---
+  // A janela "Mes" desenhava SO o mes corrente: nao existia caminho nenhum para
+  // abrir o mes fechado, e o dono reportou isso como "nao consigo selecionar mes
+  // anterior". O gesto novo e o mesmo do fin-mes.
+  // A prova que importa nao e o rotulo trocar, e o RECORTE FECHADO parar no
+  // ultimo dia do proprio mes: se ele herdasse o teto de hoje, julho mostraria
+  // venda de agosto com o cabecalho jurando que e julho.
+  var dhNav = document.querySelector('#lista .dh-mes');
+  ok('dash/nav: com a janela Mes o navegador de mes existe', !!dhNav);
+  if (dhNav) {
+    var dhRot = dhNav.querySelector('.dh-mes-rot');
+    ok('dash/nav: o navegador abre no mes corrente do relogio congelado',
+       dhRot.textContent.indexOf('agosto') >= 0 && dhRot.textContent.indexOf('2026') >= 0,
+       dhRot.textContent);
+    var dhProx = dhNav.querySelector('[data-delta="1"]');
+    var dhAnt = dhNav.querySelector('[data-delta="-1"]');
+    ok('dash/nav: o proximo mes nasce travado, porque setembro ainda nao aconteceu',
+       !!dhProx && dhProx.disabled === true, dhProx ? 'disabled=' + dhProx.disabled : 'sem botao');
+    ok('dash/nav: o mes anterior nasce clicavel',
+       !!dhAnt && dhAnt.disabled === false, dhAnt ? 'disabled=' + dhAnt.disabled : 'sem botao');
+    var lucAgo = document.querySelector('#lista [data-kpi="lucmed"] .kp-num');
+    var vAgo = lucAgo ? lucAgo.textContent : '';
+    dhAnt.click();
+    await espera(80);
+    var dhRot2 = document.querySelector('#lista .dh-mes-rot');
+    ok('dash/nav: um toque no anterior leva a julho de 2026',
+       !!dhRot2 && dhRot2.textContent.indexOf('julho') >= 0,
+       dhRot2 ? dhRot2.textContent : 'sem rotulo');
+    var dhCx = document.querySelectorAll('#lista .dh-cx');
+    ok('dash/nav: o recorte fechado para no ultimo dia do mes, nao no teto de hoje',
+       dhCx.length >= 1 && dhCx[0].textContent.indexOf('01/07/2026') >= 0 &&
+       dhCx[0].textContent.indexOf('31/07/2026') >= 0,
+       dhCx.length ? dhCx[0].textContent : 'sem caixa de periodo');
+    ok('dash/nav: a comparacao acompanha o mes escolhido, nao o mes corrente',
+       dhCx.length >= 2 && dhCx[1].textContent.indexOf('jun') >= 0,
+       dhCx.length >= 2 ? dhCx[1].textContent : 'sem caixa de comparacao');
+    var lucJul = document.querySelector('#lista [data-kpi="lucmed"] .kp-num');
+    ok('dash/nav: o numero muda de verdade, nao so o rotulo',
+       !!lucJul && lucJul.textContent !== vAgo,
+       'agosto=' + vAgo + ' julho=' + (lucJul ? lucJul.textContent : 'sem card'));
+    var dhProx2 = document.querySelector('#lista .dh-mes [data-delta="1"]');
+    ok('dash/nav: fora do mes corrente o proximo destrava',
+       !!dhProx2 && dhProx2.disabled === false,
+       dhProx2 ? 'disabled=' + dhProx2.disabled : 'sem botao');
+    // Trimestre tambem ancora: julho puxa maio a julho, e nao os tres ultimos
+    // meses do relogio. Sem isso o navegador so serviria a uma das tres janelas.
+    var dhTri = document.querySelector('#lista .dh-seg-b[data-id="trimestre"]');
+    dhTri.click();
+    await espera(80);
+    var dhCxT = document.querySelectorAll('#lista .dh-cx');
+    ok('dash/nav: o Trimestre tambem ancora no mes escolhido',
+       dhCxT.length >= 1 && dhCxT[0].textContent.indexOf('01/05/2026') >= 0 &&
+       dhCxT[0].textContent.indexOf('31/07/2026') >= 0,
+       dhCxT.length ? dhCxT[0].textContent : 'sem caixa de periodo');
+    var dhTudo = document.querySelector('#lista .dh-seg-b[data-id="tudo"]');
+    dhTudo.click();
+    await espera(80);
+    ok('dash/nav: na janela Tudo o navegador some, porque nao ha mes para ancorar',
+       !document.querySelector('#lista .dh-mes'),
+       document.querySelector('#lista .dh-mes') ? 'navegador continua na tela' : 'ausente');
+    // Devolve o dashboard ao estado de entrada: assercao que suja estado global
+    // cobra o preco em outra familia, longe daqui.
+    // O botao e consultado DE NOVO: cada gesto substitui o no .dash inteiro, e a
+    // referencia guardada antes do repaint vira um no orfao, fora da arvore. Ele
+    // ainda aceita .click(), mas o evento nao borbulha ate o #lista e nada
+    // acontece, que e um jeito silencioso de a prova mentir.
+    document.querySelector('#lista .dh-seg-b[data-id="trimestre"]').click();
+    await espera(80);
+    var dhVolta = document.querySelector('#lista .dh-mes [data-delta="1"]');
+    dhVolta.click();
+    await espera(80);
+    ok('dash/nav: o navegador volta ao mes corrente e trava de novo',
+       document.querySelector('#lista .dh-mes-rot').textContent.indexOf('agosto') >= 0 &&
+       document.querySelector('#lista .dh-mes [data-delta="1"]').disabled === true,
+       document.querySelector('#lista .dh-mes-rot').textContent);
+  }
+
   // ======================================================================
   // ABA FINANCEIRO — Fatia 1                                  (25/08/2026)
   // ======================================================================

@@ -3915,16 +3915,38 @@ return'<section class="vg" aria-label="Painel de vendas">'+vgCab(a,lim)+
 // B() ja deixou em memoria. O criterio de faturamento e o MESMO de vgAgregar,
 // de proposito: dois criterios de faturamento no mesmo sistema divergem.
 var dvJanela="trimestre";
+// O mes ANCORA do recorte (03/09/2026). Ate aqui as tres janelas estavam presas
+// em HOJE: "Mes" so sabia desenhar o mes corrente, e depois que setembro comecou
+// nao havia caminho nenhum para abrir agosto. O dono reportou como "nao consigo
+// selecionar mes anterior", e a leitura dele estava certa: nao era clique que
+// falhava, era navegacao que nunca existiu.
+// "" quer dizer mes corrente, e nao a string de hoje congelada no load: com a
+// string, uma aba aberta na virada da meia-noite ficaria ancorada em ontem.
+var dvMes="";
+function dvAncora(){return dvMes||l().slice(0,7)}
 var DV_JANELAS=[["mes","Mês"],["trimestre","Trimestre"],["tudo","Tudo"]];
 function dvFimMes(ym){
 var an=parseInt(ym.slice(0,4),10),m=parseInt(ym.slice(5,7),10);
 var d=new Date(an,m,0).getDate();
 return ym+"-"+(d<10?"0"+d:d)}
+// Os limites do dashboard saem da ANCORA, nao de hoje. vgLimites continua
+// intocado de proposito: o painel da aba Vendas depende dele e nao navega mes,
+// e um segundo dono para a mesma funcao e como dois criterios de faturamento
+// divergem no mesmo sistema.
+// No mes corrente devolve exatamente o que vgLimites ja devolvia, inclusive o
+// `maior` como fim (venda com data adiantada nao some da tela). Em mes fechado
+// o fim e o ultimo dia DAQUELE mes: herdar o teto de hoje faria agosto mostrar
+// dado de setembro, que e a tela mentindo por recorte.
+function dvLimites(linhas){
+var ym=dvAncora();
+if("tudo"===dvJanela)return vgLimites(linhas,"tudo");
+if(ym>=l().slice(0,7))return vgLimites(linhas,dvJanela);
+return{ini:("mes"===dvJanela?ym:vgMesMais(ym,-2))+"-01",fim:dvFimMes(ym)}}
 // A janela ANTERIOR de mesmo tamanho. Sem ela nao existe a seta de variacao, que
 // e metade do que a referencia entrega. Em "tudo" nao ha anterior, e o card DIZ
 // isso em vez de inventar um zero: variacao contra base inexistente e mentira.
 function dvAnterior(){
-var hoje=l(),ym=hoje.slice(0,7);
+var ym=dvAncora();
 if("mes"===dvJanela)return{ini:vgMesMais(ym,-1)+"-01",fim:dvFimMes(vgMesMais(ym,-1)),rot:vgMesRot(vgMesMais(ym,-1))+"/"+vgMesMais(ym,-1).slice(0,4)};
 if("trimestre"===dvJanela)return{ini:vgMesMais(ym,-5)+"-01",fim:dvFimMes(vgMesMais(ym,-3)),rot:"trimestre anterior"};
 return null}
@@ -4420,6 +4442,16 @@ return dvCard("Insights",'<ul class="ins">'+li+"</ul>"+
 var dvLeadsTot=1;
 function dvCab(a,lim,ant){
 var op="",j;
+// O navegador some em "Tudo" porque la nao ha mes para ancorar: seta que nao
+// muda nada e beco sem saida. O proximo mes trava no corrente pelo mesmo motivo
+// que o do Financeiro trava: mes que ainda nao aconteceu devolve tela vazia sem
+// explicar por que.
+var ym=dvAncora(),dvTrav=ym>=l().slice(0,7);
+var nav="tudo"===dvJanela?"":
+'<div class="dh-mes" role="group" aria-label="Mês do recorte">'+
+'<button class="dh-mes-b" data-acao="dv-mes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
+'<span class="dh-mes-rot">'+c(vgMesLongo(ym))+"</span>"+
+'<button class="dh-mes-b" data-acao="dv-mes" data-delta="1" aria-label="Próximo mês"'+(dvTrav?" disabled":"")+">›</button></div>";
 for(j=0;j<DV_JANELAS.length;j++)
 op+='<button class="dh-seg-b" data-acao="dv-janela" data-id="'+DV_JANELAS[j][0]+
 '" aria-pressed="'+(dvJanela===DV_JANELAS[j][0]?"true":"false")+'">'+c(DV_JANELAS[j][1])+"</button>";
@@ -4432,9 +4464,19 @@ return'<header class="dh"><div class="dh-tit"><span class="dh-ico" aria-hidden="
 '<div class="dh-per"><span class="dh-cx">'+c(vgDataBr(lim.ini))+" – "+c(vgDataBr(lim.fim))+"</span>"+
 '<span class="dh-cx'+(ant?"":" dh-vazio")+'">'+
 (ant?"Comparar com: "+c(ant.rot):"Comparar: sem período anterior")+"</span></div>"+
-'<div class="dh-seg">'+op+"</div></header>"}
+nav+'<div class="dh-seg">'+op+"</div></header>"}
+// Trocar o recorte substitui SO a secao .dash. O dado ja esta em memoria e
+// refazer as tres leituras de rede a cada toque e o defeito que o v51 tirou do
+// resto do app. Fatorado porque agora sao DOIS gestos que repintam (janela e
+// mes), e duplicar a substituicao de no e como um dos dois envelhece sozinho.
+function dvRepintar(){
+var sec=E("lista")?E("lista").querySelector(".dash"):null;
+if(!sec||!sec.parentNode)return;
+var novo=document.createElement("div");
+novo.innerHTML=dvPainel();
+sec.parentNode.replaceChild(novo.firstChild,sec)}
 function dvPainel(){
-var linhas=vendasData||[],lim=vgLimites(linhas,dvJanela),a=vgAgregar(linhas,lim);
+var linhas=vendasData||[],lim=dvLimites(linhas),a=vgAgregar(linhas,lim);
 var ant=dvAnterior(),aAnt=ant?vgAgregar(linhas,ant):null;
 var vds=dvVendasNaJanela(lim),canais=dvCanais(lim);
 dvLeadsTot=Math.max(1,dvLeadsNaJanela(lim).length);
@@ -4748,14 +4790,15 @@ if("vg-detalhe"===o){vgDet=id&&id!==vgDet?id:"";vgTipEsconder();pintarVendas();r
 // acoes de venda e devolve true quando trata, entao e o gancho barato.
 // Trocar a janela do dashboard NAO relê a rede: o dado ja esta em memoria, e
 // refazer as leituras a cada toque e o defeito que o v51 tirou do resto do app.
-if("dv-janela"===o){
-dvJanela=id||"trimestre";
-var dvSec=E("lista")?E("lista").querySelector(".dash"):null;
-if(dvSec&&dvSec.parentNode){
-var novo=document.createElement("div");
-novo.innerHTML=dvPainel();
-dvSec.parentNode.replaceChild(novo.firstChild,dvSec)}
-return!0}
+if("dv-janela"===o){dvJanela=id||"trimestre";dvRepintar();return!0}
+// Navegar o mes: mesmo gesto do fin-mes da aba Financeiro, de proposito. A
+// trava do proximo mes e refeita AQUI e nao so no atributo disabled: botao
+// desabilitado nao para um clique sintetico, e ancorar no futuro devolveria
+// uma tela vazia sem dizer por que.
+if("dv-mes"===o){
+var dvNovo=vgMesMais(dvAncora(),parseInt(el.getAttribute("data-delta"),10)||0);
+if(dvNovo>l().slice(0,7))return!0;
+dvMes=dvNovo;dvRepintar();return!0}
 if("dv-ver-vendas"===o){if(E("abaVendas"))E("abaVendas").click();return!0}
 // Toque na coluna do mes: o celular nao tem hover, e sem este caminho a
 // composicao daquele mes ficaria represada atras de um gesto que nao existe.
