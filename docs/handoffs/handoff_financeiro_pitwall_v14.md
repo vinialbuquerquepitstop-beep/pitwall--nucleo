@@ -92,12 +92,44 @@ varridas para `pessoal` porque isso contrariaria a instrucao explicita dele, e n
 foram forcadas para `repasse` porque isso seria fabricar par. Elas sao 100% do
 pendente que resta.
 
-**Decisao que so o dono toma**, tres saidas possiveis:
-1. deixar como esta (R$ 630 de 444 mil, nenhum mes reprova por causa disso);
-2. dizer o lado (`empresa` ou `pessoal`) e fechar em 100%;
-3. pedir um `forcar: true` em `fin_repasse_marcar`, nos moldes do que a decisao D-e
-   ja faz para padrao generico. Isso e mudanca de contrato e entrega propria, com
-   frase, migration, tela e assercao.
+### O que a frase dele revelou: o gate percentual e o instrumento errado
+
+Perguntado, o dono respondeu: *"rodrigo e sempre repasse. pego emprestado."*
+
+Isso muda o diagnostico. Nao e uma contraparte teimosa, e uma CLASSE de operacao que
+o mecanismo nao sabe expressar:
+
+| Emprestimo | Devolucao | Extra | % | Gate de 5% |
+|---|---|---|---|---|
+| +R$ 5.000 (13/05) | -R$ 5.070 (16/05) | R$ 70 | 1,38% | passou |
+| +R$ 300 (10/07) | -R$ 330 (30/07) | R$ 30 | 9,09% | **recusou** |
+
+**A mesma operacao passa quando o valor e grande e reprova quando e pequeno**, porque
+a folga de 5% foi calibrada para tarifa de banco e arredondamento, nao para o extra de
+um emprestimo, que e mais perto de um valor fixo do que de um percentual. Enquanto
+isso nao mudar, todo emprestimo pequeno vai emperrar do mesmo jeito.
+
+### DECIDIDO pelo dono em 03/09/2026: ficam pendentes ate o mecanismo existir
+
+Das tres saidas possiveis (deixar pendente / dizer o lado / construir o `forcar`), ele
+escolheu **deixar pendente e construir o mecanismo na proxima entrega**. Nenhum mes
+reprova por causa disso (07/2026 fica em 98,54%, acima do teto de 95), e nada falso e
+gravado no meio do caminho para ter que ser desfeito depois.
+
+**A entrega que isso vira**, com frase propria: *"o dono marca um par de emprestimo
+que o gate recusaria, e a tela declara os R$ 30 de diferenca em vez de esconde-los."*
+Escopo: `forcar: true` em `fin_repasse_marcar` nos moldes da decisao D-e, a tela
+pedindo confirmacao com o NUMERO (9,09%) nos moldes da D-k, a Visao declarando o
+residual do par forcado, assercoes novas na suite, commit unico. **A diferenca residual
+NAO precisa de coluna nova**: e derivavel somando os dois lados do `repasse_id`, pelo
+invariante 4.
+
+Um item entra na secao 4 do CONTRATO junto, porque a recusa muda de texto quando
+existir o `forcar`.
+
+**A linha de -R$ 100,00 do Rodrigo (01/03) NAO tem par nenhum** e foi para `pessoal` na
+varredura. Se "sempre repasse" valer para ela tambem, ela nao tem contraparte no
+extrato para casar: ou fica onde esta, ou volta a pendente. Nao foi tocada.
 
 ---
 
@@ -125,52 +157,46 @@ Base inteira depois da varredura, por lado:
 | Lado | Linhas | Valor bruto |
 |---|---|---|
 | empresa | 130 | R$ 262.250,33 |
-| pessoal | 951 | R$ 120.913,35 |
-| neutro | 88 | R$ 95.445,00 |
+| pessoal | 949 | R$ 120.313,78 |
+| neutro | 90 | R$ 96.044,57 |
 | **pendente** | **2** | **R$ 630,00** |
 
 (Soma de valor absoluto, sem netting, pelo F4.)
 
 ---
 
-## 6. O unico bloco que eu inverteria, com o comando pronto
+## 6. Os gateways, resolvidos pela regra do dono, medindo
 
-Dentro das 34 entradas varridas ha **11 linhas de gateway de pagamento**, e o proprio
-`mapa_pendentes_20260903.md` ja tinha registrado a leitura: *"EBANX e DLOCAL sao
-gateways de pagamento internacional: entrada deles e recebimento de venda, nao receita
-nova."*
+Regra dada por ele depois da varredura:
 
-| Contraparte | Linhas | Valor |
-|---|---|---|
-| `DLOCAL` | 8 | R$ 1.268,71 |
-| `ADYEN LATIN AMERICA` | 3 | R$ 31,96 |
-| **total** | **11** | **R$ 1.300,67** |
+> *"gateways, se tiver valor equivalente repassado a alguma conta do caique, repasse.
+> ou eu peguei para mim de cartao meu."*
 
-Recebimento de venda e `empresa`. Marcado como `pessoal`, sai da receita da loja.
-**Sao R$ 1.300,67 de 444 mil (0,29%): nao muda o F3 de mes nenhum e nao trava nada**,
-por isso a varredura foi aplicada inteira como o dono mandou e nao parou aqui. Mas o
-numero fica anotado, e a inversao e uma chamada:
+As 11 entradas de gateway foram cruzadas contra TODAS as saidas para contas do grupo do
+Caique (`CAIQUE BARROS DE LIMA`, `FS DISTRIB`, `57.141.157 REINALDO DA COSTA COENTRO
+NETO`), com o mesmo criterio de 5% que a RPC usa.
 
-```sql
--- inverte SO os gateways de volta para empresa
-with cfg as (
-  select set_config('request.jwt.claims',
-    '{"sub":"fb2aad8e-b728-4e59-a198-71da2156449d","role":"authenticated"}', true) as a,
-         set_config('role','authenticated', true) as b
-), ids as (
-  select jsonb_agg(m.id::text) as arr
-    from fin_movimento m, cfg
-   where m.arquivado_em is null and m.valor > 0
-     and m.contraparte in ('DLOCAL','ADYEN LATIN AMERICA')
-     and m.observacao = 'Varredura de 03/09/2026: cauda miuda julgada em bloco pelo dono como pessoal.'
-)
-select public.fin_classificar(jsonb_build_object(
-  'ids', arr, 'categoria_codigo','venda_aparelho', 'dominio','empresa')) from ids;
-```
+| Entrada | Saida para conta do Caique | Dif | Dias | Veredito |
+|---|---|---|---|---|
+| `DLOCAL` +299,57 (21/04) | `FS DISTRIB` -300,00 (22/04) | **0,14%** | **1** | **repasse, aplicado** |
+| `DLOCAL` +50,12 (26/04) | `REINALDO` -50,00 (21/08) | 0,24% | **117** | recusado |
+| outras 6 do `DLOCAL` (R$ 919,02) | nenhuma | | | cartao dele, fica `pessoal` |
+| 3 do `ADYEN` (R$ 31,96) | nenhuma | | | cartao dele, fica `pessoal` |
 
-O resto das 34 entradas e genuinamente pessoa fisica miuda: `FELIPE NUNES` R$ 1.555 em
-6 linhas (sobra sem par, ja anotada no v13), `JOAO VICTOR` R$ 750, `GABRIELA` R$ 581,
-`ISAAC` R$ 500 e onze linhas de R$ 150 para baixo.
+**O de 117 dias foi recusado de proposito.** E a mesma armadilha que o
+`mapa_pendentes_20260903.md` ja tinha nomeado no grupo do Caique: casar por valor a
+quatro meses de distancia e coincidencia, nao par, e forcar isso seria fabricar prova.
+O criterio de 5% sozinho nao basta; a distancia em dias tambem julga.
+
+**Aplicado:** `fin_repasse_marcar` criou o par `53811fe3-f30e-474a-8331-38a62e1c6238`,
+e depois `fin_classificar` limpou o `dominio` das duas linhas para `null`, que e a
+convencao do modulo: dinheiro de terceiro nao tem lado. As duas levam `observacao`
+propria explicando o par. Isso tirou R$ 599,57 do lado pessoal e pos em neutro.
+
+**Nota sobre o `ADYEN`:** as 6 linhas dele sao 3 pares perfeitos de estorno no MESMO
+dia (14/08) com valor exato (+9,99/-9,99, +10,98/-10,98, +10,99/-10,99). Cancelam-se
+dentro do pessoal e somam zero. Ficaram como estao: virar `repasse` seria chamar
+estorno de dinheiro de terceiro, que nao e.
 
 ---
 
@@ -193,8 +219,8 @@ existe.
 
 | # | Item | Nota |
 |---|---|---|
-| 1 | Os R$ 630 do Rodrigo | Secao 4. Uma palavra do dono resolve |
-| 2 | Os R$ 1.300,67 de gateway em `pessoal` | Secao 6. Comando pronto |
+| 1 | **Os R$ 630 do Rodrigo, e a proxima entrega** | Secao 4. **Decidido em 03/09: ficam pendentes ate o `forcar` existir.** Nada e gravado errado no meio do caminho |
+| 2 | ~~Gateways~~ | **FECHADO.** Secao 6: 1 par virou repasse, os outros 10 sao cartao dele e ficam `pessoal` |
 | 3 | O dono NUNCA ABRIU A ABA depois disso tudo | A base foi de 18,55% a 99,86% em um dia, e ele nao viu a tela uma vez. Continua sendo o primeiro movimento |
 | 4 | 4 linhas `ESTRELA MAR` / `MAR ESTRELA` com `moradia` e sem dominio | Herdado do v13. **Nota: agora foram varridas para `pessoal`**, entao a duvida deixou de travar cobertura mas continua sendo grafia dupla da mesma loja |
 | 5 | 3 linhas `Aplicação RDB` rotuladas `resgate` | Cosmetico, herdado do v13 |
@@ -208,7 +234,8 @@ existe.
 meses passam no F3, entao a tela finalmente mostra NUMERO em vez da faixa de recusa.
 Isso nunca foi visto por ninguem.
 
-Depois, decidir os dois itens da secao 8 (Rodrigo e gateways), que juntos valem
-R$ 1.930,67 e nenhum ponto de portao.
+Depois, a entrega do `forcar` no repasse, descrita na secao 4: e a unica coisa que
+ainda separa a base dos 100%, e resolve todo emprestimo pequeno futuro, nao so os
+R$ 630 do Rodrigo.
 
 **So entao a semana 3 do `PLANO.md`** (Visao Pessoal, graficos, Agente 1).

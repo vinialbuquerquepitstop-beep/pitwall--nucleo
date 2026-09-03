@@ -741,9 +741,21 @@ pendentes de proposito e sao 100% do que resta.
 **O F3 abriu em todos os nove meses** (so 07/2026 fica abaixo de 100%, em 98,54%, por
 causa do Rodrigo). A tabela do F3 por mes acima, desta data, esta superada.
 
-**Fica anotado para inverter:** 11 entradas de gateway (`DLOCAL` 8, `ADYEN` 3,
-R$ 1.300,67) foram para `pessoal` junto com a cauda, contra a leitura que este proprio
-mapa registrou de que gateway e recebimento de venda. Comando de inversao pronto na
-secao 6 do `handoff_financeiro_pitwall_v14.md`.
+**Os gateways foram resolvidos na sequencia, pela regra do dono:** *"gateways, se
+tiver valor equivalente repassado a alguma conta do caique, repasse. ou eu peguei para
+mim de cartao meu."* Cruzadas as 11 entradas contra todas as saidas para o grupo do
+Caique, so UMA casa: `DLOCAL` +299,57 (21/04) com `FS DISTRIB` -300,00 (22/04), 0,14%
+e 1 dia, marcada como repasse com o `dominio` limpo. Um segundo candidato (`DLOCAL`
++50,12 com `REINALDO` -50,00, 0,24%) foi RECUSADO por estar a **117 dias** de
+distancia, que e a mesma armadilha de coincidencia de valor que este mapa ja tinha
+nomeado no grupo do Caique. As outras 10 sao cartao do proprio dono e ficam `pessoal`.
+As 3 do `ADYEN` sao estorno: casam entre si no mesmo dia, valor exato, somam zero.
+
+**O Rodrigo virou entrega, nao classificacao.** Ele explicou: *"rodrigo e sempre
+repasse. pego emprestado."* O gate de 5% aprovou o emprestimo de R$ 5.000 (extra de
+R$ 70 = 1,38%) e recusou o de R$ 300 (extra de R$ 30 = 9,09%): a mesma operacao passa
+quando e grande e reprova quando e pequena, porque a folga foi calibrada para tarifa
+de banco, nao para o extra de um emprestimo. Decisao dele: as 2 linhas ficam pendentes
+ate existir o `forcar: true` em `fin_repasse_marcar`, que e a proxima entrega.
 
 Registro de record desta varredura: **`docs/handoffs/handoff_financeiro_pitwall_v14.md`**.
