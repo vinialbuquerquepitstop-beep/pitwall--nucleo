@@ -12,8 +12,12 @@ esta la.
 ## 1. A frase da entrega
 
 **O Financeiro para de chamar caixa de resultado: mostra o lucro do mes ao lado do
-caixa, separa o que virou estoque, e para de acusar linha neutra como nao
-classificada.**
+caixa, separa o custo da mercadoria da despesa de operacao, e para de acusar linha
+neutra como nao classificada.**
+
+> A frase original desta entrega dizia *"separa o que virou estoque"*. **Estava errada**,
+> e o dono a derrubou no mesmo dia: nada virou estoque. Ver secao 7-A. A frase acima e a
+> corrigida, e a secao 3 ja esta reescrita com ela.
 
 Nasceu de o dono abrir a tela e escrever: *"cara, agosto ta ridiculo. que diferenca de
 9 mil e essa? fechei o mes com 9 mil de despesa?"*
@@ -39,8 +43,10 @@ R$ 6.479 recebidos. **Bate na virgula**, e essa conferencia e o que transforma a
 explicacao em prova.
 
 **Dos R$ 16.054 que sairam, R$ 15.400 sao compra de aparelho** (TROCA FONE 4.400 e
-2.750, ASTERION 3.400, JN TECH 3.350, DOMVOLT 1.500). Estoque, nao despesa. **O gasto
-de empresa em agosto foram R$ 654,00**: motoboy R$ 525 e moradia R$ 129.
+2.750, ASTERION 3.400, JN TECH 3.350, DOMVOLT 1.500). **Custo da mercadoria, e nao
+estoque nem despesa de operacao**: os cinco pagamentos casam com venda de agosto, de 0 a
+2 dias (secao 7-A). **A despesa de operacao de agosto foram R$ 654,00**: motoboy R$ 525
+e moradia R$ 129.
 
 ### O achado estrutural, que nenhum ajuste de tela resolve
 
@@ -59,7 +65,7 @@ modulo nunca sera o caixa do negocio.
 | # | Defeito | Evidencia antes | Depois |
 |---|---|---|---|
 | 1 | `resultado` rotulava CAIXA | tela -9.351,21 · lucro real +2.925,98 | dois blocos com fonte declarada; a palavra so rotula resultado |
-| 2 | Estoque somado a despesa | `Mercadoria` valia 74,2% do "gasto" | `saiu` declara `estoque` + `gasto`; empresa mostra R$ 654 |
+| 2 | Custo de mercadoria somado a despesa | `Mercadoria` valia 74,2% do "gasto" | `saiu` declara `compra de aparelho` + `despesa de operacao`; empresa mostra R$ 654 de despesa |
 | 3 | `nao_classificado` contava linha NEUTRA | acusava -R$ 4.725 em 3 linhas num mes 100% julgado | **0 / 0**. As 3 eram 1 `repasse` + 2 `transferencia_interna`, `dominio` null POR DESENHO |
 | 4 | `tudo` somava empresa + pessoal | -9.351,21 = -9.575,00 + 223,79 | dois placares lado a lado, sem saldo combinado |
 
@@ -110,15 +116,15 @@ vem da `venda` e so de la, nunca do extrato.
 2. **`venda.data_venda` e NULLABLE.** Caiu para `coalesce(data_venda, criado_em)` no
    fuso de Sao Paulo, senao venda sem data some da janela em silencio.
 3. **`estoque` nao e `sum(abs(valor))` solto**, e a mesma composicao de `saiu` restrita
-   ao grupo `Mercadoria`. Com `abs()`, devolucao de fornecedor inflaria o estoque e
+   ao grupo `Mercadoria`. Com `abs()`, devolucao de fornecedor inflaria o total e
    `gasto = saiu - estoque` poderia ficar negativa.
 4. **`nao_classificado_valor` e LIQUIDO, `fin_cobertura.valor_pendente` e ABSOLUTO.** Na
    janela do ano: -30,00 contra 630,00 sobre as MESMAS 2 linhas (+300 e -330). A
    contagem concorda, o valor nao. **A tela nao pode por os dois lado a lado**, e por
    isso a celula do placar carrega contagem, nao valor.
 
-`estoque` conta por GRUPO e nao por codigo, para que categoria de estoque nova entre
-sozinha. RLS provada: vendedor recebe `Financeiro e restrito ao dono.`, e um `sub` de
+`estoque` (a CHAVE do payload; a tela nao usa mais essa palavra, ver 7-A) conta por
+GRUPO e nao por codigo, para que categoria de mercadoria nova entre sozinha. RLS provada: vendedor recebe `Financeiro e restrito ao dono.`, e um `sub` de
 outro tenant ve **zero** das 7 vendas pela mesma view. ACL refeita apos o
 `CREATE OR REPLACE` e conferida byte a byte contra o snapshot anterior.
 
