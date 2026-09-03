@@ -15,7 +15,7 @@ nenhuma das duas batia com o repo.
   financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
   de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
   workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
-  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v15.md`:
+  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v16.md`:
   a cobertura saiu de 18,55% para 99,86% no mesmo dia, e os DOIS portoes abriram.** O
   F3, que mede a JANELA da tela e nao a base, passou a aprovar os nove meses; sobram
   R$ 630,00 em 2 linhas.
@@ -498,7 +498,29 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v15.md` (03/09/2026, **o bloco de custo exibia
+- topo: `handoff_financeiro_pitwall_v16.md` (03/09/2026, **agosto nao deu prejuizo de
+  9 mil, deu lucro de 2.925,98**). O dono abriu a tela e perguntou *"fechei o mes com 9
+  mil de despesa?"*. Nao fechou: agosto deu **lucro de R$ 2.925,98** em 7 vendas,
+  R$ 23.628,98 faturados. O -R$ 9.351,21 era CAIXA sob a palavra "resultado". Quatro
+  defeitos fechados: a palavra rotulando caixa; R$ 15.400 de ESTOQUE somados a R$ 654 de
+  despesa real; `nao_classificado` contando linha NEUTRA e acusando -R$ 4.725 num mes que
+  a cobertura dizia 100% julgado (dois numeros da mesma tela se contradizendo, agora
+  concordam POR CONSTRUCAO); e o filtro `tudo` somando empresa com pessoal, que e o que o
+  Inv. 18 existe para impedir. **O achado que nenhum software resolve:** ele paga
+  fornecedor por Pix desta conta e recebe a maior parte por CARTAO fora dela (5 de 7
+  vendas, R$ 17.628,98), entao esta conta vai parecer negativa em todo mes lucrativo; a
+  conferencia bate na virgula (R$ 2.000 + R$ 4.000 + R$ 479 = os R$ 6.479 recebidos).
+  Migration `20260903_fin_painel_caixa_x_resultado`, ledger 173 -> 174. **Dois erros
+  registrados sem maquiagem:** remover a chave `resultado` do payload com o banco de
+  producao ja atualizado e a tela antiga no ar deixou o placar do dono em R$ 0,00 por uma
+  janela (regra nova: migration destrutiva de payload so vai ao banco depois da tela); e
+  DUAS sessoes do Claude Code editaram a mesma pasta ao mesmo tempo, o `vitrine` desta
+  travou e a tela veio commitada pela outra (`3b6b3bb`), conferida por fora e nao
+  assumida como propria. Suite EXIT 0 nos 14 comandos, 1087 assercoes, 38 `fin5:`, deploy
+  conferido no worker em ~15s. A TELA desta entrega esta no
+  `handoff_frontend_pitwall_v3.md`.
+
+- `handoff_financeiro_pitwall_v15.md` (03/09/2026, **o bloco de custo exibia
   custo NEGATIVO**). O dono disse *"comissao e entrada financeira minha, nao operacao
   como motoboy"*, e o defeito era maior que a frase: como `comissao` tinha natureza
   `saida`, os R$ 4.800 que ele RECEBE entravam como abatimento e faziam o grupo
