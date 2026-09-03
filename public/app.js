@@ -813,23 +813,34 @@ return'<section class="fin-bloco"><div class="fin-bloco-cab"><h2 class="fin-bloc
 // verdades separadas e NUNCA se somam.
 function finCel(rot,num,pe,cls){
 return'<div class="pb-celula"><div class="pb-rot">'+rot+'</div><div class="pb-num'+(cls?" "+cls:"")+'">'+num+'</div><div class="pb-pe">'+pe+"</div></div>"}
-// O pe do `saiu`, que e o coracao desta entrega. Sem ele R$ 16.054,00 le como
-// dezesseis mil de despesa, e foi essa a leitura do dono: R$ 15.400,00 daquilo
-// viraram iPhone na prateleira e voltam a ser dinheiro quando vender.
-// Quando nao houve estoque na janela (o lado pessoal nunca compra mercadoria),
-// repetir "R$ 0,00 em estoque" seria ruido: a frase muda, mas os dois campos
-// novos do servidor continuam com leitor nos dois ramos.
+// O pe do `saiu`. Sem ele R$ 16.054,00 le como dezesseis mil de despesa, e foi
+// essa a leitura do dono.
+//
+// CORRIGIDO em 03/09/2026, no mesmo dia em que subiu errado. A primeira versao
+// dizia que os R$ 15.400,00 "viraram estoque" e voltariam a ser dinheiro quando
+// vendessem. FALSO, e o dono derrubou: "nada virou estoque, apenas um 14 pro max".
+// Medido depois disso: os CINCO pagamentos de agosto casam com venda de agosto,
+// mesmo valor, de 0 a 2 dias de distancia. Ele compra POR VENDA, nao para
+// prateleira. Compra de aparelho e CUSTO DA MERCADORIA, nao estoque e nao
+// despesa de funcionamento.
+//
+// A tela nao tenta adivinhar o que sobrou de estoque: casar pagamento com venda
+// seria heuristica, e a tabela `venda` tem 9 vendas na historia, nenhuma antes
+// de julho. Numero que nao da para provar nao entra.
+// O `pl.estoque` do servidor segue sendo o total do grupo Mercadoria; o que
+// mudou foi a PALAVRA, que era a mentira.
 function finSaiuPe(pl){
 var es=Number(pl.estoque)||0;
-if(!(es>0))return"tudo gasto, nada em estoque";
-return brlV(es)+" em estoque · "+brlV(Number(pl.gasto)||0)+" de gasto"}
+if(!(es>0))return"tudo despesa, nada de mercadoria";
+return brlV(es)+" de mercadoria · "+brlV(Number(pl.gasto)||0)+" de despesa"}
 function finCaixaComp(pl){
 var es=Number(pl.estoque)||0;
-if(!(es>0))return'<p class="fin-caixa-comp">Nada desta janela virou estoque: os <b>'+
-brlV(Number(pl.gasto)||0)+"</b> que saíram foram gasto.</p>";
+if(!(es>0))return'<p class="fin-caixa-comp">Nada desta janela foi mercadoria: os <b>'+
+brlV(Number(pl.gasto)||0)+"</b> que saíram foram despesa.</p>";
 return'<p class="fin-caixa-comp">Dos <b>'+brlV(pl.saiu)+"</b> que saíram, <b>"+brlV(es)+
-"</b> viraram <b>estoque</b> e <b>"+brlV(Number(pl.gasto)||0)+"</b> foram <b>gasto</b>. "+
-"Estoque não é despesa: virou aparelho na prateleira e volta a ser dinheiro quando vender.</p>"}
+"</b> foram <b>compra de aparelho</b> e <b>"+brlV(Number(pl.gasto)||0)+"</b> foram <b>despesa de operação</b>. "+
+"Compra de aparelho é o custo da mercadoria, não o custo de manter a loja de pé: "+
+"quase sempre é um aparelho que já tem dono.</p>"}
 function finCaixaCol(rot,pl){
 var sd=Number(pl.saldo)||0;
 return'<div class="fin-caixa-col"><div class="fin-caixa-rot">'+c(rot)+"</div>"+
@@ -901,7 +912,7 @@ finCel("lucro",brlV(lu),finDelta(rv.delta_pct_lucro),lu<0?"neg":"")+"</div>")}
 function finDivergem(){
 return'<p class="fin-divergem">Os dois blocos medem coisas diferentes e <b>não se somam</b>. '+
 "O caixa é o dinheiro que passou por esta conta: venda recebida no cartão ou em outra conta não aparece aqui, "+
-"e a compra de estoque sai dela inteira no mês em que foi paga. "+
+"e a compra do aparelho sai dela no mês em que foi paga, que nem sempre é o mês da venda. "+
 "O resultado é o que as vendas deixaram, no mês da venda, independente de quando o dinheiro entrou.</p>"}
 // A ordem importa: caixa, a nota que explica a divergencia, e so entao o
 // resultado. A nota entre os dois e a costura, e sem ela os dois cartoes leem

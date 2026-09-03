@@ -7244,6 +7244,7 @@ async function rodar() {
   //
   // A frase da entrega: "mostra o lucro do mes ao lado do caixa, separa o que
   // virou estoque, e para de acusar linha neutra como nao classificada".
+  // (a parte do "virou estoque" foi CORRIGIDA no mesmo dia: era falsa, ver abaixo.)
   //
   // O defeito que a gerou tem data e frase. O dono abriu a aba e perguntou
   // "fechei o mes com 9 mil de despesa?". Nao fechou: agosto/2026 deu LUCRO de
@@ -7319,31 +7320,39 @@ async function rodar() {
   // Sem isto, R$ 16.054,00 le como dezesseis mil de despesa. Foi essa a
   // leitura do dono, e ela estava errada por R$ 15.400,00 que viraram iPhone
   // na prateleira.
-  ok('fin5: o saiu do lado empresa declara estoque e gasto no proprio pe',
+  ok('fin5: o saiu do lado empresa declara mercadoria e despesa no proprio pe',
      f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe') ===
-       'R$ 130,00 em estoque · R$ 20,00 de gasto',
+       'R$ 130,00 de mercadoria · R$ 20,00 de despesa',
      f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe'));
   // A conta fecha na TELA, com os numeros que o dono le, nao com os que o stub
   // mandou: estoque + gasto tem que dar o proprio saiu.
   var f5Pe = String(f5T(f5Lado(0), '.pb-celula:nth-child(2) .pb-pe') || '').split('·');
-  ok('fin5: e a composicao fecha: estoque mais gasto e o proprio saiu',
+  ok('fin5: e a composicao fecha: mercadoria mais despesa e o proprio saiu',
      f5Pe.length === 2 &&
      Math.abs((f5N(f5Pe[0]) + f5N(f5Pe[1])) - f5N(f5Cels(f5Lado(0)).split('|')[1])) < 0.005,
      f5Pe.join(' + ') + ' vs ' + f5Cels(f5Lado(0)).split('|')[1]);
   var f5Comp = f5T(f5Lado(0), '.fin-caixa-comp') || '';
-  ok('fin5: a nota diz que estoque NAO e despesa, com os tres numeros na frente',
+  ok('fin5: a nota diz que compra de aparelho e custo da MERCADORIA, com os tres numeros',
      f5Comp.indexOf('R$ 150,00') >= 0 && f5Comp.indexOf('R$ 130,00') >= 0 &&
-     f5Comp.indexOf('R$ 20,00') >= 0 && f5Comp.indexOf('não é despesa') >= 0,
+     f5Comp.indexOf('R$ 20,00') >= 0 && f5Comp.indexOf('custo da mercadoria') >= 0,
      f5Comp);
-  ok('fin5: e explica por que: virou aparelho e volta a ser dinheiro na venda',
-     f5Comp.indexOf('volta a ser dinheiro quando vender') >= 0, f5Comp);
+  // Esta assercao NASCEU errada e foi corrigida no mesmo dia. Ela exigia a frase
+  // "volta a ser dinheiro quando vender", que afirmava que compra de aparelho
+  // virava ESTOQUE. O dono derrubou: "nada virou estoque, apenas um 14 pro max".
+  // Medido: os 5 pagamentos de agosto casam com venda de agosto, mesmo valor, de
+  // 0 a 2 dias. Ele compra POR VENDA. A prova agora cobra o contrario: que a
+  // tela NAO prometa que o dinheiro volta, e que NAO chame aquilo de estoque.
+  ok('fin5: e a nota nao promete que o dinheiro volta, nem chama aquilo de estoque',
+     f5Comp.indexOf('volta a ser dinheiro') < 0 &&
+     f5Comp.toLowerCase().indexOf('estoque') < 0 &&
+     f5Comp.indexOf('já tem dono') >= 0, f5Comp);
   // O lado pessoal nunca compra mercadoria. Escrever "R$ 0,00 em estoque" ali
   // seria ruido todo mes, e ruido que se repete e ruido que ninguem le.
-  ok('fin5: o lado sem estoque nao repete um R$ 0,00 em estoque',
-     f5T(f5Lado(1), '.pb-celula:nth-child(2) .pb-pe') === 'tudo gasto, nada em estoque',
+  ok('fin5: o lado sem mercadoria nao repete um R$ 0,00 de mercadoria',
+     f5T(f5Lado(1), '.pb-celula:nth-child(2) .pb-pe') === 'tudo despesa, nada de mercadoria',
      f5T(f5Lado(1), '.pb-celula:nth-child(2) .pb-pe'));
   ok('fin5: e a nota dele diz isso por extenso, sem deixar o campo mudo',
-     String(f5T(f5Lado(1), '.fin-caixa-comp') || '').indexOf('Nada desta janela virou estoque') >= 0,
+     String(f5T(f5Lado(1), '.fin-caixa-comp') || '').indexOf('Nada desta janela foi mercadoria') >= 0,
      f5T(f5Lado(1), '.fin-caixa-comp'));
 
   // ---- 4. o bloco da venda -----------------------------------------------
@@ -7368,7 +7377,7 @@ async function rodar() {
   ok('fin5: entre os dois vive a nota que diz por que eles divergem',
      !!f5Div && f5Div.textContent.indexOf('não se somam') >= 0 &&
      f5Div.textContent.indexOf('cartão') >= 0 &&
-     f5Div.textContent.indexOf('compra de estoque') >= 0,
+     f5Div.textContent.indexOf('compra do aparelho') >= 0,
      f5Div ? f5Div.textContent.slice(0, 120) : 'sem nota');
   // ENTRE, nao no rodape: a pergunta nasce na costura dos dois numeros, e nota
   // de rodape e nota que ninguem le.
