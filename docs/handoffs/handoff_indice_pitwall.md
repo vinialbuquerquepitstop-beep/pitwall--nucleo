@@ -15,7 +15,7 @@ nenhuma das duas batia com o repo.
   financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
   de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
   workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
-  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v14.md`:
+  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v15.md`:
   a cobertura saiu de 18,55% para 99,86% no mesmo dia, e os DOIS portoes abriram.** O
   F3, que mede a JANELA da tela e nao a base, passou a aprovar os nove meses; sobram
   R$ 630,00 em 2 linhas.
@@ -498,7 +498,28 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v14.md` (03/09/2026, **a cauda acabou: 99,86%, e
+- topo: `handoff_financeiro_pitwall_v15.md` (03/09/2026, **o bloco de custo exibia
+  custo NEGATIVO**). O dono disse *"comissao e entrada financeira minha, nao operacao
+  como motoboy"*, e o defeito era maior que a frase: como `comissao` tinha natureza
+  `saida`, os R$ 4.800 que ele RECEBE entravam como abatimento e faziam o grupo
+  `Operação` de agosto exibir **-R$ 4.275,00**, custo negativo. Migration
+  `20260903_fin_comissao_vira_receita_pessoal` redefine 4 campos da categoria (grupo,
+  natureza, dominio sugerido, ordem) sem tocar `codigo` nem `rotulo`; ledger 172 -> 173,
+  `fin_` batendo 1:1 com o git (27 -> 28). **Zero linha de codigo mudou**: a categoria e
+  servida por `fin_config` e a tela absorveu sozinha, que e o C2 pagando o que promete.
+  Operação foi para R$ 525,00, Receita para R$ 11.390,96, e o `resultado` NAO se moveu:
+  o caixa fecha igual, mudou onde o dinheiro aparece. Tres achados: `ordem` e sequencia
+  GLOBAL e nao por grupo (28 ja era de `outro_pessoal`, empate legal e desempate
+  deterministico por `(ordem, rotulo)`); a palavra "comissao" tem DOIS donos neste
+  negocio, a que ele recebe e a que ele paga ao consultor, entao `comissao_paga` fica
+  registrado como codigo futuro que nao pode reaproveitar este; e o primeiro
+  `apply_migration` voltou 520 da Cloudflare, com o estado conferido antes de repetir,
+  sem aplicacao dupla. Suite EXIT 0 nos 14 comandos, cobertura medida e inalterada
+  (agosto 100,00%, ano 99,86%). **Aberto: o portao 6.3.** Dois numeros do placar mudaram
+  R$ 4.800 e nenhuma nota subiu na tela; a decisao de exigir ou dispensar a nota e do
+  dono e esta declarada, nao escondida.
+
+- `handoff_financeiro_pitwall_v14.md` (03/09/2026, **a cauda acabou: 99,86%, e
   todo mes passa no F3**). O dono julgou a cauda em bloco (*"pequenezas do cotidiano"*),
   e a medicao provou que ele estava certo antes de aplicar: mediana R$ 50,00, maior
   linha R$ 800,00. 196 linhas por `fin_classificar` (162 saidas em `outro_pessoal`, 34
