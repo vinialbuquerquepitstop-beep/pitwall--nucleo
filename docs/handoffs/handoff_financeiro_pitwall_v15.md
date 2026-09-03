@@ -119,8 +119,25 @@ Argumentos de cada lado, para a decisao ser dele e nao minha:
   dano que ele previne e exatamente este: alguem olhar o historico no mes que vem e ver
   `saiu` pulando R$ 4.800 sem causa.
 
-**Nao decidi sozinho.** Se ele exigir a nota, e entrega propria com frase, tela e
-assercao. Se dispensar, esta secao vira o registro de que foi decisao consciente.
+### DECIDIDO pelo dono em 03/09/2026: dispensada
+
+> *"dispensa a nota, foi correcao de config"*
+
+**Decisao consciente, tomada depois de os dois lados serem postos.** Nenhuma nota sobe
+na tela por causa desta entrega.
+
+**Virou regra escrita, com fronteira.** A decisao nao ficou solta neste handoff, que
+sera superado: entrou no CONTRATO como **excecao 6.3.1** e como decisao **D-r**, e o
+contrato subiu para a **revisao 3**. A excecao exige QUATRO condicoes cumulativas:
+
+1. o calculo nao mudou (mudou linha de config, nao funcao nem formula);
+2. o valor antigo era demonstravelmente ERRADO, nao so diferente;
+3. o `resultado` nao se moveu;
+4. os numeros antes e depois ficam no handoff, medidos pela RPC de producao.
+
+Este caso cumpre os quatro. **A fronteira e o ponto:** "era so config" e a desculpa mais
+facil de dar e a mais dificil de contestar depois, entao a excecao tem que ser PROVADA,
+nao alegada. Excecao que qualquer um invoca nao e excecao, e a revogacao da regra.
 
 ---
 
@@ -152,7 +169,7 @@ nada tinha sido aplicado, ledger limpo. Sem aplicacao dupla.
 
 | # | Item | Nota |
 |---|---|---|
-| 1 | **A nota do 6.3** | Secao 6. Decisao do dono |
+| 1 | ~~A nota do 6.3~~ | **FECHADO.** Dispensada pelo dono, e virou a excecao 6.3.1 / D-r do CONTRATO, revisao 3 |
 | 2 | Os R$ 630 do Rodrigo e o `forcar` no repasse | v14 secao 4. Decidido: ficam pendentes ate o mecanismo existir |
 | 3 | `comissao_paga` | Secao 5.2. So quando ele pagar o consultor por esta conta |
 | 4 | O dono ainda NAO ABRIU A ABA | Segue sendo o primeiro movimento. Agora com mais um motivo: o grupo `Operação` de agosto mudou de -4.275,00 para 525,00 |
@@ -164,5 +181,5 @@ nada tinha sido aplicado, ledger limpo. Sem aplicacao dupla.
 ## 9. Primeiro movimento do proximo chat
 
 **Abrir a aba Financeiro e olhar**, agora pela terceira vez que este handoff pede.
-Depois, decidir a nota do 6.3 (secao 6), que e a unica coisa que este trabalho deixou
-pendurada.
+Este trabalho nao deixou nada pendurado: a nota do 6.3 foi decidida e virou regra
+escrita. O que sobra e da linha anterior, o `forcar` no repasse (v14, secao 4).

@@ -4,7 +4,7 @@
 Qualquer outra copia deste arquivo (projeto do Claude, chat, drive) e copia de leitura.
 Divergiu do repo? O repo ganha, e a copia se descarta.
 
-Revisao 2, 01/09/2026.
+Revisao 3, 03/09/2026.
 
 ---
 
@@ -210,6 +210,7 @@ Nao sao invariantes, sao decisoes ja tomadas. Reabrir exige decisao explicita do
 | D-o | **Conflito de regra usa `--morno`, nunca `--erro`** | ambiguidade cobra trabalho, nao e falha de sistema |
 | D-p | **A sub-view Regras vazia nao mostra "criar regra"** | ensina que se comeca pela linha do movimento |
 | D-q | **Nao existe aporte / capital de terceiro** | decisao do dono, 27/08. Desenho arquivado no historico do projeto |
+| D-r | **Correcao de dado de config dispensa a nota do 6.3, sob QUATRO condicoes cumulativas** | decisao do dono, 03/09. Ver 6.3.1: e excecao estreita, nao porta dos fundos |
 
 ---
 
@@ -251,6 +252,21 @@ Nao sao invariantes, sao decisoes ja tomadas. Reabrir exige decisao explicita do
 > **Nenhum numero da tela pode mudar de valor sem que a MESMA entrega traga a explicacao na tela.**
 
 Se o calculo mudou, a nota que explica sobe junto. Nao na proxima entrega. Junto. Numero que muda sozinho gasta a confianca de que a aba inteira depende, e confianca perdida custa mais caro do que qualquer feature nova compra.
+
+### 6.3.1 A unica excecao, decidida pelo dono em 03/09/2026
+
+**Correcao de DADO DE CONFIG dispensa a nota na tela, se as QUATRO condicoes valerem ao mesmo tempo:**
+
+1. o **calculo nao mudou**: mudou uma linha de `fin_categoria`, `fin_conta` ou equivalente, nao uma funcao, uma RPC ou uma formula;
+2. o **valor antigo era demonstravelmente errado**, nao apenas diferente. Errado quer dizer que se pode escrever a frase do absurdo (ex.: "um bloco de CUSTO exibia total NEGATIVO porque renda pessoal abatia custo da loja");
+3. o **caixa nao se moveu**: `resultado` identico antes e depois. Mudou onde o dinheiro aparece, nao quanto ha;
+4. a mudanca fica **registrada no handoff com os numeros antes e depois**, medidos pela RPC de producao, nao estimados.
+
+**Nao vale** se o calculo mudou, se o `resultado` mudou, ou se o valor antigo era defensavel. Nesses casos o 6.3 vale inteiro e a nota sobe junto.
+
+**Caso que criou a excecao:** a categoria `comissao` estava como custo de operacao e o unico movimento dela era renda pessoal do dono. Corrigida a config, o grupo `Operação` de agosto saiu de -R$ 4.275,00 para R$ 525,00 e o placar mexeu R$ 4.800 em duas linhas, com o `resultado` intacto em -R$ 9.351,21. Registro: `docs/handoffs/handoff_financeiro_pitwall_v15.md`, secao 6.
+
+**Por que estreita.** "Era so config" e a desculpa mais facil de dar e a mais dificil de contestar depois. As quatro condicoes existem para que a excecao precise ser PROVADA, nao alegada. Excecao que qualquer um consegue invocar nao e excecao, e a revogacao da regra.
 
 ---
 
@@ -302,4 +318,5 @@ Item desta lista que voltar a ser pedido entra pelo portao como qualquer outro, 
 | Rev | Data | Mudanca |
 |---|---|---|
 | 1 | 27/08/2026 | Primeira versao completa. Consolida os invariantes herdados com numero global, cria F1 a F4, corrige a numeracao 13-16 que colidia com a global, registra D-q (nao existe aporte) |
+| 3 | 03/09/2026 | Nasce a excecao 6.3.1 (e a decisao D-r): correcao de dado de config dispensa a nota na tela sob quatro condicoes cumulativas e provaveis. Decisao do dono, sobre o caso da categoria `comissao` |
 | 2 | 01/09/2026 | Item 4 do portao 6.2 deixa de cravar `fin3:` e passa a exigir prefixo que identifica o alvo da prova, admitindo `suite:` para prova de ferramenta. A redacao antiga reprovava toda entrega que nao fosse a Fatia 3 |
