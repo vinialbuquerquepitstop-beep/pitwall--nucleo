@@ -194,3 +194,70 @@ Saldo de caixa da empresa, mes a mes, **todos positivos**: fev +3.872,09 · mar
 +2.425,00.
 
 Agosto: caixa +R$ 2.425,00 contra lucro de R$ 2.925,98.
+
+
+---
+
+# EXECUCAO — 03/09/2026, no mesmo dia
+
+**O buraco caiu de R$ 207.810,29 para R$ 15.597,31. Fechou 92,5%.**
+
+| Lado | No inicio | Depois |
+|---|---|---|
+| empresa | 51 linhas · R$ 130.123,34 · 19 nomes | **3 linhas · R$ 6.370,00 · 2 nomes** |
+| pessoal | 431 linhas · R$ 77.686,95 · 188 nomes | **218 linhas · R$ 9.227,31** |
+
+Cobertura de dominio inalterada em 99,86%: nada aqui mexeu em `dominio`, so em
+categoria. Nenhum saldo do placar mudou por causa deste bloco.
+
+## A fabrica da cauda, que era estrutural
+
+A regra **`Compra no débito`**, tipo `comeca`, prioridade **100**, `categoria_codigo`
+**NULL**, ja havia pego **267 lancamentos**. Ela vencia toda regra especifica (menor
+prioridade ganha) e entregava `dominio` sem categoria.
+
+**Era ela que fabricava a cauda "Sem categoria", com regra ativa e portao verde.**
+Rebaixada para prioridade **9000**, que e o papel dela: ultimo recurso, nao primeira
+escolha.
+
+O mesmo defeito estava em outras **18 regras**: todas gravavam so `dominio`. Isso nao e
+so divida do passado, e **fabrica ativa**: sem corrigir, o extrato de outubro chegaria
+com a cauda inteira de volta. 17 foram completadas com categoria.
+
+**Regra que sai daqui: regra que grava `dominio` sem `categoria` e meia regra.** Ela
+fecha o portao F3 e deixa a tela cega sobre para onde o dinheiro foi.
+
+## O que foi aplicado
+
+- **Bloco A**, 9 fornecedores, 15 linhas -> `compra_aparelho`
+- **Bloco B**, `RONALD` R$ 7.300 e `LUCAS DA SILVA` R$ 9.750 -> `venda_aparelho`;
+  `MERCADO PAGO` e `EBANX` -> `venda_aparelho` (gateway, decisao do dono). As 5 saidas
+  do EBANX ficaram na mesma categoria de proposito: valor negativo em categoria de
+  entrada vira ABATIMENTO da receita, que e o que um estorno de gateway e. O servidor
+  avisou o sinal invertido, como deveria
+- **Bloco C**, `RODRIGO ALMEIDA DA ROCHA` = cliente. **R$ 7.000 dos R$ 26.000 NAO
+  viraram venda**: sao par de repasse (+7.000 em 16/02, -7.000 em 17/02, valor exato).
+  Sem essa separacao a tela ganharia R$ 7.000 de receita que saiu no dia seguinte
+- **`THAY DE OLIVEIRA` virou conta do Caique**, derrubando a decisao do mesmo dia que a
+  tratava como fornecedora. Tirou R$ 9.673 de entrada e R$ 1.400 de saida do lado
+  empresa e mudou tres saldos: fev 3.872,09 -> 1.999,09, mar 3.864,20 -> 1.864,20, mai
+  5.635,02 -> 1.235,02
+- **Bloco D**, 50 linhas do grupo Caique e da renda de imagem -> `outro_pessoal`
+- **Bloco E**, 9 regras novas + 17 completadas, aplicadas em tres rodadas
+- **Pet** (`HIPERPET`, `VETERINARIA XATO`, R$ 2.035,61) -> `outro_pessoal` e
+  **`SMARTFIT`** -> `saude`, decisao do dono
+
+## O que ficou PENDENTE por decisao do dono
+
+| Item | Linhas | Valor |
+|---|---|---|
+| `MF COMPANY LTDA` | 1 | R$ 6.100,00 |
+| `BRUNO DA COSTA AZEVEDO` (2 entradas) | 2 | R$ 270,00 |
+| cauda pessoal | 218 | R$ 9.227,31 |
+
+A cauda tem **media de R$ 42 por linha** e ja estava declarada na secao 6 como coisa que
+nao se julga. O `MF COMPANY` carrega o mesmo sinal que denunciou a Thay: declarado
+fornecedor, so recebe.
+
+Estado final: **58 regras ativas, 16 ainda sem categoria** (as que sao de pessoa fisica,
+onde dominio sem categoria e a resposta certa).
