@@ -498,7 +498,32 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v17.md` (03-04/09/2026, **o caixa nunca foi
+- topo: `handoff_financeiro_pitwall_v18.md` (04/09/2026, **a auditoria voltou depois de
+  sete versoes, e o portao que a cobrava reprovou por conta propria**). Sessao de
+  auditoria e plano: zero linha de `public/`, zero migration, zero numero de tela
+  mudado. O `P-AUDITA` nao rodava **desde o v10**: fatia 3, fatia 4 e as tres entregas
+  de 03/09 nunca foram auditadas por ninguem alem de quem as construiu. Passaram limpo
+  git x banco (30 = 30 por md5 do corpo), RLS nos tres papeis, Inv. 9, Inv. 10, uma so
+  `security definer`, F3 em todos os meses e zero token de cor novo. **Reprovaram dois
+  itens**: a regra `Compra no débito` continua carimbando `dominio` em **175
+  contrapartes** (o v17 consertou o lado da categoria e nunca questionou o do dominio,
+  e prioridade 9000 nao redime um default, so o poe por ultimo), e `ini_anterior` /
+  `fim_anterior` saem do `fin_painel` com **0 leitores** em `app.js` desde 26/08, entao
+  todo `delta_pct` compara contra janela que a tela nao declara. O portao 6.3 foi
+  julgado condicao por condicao e **tres das quatro falham**: divida aberta, −R$ 8.273
+  em tres saldos sem nota na tela. Nove defeitos visiveis abertos, plano de solucao
+  integral em `docs/financeiro/plano_solucao_integral_20260904.md` (commit `e4e6ff5`),
+  **D-s = A** e **D-t = A** respondidas pelo dono. Depois disso o `P-ABRE` da E1
+  **reprovou sozinho** e, pelo CONTRATO 6.1, a entrega da vez virou fechar o portao: o
+  `harness.py` saia **1** tanto para assercao vermelha quanto para corrida que nao
+  chegou ao fim, e o `CLAUDE.md` manda conferir exatamente o exit code. Agora sao tres
+  codigos (0 verde, 1 regressao, **2 inconclusivo**), a corrida se repete uma vez antes
+  de desistir, o estouro de tempo e capturado, e `ferramentas/prova_suite.py` prova a
+  decisao em 17 assercoes `suite:` sem abrir Chrome. **Anotado como divida:** a prova
+  nova nao entrou na lista do `CLAUDE.md` nem no `P-ABRE`, os dois de raio grande, e vai
+  junto com o inventario na revisao final.
+
+- `handoff_financeiro_pitwall_v17.md` (03-04/09/2026, **o caixa nunca foi
   negativo, e a categoria tinha uma fabrica**). Sessao mais longa da linha. O dono
   derrubou conclusao da Torre QUATRO vezes e nas quatro estava certo. **O caixa da loja
   fechou positivo em todos os sete meses**; o que fazia parecer negativo eram R$ 56.287

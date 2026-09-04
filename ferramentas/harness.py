@@ -10,12 +10,19 @@ sys.stdout.reconfigure(encoding='utf-8')
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 PUB = RAIZ / 'public'
 
+# Veredito de CORRIDA (a suite chegou ao fim?) separado do veredito de ASSERCAO
+# (o produto continua certo?). Os dois saiam com codigo 1 e nao davam para
+# distinguir pelo exit code, que e justamente o que o CLAUDE.md manda conferir.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from suite_veredito import veredito_corrida, OK, REGRESSAO, INCONCLUSIVO
+
 CHROME = None
 for p in [r'C:\Program Files\Google\Chrome\Application\chrome.exe',
           r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe']:
     if os.path.exists(p): CHROME = p; break
 if not CHROME:
-    print('sem Chrome/Edge'); sys.exit(1)
+    # Nao ha Chrome: a suite nao rodou. Isso nao e regressao do produto.
+    print('sem Chrome/Edge'); sys.exit(INCONCLUSIVO)
 
 # ---- dado real, lido do banco em 16/07/2026 ----
 LEADS = json.loads((RAIZ / 'ferramentas' / 'dados_teste.json').read_text(encoding='utf-8'))['leads']
@@ -7568,27 +7575,52 @@ pagina = f"""<!doctype html><html><head><meta charset="utf-8"><style>{css}</styl
 tmp = pathlib.Path(tempfile.gettempdir()) / 'pitwall_harness.html'
 tmp.write_text(pagina, encoding='utf-8')
 
-perfil = tempfile.mkdtemp()
-out = subprocess.run([CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
-                      # 25000 acabou em 08/08/2026: as ~25 esperas do bloco de
-                      # entrega estouraram o orcamento e o DOM saia ANTES do
-                      # <pre id=RESULTADO>, o que o lado Python le como "nao
-                      # chegou ao fim" (nao como falha de assercao). Orcamento e
-                      # tempo VIRTUAL: subir nao deixa a suite mais lenta.
-                      f'--user-data-dir={perfil}', '--virtual-time-budget=200000',
-                      '--dump-dom', tmp.as_uri()],
-                     capture_output=True, text=True, encoding='utf-8', timeout=300)
-dom = out.stdout or ''
-# Procurar 'RESULTADO' cru engana: a string existe no proprio <script> injetado,
-# entao o guard passava e o split estourava com IndexError. Procurar a TAG.
-if 'id="RESULTADO">' not in dom:
-    print('o teste nao chegou ao fim. DOM:', len(dom), 'chars')
-    import re as _re
-    for _ln in (out.stderr or '').splitlines():
+def _corrida():
+    """Uma corrida do Chrome. Devolve (out, estourou_tempo)."""
+    perfil = tempfile.mkdtemp()
+    try:
+        return subprocess.run(
+            [CHROME, '--headless=new', '--disable-gpu', '--no-sandbox',
+             # 25000 acabou em 08/08/2026: as ~25 esperas do bloco de
+             # entrega estouraram o orcamento e o DOM saia ANTES do
+             # <pre id=RESULTADO>, o que o lado Python le como "nao
+             # chegou ao fim" (nao como falha de assercao). Orcamento e
+             # tempo VIRTUAL: subir nao deixa a suite mais lenta.
+             f'--user-data-dir={perfil}', '--virtual-time-budget=200000',
+             '--dump-dom', tmp.as_uri()],
+            capture_output=True, text=True, encoding='utf-8', timeout=300), False
+    except subprocess.TimeoutExpired:
+        # Antes disto o estouro subia como traceback e o processo saia 1, que e
+        # o codigo da regressao. Teto de tempo estourado nao mede nada.
+        return None, True
+
+
+# Duas tentativas. Corrida que nao chega ao fim nao mediu nada, entao repeti-la
+# nao mascara defeito: uma assercao vermelha continua vermelha na segunda. O que
+# a repeticao remove e o vermelho FALSO, que foi o que reprovou o P-ABRE de
+# 04/09/2026 e passou verde nas sete corridas seguintes, sem nada mudar no repo.
+TENTATIVAS = 2
+out, dom, res = None, '', None
+for _t in range(1, TENTATIVAS + 1):
+    out, _estourou = _corrida()
+    dom = (out.stdout if out else '') or ''
+    _terminou, _motivo = veredito_corrida(dom, _estourou)
+    if _terminou:
+        if _t > 1:
+            print(f'(a tentativa 1 nao chegou ao fim; esta e a tentativa {_t})\n')
+        break
+    print(f'A SUITE NAO TERMINOU (tentativa {_t} de {TENTATIVAS}): {_motivo}')
+    for _ln in ((out.stderr if out else '') or '').splitlines():
         if 'Uncaught' in _ln or 'ERROR:' in _ln:
             print('  JS:', _ln[:400])
-    print((out.stderr or '')[-2000:])
-    sys.exit(1)
+else:
+    print('\nINCONCLUSIVO: a suite nao chegou ao fim em '
+          f'{TENTATIVAS} tentativas.')
+    print('Isso NAO e regressao: nenhuma assercao chegou a ser medida.')
+    print('Olhe a ferramenta (Chrome, orcamento de tempo virtual), nao o produto.')
+    print(((out.stderr if out else '') or '')[-2000:])
+    sys.exit(INCONCLUSIVO)
+
 res = dom.split('id="RESULTADO">', 1)[1].split('</pre>', 1)[0]
 import html as H
 res = H.unescape(res)
@@ -7645,4 +7677,5 @@ if _faltando:
     for _n in _faltando:
         print('  NAO EXECUTOU  ' + _n)
 
-sys.exit(1 if (n_falhou or _faltando) else 0)
+# Aqui, e so aqui, sai REGRESSAO: houve o que medir e a medicao ficou vermelha.
+sys.exit(REGRESSAO if (n_falhou or _faltando) else OK)

@@ -42,6 +42,13 @@ Nove entregas, uma por sessao, na ordem abaixo. O portao do bloco 3 do `PLANO.md
 Nenhuma delas e de codigo. Nenhuma delas a Torre pode tomar. Tres travam entregas, duas
 sao trabalho de tela. **Ate a D-s ser respondida, E2 nao tem forma.**
 
+> **RESPONDIDAS EM 04/09/2026, pelo dono, no chat:**
+> **D-s = A** — a regra `Compra no débito` perde o `dominio` e as 214 linhas voltam
+> para a fila. Custo aceito de forma consciente: marco vai a 91,77% e apaga os numeros
+> economicos ate serem julgadas 50 linhas, R$ 2.906,94.
+> **D-t = A** — a divida do portao 6.3 se paga: E1 sobe a nota na tela.
+> D-u, D-v e D-w seguem abertas. Nenhuma das tres trava E1 ou E2.
+
 ### D-s — a regra `Compra no débito` (trava E2)
 
 Medido: `tipo comeca`, `dominio pessoal`, `categoria NULL`, prioridade 9000, aplicada
