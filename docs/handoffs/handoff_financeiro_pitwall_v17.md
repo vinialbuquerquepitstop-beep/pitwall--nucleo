@@ -164,6 +164,20 @@ a tabela `venda`, que era onde a resposta estava.**
 
 ## 9. Primeiro movimento do proximo chat
 
+**ANTES DE QUALQUER COISA: rodar o `P-AUDITA`.** Prompt pronto em
+`docs/financeiro/prompt_auditoria_20260904.md`, gerado pelo `condutor` em 04/09/2026.
+
+Motivo, medido: **o `P-AUDITA` nao roda desde o v10.** Ficaram sem auditoria
+independente a fatia 3, a fatia 4 e as TRES entregas de 03/09, que foram construidas E
+conferidas pela mesma sessao, contra o que a secao 7 do CONTRATO manda. O bloco 3 do
+`PLANO.md` tem como portao a lista de DEFEITOS VISIVEIS = 0, e a auditoria pode
+acrescentar itens a essa lista: construir antes dela e construir sobre estado nao
+conferido.
+
+**Abrir SESSAO NOVA.** Esta sessao construiu; ela nao pode auditar.
+
+Depois da auditoria, e so depois:
+
 **O item 1 da secao 8.** E o unico defeito conhecido que ainda vai produzir numero
 divergente na tela sem avisar, e ele vai aparecer sozinho no primeiro mes em que um
 lead atravessar a virada.
