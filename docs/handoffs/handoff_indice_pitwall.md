@@ -15,7 +15,7 @@ nenhuma das duas batia com o repo.
   financeira, retrato em `supabase/baseline/`), frontend (1037 assercoes, SETE comandos
   de validacao, `diag_largo.py` novo), backup (corrigido e provado, com os tres
   workflows verdes) e o `gh` CLI, que ESTA instalado nesta maquina. A substancia mora na
-  linha financeiro. **Superado em 03/09/2026 pelo `handoff_financeiro_pitwall_v16.md`:
+  linha financeiro. **Superado em 04/09/2026 pelo `handoff_financeiro_pitwall_v17.md`:
   a cobertura saiu de 18,55% para 99,86% no mesmo dia, e os DOIS portoes abriram.** O
   F3, que mede a JANELA da tela e nao a base, passou a aprovar os nove meses; sobram
   R$ 630,00 em 2 linhas.
@@ -498,7 +498,28 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v16.md` (03/09/2026, **agosto nao deu prejuizo de
+- topo: `handoff_financeiro_pitwall_v17.md` (03-04/09/2026, **o caixa nunca foi
+  negativo, e a categoria tinha uma fabrica**). Sessao mais longa da linha. O dono
+  derrubou conclusao da Torre QUATRO vezes e nas quatro estava certo. **O caixa da loja
+  fechou positivo em todos os sete meses**; o que fazia parecer negativo eram R$ 56.287
+  de receita propria escondida: R$ 12.000 marcados `transferencia_interna` (categoria
+  NEUTRA, fora de todo total) e R$ 44.287 sem categoria nenhuma. Causa contada por ele e
+  so por ele: **ele passa o cartao na maquininha de outro lojista (o BR) e recebe por
+  Pix**, entao a receita chega com o nome do lojista e nao do cliente. Medido antes de
+  aceitar: R$ 60.166 entrando contra R$ 14.530 saindo em 7 meses, e ele nao deve nada,
+  logo nao e emprestimo. A cauda "Sem categoria" tinha uma **fabrica ativa**: a regra
+  `Compra no débito`, prioridade 100 e categoria NULL, ja com 267 lancamentos, vencia
+  toda regra especifica e entregava dominio sem categoria, com portao F3 verde;
+  rebaixada para 9000, e outras 17 regras completadas. Sem categoria caiu de
+  R$ 207.810,29 para R$ 15.597,31. **Regra que sai daqui: regra que grava dominio sem
+  categoria e meia regra.** Registra tambem QUATRO erros da Torre sem maquiagem, todos
+  com a mesma raiz (afirmar sobre o negocio a partir do extrato sem cruzar com a tabela
+  `venda`), incluindo uma assercao de teste que nasceu defendendo uma frase falsa.
+  Aberto e urgente: **Dashboard e Financeiro filtram por datas diferentes** (contato do
+  lead x data da venda) e batem hoje so porque as 10 vendas tem contato e venda no mesmo
+  mes.
+
+- `handoff_financeiro_pitwall_v16.md` (03/09/2026, **agosto nao deu prejuizo de
   9 mil, deu lucro de 2.925,98**). O dono abriu a tela e perguntou *"fechei o mes com 9
   mil de despesa?"*. Nao fechou: agosto deu **lucro de R$ 2.925,98** em 7 vendas,
   R$ 23.628,98 faturados. O -R$ 9.351,21 era CAIXA sob a palavra "resultado". Quatro
