@@ -178,9 +178,13 @@ a pergunta "em que a loja gastou" passa a ter resposta, que hoje nao tem.
   o nome inteiro.
 - **Nao julga a cauda de R$ 6 mil.** Custa mais que vale, e esta escrito para que a
   proxima sessao nao ache que foi esquecimento.
-- **Nao mexe em nenhum saldo.** Todas essas linhas JA tem `dominio` e JA contam no
-  caixa. Isto e sobre o "para onde foi", nao sobre "quanto sobrou". Nenhum numero do
-  placar muda por causa deste plano.
+- ~~**Nao mexe em nenhum saldo.**~~ **ESTA AFIRMACAO FICOU FALSA NA EXECUCAO, e esta
+  riscada em vez de apagada.** Era verdadeira quando o plano foi escrito: as linhas de
+  CATEGORIA ja tinham `dominio` e ja contavam no caixa. Mas a execucao descobriu que a
+  `THAY DE OLIVEIRA` era conta do Caique, e mover ela de `empresa` para `pessoal` E
+  mudanca de `dominio`, nao de categoria. **Tres saldos mudaram**: fev 3.872,09 ->
+  1.999,09, mar 3.864,20 -> 1.864,20, mai 5.635,02 -> 1.235,02. Ver a divida do portao
+  6.3 no fim deste arquivo.
 
 ---
 
@@ -207,8 +211,10 @@ Agosto: caixa +R$ 2.425,00 contra lucro de R$ 2.925,98.
 | empresa | 51 linhas · R$ 130.123,34 · 19 nomes | **3 linhas · R$ 6.370,00 · 2 nomes** |
 | pessoal | 431 linhas · R$ 77.686,95 · 188 nomes | **218 linhas · R$ 9.227,31** |
 
-Cobertura de dominio inalterada em 99,86%: nada aqui mexeu em `dominio`, so em
-categoria. Nenhum saldo do placar mudou por causa deste bloco.
+Cobertura de dominio inalterada em 99,86%. **Mas "nada aqui mexeu em `dominio`" e
+FALSO e ficou escrito assim por engano:** a `THAY DE OLIVEIRA` saiu de `empresa` para
+`pessoal`, que e `dominio`, e mudou tres saldos. A cobertura nao se moveu porque ela ja
+tinha um lado antes e continuou tendo um depois, o que e outra coisa.
 
 ## A fabrica da cauda, que era estrutural
 
@@ -261,3 +267,42 @@ fornecedor, so recebe.
 
 Estado final: **58 regras ativas, 16 ainda sem categoria** (as que sao de pessoa fisica,
 onde dominio sem categoria e a resposta certa).
+
+
+---
+
+# DIVIDA DO PORTAO 6.3, aberta em 04/09/2026
+
+Achado pelo `condutor` numa avaliacao pedida pelo dono, depois da sessao fechada.
+
+**Tres saldos mensais da empresa mudaram e nenhuma nota subiu na tela.** A causa foi a
+`THAY DE OLIVEIRA` passar de `empresa` para `pessoal`.
+
+| Mes | Antes | Depois |
+|---|---|---|
+| fev | +3.872,09 | +1.999,09 |
+| mar | +3.864,20 | +1.864,20 |
+| mai | +5.635,02 | +1.235,02 |
+
+**A excecao 6.3.1 do CONTRATO nao cobre este caso**, e a checagem condicao por condicao
+mostra por que:
+
+| # | Condicao | Cumpre? |
+|---|---|---|
+| 1 | mudou linha de config (`fin_categoria`, `fin_conta`), nao funcao nem formula | **NAO.** Mudou `fin_movimento` |
+| 2 | o valor antigo era demonstravelmente ERRADO | sim, a Thay nunca foi fornecedora |
+| 3 | o `resultado` (caixa) nao se moveu | **NAO.** Tres saldos mudaram |
+| 4 | numeros antes e depois no handoff, medidos pela RPC | sim, v17 secao 3 |
+
+Duas das quatro falham, e as quatro sao cumulativas. **Logo o 6.3 vale inteiro: a nota
+na tela e devida e nao subiu.**
+
+**Registro do que isso significa.** A excecao 6.3.1 foi escrita nesta mesma sessao, de
+manha, deliberadamente estreita, com a frase *"excecao que qualquer um consegue invocar
+nao e excecao, e a revogacao da regra"*. A tarde a Torre fez exatamente o tipo de
+mudanca que ela nao cobre e nao percebeu. **A estreiteza funcionou: ela pegou quem a
+escreveu.** Isso e argumento a favor de manter o 6.3.1 como esta.
+
+**Decisao pendente do dono**, as mesmas duas saidas de hoje de manha: exigir a nota (e
+entrega propria, com tela e assercao) ou dispensar por decisao consciente registrada.
+A Torre nao decide isso sozinha.
