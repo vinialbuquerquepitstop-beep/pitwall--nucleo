@@ -888,6 +888,62 @@ window.supabase = {
                        banco: null, tipo: 'corrente', dominio_padrao: 'misto', ordem: 1 }],
             categorias: FIN_CATS }, error: null });
         }
+        // ---- E1 (05/09/2026): as notas de mudanca de numero ---------------
+        // O padrao e SEM nota ([]), e ele fica: as ~1087 assercoes anteriores
+        // medem a tela sem nota, e mudar o padrao faria esta entrega reescrever
+        // o que elas provam. window.__FIN_NOTAS troca de cena.
+        //
+        // FIN_NOTAS_THAY e o retorno REAL de fin_painel de fevereiro, medido no
+        // banco vivo pelo `base` e copiado caractere por caractere, acento e
+        // cedilha inclusive. E ele que prova que a tela nao reescreve texto de
+        // servidor (C3).
+        //
+        // FIN_NOTAS_TODOS tem UMA nota por escopo do conjunto fechado (o CHECK
+        // de fin_nota_numero). Hoje so existem tres notas no banco, todas de
+        // saldo_empresa: construir a prova so para elas entregaria o mecanismo
+        // cego justamente para a E2, que reusa ele com escopo diferente.
+        //
+        // A nota de `gasto` carrega uma `diferenca` que NAO fecha com depois
+        // menos antes (-100,00 contra -90,00). Isso e SONDA, nao dado
+        // plausivel: no banco `diferenca` e coluna gerada e nao pode divergir.
+        // Ela existe para separar "a tela exibiu o campo do servidor" de "a
+        // tela refez a conta", que nenhum fixture coerente consegue separar.
+        //
+        // Os VALORES de FIN_NOTAS_TODOS fecham com o placar do fixture (saldo
+        // empresa 1850, pessoal -55.5, entrou 2000, gasto 75.5, lucro 1840.55,
+        // pct 2.11): nota cujo `valor_depois` discordasse do numero desenhado
+        // ao lado seria um fixture ensinando a tela a mentir.
+        var FIN_NOTAS_THAY = [
+          { codigo: 'thay_pessoal_2026_02', escopo: 'saldo_empresa',
+            competencia: '2026-02-01', valor_antes: 3872.09, valor_depois: 1999.09,
+            diferenca: -1873.00, mudou_em: '2026-09-03',
+            causa: 'Em 03/09/2026 você marcou como pessoais 2 lançamentos da Thay que antes contavam como da empresa, e por isso R$ 1.873,00 saíram do saldo da empresa em fevereiro.' }];
+        var FIN_NOTAS_TODOS = [
+          { codigo: 'n_saldo_empresa', escopo: 'saldo_empresa', competencia: '2026-08-01',
+            valor_antes: 2000, valor_depois: 1850, diferenca: -150,
+            causa: 'O saldo da empresa mudou.', mudou_em: '2026-09-03' },
+          { codigo: 'n_saldo_pessoal', escopo: 'saldo_pessoal', competencia: '2026-08-01',
+            valor_antes: -25.5, valor_depois: -55.5, diferenca: -30,
+            causa: 'O saldo pessoal mudou.', mudou_em: '2026-09-03' },
+          { codigo: 'n_entrou', escopo: 'entrou', competencia: '2026-08-01',
+            valor_antes: 1800, valor_depois: 2000, diferenca: 200,
+            causa: 'O que entrou mudou.', mudou_em: '2026-09-02' },
+          // A SONDA: -100,00 nao e 75,5 menos 165,5 (-90,00). No banco
+          // `diferenca` e coluna gerada e nao pode divergir; aqui ela diverge
+          // de proposito, e e o unico jeito de separar "a tela exibiu o campo
+          // do servidor" de "a tela refez a conta".
+          { codigo: 'n_gasto', escopo: 'gasto', competencia: '2026-08-01',
+            valor_antes: 165.5, valor_depois: 75.5, diferenca: -100,
+            causa: 'A despesa de operação mudou.', mudou_em: '2026-09-01' },
+          { codigo: 'n_lucro', escopo: 'lucro', competencia: '2026-08-01',
+            valor_antes: 1500, valor_depois: 1840.55, diferenca: 340.55,
+            causa: 'O lucro mudou.', mudou_em: '2026-08-30' },
+          { codigo: 'n_pct', escopo: 'pct_julgado', competencia: '2026-08-01',
+            valor_antes: 90, valor_depois: 2.11, diferenca: -87.89,
+            causa: 'A cobertura da base mudou.', mudou_em: '2026-08-29' }];
+        function finNotasCena() {
+          return 2 === window.__FIN_NOTAS ? FIN_NOTAS_TODOS
+               : 1 === window.__FIN_NOTAS ? FIN_NOTAS_THAY : []; }
         if (nome === 'fin_painel') {
           // __FIN_VAZIO reproduz o estado REAL de hoje: fin_movimento tem 0
           // linhas, e a primeira coisa que o dono vai ver e a tela vazia. As
@@ -909,6 +965,8 @@ window.supabase = {
                         nao_classificado_valor: 0, nao_classificado_n: 0,
                         nao_classificado_entradas: 0, nao_classificado_saidas: 0 },
               resultado_venda: { n: 0, faturado: 0, lucro: 0, delta_pct_lucro: null },
+              // Base zerada nao tem numero que tenha mudado, entao nao tem nota.
+              notas: [],
               secoes: [], entradas: [] }, error: null });
           var fpNc = FIN_MOVS.filter(function (x) { return x.dominio === null; });
           var fpVal = 0, fpEnt = 0, fpSai = 0;
@@ -926,6 +984,8 @@ window.supabase = {
           return Promise.resolve({ data: { ok: true,
             ini: args.p_ini, fim: args.p_fim, hoje: '2026-08-25',
             dominio: args.p_dominio || 'tudo',
+            // Sempre array, nunca null: o servidor manda [] no mes sem nota.
+            notas: finNotasCena(),
             // Fatia 3: quem decide se a Visao pode desenhar numero economico e
             // o SERVIDOR. O padrao do fixture e base COMPLETA (98), senao as
             // 143 assercoes de fin: e fin2: passariam a medir a tela bloqueada.
@@ -7503,6 +7563,146 @@ async function rodar() {
      finQ('.fin-inc-txt').textContent.indexOf('Entrou, saiu e saldo') >= 0,
      finQ('.fin-inc-txt').textContent.slice(0, 90));
   window.__FIN_INCOMPLETA = 0;
+
+  // ---- 11. fin6: a nota de mudanca de numero (E1, 05/09/2026) -------------
+  // Portao 6.3: nenhum numero da tela pode mudar de valor sem que a MESMA
+  // entrega traga a explicacao na tela. O que estas assercoes protegem nao e a
+  // existencia da nota, e a INSEPARABILIDADE: numero e nota tem que ser o mesmo
+  // no do DOM, porque bloco separado e bloco que uma refatoracao futura move,
+  // esconde num accordion ou deixa de renderizar sem quebrar nenhum teste.
+  function f6Notas() { return finQA('.fin-nota'); }
+  function f6Cel(esc) {
+    var n = finQ('.fin-nota[data-escopo="' + esc + '"]');
+    return n ? n.closest('.pb-celula') : null; }
+  function f6Esc() {
+    return f6Notas().map(function (n) { return n.getAttribute('data-escopo'); }).sort().join(','); }
+  function f6Ir(dom) {
+    finQ('[data-acao="fin-dom"][data-dom="' + dom + '"]').click();
+    return espera(480); }
+
+  // -- cena sem nota. E o padrao, e e o estado de abril, junho, julho e agosto.
+  window.__FIN_NOTAS = 0;
+  await f6Ir('tudo');
+  ok('fin6: mes sem nota nao desenha bloco de nota nenhum',
+     0 === f6Notas().length, 'notas=' + f6Notas().length);
+  ok('fin6: e a tela do mes sem nota continua inteira',
+     2 === finQA('.fin-caixa-col').length && finQA('.pb-celula').length > 0,
+     'colunas=' + finQA('.fin-caixa-col').length +
+     ' celulas=' + finQA('.pb-celula').length);
+
+  // -- cena com nota em todo escopo que a tela sabe ancorar.
+  window.__FIN_NOTAS = 2;
+  await f6Ir('tudo');
+  var f6SE = f6Cel('saldo_empresa'), f6SP = f6Cel('saldo_pessoal');
+  ok('fin6: a nota mora DENTRO da celula, no mesmo no do numero',
+     !!f6SE && !!f6SE.querySelector('.pb-num') && !!f6SE.querySelector('.fin-nota'),
+     f6SE ? 'num e nota na mesma celula' : 'nota fora de qualquer celula');
+  ok('fin6: e o numero explicado esta nessa celula, nao em outra',
+     !!f6SE && 'saldo' === f6SE.querySelector('.pb-rot').textContent &&
+     f6SE.querySelector('.pb-num').textContent.indexOf('1.850,00') >= 0,
+     f6SE ? f6SE.querySelector('.pb-rot').textContent + '=' +
+            f6SE.querySelector('.pb-num').textContent : 'sem celula');
+  // O escopo tem lado, e o lado tem que casar com a COLUNA: uma nota do saldo
+  // da empresa colada na coluna Pessoal explicaria o numero errado, e o dono
+  // nao teria como saber.
+  ok('fin6: o lado do escopo casa com a coluna, empresa na Empresa',
+     !!f6SE && 'Empresa' === f6SE.closest('.fin-caixa-col')
+                                .querySelector('.fin-caixa-rot').textContent,
+     f6SE ? f6SE.closest('.fin-caixa-col').querySelector('.fin-caixa-rot').textContent : 'sem coluna');
+  ok('fin6: e pessoal na Pessoal',
+     !!f6SP && 'Pessoal' === f6SP.closest('.fin-caixa-col')
+                                .querySelector('.fin-caixa-rot').textContent,
+     f6SP ? f6SP.closest('.fin-caixa-col').querySelector('.fin-caixa-rot').textContent : 'sem coluna');
+  // A INSEPARABILIDADE, medida: nao existe .pb-num de numero explicado que
+  // esteja fora da celula que carrega a nota dele. Se um dia alguem mover a
+  // nota para um rodape, esta linha cai.
+  ok('fin6: nenhum numero com nota se desenha fora da celula que a carrega',
+     f6Notas().every(function (n) {
+       var cel = n.closest('.pb-celula');
+       return !!cel && !!cel.querySelector('.pb-num') && cel.contains(n); }),
+     'notas=' + f6Notas().length);
+  // Com o filtro em `tudo` nao existe placar principal (Inv. 18: o saldo
+  // combinado nao e desenhado), entao SO os escopos com lado tem onde colar.
+  // Nota sem lado aparecendo aqui explicaria um numero que a tela nao mostra.
+  // No caixa, com o filtro em `tudo`, nao existe placar principal (Inv. 18: o
+  // saldo combinado nao e desenhado), entao ali SO os escopos com lado tem onde
+  // colar. Nota sem lado aparecendo numa coluna explicaria um numero que a tela
+  // nao mostra.
+  function f6EscEm(sel) {
+    return finQA(sel + ' .fin-nota').map(function (n) {
+      return n.getAttribute('data-escopo'); }).sort().join(','); }
+  ok('fin6: nas colunas de caixa so colam os escopos com lado',
+     'saldo_empresa,saldo_pessoal' === f6EscEm('.fin-caixa-col'),
+     f6EscEm('.fin-caixa-col'));
+  // O lucro e a excecao COERENTE, nao um furo: o cartao de venda nao se divide
+  // em empresa e pessoal (a venda e da loja, fin5 prova que ele some no filtro
+  // Pessoal), entao ele e sempre o placar principal e recebe o escopo sem lado.
+  ok('fin6: e o lucro cola no cartao de venda, que nao tem lado para dividir',
+     'lucro' === f6EscEm('.fin-venda') &&
+     f6EscEm('.fin-caixa-col').indexOf('lucro') < 0,
+     'venda=' + f6EscEm('.fin-venda') + ' caixa=' + f6EscEm('.fin-caixa-col'));
+
+  // -- um dominio escolhido: a coluna vira o placar principal e os escopos sem
+  //    lado passam a ter endereco.
+  await f6Ir('empresa');
+  ok('fin6: com um dominio escolhido, o escopo sem lado passa a colar',
+     f6Esc().indexOf('entrou') >= 0 && f6Esc().indexOf('gasto') >= 0, f6Esc());
+  ok('fin6: e a nota do saldo pessoal NAO vaza para a coluna Empresa',
+     f6Esc().indexOf('saldo_pessoal') < 0, f6Esc());
+  // `diferenca` chega pronta do servidor. O fixture manda -100,00 onde a conta
+  // daria -90,00: exibir -90,00 provaria que o JS refez a subtracao.
+  var f6G = finQ('.fin-nota[data-escopo="gasto"] .fin-nota-conta');
+  ok('fin6: a diferenca exibida e a do servidor, nao uma refeita no JS',
+     !!f6G && f6G.textContent.indexOf('100,00') >= 0 &&
+     f6G.textContent.indexOf('90,00') < 0,
+     f6G ? f6G.textContent : 'sem nota de gasto');
+  // Nota segue numero. No filtro Pessoal o resultado da loja nao e desenhado
+  // (fin5 ja prova isso), entao a nota do lucro tambem nao pode sobrar.
+  await f6Ir('pessoal');
+  ok('fin6: a nota do saldo da empresa some junto com o numero dela',
+     f6Esc().indexOf('saldo_empresa') < 0, f6Esc());
+  ok('fin6: e a nota do lucro some junto com o cartao de venda',
+     f6Esc().indexOf('lucro') < 0 && 0 === finQA('.fin-venda').length, f6Esc());
+
+  // -- o F3 esconde numero economico. A nota carrega valor em dinheiro, entao
+  //    derramar as notas do caixa aqui desenharia pela porta dos fundos
+  //    justamente o numero que o F3 acabou de esconder.
+  window.__FIN_INCOMPLETA = 1;
+  await f6Ir('tudo');
+  ok('fin6: sob base incompleta nenhuma nota de caixa e desenhada',
+     f6Esc().indexOf('saldo') < 0 && f6Esc().indexOf('entrou') < 0, f6Esc());
+  ok('fin6: mas a nota da propria cobertura fica, porque o numero dela esta na tela',
+     'pct_julgado' === f6Esc() && 1 === finQA('.fin-inc .fin-nota').length, f6Esc());
+  window.__FIN_INCOMPLETA = 0;
+
+  // -- C3: a frase e do servidor e sai como veio, com acento e cedilha.
+  window.__FIN_NOTAS = 1;
+  await f6Ir('tudo');
+  var F6_CAUSA = 'Em 03/09/2026 você marcou como pessoais 2 lançamentos da Thay que antes contavam como da empresa, e por isso R$ 1.873,00 saíram do saldo da empresa em fevereiro.';
+  var f6C = finQ('.fin-nota-causa');
+  ok('fin6: a causa sai byte a byte como o servidor mandou',
+     !!f6C && f6C.textContent === F6_CAUSA,
+     f6C ? f6C.textContent.slice(0, 60) : 'sem causa');
+  ok('fin6: com acento e cedilha inteiros, sem virar lixo nem reticencia',
+     !!f6C && f6C.textContent.indexOf('você') >= 0 &&
+     f6C.textContent.indexOf('lançamentos') >= 0 &&
+     f6C.textContent.indexOf('saíram') >= 0 && f6C.textContent.indexOf('…') < 0,
+     f6C ? 'acentos inteiros' : 'sem causa');
+  ok('fin6: o rotulo de UI e da tela, e nao se confunde com a frase do servidor',
+     'por que mudou' === finQ('.fin-nota-rot').textContent,
+     finQ('.fin-nota-rot').textContent);
+
+  // -- C5: zero token de cor novo. Isto NAO e erro e NAO e ambiguidade que
+  //    cobra trabalho: e explicacao, e mora em --dim, o tom do pe da celula.
+  ok('fin6: a nota usa --dim, o mesmo tom do texto secundario da aba',
+     COR_DIM === finCor(f6C), finCor(f6C));
+  ok('fin6: e nao pega --erro emprestado, que pintaria explicacao de falha',
+     COR_ERRO !== finCor(f6C) &&
+     COR_ERRO !== finCor(finQ('.fin-nota-conta')), finCor(finQ('.fin-nota-conta')));
+  ok('fin6: nem --morno, que e de ambiguidade cobrando trabalho (D-o)',
+     COR_MORNO !== finCor(f6C) &&
+     COR_MORNO !== finCor(finQ('.fin-nota-rot')), finCor(finQ('.fin-nota-rot')));
+  window.__FIN_NOTAS = 0;
 
   fim();
 

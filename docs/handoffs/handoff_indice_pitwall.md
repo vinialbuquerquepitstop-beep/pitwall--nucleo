@@ -498,7 +498,30 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v18.md` (04/09/2026, **a auditoria voltou depois de
+- topo: `handoff_financeiro_pitwall_v19.md` (05/09/2026, **o saldo que mudou passou a
+  dizer por que**). Entrega **E1** do plano integral, e a primeira das nove. Paga a
+  divida do portao 6.3 que o v18 abriu: nasce `fin_nota_numero`, mecanismo GENERICO de
+  nota de mudanca de numero (nao um texto da Thay), e as tres notas de fev, mar e mai
+  entram com os seis valores medidos pela `fin_painel` de producao. Diferenca de
+  **−1.873,00 · −2.000,00 · −4.400,00 = −8.273,00**, exatamente o liquido das 8 linhas
+  da Thay. A nota e desenhada pela MESMA funcao que desenha o numero, dentro da
+  `.pb-celula`: **nao existe caminho de codigo que desenhe um sem o outro**, e e isso
+  que as 22 assercoes `fin6:` protegem. Nota segue numero (some no filtro que esconde o
+  numero, nao vaza sob o F3). `authenticated` so recebe SELECT: nota nasce por
+  migration, junto da entrega que mexeu no numero, nunca pela tela, e a **E2 vai reusar
+  o mecanismo**. Portao proprio: 42 celulas de `fin_painel` comparadas antes e depois,
+  **42 identicas**. Suite **1109 passou, 0 falhou** (era 1087), harness EXIT 0 em 5
+  corridas, 323 do Financeiro. **Quatro achados fora da entrega:** a suite tem um teste
+  INSTAVEL na previa do OFX que produziu um EXIT 1 fantasma com 9 falhas (comentario
+  puro entre as duas medicoes; corrida assincrona no `finSoltar`); o inventario dos
+  documentos esta errado em **sete pontos** medidos; o **F3 nao e mais o gargalo**
+  (os sete meses passam os 95%, contra os 4,22% que o `PRD-ESTADO` ainda registra); e o
+  portao de entrada precisa dos DOIS criterios de md5, porque o normalizado reprova dois
+  arquivos corretos que carregam o literal acentuado do `translate()`. Os dois
+  subagentes travaram no watchdog e a Torre fechou o que faltava; **a tela nao foi
+  aberta no navegador**.
+
+- `handoff_financeiro_pitwall_v18.md` (04/09/2026, **a auditoria voltou depois de
   sete versoes, e o portao que a cobrava reprovou por conta propria**). Sessao de
   auditoria e plano: zero linha de `public/`, zero migration, zero numero de tela
   mudado. O `P-AUDITA` nao rodava **desde o v10**: fatia 3, fatia 4 e as tres entregas

@@ -3603,6 +3603,40 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 }
 .fin-divergem b{color:var(--text);font-weight:600}
 
+/* --- a nota de mudanca de numero (portao 6.3, E1, 05/09/2026) ---
+       Ela vive DENTRO da celula, embaixo do numero que explica, e nao num
+       bloco proprio: numero e explicacao separados viram dois objetos, e o
+       dono le o primeiro sem o segundo. A hairline em cima e a unica
+       separacao, porque os dois continuam sendo a mesma coisa.
+
+       ZERO token de cor novo (C5), e nenhum emprestado por engano. Isto NAO e
+       erro (--erro esta proibido aqui) e NAO e ambiguidade cobrando trabalho
+       (--morno, que e do D-o): e explicacao. Ela usa --dim, o mesmo tom do pe
+       da celula, que e onde mora todo texto secundario da aba.
+
+       A CELULA COM NOTA OCUPA A LINHA INTEIRA, e a grade da vez vira duas
+       colunas fixas. Sem isso, uma frase de 200 caracteres numa coluna de
+       ~170px viraria vinte linhas de texto e esticaria as duas celulas
+       vizinhas junto; e com auto-fit a celula esticada seguraria as trilhas
+       vazias abertas, que o comentario da .fin-cels ja diz que le como dado
+       faltando. */
+.fin-cels:has(>.pb-celula.tem-nota){grid-template-columns:repeat(2,minmax(0,1fr))}
+.fin-cels>.pb-celula.tem-nota{grid-column:1/-1}
+.fin-nota{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);max-width:64ch}
+/* Rotulo de UI, nunca conteudo da nota (C3): a frase e do servidor, e a tela so
+   diz o que aquele bloco e. Mesma escala do .fin-caixa-rot, que e o outro
+   rotulo-regua desta aba. */
+.fin-nota-rot{
+  display:block;font-family:var(--mono);font-size:9px;font-weight:500;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:5px;
+}
+.fin-nota-causa{margin:0;font-size:12px;line-height:1.55;color:var(--dim)}
+.fin-nota-conta{margin:6px 0 0;font-size:11px;line-height:1.5;color:var(--dim)}
+/* nowrap pelo mesmo motivo medido no .fin-caixa-comp b: "R$ 1.873,00" quebrando
+   entre o "R$" e o numero le como dois numeros, e ainda produzia sobreposicao
+   de 100 por cento no diag_mobile. */
+.fin-nota-conta b{font-family:var(--mono);font-weight:500;color:var(--text);white-space:nowrap}
+
 /* --- secoes de gasto e de entrada --- */
 .fin-bloco{margin-bottom:22px}
 .fin-bloco-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}

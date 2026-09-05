@@ -687,6 +687,12 @@ var FIN_SUB="visao",FIN_DOM="tudo",FIN_MES="",FIN_STATUS="todos";
 // regra, e no dia em que divergissem a tela devolveria zero linha em silencio.
 var FIN_CP="";
 var FIN_CFG=null,FIN_PAINEL=null,FIN_COB=null,FIN_MOV=null,FIN_SEL={},FIN_AVISO="";
+// E1 (05/09/2026). As notas de mudanca de numero do painel da vez. Sempre um
+// array, nunca null: o servidor manda [] no mes sem nota, e o mes sem nota nao
+// muda nada na tela. Ela e reposta a cada finVisao, a partir do MESMO payload
+// que desenhou os numeros: nota que sobrevive a troca de mes coloria o mes
+// errado, que e pior do que nao explicar.
+var FIN_NOTAS=[];
 var FIN_LANC=!1,FIN_REPETIR=null,FIN_PREVIA=null,FIN_IMP=null;
 // Fatia 2. FIN_REG_FORM e o formulario ABERTO (um so por vez, seja na linha de
 // Movimentos, seja na lista de Regras); FIN_REG_PREV e a previa FRESCA daquele
@@ -811,8 +817,77 @@ return'<section class="fin-bloco"><div class="fin-bloco-cab"><h2 class="fin-bloc
 // leem como duas metades de um numero so, que e exatamente o defeito que o
 // corolario do invariante 18 existe para impedir: caixa e resultado sao
 // verdades separadas e NUNCA se somam.
-function finCel(rot,num,pe,cls){
-return'<div class="pb-celula"><div class="pb-rot">'+rot+'</div><div class="pb-num'+(cls?" "+cls:"")+'">'+num+'</div><div class="pb-pe">'+pe+"</div></div>"}
+// ---- a nota de mudanca de numero (portao 6.3, E1, 05/09/2026) -------------
+//
+// "Nenhum numero da tela pode mudar de valor sem que a MESMA entrega traga a
+// explicacao na tela." Ate hoje essa divida se pagava em handoff, que o dono
+// nao le enquanto opera: em fevereiro, marco e maio o saldo da empresa encolheu
+// e a tela nao disse por que.
+//
+// ONDE A NOTA MORA. Dentro da celula do numero, depois do pe, desenhada pela
+// MESMA funcao que desenha o numero. Nao e aba de historico, nao e rodape, nao
+// e bloco no fim da Visao: nos tres casos o numero e a explicacao viram dois
+// objetos, e o dono le o primeiro sem o segundo. Aqui nao existe caminho de
+// codigo que desenhe um sem o outro, porque sao a mesma string.
+//
+// COMO A TELA SABE ONDE COLAR. O servidor manda `escopo`, o codigo do numero
+// explicado, e NAO filtra por dominio de proposito: quem sabe onde cada numero
+// aparece e a tela. O escopo e `base` ou `base_lado` (saldo, saldo_empresa).
+// Uma celula declara as bases que ela desenha e a coluna declara o lado, entao
+// o casamento sai do dado, nao de uma lista de escopos chumbada aqui (C2).
+//
+// A REGRA, E A CONSEQUENCIA DELA. Nota segue numero: numero que nao esta na
+// tela nao carrega nota. Uma nota de `saldo_empresa` nao aparece sob o filtro
+// Pessoal, e nenhuma nota de caixa aparece sob o F3, onde os numeros do caixa
+// nao sao desenhados. Isso e o 6.3 lido ao pe da letra (ele fala de numero que
+// MUDA NA TELA), e e o unico jeito de o F3 continuar valendo: a nota carrega
+// valor em dinheiro, e derramar isso debaixo de "base incompleta" seria
+// desenhar pela porta dos fundos o numero que o F3 acabou de esconder.
+function finNotasDe(bases,lado,princ){
+var out=[],bs=bases||[],i,j,esc;
+for(i=0;i<FIN_NOTAS.length;i++){
+esc=String(FIN_NOTAS[i]&&FIN_NOTAS[i].escopo||"");
+for(j=0;j<bs.length;j++)
+if((princ&&esc===bs[j])||(lado&&esc===bs[j]+"_"+lado)){out.push(FIN_NOTAS[i]);break}}
+return out}
+// A competencia declara o RECORTE da nota. Ela quase sempre repete o mes do
+// seletor, e repetir e barato perto do custo de uma nota aparecer no mes errado
+// sem ninguem notar.
+function finNotaMes(x){
+var ym=String(x||"").slice(0,7);
+return 7===ym.length?vgMesLongo(ym):""}
+// AAAA-MM-DD vira DD/MM/AAAA sem passar por new Date(): montar Date de string
+// ISO curta cai no fuso do navegador e ja produziu data de ontem neste projeto.
+function finData(x){
+var p=String(x||"").split("-");
+return 3===p.length?p[2]+"/"+p[1]+"/"+p[0]:String(x||"")}
+// O sinal e FORMATACAO, nao conta. `diferenca` chega pronta do servidor (la e
+// coluna gerada) e o JS nunca a recalcula a partir de antes e depois: duas
+// implementacoes da mesma subtracao divergem no dia em que uma das duas mudar,
+// e a tela e o lado errado para se descobrir isso.
+function finNotaDif(x){
+var v=Number(x)||0;
+return(v<0?"−":"+")+brlV(Math.abs(v))}
+// `causa` e texto de SERVIDOR (C3): sai como veio, com acento e cedilha, sem
+// reescrita e sem reticencia. A tela so poe rotulo proprio de UI.
+function finNota(n){
+var ms=finNotaMes(n.competencia),pt=[];
+if(ms)pt.push(c(ms));
+pt.push("de <b>"+brlV(n.valor_antes)+"</b> para <b>"+brlV(n.valor_depois)+"</b>");
+pt.push("<b>"+finNotaDif(n.diferenca)+"</b>");
+pt.push("mudou em "+c(finData(n.mudou_em)));
+return'<div class="fin-nota" data-nota="'+c(n.codigo||"")+'" data-escopo="'+c(n.escopo||"")+'">'+
+'<span class="fin-nota-rot">por que mudou</span>'+
+'<p class="fin-nota-causa">'+c(n.causa||"")+"</p>"+
+'<p class="fin-nota-conta">'+pt.join(" · ")+"</p></div>"}
+function finNotasHTML(bases,lado,princ){
+return finNotasDe(bases,lado,princ).map(finNota).join("")}
+// `bases` sao os numeros que ESTA celula desenha, e e lista porque o pe do
+// `saiu` desenha tres: o proprio saiu, a mercadoria e a despesa. `lado` e
+// `princ` vem da coluna e formam o endereco da nota.
+function finCel(rot,num,pe,cls,bases,lado,princ){
+var nt=finNotasHTML(bases,lado,princ);
+return'<div class="pb-celula'+(nt?" tem-nota":"")+'"><div class="pb-rot">'+rot+'</div><div class="pb-num'+(cls?" "+cls:"")+'">'+num+'</div><div class="pb-pe">'+pe+"</div>"+nt+"</div>"}
 // O pe do `saiu`. Sem ele R$ 16.054,00 le como dezesseis mil de despesa, e foi
 // essa a leitura do dono.
 //
@@ -841,13 +916,16 @@ return'<p class="fin-caixa-comp">Dos <b>'+brlV(pl.saiu)+"</b> que saíram, <b>"+
 "</b> foram <b>compra de aparelho</b> e <b>"+brlV(Number(pl.gasto)||0)+"</b> foram <b>despesa de operação</b>. "+
 "Compra de aparelho é o custo da mercadoria, não o custo de manter a loja de pé: "+
 "quase sempre é um aparelho que já tem dono.</p>"}
-function finCaixaCol(rot,pl){
+// `lado` e `princ` sao o endereco das notas desta coluna, nao decoracao: uma
+// nota de escopo `saldo_empresa` so cola na coluna que E o lado empresa, e uma
+// de escopo `saldo`, sem lado, so cola na coluna que E o placar principal.
+function finCaixaCol(rot,pl,lado,princ){
 var sd=Number(pl.saldo)||0;
 return'<div class="fin-caixa-col"><div class="fin-caixa-rot">'+c(rot)+"</div>"+
 '<div class="fin-placar fin-cels">'+
-finCel("entrou",brlV(pl.entrou),"no período","")+
-finCel("saiu",brlV(pl.saiu),finSaiuPe(pl),"")+
-finCel("saldo",brlV(sd),"entrou menos saiu",sd<0?"neg":"")+"</div>"+
+finCel("entrou",brlV(pl.entrou),"no período","",["entrou"],lado,princ)+
+finCel("saiu",brlV(pl.saiu),finSaiuPe(pl),"",["saiu","estoque","gasto"],lado,princ)+
+finCel("saldo",brlV(sd),"entrou menos saiu",sd<0?"neg":"",["saldo"],lado,princ)+"</div>"+
 finCaixaComp(pl)+"</div>"}
 // A celula do nao classificado carrega a CONTAGEM, nao dinheiro. Ate 01/09/2026
 // ela mostrava o modulo da soma com sinal (R$ 350,33 na base do dono) e a faixa
@@ -863,7 +941,12 @@ finCaixaComp(pl)+"</div>"}
 function finNcCel(pl){
 var n=pl.nao_classificado_n||0;
 return'<div class="fin-placar fin-cels fin-nc">'+
-finCel("não classificado",n,(1===n?"lançamento fora de todo total":"lançamentos fora de todo total"),n>0?"cobra":"")+"</div>"}
+// A lista de bases vai VAZIA: "nao classificado" nao e um dos numeros que o
+// servidor sabe explicar (o conjunto de escopo e fechado no CHECK da tabela),
+// entao esta celula nao tem nota para receber. Declarar a lista vazia e o jeito
+// de dizer isso no ponto do codigo, em vez de deixar o argumento faltando e
+// parecer esquecimento.
+finCel("não classificado",n,(1===n?"lançamento fora de todo total":"lançamentos fora de todo total"),n>0?"cobra":"",[],null,!1)+"</div>"}
 var FIN_ICO_CAIXA='<svg class="fin-verdade-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="6" width="17.6" height="12.8" rx="2.2"/><path d="M3.2 10.2h17.6" stroke-linecap="round"/><circle cx="16.8" cy="14.8" r="1.1"/></svg>';
 var FIN_ICO_VENDA='<svg class="fin-verdade-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.4l5.1-5.1 3.1 3.1L20 8.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.9 8.6H20V13.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // A FONTE fica no cabecalho de cada cartao porque e ela que separa as duas
@@ -882,8 +965,12 @@ return'<section class="fin-verdade '+cls+'"><div class="fin-verdade-cab">'+ico+
 function finCaixa(pnl,jn){
 var pl=pnl.placar||{},pe=pnl.placar_empresa,pp=pnl.placar_pessoal;
 var dm=String(pnl.dominio||FIN_DOM||"tudo");
-var cols=(pe&&pp)?finCaixaCol("Empresa",pe)+finCaixaCol("Pessoal",pp):
-finCaixaCol("empresa"===dm?"Empresa":"pessoal"===dm?"Pessoal":"Empresa e pessoal",pl);
+// Com o filtro em tudo, NENHUMA das duas colunas e o placar principal: o saldo
+// combinado nao existe na tela (invariante 18), entao nota de escopo sem lado
+// tambem nao tem onde colar ali, e isso e o certo, nao uma falha.
+var ld="empresa"===dm?"empresa":"pessoal"===dm?"pessoal":null;
+var cols=(pe&&pp)?finCaixaCol("Empresa",pe,"empresa",!1)+finCaixaCol("Pessoal",pp,"pessoal",!1):
+finCaixaCol("empresa"===dm?"Empresa":"pessoal"===dm?"Pessoal":"Empresa e pessoal",pl,ld,!0);
 return finVerdade("fin-caixa",FIN_ICO_CAIXA,"Caixa desta conta",
 "fonte: o extrato da conta",
 "de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim),
@@ -901,11 +988,13 @@ return finVerdade("fin-venda",FIN_ICO_VENDA,"Resultado da loja",
 "fonte: as vendas registradas",
 "de "+fmtDiaCurto(jn.ini)+" a "+fmtDiaCurto(jn.fim),
 '<div class="fin-placar fin-cels">'+
-finCel("vendas",n,(1===n?"concluída no período":"concluídas no período"),"")+
-finCel("faturado",brlV(rv.faturado),"soma das vendas","")+
+finCel("vendas",n,(1===n?"concluída no período":"concluídas no período"),"",[],null,!0)+
+finCel("faturado",brlV(rv.faturado),"soma das vendas","",[],null,!0)+
 // finDelta ja resolve o D-n: delta nulo escreve `novo`, nunca `0%`, porque
 // desenhar zero inventaria uma comparacao que nunca existiu.
-finCel("lucro",brlV(lu),finDelta(rv.delta_pct_lucro),lu<0?"neg":"")+"</div>")}
+// O lucro nao tem lado: a fonte dele e a tabela de venda, que e da loja. Ele e
+// sempre o numero principal do cartao, entao princ vai verdadeiro e lado nulo.
+finCel("lucro",brlV(lu),finDelta(rv.delta_pct_lucro),lu<0?"neg":"",["lucro"],null,!0)+"</div>")}
 // A nota da divergencia. Dois dinheiros diferentes na mesma tela, sem esta
 // linha, leem como erro de um dos dois. Ela vive ENTRE os cartoes porque e ali
 // que a pergunta nasce.
@@ -968,6 +1057,10 @@ return'<section class="fin-bloco fin-inc"><div class="fin-inc-cab">'+
 (Number(cob.teto)||95)+"% do valor julgado. Número econômico sobre base incompleta já foi publicado errado três vezes neste projeto.</p>"+
 '<p class="fin-inc-conta">'+brlV(Number(cob.valor_bruto_julgado)||0)+" julgados de "+brlV(Number(cob.valor_bruto_total)||0)+
 " em "+lt+(1===lt?" lançamento":" lançamentos")+" · de "+c(fmtDiaCurto(cob.ini))+" a "+c(fmtDiaCurto(cob.fim))+"</p>"+
+// O unico numero que o F3 DESENHA e o proprio julgado, entao ele e o unico que
+// pode carregar nota aqui. As notas do caixa nao vazam para este estado: os
+// numeros delas nao estao na tela, e a nota traz valor em dinheiro.
+finNotasHTML(["pct_julgado"],null,!0)+
 '<ul class="fin-inc-cortes">'+
 finIncCorte("empresa",em)+finIncCorte("pessoal",ps)+finIncCorte("neutro",nu)+
 finIncCorte("sem domínio",pe,!0)+"</ul>"+
@@ -1014,6 +1107,10 @@ return'<p class="fin-repasse-lin"><b>'+brlV(Number(rep.valor)||0)+"</b> em "+n+
 "então somar os dois lados infla os dois números e o saldo só acerta por acidente.</p>"+
 finRepasseOrfao(rep)}
 function finVisao(pnl,jn,cob){
+// As notas saem do MESMO payload que desenhou os numeros, e sao repostas antes
+// de qualquer coisa ser desenhada. Le-las de outro lugar abriria a porta para
+// a nota de um mes explicar o numero de outro.
+FIN_NOTAS=(pnl&&pnl.notas)||[];
 var pl=pnl.placar||{},secs=pnl.secoes||[],ents=pnl.entradas||[];
 if(!secs.length&&!ents.length&&!(pl.nao_classificado_n>0))return finCaixa(pnl,jn)+finVazio();
 // cob so chega preenchido quando o servidor disse que a janela esta abaixo do
