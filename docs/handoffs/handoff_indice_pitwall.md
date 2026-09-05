@@ -498,7 +498,35 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v19.md` (05/09/2026, **o saldo que mudou passou a
+- topo: `handoff_financeiro_pitwall_v20.md` (05/09/2026, **AUDITORIA da E1, em sessao
+  separada, e ela reprovou um item**). Nao e entrega: nenhum arquivo de produto foi
+  tocado. Os 13 itens da secao 7 do CONTRATO passam, cada um com consulta, EXIT code ou
+  caminho de arquivo, nunca leitura no olho. O que a auditoria acrescentou ao que o v19
+  ja media: a nota **nao mente nos dois lados**, porque os tres `valor_depois` batem com
+  o `saldo` de empresa que a `fin_painel` devolve HOJE (`1999.09 / 1864.20 / 1235.02`) e
+  os tres deltas batem com a tabela `auditoria` append-only (**2 linhas / 1.873,00**,
+  **3 / 2.000,00**, **3 / 4.400,00**), na janela `2026-09-04 01:56 UTC`; o `diff` entre
+  as duas versoes da `fin_painel` tem **tres mudancas e nada mais**, zero linha de
+  calculo tocada; e fev, mar e mai estao a **100,00% julgado**, entao o F3 nem dispara
+  neles. RLS provada nos quatro papeis (dono 3 linhas, vendedor 0, UID desconhecido 0,
+  `anon` morre no grant antes da RLS). Suite reconferida nesta maquina: **1109 passou, 0
+  falhou**, EXIT 0 nos oito comandos, nas cinco larguras e nas tres do monitor grande.
+  **A REPROVA:** a nota de escopo `pct_julgado` desenha porcentagem com cifrao, porque
+  `finNota` formata tudo com `brlV`. Nao e hipotese: `ferramentas/harness.py:941` ja
+  monta essa nota com 90 e 2.11, e a tela escreveria `de R$ 90,00 para R$ 2,11` para uma
+  cobertura que foi de 90% para 2,11%. A suite fica verde porque a assercao de
+  `harness.py:7675` so confere que a nota EXISTE, nunca o que ela diz. **Nenhum numero da
+  tela esta errado hoje** (as 3 notas sao em dinheiro), mas a **E2 leva marco para
+  91,77%** e e ali que a nota de cobertura passa a fazer sentido. Conserto desenhado:
+  coluna `unidade` com CHECK em `brl` e `pct`, default `brl`, a RPC devolve o campo, o JS
+  escolhe o formatador por ele, e assercao nova que le o TEXTO. **Entra de carona na E2**,
+  nao vira entrega propria (nao tem sujeito na tela hoje). Mais dois achados anteriores
+  ao commit: `Dominio invalido: use empresa, pessoal ou tudo.` esta viva na `fin_painel`
+  desde `78be994` e **nunca entrou na secao 4 do CONTRATO** (a secao so tem a variante de
+  escrita), e "tenant errado" nao e testavel nesta base, que tem **um tenant so**, entao
+  o isolamento cross-tenant do Financeiro segue estrutural e nao empirico.
+
+- `handoff_financeiro_pitwall_v19.md` (05/09/2026, **o saldo que mudou passou a
   dizer por que**). Entrega **E1** do plano integral, e a primeira das nove. Paga a
   divida do portao 6.3 que o v18 abriu: nasce `fin_nota_numero`, mecanismo GENERICO de
   nota de mudanca de numero (nao um texto da Thay), e as tres notas de fev, mar e mai
