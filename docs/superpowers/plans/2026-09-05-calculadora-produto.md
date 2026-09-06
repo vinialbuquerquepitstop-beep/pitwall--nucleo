@@ -1,0 +1,730 @@
+# Calculadora como produto — Plano de Implementacao
+
+> **Para quem for executar:** tocar bloco a bloco, tarefa a tarefa. Os passos usam
+> checkbox (`- [ ]`). Nenhum bloco comeca antes do anterior fechar o portao.
+
+**Objetivo:** transformar a calculadora de superficie de consulta em produto
+comercializavel, onde **outro lojista alimenta a propria tabela com os proprios
+fornecedores, sozinho, sem SQL, sem deploy e sem sessao de IA.**
+
+**Desenho de record:** `docs/superpowers/specs/2026-09-05-calculadora-produto-design.md`.
+Se este plano divergir da spec, a spec ganha e o executor avisa.
+
+**Arquitetura:** um projeto Supabase, um deploy na Cloudflare, N tenants isolados por
+RLS. Catalogo em duas camadas (base global mantida por migration, camada do tenant
+aprendida pelo proprio lojista). Escrita so por RPC `SECURITY DEFINER`, com
+`tenant_id` vindo de `privado.fn_tenant_atual()`, nunca do payload.
+
+**Stack:** Postgres/Supabase (RLS, RPC), frontend estatico servido pela Cloudflare
+(`public/calc/`), Edge Function Deno para a chamada ao modelo.
+
+---
+
+## Contexto de origem
+
+Sessao de 05/09/2026. Decisoes do dono, respondendo pergunta direta:
+
+| Decisao | Resposta |
+|---|---|
+| Objetivo | **Sistema comercializavel**, outro lojista usando sem dificuldade |
+| Invariante 17 (nao construir SaaS antes do pagamento) | **Rompido conscientemente**, custo assumido |
+| Assentos | **Time completo incluso**, sem cobranca por cabeca |
+| Acesso | **So por login.** Nenhuma superficie de preco publica |
+| Cota de modelo | **3.000 linhas/mes + 3.000 de abertura** (decidida nesta sessao) |
+| Fornecedores | Cada lojista cadastra **os proprios**. Os do dono nunca vazam |
+
+---
+
+## Estado medido em 05/09/2026 (tudo consultado, nada presumido)
+
+O que **ja esta pronto** e nao precisa de obra:
+
+- 33 das 35 tabelas de `public` tem `tenant_id`, RLS ligado e policy.
+- `privado.fn_tenant_atual()` e `fn_papel_atual()` derivam de `app_usuario` **e
+  filtram por `ativo`**. Desligar usuario corta o acesso na query seguinte, sem
+  revogar token. Verificado no corpo das duas funcoes nesta sessao.
+- Nenhuma das funcoes de `public` tem UUID de tenant hardcoded.
+- O frontend nao tem tenant hardcoded.
+- `calc_dados` tem policy exigindo tenant **e** papel `dono`
+  (`calc_dados_sel`, migration `calc_dados_select_apenas_dono`, 17/08/2026).
+
+O que **quebra** e vira tarefa:
+
+| Achado | Numero medido |
+|---|---|
+| Linha orfa em `calc_dados` no tenant `...0004`, com **14 dos 17 fornecedores do dono** | 341 produtos, 520 precos, de 27/07/2026 |
+| Constraints em `calc_dados` | **1** (sem FK para `tenant`, sem unique por tenant) |
+| Scripts com `Pitstop Imports` fixo no texto | **48 de 126**. Com `{loja}`: **0** |
+| `Pitstop Imports` no `public/index.html` | **3** ocorrencias |
+| `privado.fn_provisionar_tenant` | **nao existe** |
+| Linhas em `public.tenant` | **1** |
+| Policies de INSERT/UPDATE em `calc_dados` / `tenant` / `app_usuario` | **0**. So SELECT |
+| Escritas em `calc_dados` pelo frontend | **0** |
+| `public/calc/consultor/dados.js` | arquivo estatico de 29,7 KB, servido **sem sessao** |
+| `.single()` em `public/calc/index.html:1458` | quebra a pagina inteira com 2+ linhas visiveis |
+
+**O plano `2026-08-19-segundo-lojista-tenant.md` esta inteiro em aberto.** Nenhuma das
+sete tarefas foi executada. Ele nao e descartado: as Tarefas 1 a 4 e 6 dele viram o
+Bloco 0 deste plano, e a Tarefa 7 dele (tela de precos, que ele deixou fora de escopo)
+e exatamente o que este plano constroi.
+
+---
+
+## Restricoes globais
+
+Valem para todos os blocos, sem repetir:
+
+1. **`tenant_id` vem sempre de `privado.fn_tenant_atual()` dentro da RPC.** Nunca do
+   payload do cliente. E a unica regra que impede o lojista A gravar no blob do B.
+2. **Nome de fornecedor e praca nunca entram na camada base do catalogo.**
+3. Invariantes do `CLAUDE.md` de pe, em especial: nivel derivado na leitura (4), chave
+   por `codigo` e nunca por `rotulo` (12), `CURRENT_DATE` proibido em data de negocio
+   (10), historico append-only (6), helpers de RLS em `privado` (8), `authenticated`
+   nunca recebe TRUNCATE (9).
+4. Toda escrita de schema passa pelo subagent `base` (unico com `apply_migration`).
+   Frontend passa pelo `vitrine`. Prova passa pela `bandeira`. Postura de seguranca
+   passa pelo `pit-guard` antes de qualquer bloco tocar auth ou dado de terceiro.
+5. `CREATE OR REPLACE FUNCTION` reseta ACL: refazer REVOKE/GRANT explicito depois.
+   `CREATE OR REPLACE VIEW` derruba `security_invoker = on`: refazer o `ALTER VIEW`.
+6. Suite do frontend, conferindo **EXIT CODE**, nunca o texto da saida:
+   ```
+   python ferramentas/validar.py
+   python ferramentas/harness.py
+   python ferramentas/prova_trilho.py
+   python ferramentas/prova_grafico.py
+   python ferramentas/prova_atmosfera.py
+   node --check public/app.js
+   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
+   for w in 1500 1920 2560; do python ferramentas/diag_largo.py $w; done
+   ```
+   Baseline em 02/09/2026: **1037 linhas impressas, 1042 rotulos declarados, 1037
+   distintos executados**, EXIT 0 nas cinco larguras de celular e nas tres de monitor.
+7. `execute_sql` do MCP devolve so o resultado do ultimo statement: cada verificacao e
+   uma chamada separada. Para schema e carga grande, `apply_migration`.
+8. **Nenhum export de fornecedor entra no repo**, nem como corpus de teste. Dado
+   comercial de terceiro vive em `privado` ou e sintetico.
+9. **Cada bloco termina em algo que o dono consegue abrir.** Encanamento provado sem
+   tela nao fecha bloco (ordem do dono, 17/07/2026: "faca sempre palpavel").
+10. **A calc tem que poder sair inteira depois (D2).** Nenhuma tabela `calc_*` ganha FK
+    para tabela de operacao (`lead`, `venda`, `conteudo`, `captacao`, `dia_*`,
+    `escopo_*`, `fin_*`). So `tenant`, `app_usuario` e os helpers de `privado`, que sao
+    a base de auth compartilhada. Conferir a cada migration:
+
+    ```sql
+    select conrelid::regclass as tabela, confrelid::regclass as aponta_para
+      from pg_constraint
+     where contype='f' and conrelid::regclass::text like 'calc\_%'
+       and confrelid::regclass::text not in ('tenant','app_usuario');
+    ```
+    Esperado: **zero linhas**, em todo bloco.
+
+---
+
+## Decisoes do dono — TODAS FECHADAS em 05/09/2026
+
+- [x] **D1 — Os 341 produtos do tenant `...0004` servem de historico?**
+  **NAO.** Delete direto, **sem snapshot**. O Passo 2 da Tarefa 1 do plano de 19/08
+  (criar `privado.calc_snapshot_20260727`) **nao se executa**: pular direto do Passo 1
+  (provar o estado) para o Passo 3 (delete).
+- [x] **D2 — O que e vendido?**
+  **O conjunto**: Pit Wall com a calculadora dentro. **Mas a calculadora vira produto
+  separado depois.** Vira restricao global 10 abaixo, e nao muda a ordem dos blocos.
+- [x] **D3 — Regras de descarte sao configuraveis por tenant?**
+  **SIM.** `calc_regra` nasce com as globais do dono como **padrao pre-marcado**, e o
+  lojista liga e desliga cada uma. "Nao vendo Android" e politica da Pitstop, nao lei.
+- [x] **D4 — `Acessório` e margem.**
+  **Margem propria** (`aav`/`apc` no `config`), e **passa a entrar na calc do
+  consultor**. Detalhe na secao 3.2 da spec.
+
+  **Correcao factual registrada:** o dono citou "airpods, apple watchs" como
+  acessorios. `Apple Watch` **e categoria propria**, ja recebe `iav`/`ipc` e **ja
+  aparece no consultor hoje**. D4 muda somente `Acessório` (12 itens).
+
+### Pendencia nova aberta por D4
+
+- [ ] **D4a — Comissao de `Acessório` na escada do consultor.** A escada
+  `config.comissao` hoje tem so os ramos `lacrado` e `seminovo`, por nivel
+  (Embaixador / C1 / C2 / C3). Acessorio entrando no consultor precisa de valor.
+  **Nao inventar numero.** Bloqueia so o Passo 3.3, dentro do Bloco 3.
+  Estrutura recomendada: um ramo `acessorio` proprio na escada; se o dono nao quiser
+  escada separada, cai no ramo `lacrado` do nivel, o que e o default estrutural mais
+  proximo do comportamento atual.
+
+---
+
+## Mapa dos blocos
+
+| Bloco | Entrega | Termina em | Depende de |
+|---|---|---|---|
+| **0** | Saneamento multi-tenant | FK provada, marca fora da tela | **nada, comeca agora** |
+| **1** | Catalogo vira tabela, duas camadas | painel `Catalogo` em `/calc/` | Bloco 0 |
+| **2** | Tela `Alimentar` | **o dono roda a carga dele sem Claude Code** | Bloco 1 |
+| **3** | Consultor sai do repo | `curl` sem sessao devolve nada | Bloco 2, **D4a** |
+| **4** | Nascimento de tenant e equipe | conta nova criada sem SQL | Bloco 3 |
+| **5** | Modelo na pilha 3 e cota | cobertura de dia 1 medida | Bloco 4 |
+| **6** | Piloto e cobranca | primeiro lojista externo | Bloco 5 |
+
+Com D1 a D4 fechadas, **o Bloco 0 nao tem mais bloqueador.** A unica decisao aberta e
+D4a (comissao de acessorio), e ela trava um passo dentro do Bloco 3, nao o inicio.
+
+---
+
+# Bloco 0 — Saneamento multi-tenant
+
+**Absorve as Tarefas 1, 2, 4 e 6 do plano `2026-08-19-segundo-lojista-tenant.md`.**
+Aquele documento tem o SQL passo a passo; nao reescrever aqui, executar de la.
+A Tarefa 5 dele (acesso do parceiro e Notion) **nao entra**: e substituida pelo Bloco 4.
+A Tarefa 3 dele (`fn_provisionar_tenant`) entra no Bloco 4, com plano e status.
+
+**Agentes:** `base` (SQL), `vitrine` (HTML), `pit-guard` (modela), `bandeira` (prova).
+
+- [ ] **0.1 — Fechar o vazamento de `calc_dados`.** Tarefa 1 do plano de 19/08, **sem
+  o Passo 2**: por D1 o historico nao serve, entao nao se cria
+  `privado.calc_snapshot_20260727`. Sequencia: provar o estado, **delete direto** da
+  orfa, FK para `tenant`, unique por tenant, provar que fechou.
+
+```sql
+delete from public.calc_dados
+ where tenant_id = '00000000-0000-0000-0000-000000000004';
+```
+Esperado: `DELETE 1`. Sao 341 produtos e 520 precos de 27/07/2026, com 14 dos 17
+fornecedores do dono. **Confirmado descartavel pelo dono em 05/09/2026.**
+- [ ] **0.2 — Corrigir o `.single()`.** Em `public/calc/index.html:1458`, trocar
+  `.from('calc_dados').select('dados').single()` por `.maybeSingle()` com estado vazio
+  nomeado. Hoje uma segunda linha visivel derruba a pagina inteira.
+- [ ] **0.3 — A marca vira variavel nos scripts.** Tarefa 2 do plano de 19/08:
+  `{loja}` e `{vendedor}` resolvidos em `sugerir_mensagem`, 48 scripts atualizados,
+  GRANT refeito.
+- [ ] **0.4 — A marca sai do HTML.** Tarefa 4 do plano de 19/08: 3 ocorrencias fora do
+  `index.html`, nome da loja vindo de `tenant.nome` no boot, com degradacao para
+  `Pit Wall` sozinho se a leitura falhar.
+- [ ] **0.5 — `tenant` ganha ciclo de vida.**
+
+```sql
+alter table public.tenant
+  add column if not exists plano      text not null default 'trial',
+  add column if not exists status     text not null default 'ativo',
+  add column if not exists trial_ate  date;
+
+alter table public.tenant
+  add constraint tenant_status_ck check (status in ('ativo','suspenso','encerrado')),
+  add constraint tenant_plano_ck  check (plano  in ('trial','padrao','interno'));
+
+update public.tenant set plano='interno' where id='00000000-0000-0000-0000-000000000001';
+```
+
+**Portao do Bloco 0** (nada segue sem os cinco):
+
+```sql
+select
+  (select count(*) from public.calc_dados c
+     where not exists (select 1 from public.tenant t where t.id=c.tenant_id)) as orfaos,
+  (select count(*) from pg_constraint where conrelid='public.calc_dados'::regclass
+     and contype in ('f','u')) as fk_e_unique,
+  (select count(*) from public.dicionario_scripts where texto_template ilike '%Pitstop%') as marca_fixa,
+  (select count(*) from public.dicionario_scripts where texto_template like '%{loja}%') as com_variavel,
+  (select count(*) from public.tenant where plano is not null) as tenants_com_plano;
+```
+
+Esperado: `0, 2, 0, 48, 1`. Mais `grep -c "Pitstop Imports" public/index.html` = `0`
+e a suite inteira em EXIT 0.
+
+---
+
+# Bloco 1 — O catalogo sai do markdown e vira tabela
+
+**Depende de:** Bloco 0. **Agentes:** `base` (schema e seed), `vitrine` (painel),
+`bandeira` (prova).
+
+**D3 fechada: descarte e configuravel por tenant.** `calc_regra` global nasce com as
+regras do dono, e cada tenant liga e desliga a sua. Como a tabela ja aceita
+`tenant_id` nulo (global) ou preenchido (do tenant), a configuracao e uma linha do
+tenant que **sobrepoe** a global de mesmo `padrao`. Resolucao: regra do tenant ganha
+da global; sem regra do tenant, vale a global. Mesma direcao do `calc_alias`.
+
+Consequencia na tela do Bloco 1: o painel `Catalogo` mostra as regras de descarte com
+um interruptor por regra, ja marcadas no padrao do dono. **Interruptor desligado nao
+apaga a global**, grava uma linha do tenant com `ativo=false`.
+
+**Por que primeiro:** a tela de alimentar nao tem contra o que parsear enquanto o
+catalogo morar em `.claude/skills/calculadoras/references/formato-dados.md`. Esse
+arquivo e o ativo do produto e hoje so o Claude consegue ler.
+
+## 1.1 Schema
+
+- [ ] **Criar as tabelas globais.** `tenant_id` nulo significa global.
+
+```sql
+create table public.calc_modelo (
+  id         uuid primary key default gen_random_uuid(),
+  codigo     text not null unique,          -- invariante 12: a chave e o codigo
+  nome       text not null,                 -- nome canonico exibido
+  categoria  text not null,
+  ativo      boolean not null default true,
+  criado_em  timestamptz not null default now(),
+  constraint calc_modelo_categoria_ck check (categoria in
+    ('iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica'))
+);
+
+create table public.calc_cor (
+  id        uuid primary key default gen_random_uuid(),
+  codigo    text not null unique,
+  nome      text not null,
+  hex       text not null,
+  ativo     boolean not null default true,
+  criado_em timestamptz not null default now(),
+  constraint calc_cor_hex_ck check (hex ~ '^#[0-9a-f]{6}$')
+);
+
+create table public.calc_alias (
+  id         uuid primary key default gen_random_uuid(),
+  tenant_id  uuid references public.tenant(id),   -- NULL = global
+  tipo       text not null,
+  texto      text not null,               -- como o fornecedor escreve
+  aponta     text not null,               -- codigo canonico de destino
+  criado_em  timestamptz not null default now(),
+  constraint calc_alias_tipo_ck check (tipo in ('modelo','cor','condicao','fornecedor')),
+  constraint calc_alias_u unique nulls not distinct (tenant_id, tipo, texto)
+);
+
+create table public.calc_fornecedor (
+  id         uuid not null default gen_random_uuid(),
+  tenant_id  uuid not null references public.tenant(id),
+  codigo     text not null,
+  nome       text not null,
+  praca      text not null,
+  ativo      boolean not null default true,
+  criado_em  timestamptz not null default now(),
+  primary key (id),
+  constraint calc_fornecedor_u unique (tenant_id, codigo)
+);
+
+create table public.calc_regra (
+  id         uuid primary key default gen_random_uuid(),
+  tenant_id  uuid references public.tenant(id),   -- NULL = global
+  tipo       text not null,
+  padrao     text not null,
+  acao       text not null,
+  valor      text,
+  ativo      boolean not null default true,
+  criado_em  timestamptz not null default now(),
+  constraint calc_regra_tipo_ck check (tipo in ('descarte','token','outlier','condicao')),
+  constraint calc_regra_acao_ck check (acao in ('descartar','pendencia','substituir','aceitar'))
+);
+```
+
+- [ ] **RLS: global se le, tenant se filtra, ninguem escreve.**
+
+```sql
+alter table public.calc_modelo     enable row level security;
+alter table public.calc_cor        enable row level security;
+alter table public.calc_alias      enable row level security;
+alter table public.calc_fornecedor enable row level security;
+alter table public.calc_regra      enable row level security;
+
+create policy calc_modelo_sel on public.calc_modelo for select to authenticated using (ativo);
+create policy calc_cor_sel    on public.calc_cor    for select to authenticated using (ativo);
+
+create policy calc_alias_sel on public.calc_alias for select to authenticated
+  using (tenant_id is null or tenant_id = privado.fn_tenant_atual());
+create policy calc_regra_sel on public.calc_regra for select to authenticated
+  using (tenant_id is null or tenant_id = privado.fn_tenant_atual());
+
+create policy calc_fornecedor_sel on public.calc_fornecedor for select to authenticated
+  using (tenant_id = privado.fn_tenant_atual() and privado.fn_papel_atual() = 'dono');
+```
+
+Nenhuma policy de INSERT, UPDATE ou DELETE em nenhuma das cinco. Escrita so por RPC.
+`calc_fornecedor` exige papel `dono`: fornecedor e praca sao dado de custo, o vendedor
+nao ve.
+
+## 1.2 Seed da camada base
+
+- [ ] **Carregar o catalogo de `formato-dados.md` para as tabelas.** Fonte:
+  `.claude/skills/calculadoras/references/formato-dados.md`, secao 4.
+
+| Alvo | Vem de | Quantidade esperada |
+|---|---|---|
+| `calc_modelo` | iPhone 66 + iPad 6 + MacBook/Mac Mini 8 + Apple Watch 7 + Acessorio 12 + 1ª Linha 2 + Garmin 6 + Moto 1, mais os que entraram em 15/08 e 17/08 | conferir contra `calc_dados` |
+| `calc_cor` | as 32 cores em uso com hex | 32 |
+| `calc_alias` global tipo `cor` | as unificacoes de 03/08 (`Black`->`Preto`, `Blue`->`Azul`, `White`->`Branco`, `Green`->`Verde`, `Orange`->`Laranja`, `Rose`->`Rosa`, `Prateado`->`Silver`, `Dourado`->`Gold`) mais `ULTRAMARINE`/`PACIFIC BLUE`->`Azul` | >= 10 |
+| `calc_alias` global tipo `condicao` | `cpo`/`(CPO)`/`certified pre-owned`->`CPO`, `lacrado`/`novo`->`Lacrado`, `seminovo`/`usado`/`vitrine`->`Seminovo` | 8 |
+| `calc_regra` global tipo `descarte` | `mensagem`, `msg`, `aviso`, `peça não genuína`, `1ª linha`, `réplica`, `similar`, `genérico`, preco em dolar | 9 |
+| `calc_regra` global tipo `token` | `4,850,00`->4850.00, `4.3999,99`->4399.99, `7.200,00,00`->7200.00, `1.1550`->1550.00 | 4 |
+| `calc_regra` global tipo `outlier` | acima de 1.6x o menor da mesma combinacao | 1 |
+| `calc_fornecedor` do tenant `...0001` | os 17 do dono, com praca exata | 17 |
+| `calc_alias` do tenant `...0001` tipo `fornecedor` | `MELHOR DE CAXIAS`->Five Cell, `Charles revel`/`REVEL IMPORTS`/`APARELHOS AMERICANOS`->Revel, `Fábio souza`/`davi fabio`->Davi/Fábio, `Júnior recreio`/`Recreio`->Júnior, `TABELA ATUALIZADA`->MP Imports, `Dg JPA`->DG Jacarepaguá, `Raphael barra da Tijuca`->Rafael, `Br 10, iraja`->BR10 | >= 12 |
+
+**Acentos e o travessao das pracas sao valores reais: copiar exato.** A ordem de
+condicao (`CPO` testado ANTES de `Lacrado`) vira coluna de prioridade na regra, nao
+ordem de insercao: em 27/07/2026 a ordem errada gerou 341 produtos com **zero CPO**
+mesmo com CPO farto nas listas.
+
+- [ ] **Prova do seed contra o blob vivo.** Todo `n` de produto do blob tem que existir
+  em `calc_modelo`, e toda cor em `calc_cor`:
+
+```sql
+select count(*) as modelo_sem_catalogo
+  from public.calc_dados d, jsonb_array_elements(d.dados->'produtos') p
+ where d.tenant_id='00000000-0000-0000-0000-000000000001'
+   and not exists (select 1 from public.calc_modelo m where m.nome = p->>'n');
+```
+Esperado: `0`. Idem para cor.
+
+## 1.3 Painel `Catalogo` (o palpavel do bloco)
+
+- [ ] **Aba nova em `/calc/`, so leitura**, mostrando o que o sistema sabe: contagem de
+  modelos por categoria, as cores com o quadradinho do hex, os fornecedores do tenant
+  com praca, e os aliases aprendidos. Campo vazio aparece com rotulo e estado vazio
+  nomeado, nunca some (memoria `campo-vazio-tem-que-aparecer`).
+
+**Portao do Bloco 1:** o dono abre `/calc/`, clica em `Catalogo`, e ve 17 fornecedores
+com praca correta e a contagem de modelos batendo com o blob. Suite em EXIT 0 com as
+assercoes novas do painel.
+
+---
+
+# Bloco 2 — A tela `Alimentar`
+
+**Depende de:** Bloco 1. **Agentes:** `base` (RPCs), `vitrine` (tela),
+`pit-guard` (revisa o caminho de escrita), `bandeira` (prova).
+
+**E o bloco que muda o produto.** No fim dele a Pitstop Imports atualiza o proprio
+preco sem abrir sessao de IA.
+
+## 2.1 Schema de carga
+
+- [ ] **Criar `calc_carga`, `calc_pendencia` e `calc_uso`.**
+
+```sql
+create table public.calc_carga (
+  id           uuid primary key default gen_random_uuid(),
+  tenant_id    uuid not null references public.tenant(id),
+  status       text not null default 'rascunho',
+  origem       text,
+  blob_proposto jsonb,
+  n_lidas      int not null default 0,
+  n_casou      int not null default 0,
+  n_duvidoso   int not null default 0,
+  n_descarte   int not null default 0,
+  n_pendencia  int not null default 0,
+  aprovado_por uuid,
+  aprovado_em  timestamptz,
+  criado_em    timestamptz not null default now(),
+  constraint calc_carga_status_ck check (status in ('rascunho','aprovada','descartada'))
+);
+
+create table public.calc_pendencia (
+  id         uuid primary key default gen_random_uuid(),
+  tenant_id  uuid not null references public.tenant(id),
+  carga_id   uuid not null references public.calc_carga(id) on delete cascade,
+  causa      text not null,
+  tipo       text not null,
+  texto      text not null,
+  n_linhas   int not null default 1,
+  exemplo    text,
+  decisao    text,
+  decidido_em timestamptz,
+  criado_em  timestamptz not null default now()
+);
+
+create table public.calc_uso (
+  tenant_id  uuid not null references public.tenant(id),
+  competencia date not null,          -- primeiro dia do mes
+  linhas_modelo int not null default 0,
+  credito_extra int not null default 0,
+  primary key (tenant_id, competencia)
+);
+```
+
+`calc_carga` e `calc_pendencia` sao append-only para `authenticated` (SELECT apenas;
+escrita so por RPC), pelo invariante 6.
+
+## 2.2 As tres RPCs
+
+- [ ] **`calc_carga_abrir(p_texto text) returns uuid`** — `SECURITY DEFINER`. Cria a
+  carga em rascunho no tenant de `fn_tenant_atual()`, roda o parse deterministico
+  contra `calc_modelo` + `calc_cor` + `calc_alias` + `calc_regra` + `calc_fornecedor`,
+  grava as quatro pilhas e as pendencias **agrupadas por causa**.
+
+  Ordem de leitura obrigatoria, na sequencia da secao 5 do `formato-dados.md`:
+  modelo -> capacidade -> **condicao com CPO primeiro** -> cor -> descarte -> preco ->
+  fornecedor pelo **cabecalho**, nunca pelo remetente.
+
+  Agrupamento: uma pendencia por `(tipo, texto)`, com `n_linhas` contando quantas
+  linhas ela afeta. **Cem linhas de cor `PURPLE` sao UMA pendencia**, nao cem.
+
+- [ ] **`calc_pendencia_resolver(p_pendencia uuid, p_decisao text, p_aponta text)`** —
+  grava a decisao **e** escreve o aprendizado em `calc_alias` ou `calc_regra` do
+  tenant, e reprocessa a carga. E o laco de aprendizado; sem a escrita no catalogo a
+  mesma pendencia volta no mes seguinte.
+
+- [ ] **`calc_carga_aprovar(p_carga uuid) returns jsonb`** — valida, grava
+  `calc_dados`, deriva e grava `calc_venda`, fecha a carga, tudo na mesma transacao.
+  Carrega a trava de tres numeros que a skill ja usa hoje:
+
+```sql
+  if v_produtos <> v_esp_produtos then raise exception 'guarda produtos: %', v_produtos; end if;
+  if v_precos   <> v_esp_precos   then raise exception 'guarda precos: %',   v_precos;   end if;
+  if v_soma     <> v_esp_soma     then raise exception 'guarda soma: %',     v_soma;     end if;
+```
+
+  Os tres esperados saem do parse, ANTES da escrita. Nao bateu, a transacao inteira
+  volta. **A trava vai em bloco, nunca inline**: `case when ok then true else (select
+  1/0)::boolean end` nao funciona, o Postgres dobra `1/0` em tempo de planejamento e
+  reprova carga correta.
+
+- [ ] **GRANT explicito depois de cada `CREATE OR REPLACE`:**
+
+```sql
+revoke all on function public.calc_carga_abrir(text) from public;
+grant execute on function public.calc_carga_abrir(text) to authenticated;
+```
+Idem para as outras duas.
+
+## 2.3 A tela
+
+- [ ] **`/calc/alimentar`, quatro passos, so para papel `dono`:**
+
+| Passo | Mostra | Acao |
+|---|---|---|
+| 1 Colar | area de texto e upload do `_chat.txt` | enviar |
+| 2 Fornecedor | cabecalhos achados, com contagem de listas | nomear e dar a praca |
+| 3 Pendencias | agrupadas por causa, com `n_linhas` e o exemplo original copiado | decidir |
+| 4 Diff | subiu / caiu / novo / sumiu, **variacao acima de 15% item a item**, fornecedor sem lista nova, cobertura medida | aprovar |
+
+Textos obrigatorios na tela, porque sao trava do produto e nao enfeite:
+- cobertura na forma **`casaram 612 de 690 linhas (89%)`**, medida, nunca estimada;
+- **`N linhas nao entraram`**, com a lista, sempre visivel;
+- descarte com contagem, para o dono ver que existiram;
+- lista com mais de 7 dias entra com **aviso explicito de custo velho**.
+
+- [ ] **O upload nao vai para o repo nem para bucket publico.** O texto e processado e
+  o bruto e descartado; se um dia for guardado, bucket privado com retencao declarada.
+
+**Portao do Bloco 2** (e o portao mais importante do plano): **o dono roda a carga de
+setembro inteira pela tela, sem Claude Code**, e o resultado bate com o que a sessao de
+IA produziria. Medir e registrar:
+
+```sql
+select status, n_lidas, n_casou, n_pendencia, n_descarte,
+       round(100.0*n_casou/nullif(n_lidas,0),1) as cobertura
+  from public.calc_carga order by criado_em desc limit 1;
+```
+Esperado: cobertura **>= 89%** (a medida de 27/07/2026 com catalogo maduro). Abaixo
+disso, o seed do Bloco 1 esta incompleto e o bloco nao fecha.
+
+---
+
+# Bloco 3 — O consultor sai do repo
+
+**Depende de:** Bloco 2. O Passo 3.3 depende tambem de **D4a**.
+**Agentes:** `base`, `vitrine`, `pit-guard`, `bandeira`.
+
+**Por que:** enquanto `public/calc/consultor/dados.js` for arquivo estatico, a frase
+"acesso so por login" e falsa, e nao existe versao de outro lojista desse arquivo.
+
+## 3.0 `Acessório` ganha margem propria (D4)
+
+**Vem antes da derivacao, porque a derivacao le a margem.**
+
+- [ ] **Acrescentar `aav` e `apc` ao `config`** do blob de custo, com o valor que o
+  dono definir. Migration de dado, nao de schema (o `config` e jsonb).
+
+- [ ] **`mg()` em `public/calc/index.html` passa a ter quatro ramos**, nao tres:
+
+| Ordem | Teste | Devolve |
+|---|---|---|
+| 1 | `semMargem(c)` (`1ª Linha`, `Garmin`, `Moto Elétrica`) | `{av:0, pc:0}` |
+| 2 | `MacBook` ou `Mac Mini` | `config.mav` / `config.mpc` |
+| 3 | **`Acessório`** | **`config.aav` / `config.apc`** |
+| 4 | resto (iPhone, iPad, **Apple Watch**) | `config.iav` / `config.ipc` |
+
+  A margem continua saindo do `config`, nunca fixa no codigo (regra 5 da spec).
+
+- [ ] **Estender `ferramentas/prova_sem_margem.js`.** Ela hoje tem 22 assercoes e le
+  `SEMMARGEM`, `semMargem` e `mg` do arquivo real, sem copiar a logica. Acrescentar as
+  assercoes do quarto ramo: `Acessório` devolve `aav`/`apc` e **nao** `iav`/`ipc`.
+  Assercao de regressao obrigatoria: **`Apple Watch` continua em `iav`/`ipc`**, porque
+  foi exatamente a categoria que o dono confundiu com acessorio.
+
+**Prova do defeito que D4 conserta:** um AirPods Pro de custo R$1.500 hoje aparece com
+venda de R$2.050 (leva `iav` 550). Depois de 3.0, aparece com `aav`. Conferir esse item
+na tela antes de seguir.
+
+- [ ] **3.1 Criar `calc_venda`**, um blob por tenant, mesma forma de `calc_dados`, com
+  policy de SELECT para `authenticated` do tenant **sem exigir papel dono** (o vendedor
+  precisa ler preco de venda).
+
+- [ ] **3.2 A derivacao vira funcao**, dentro de `calc_carga_aprovar`:
+
+```
+para cada (modelo, condicao, cor):
+    custo = MENOR v entre os fornecedores que tem aquela cor
+    pv    = custo + mg(categoria).av
+    pp    = custo + mg(categoria).pc
+mg() e o mesmo quatro-ramos do passo 3.0: aav/apc para Acessório,
+mav/mpc para MacBook e Mac Mini, iav/ipc para o resto (Apple Watch incluso).
+Classes sem margem (1ª Linha, Garmin, Moto Elétrica) ficam de fora da derivacao.
+Acessório ENTRA (D4), com aav/apc.
+config.validade reposta em toda carga aprovada.
+```
+
+**A derivacao le a margem da mesma fonte que a tela do dono.** Se `mg()` e a derivacao
+divergirem, o dono ve um preco e o consultor cota outro: por isso o passo 3.0 vem
+antes, e a prova do 3.2 compara os dois lados.
+
+Prova de record da regra: 103 de 103 combinacoes bateram em 27/07/2026, zero
+divergencia. Se der divergencia agora, investigar antes de "corrigir": ou a margem
+mudou no `config`, ou alguem editou o `dados.js` a mao.
+
+- [ ] **3.3 `public/calc/consultor/index.html` passa a ler `calc_venda`** em vez de
+  `dados.js`, mantendo `checkValidade()` e os quatro bloqueios de copiar pedido.
+
+  **Depende de D4a.** Com `Acessório` entrando, o `boot()` do consultor exige
+  `config.comissao` cobrindo a categoria nova. Hoje ele so valida
+  `comissao.C1.lacrado`; acrescentar a guarda do ramo de acessorio, senao a calc abre
+  e paga comissao errada em silencio. **Nao inventar o numero: ele vem de D4a.**
+
+  Enquanto D4a nao vier, o Bloco 3 fecha os passos 3.0, 3.1, 3.2, 3.4 e 3.5 e para
+  aqui. Nao entregar acessorio no consultor com comissao chutada.
+
+- [ ] **3.4 Projecao por papel.** Hoje `vendedor` le **zero** linhas de `calc_dados` e
+  o painel `public/app.js` (linhas 1151 e 1164) volta vazio para ele. Com time completo
+  incluso isso deixa de ser aceitavel: criar a RPC `SECURITY DEFINER` que devolve **so**
+  preco de venda para papel `vendedor`, sem custo, sem fornecedor, sem margem.
+
+- [ ] **3.5 Apagar `public/calc/consultor/dados.js` do repo** e do worker.
+
+**Portao do Bloco 3:**
+
+```
+curl -s https://flat-resonance-09ba.pitstopimports.workers.dev/calc/consultor/dados.js -o /dev/null -w "%{http_code}\n"
+```
+Esperado: `404`. E, com o JWT de um `vendedor`, `select count(*) from public.calc_dados`
+devolvendo `0` enquanto `calc_venda` devolve `1`.
+
+---
+
+# Bloco 4 — A conta nasce sozinha
+
+**Depende de:** Bloco 3. **Agentes:** `base`, `vitrine`, `pit-guard`, `bandeira`.
+
+- [ ] **4.1 `privado.fn_provisionar_tenant`.** Tarefa 3 do plano de 19/08, com duas
+  mudancas: nao clona `dicionario_scripts` com marca fixa (o Bloco 0 ja resolveu), e
+  **nao clona `calc_dados` nem `calc_fornecedor`** (ordem do dono, ainda de pe). Passa
+  a semear o vinculo com a camada base do catalogo, que e global e nao precisa de copia.
+
+- [ ] **4.2 Signup.** Cria usuario no Auth, cria `tenant` com `plano='trial'` e
+  `trial_ate`, cria `app_usuario` com papel `dono`, tudo numa RPC. O primeiro usuario
+  de um tenant e sempre `dono`.
+
+- [ ] **4.3 Tela de equipe**, so para papel `dono` do tenant:
+
+| Acao | RPC |
+|---|---|
+| Convidar por email | `calc_equipe_convidar(p_email, p_papel)` |
+| Desligar | `calc_equipe_desligar(p_uid)` -> `ativo=false` |
+| Listar quem tem acesso | leitura de `app_usuario` pela policy `p_usuario_select`, que ja permite ao dono ver o tenant dele |
+
+O `tenant_id` do convidado vem de `fn_tenant_atual()` de quem convida. **Nunca do
+formulario.** Papel aceito: so `dono` e `vendedor`.
+
+- [ ] **4.4 Onboarding.** Depois do signup, o usuario cai direto na tela `Alimentar`,
+  passo 1. Nao existe estado inicial "sistema vazio sem instrucao".
+
+**Portao do Bloco 4:** o dono do produto cria uma conta nova do zero, **sem tocar em
+SQL nem no painel do Supabase**, convida um vendedor, importa uma lista e ve preco na
+tela. Mais a prova de isolamento (Tarefa 6 do plano de 19/08, que nunca rodou): com o
+JWT de cada tenant, `lead`, `venda`, `calc_dados` e `calc_fornecedor` devolvendo `0`
+para o tenant errado, nos dois sentidos.
+
+---
+
+# Bloco 5 — O modelo na pilha 3, e a cota
+
+**Depende de:** Bloco 4. **Agentes:** `base`, `pit-guard`, `bandeira`.
+
+- [ ] **5.1 Edge Function** que recebe **so a pilha nao reconhecida** mais o catalogo,
+  chama a API com `claude-opus-5`, e devolve proposta estruturada. A chave vive em
+  variavel de ambiente do Deno, **nunca no repo**. A funcao le o tenant do JWT.
+
+- [ ] **5.2 Proposta nunca vira preco sozinha.** O retorno do modelo entra como
+  **pendencia**, na mesma tela do Bloco 2, para o lojista decidir. Nao existe caminho
+  em que uma linha lida pelo modelo entre no blob sem gente aprovar.
+
+- [ ] **5.3 Cota.** `calc_uso` por tenant e competencia. Limite **3.000 linhas/mes**,
+  mais **3.000 de credito de abertura, uma vez**. Estourou, a tela diz:
+  `Cota do mes atingida. Suas listas continuam sendo lidas; N linhas ficaram sem
+  analise automatica.` O parse deterministico **nunca** para.
+
+- [ ] **5.4 Medir token de verdade.** Na primeira carga real pela Edge Function, medir
+  com `count_tokens` e reajustar a cota. Os numeros da spec (~$0,30 por carga, ~$1,50
+  de teto mensal) sao estimativa, nao medicao.
+
+- [ ] **5.5 Bootstrap.** Catalogo do tenant vazio: o modelo **propoe** o catalogo
+  (fornecedores achados, modelos, cores) e o lojista aprova em bloco. So as listas dos
+  ultimos 15 dias: formato antigo casou **0%** nas medicoes de 27/07/2026, nao vale
+  token.
+
+**Portao do Bloco 5:** uma conta nova de teste, com um export real de fornecedor que
+**nao** seja dos 17 do dono, fecha a primeira carga com cobertura medida e registrada,
+e o consumo de cota fica dentro do credito de abertura.
+
+---
+
+# Bloco 6 — Piloto e cobranca
+
+**Depende de:** Bloco 5.
+
+**D2 fechada:** o produto e vendido **como conjunto** (Pit Wall com a calculadora
+dentro), e a calculadora **vira produto separado depois**. Duas consequencias:
+o plano do piloto oferece o sistema inteiro, nao so a calc; e a restricao global 10
+(nenhuma FK de `calc_*` para tabela de operacao) e o que mantem o desmembramento
+futuro barato. Conferir aquela query a cada migration, nao no fim.
+
+- [ ] **6.1 Piloto com UM lojista real, de graca**, com o dono do produto olhando a
+  carga dele. A primeira carga externa e onde se descobre o que a camada base nao sabe.
+- [ ] **6.2 Termo de controlador e operador**, uma pagina, antes do primeiro cliente
+  cadastrar dado real. O backup diario (`backup_git.yml`) passa a conter dado comercial
+  de terceiro.
+- [ ] **6.3 Rota de saida.** Script que extrai so os dados de um tenant. Escrever
+  enquanto o desenho esta fresco, nao quando o cliente pedir.
+- [ ] **6.4 Cobranca** do conjunto (D2). Preco ancorado em **flat por loja**, ja que
+  assento deixou de ser alavanca (time completo incluso). A trava tecnica que compensa
+  o flat e a cota de `calc_uso` do Bloco 5, que limita linha enviada ao modelo, nunca
+  numero de gente.
+- [ ] **6.5 Registrar o gatilho do desmembramento.** A calc vira produto separado
+  depois (D2). O momento de reabrir esse desenho e quando aparecer interessado que
+  queira **so** a calculadora. Ate la, restricao global 10 mantem a porta aberta de
+  graca.
+
+**Portao do Bloco 6, e e o portao do produto inteiro:** se **mais de 1 em cada 5**
+clientes precisar falar com o dono do produto para concluir a primeira carga, **parar
+de vender e consertar o wizard.** Vinte clientes que se viram sozinhos se sustentam;
+vinte que ligam no dia 1 consomem a semana inteira e nenhuma mensalidade cobre.
+
+---
+
+## Riscos aceitos conscientemente
+
+1. **Superficie de SaaS antes do primeiro pagamento** (invariante 17), decisao
+   explicita do dono nesta sessao.
+2. **Compromisso recorrente de catalogo base.** Parar de atualizar derruba a cobertura
+   de todos os clientes no mesmo dia.
+3. **Um plano Supabase para todos.** O uso dos clientes conta no limite do dono.
+4. **Backup com dado de terceiro** (risco 6.2 acima).
+5. **Churn com a tabela na mao** depois de tres cargas. Defesa natural: custo envelhece
+   em uma semana.
+6. **`dicionario_rotulos` fica compartilhado** entre tenants. So tem policy de SELECT,
+   entao ninguem edita; o efeito e as lojas verem os mesmos rotulos de display.
+
+---
+
+## Fim de obra
+
+Ao terminar cada bloco: exigir handoff do subagent que atuou, atualizar
+`.claude/skills/calculadoras/references/` conforme a regra de auto-atualizacao da
+propria skill (o catalogo saindo do markdown para o banco **e** mudanca de onde as
+coisas vivem, entao `mapa-calculadoras.md` muda em todos os blocos), e atualizar
+`docs/handoffs/handoff_indice_pitwall.md`.
