@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>Pit Wall · Pitstop Imports</title>
+<title>Pit Wall</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -16,7 +16,9 @@
 <div id="telaLogin" class="login">
   <div class="login-box">
     <div class="marca">Pit Wall</div>
-    <div class="marca-sub">Pitstop Imports · Núcleo</div>
+    <!-- Tela de LOGIN: nao existe sessao ainda, entao nao ha tenant para ler.
+         Aqui so pode aparecer o nome do PRODUTO, nunca o de uma loja. -->
+    <div class="marca-sub">Núcleo</div>
     <div class="campo">
       <label for="email">Email</label>
       <input id="email" type="email" autocomplete="username" inputmode="email">
@@ -40,7 +42,9 @@
   <aside class="side">
     <div class="side-marca">
       <div class="marca">Pit Wall</div>
-      <div class="marca-sub">Pitstop Imports</div>
+      <!-- Preenchido por pwLoja() a partir de tenant.nome, apos a sessao existir.
+           Vazio se a leitura falhar: melhor nada do que o nome da loja errada. -->
+      <div class="marca-sub" data-loja></div>
     </div>
 
     <div class="abas" id="abas" role="tablist">

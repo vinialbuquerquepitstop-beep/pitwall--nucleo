@@ -189,9 +189,23 @@ delete from public.calc_dados
 ```
 Esperado: `DELETE 1`. Sao 341 produtos e 520 precos de 27/07/2026, com 14 dos 17
 fornecedores do dono. **Confirmado descartavel pelo dono em 05/09/2026.**
-- [ ] **0.2 — Corrigir o `.single()`.** Em `public/calc/index.html:1458`, trocar
-  `.from('calc_dados').select('dados').single()` por `.maybeSingle()` com estado vazio
-  nomeado. Hoje uma segunda linha visivel derruba a pagina inteira.
+- [x] **0.2 — Corrigir o `.single()`.** FEITO em 06/09/2026.
+
+  **Correcao de diagnostico, medida na execucao:** este plano e o de 19/08 diziam que
+  o `.single()` quebra "com 2+ linhas visiveis". **Falso.** `calc_dados` tem
+  `PRIMARY KEY (tenant_id)`, e a policy `calc_dados_sel` filtra por tenant: um `dono`
+  ve no maximo UMA linha, sempre. Duas linhas visiveis nao e um estado alcancavel.
+
+  O modo de falha real e o **oposto: ZERO linhas.** `.single()` com zero linhas
+  devolve erro de PostgREST, e a tela cuspia `Nao foi possivel carregar os precos:
+  JSON object requested, multiple (or no) rows returned`. **Isso e exatamente o
+  primeiro segundo de toda loja nova** (Bloco 4), que nasce sem carga aprovada.
+
+  Feito: `.maybeSingle()`, mais `mostrarVazio()` ao lado de `mostrarErro()` em
+  `public/calc/index.html`. Barra **neutra**, nunca vermelha, porque vermelho e para
+  dado quebrado e nao para dado ausente; mais `botaoSair()` e remocao do gate, para o
+  usuario nao ficar preso na tela vazia. Erro de verdade continua indo para
+  `mostrarErro()`. No Bloco 2 esse estado vazio ganha o botao que leva a `Alimentar`.
 - [ ] **0.3 — A marca vira variavel nos scripts.** Tarefa 2 do plano de 19/08:
   `{loja}` e `{vendedor}` resolvidos em `sugerir_mensagem`, 48 scripts atualizados,
   GRANT refeito.
@@ -220,14 +234,68 @@ select
   (select count(*) from public.calc_dados c
      where not exists (select 1 from public.tenant t where t.id=c.tenant_id)) as orfaos,
   (select count(*) from pg_constraint where conrelid='public.calc_dados'::regclass
-     and contype in ('f','u')) as fk_e_unique,
+     and contype='f') as fks,
   (select count(*) from public.dicionario_scripts where texto_template ilike '%Pitstop%') as marca_fixa,
   (select count(*) from public.dicionario_scripts where texto_template like '%{loja}%') as com_variavel,
   (select count(*) from public.tenant where plano is not null) as tenants_com_plano;
 ```
 
-Esperado: `0, 2, 0, 48, 1`. Mais `grep -c "Pitstop Imports" public/index.html` = `0`
+Esperado: `0, 1, 0, 48, 1`. Mais `grep -c "Pitstop Imports" public/index.html` = `0`
 e a suite inteira em EXIT 0.
+
+**Correcao medida em 06/09/2026:** o Passo 5 da Tarefa 1 do plano de 19/08 (criar
+unique em `tenant_id`) era **redundante**: `calc_dados` ja tem
+`PRIMARY KEY (tenant_id)`, que ja garante uma linha por tenant. Nao foi criada, e o
+portao passou a cobrar `contype='f'` (so a FK, que era o que de fato faltava).
+
+### BLOCO 0 FECHADO em 06/09/2026
+
+Portao medido: `orfaos=0, fks=1, marca_fixa=0, com_loja=48, tenants_com_plano=1`,
+mais `fk_proibida=0` (restricao global 10). Suite em **EXIT 0** nos oito comandos:
+`harness` **1114 passou, 0 falhou** (1119 declaradas, 1114 executadas, 5 de ramo
+alternativo), `validar`, `prova_trilho`, `prova_grafico`, `prova_atmosfera`,
+`node --check`, cinco larguras de celular e tres de monitor.
+
+| Passo | Estado | Prova |
+|---|---|---|
+| 0.1 orfa + FK | **FEITO** | migration `calc_dados_limpa_orfa_e_fk_tenant`. 1 linha, 0 orfaos, 1 FK, 494 produtos do dono intactos. Tenant fantasma bloqueado em bloco `DO` com rollback |
+| 0.2 `.single()` | **FEITO** | `maybeSingle()` + `mostrarVazio()` em `public/calc/index.html` |
+| 0.3 marca nos scripts | **FEITO** | 4 migrations. `Pitstop` fixo: 0. `{loja}`: 48. `{vendedor}`: 53. Texto renderizado sem chave crua |
+| 0.4 marca no HTML | **FEITO** | 3 lugares fora do `index.html`, `pwLoja()` no `app.js`, **5 assercoes novas** no harness |
+| 0.5 ciclo de vida do tenant | **FEITO** | migration `tenant_ciclo_de_vida`. `plano='interno'`, `status='ativo'`, 2 checks |
+
+### Quatro defeitos que a execucao achou e o plano de 19/08 nao via
+
+Todos medidos em 06/09/2026, todos com preco se tivessem passado:
+
+1. **Seis formas da marca, nao duas.** O `UPDATE` daquele plano teria deixado
+   `" Imports"` orfao pendurado no meio da frase, em 17 scripts.
+2. **Seis scripts assinam so `Vini`, sem citar a loja.** A busca `ilike '%Pitstop%'`
+   nunca os alcancava: sao exatamente os que fariam o vendedor de outra loja se
+   apresentar com o nome do dono. Corrigidos por `regexp_replace` com `\m...\M`.
+3. **24 scripts com artigo masculino colado na variavel** (`aqui é o {vendedor}`).
+   Invisivel enquanto o vendedor e sempre `Vini`. Com uma vendedora chamada Ana, os
+   24 mandam **"aqui é o Ana"** ao cliente. Nao estava em plano nenhum. O artigo saiu.
+4. **O mock do harness nao tinha `maybeSingle` nem a tabela `tenant`.** `pwLoja()`
+   estourava calada dentro do proprio `try`, e a assercao nova nunca seria exercida.
+   O stub usa **`Loja de Prova`**, nunca o nome real: stub com o nome do dono cegaria
+   o teste, porque marca fixa de volta no HTML continuaria passando.
+
+### Duas correcoes do proprio plano, medidas na execucao
+
+- `calc_dados` **ja tinha `PRIMARY KEY (tenant_id)`**: a unique que o plano de 19/08
+  mandava criar era redundante. So faltava a FK.
+- O `.single()` **nao quebra com 2+ linhas** (impossivel, dada a PK mais a RLS por
+  tenant). Quebra com **zero** linhas, que e o primeiro segundo de toda loja nova.
+  O diagnostico estava invertido, e o conserto certo era estado vazio nomeado.
+
+### Uma instabilidade conhecida, deixada em paz
+
+A assercao `fin: OFX sem lancamento diz o que houve` falhou em **1 de 3 corridas** e
+passou nas outras duas; contra o `HEAD` passou 1 de 1. O proprio harness ja documenta
+que ela cai quando cresce o numero de assercoes antes dela. **Nao foi mexida**:
+alargar o `finAte` para calar guard-rail e repontar baseline, e a regra do projeto
+proibe. Fica registrada para o dia em que a causa for atacada de verdade.
 
 ---
 

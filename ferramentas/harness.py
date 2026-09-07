@@ -241,6 +241,10 @@ var TABELAS = { v_lead: LEADS, dicionario_rotulos: ROTULOS, v_venda: VENDAS_STUB
   // esta linha o upload do extrato nunca era exercido e a assercao de que o
   // caminho comeca com o tenant nao rodava em rodada nenhuma.
   app_usuario: [{ tenant_id: 't-prova' }],
+  // pwLoja() le daqui o nome da loja. O nome NAO e "Pitstop Imports" de
+  // proposito: se o HTML voltar a trazer marca fixa, a assercao passa a comparar
+  // duas strings diferentes e fica vermelha. Stub com o nome real cegaria o teste.
+  tenant: [{ id: 't-prova', nome: 'Loja de Prova' }],
   captacao_frente: [{ codigo: 'instagram_dm', rotulo: 'Instagram · DM', ordem: 1, ativo: true }] };
 var CAP = [];
 // ---- Fase 6: estado mutavel do dia/rotina/conteudo. O stub espelha o contrato
@@ -602,13 +606,22 @@ window.supabase = {
         });
         api.eq  = function (col, val) { filtros.push([col, val, false]); return api; };
         api.neq = function (col, val) { filtros.push([col, val, true]);  return api; };
-        api.then = function (f, r) {
-          var linhas = (TABELAS[tabela] || []).filter(function (x) {
+        function __linhas() {
+          return (TABELAS[tabela] || []).filter(function (x) {
             return filtros.every(function (ft) {
               return ft[2] ? x[ft[0]] !== ft[1] : x[ft[0]] === ft[1];
             });
           });
-          return Promise.resolve({ data: linhas, error: null }).then(f, r);
+        }
+        api.then = function (f, r) {
+          return Promise.resolve({ data: __linhas(), error: null }).then(f, r);
+        };
+        // maybeSingle devolve OBJETO ou null, nunca array: e o contrato do
+        // PostgREST, e e o que separa "loja nova sem carga" de erro de banco.
+        // Sem isto no mock, pwLoja() estourava calada dentro do proprio try.
+        api.maybeSingle = function () {
+          var l = __linhas();
+          return Promise.resolve({ data: l.length ? l[0] : null, error: null });
         };
         return api;
       },
@@ -1592,6 +1605,29 @@ async function rodar() {
   // diz nada sobre o que ele deveria estar provando.
   ok('a aba de arranque e Hoje', document.getElementById('abaHoje').getAttribute('aria-selected') === 'true',
      'abaHoje aria-selected=' + document.getElementById('abaHoje').getAttribute('aria-selected'));
+
+  // ---- a marca: produto no HTML, loja no banco (Bloco 0.4, 06/09/2026) ------
+  // 48 scripts e 3 lugares do HTML traziam "Pitstop Imports" fixo. Com um
+  // segundo lojista, ele abriria o sistema DELE lendo o nome da loja do dono.
+  // Estas assercoes existem para que voltar a escrever marca fixa fique vermelho.
+  var mkLoja = document.querySelector('.side-marca .marca-sub[data-loja]');
+  ok('a barra lateral tem o lugar da loja marcado com data-loja', !!mkLoja);
+  ok('e o nome da loja veio do BANCO, nao do HTML',
+     !!mkLoja && mkLoja.textContent.trim() === 'Loja de Prova',
+     'marca-sub=' + (mkLoja ? JSON.stringify(mkLoja.textContent.trim()) : 'ausente'));
+  ok('o titulo da pagina tambem passou a nomear a loja lida',
+     document.title === 'Pit Wall · Loja de Prova',
+     'title=' + JSON.stringify(document.title));
+  // O nome do PRODUTO fica no HTML e nao depende de rede: se a leitura falhar,
+  // a tela ainda diz Pit Wall em vez de ficar sem identidade nenhuma.
+  ok('o nome do produto continua fixo no HTML, independente do banco',
+     document.querySelector('.side-marca .marca').textContent.trim() === 'Pit Wall');
+  // A tela de LOGIN acontece antes de existir sessao: nao ha tenant para ler,
+  // entao ali nao pode aparecer nome de loja nenhum, nem por engano.
+  var mkLogin = document.querySelector('#telaLogin .marca-sub');
+  ok('a tela de login nao nomeia loja alguma (nao ha sessao para saber qual)',
+     !!mkLogin && !/Imports|Loja de Prova/.test(mkLogin.textContent),
+     'login marca-sub=' + (mkLogin ? JSON.stringify(mkLogin.textContent.trim()) : 'ausente'));
 
   // ---- a forma do Stitch na aba Hoje (08/08/2026) ---------------------------
   // Mesma armadilha do bloco da Fila: sem estas, o bloco "HOJE" do app.css podia
