@@ -12,7 +12,7 @@
 **O `P-ABRE` reprovou o item 1 e a sessao inteira virou o conserto dele, conforme o
 CONTRATO 6.1.** A tree carregava 1150 linhas de spec e plano de 05/09/2026, prontas e
 nunca commitadas. Nenhuma linha de codigo, migration ou tela foi tocada. A E2 nao
-comecou e continua travada pela D-s.
+comecou, mas **nao esta travada**: ver a correcao na secao 6.1.
 
 O v20 fechou dizendo "o portao de entrada da proxima sessao deve abrir sem conserto".
 **Abriu com conserto.** O que ele mediu como limpo era o estado da sessao dele; entre o
@@ -101,6 +101,32 @@ alterado. A tela de 06/09 e byte a byte a de 05/09. O 6.3 nao e acionado, e a ex
 
 ---
 
+## 6.1 Correcao de registro: a D-s NAO trava a E2
+
+**O v20 esta desatualizado neste ponto e eu propaguei o erro antes de conferir.**
+
+O v20 diz "Trava da E2: a decisao D-s. Sem ela a E2 nao comeca". O
+`plano_solucao_integral_20260904.md`, secao 1, abre com bloco de citacao dizendo:
+
+```
+RESPONDIDAS EM 04/09/2026, pelo dono, no chat:
+D-s = A  a regra `Compra no débito` perde o `dominio` e as 214 linhas voltam
+         para a fila. Custo aceito de forma consciente: marco vai a 91,77%
+         e apaga os numeros economicos ate serem julgadas 50 linhas, R$ 2.906,94.
+D-t = A  a divida do portao 6.3 se paga: E1 sobe a nota na tela.
+D-u, D-v e D-w seguem abertas. Nenhuma das tres trava E1 ou E2.
+```
+
+O proprio `handoff_indice_pitwall.md` ja registrava `D-s = A` e `D-t = A` na entrada do
+v18, ou seja, o indice se contradizia consigo mesmo. **A E2 esta destravada.** A saida A
+e insumo dela, nao pergunta pendente.
+
+Licao, e ela e a mesma do arranque do `CLAUDE.md`: handoff se confere contra o
+documento de record, nunca se repete de memoria. Foi assim que este arquivo ficou 17
+versoes desatualizado uma vez.
+
+---
+
 ## 6. Pendencias, herdadas e intactas
 
 Nada nesta sessao pagou divida do Financeiro. As tres pendencias do v20 seguem abertas,
@@ -121,16 +147,17 @@ palavra por palavra:
 
 ## 7. Primeiro movimento do proximo chat
 
-**Abrir a decisao D-s**, a regra `Compra no débito`, secao 1 do
-`docs/financeiro/plano_solucao_integral_20260904.md`. Sem ela a E2 nao comeca, e a E2 e
-a proxima das oito entregas que faltam.
+**Comecar a E2.** Ela e a proxima das oito entregas que faltam e **nao tem trava
+aberta**: a D-s foi respondida pelo dono em 04/09/2026, saida **A**, registrada em
+bloco de citacao na secao 1 do `docs/financeiro/plano_solucao_integral_20260904.md`.
+Ver a secao 6.1 deste handoff.
 
 Frase da E2, ja escrita: *nenhuma regra grava dominio para contraparte que o dono nunca
 julgou, e a tela mostra quantas linhas voltaram para a fila.*
 
 **A E2 e de raio grande** porque altera `docs/financeiro/CONTRATO.md`: sai em duas
 fases, com parada entre elas. Ela carrega, declarado no escopo e nunca descoberto no
-meio: a saida da D-s, o conserto da unidade da nota e a linha que falta na secao 4.
+meio: a saida A da D-s, o conserto da unidade da nota e a linha que falta na secao 4.
 
 **Custo declarado e esperado da E2:** marco cai para 91,77% e apaga numero economico ate
 o dono julgar. Isso e a entrega funcionando, nao defeito dela.

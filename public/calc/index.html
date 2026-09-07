@@ -1396,6 +1396,17 @@ function mostrarErro(lista){
     +arr.map(x=>'• '+x).join('<br>');
   document.body.appendChild(d);
 }
+// Estado VAZIO nao e erro. Loja nova ainda nao aprovou carga nenhuma, e a tela
+// tem que dizer isso com todas as letras em vez de cuspir mensagem de banco.
+// Barra neutra, nunca vermelha: vermelho e para dado quebrado, nao para dado ausente.
+function mostrarVazio(){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;inset:0 0 auto 0;z-index:99999;background:#f0f3f8;border-bottom:2px solid #8395af;color:#33415c;padding:16px 18px;font:600 13px/1.55 -apple-system,sans-serif';
+  d.innerHTML='<div style="font-size:15px;margin-bottom:8px">Sua tabela de preços ainda está vazia</div>'
+    +'<div style="font-weight:400;color:#5c6f8a">Nenhuma carga de fornecedor foi aprovada para esta loja. '
+    +'Assim que a primeira lista entrar, os preços aparecem aqui.</div>';
+  document.body.appendChild(d);
+}
 function aplicarDados(D){
   P=D.produtos; BAT=D.bateria; TELA=D.tela;
   if(D.config) Object.assign(CFG,D.config);
@@ -1455,9 +1466,18 @@ function boot(){
 
   async function carregarPrecos(){
     var r;
-    try{ r=await sb.from('calc_dados').select('dados').single(); }
+    // maybeSingle, nao single: zero linha e loja NOVA, nao falha. Com
+    // PRIMARY KEY (tenant_id) mais a RLS por tenant, o dono nunca enxerga duas
+    // linhas; o unico caso real e o zero, e ele acontece em toda loja que ainda
+    // nao aprovou carga. .single() devolvia erro de banco nessa hora.
+    try{ r=await sb.from('calc_dados').select('dados').maybeSingle(); }
     catch(e){ mostrarErro('Erro ao buscar precos: '+e.message); return; }
-    if(r.error||!r.data||!r.data.dados){ mostrarErro('Nao foi possivel carregar os precos'+(r.error?': '+r.error.message:'. Tabela vazia?')); return; }
+    if(r.error){ mostrarErro('Nao foi possivel carregar os precos: '+r.error.message); return; }
+    if(!r.data||!r.data.dados){
+      mostrarVazio(); botaoSair();
+      var g0=document.getElementById('calc-gate'); if(g0)g0.remove();
+      return;
+    }
     window.DADOS=r.data.dados;
     try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
     esconderInternoSeNaoDono();

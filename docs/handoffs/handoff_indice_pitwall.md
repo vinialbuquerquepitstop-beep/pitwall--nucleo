@@ -514,8 +514,12 @@ nenhuma das duas batia com o repo.
   mudou, porque nenhum arquivo de `public/` foi tocado. Declarado como nao provado: a
   suite nao foi rodada inteira DEPOIS do commit (so `validar.py` e `node --check`), e o
   commit nao foi empurrado para o remoto. As tres pendencias do v20 seguem abertas e
-  intactas. **A E2 continua travada pela decisao D-s** (a regra `Compra no débito`), que
-  e o primeiro movimento do proximo chat.
+  intactas. **Corrige um erro de registro do v20**, que dizia a E2 travada pela decisao
+  D-s: a D-s foi respondida pelo dono em 04/09/2026, saida **A** (a regra
+  `Compra no débito` perde o `dominio`, 214 linhas voltam para a fila, marco cai a
+  91,77%), e esta em bloco de citacao na secao 1 do plano integral. Este indice ja
+  registrava `D-s = A` na entrada do v18, ou seja, se contradizia. **A E2 esta
+  destravada e e o primeiro movimento do proximo chat.**
 
 - `handoff_financeiro_pitwall_v20.md` (05/09/2026, **AUDITORIA da E1, em sessao
   separada, e ela reprovou um item**). Nao e entrega: nenhum arquivo de produto foi
