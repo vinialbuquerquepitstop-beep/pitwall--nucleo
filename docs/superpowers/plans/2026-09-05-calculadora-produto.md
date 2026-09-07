@@ -11,9 +11,10 @@ fornecedores, sozinho, sem SQL, sem deploy e sem sessao de IA.**
 Se este plano divergir da spec, a spec ganha e o executor avisa.
 
 **Arquitetura:** um projeto Supabase, um deploy na Cloudflare, N tenants isolados por
-RLS. Catalogo em duas camadas (base global mantida por migration, camada do tenant
-aprendida pelo proprio lojista). Escrita so por RPC `SECURITY DEFINER`, com
-`tenant_id` vindo de `privado.fn_tenant_atual()`, nunca do payload.
+RLS. Catalogo **do tenant**, semeado uma vez no nascimento da conta e mantido dai em
+diante pelo proprio lojista (decisao do dono, 07/09/2026). Escrita so por RPC
+`SECURITY DEFINER`, com `tenant_id` vindo de `privado.fn_tenant_atual()`, nunca do
+payload.
 
 **Stack:** Postgres/Supabase (RLS, RPC), frontend estatico servido pela Cloudflare
 (`public/calc/`), Edge Function Deno para a chamada ao modelo.
@@ -76,7 +77,10 @@ Valem para todos os blocos, sem repetir:
 
 1. **`tenant_id` vem sempre de `privado.fn_tenant_atual()` dentro da RPC.** Nunca do
    payload do cliente. E a unica regra que impede o lojista A gravar no blob do B.
-2. **Nome de fornecedor e praca nunca entram na camada base do catalogo.**
+2. **Nome de fornecedor e praca nunca entram na semente.** So no tenant que os cadastrou.
+2b. **Linha de semente (`tenant_id is null`) nunca e lida em execucao.** Nenhuma policy
+    das tabelas de catalogo faz `or tenant_id is null`. Se fizesse, o dono do produto
+    herdaria por acidente a obrigacao de manter catalogo, que ele recusou em 07/09.
 3. Invariantes do `CLAUDE.md` de pe, em especial: nivel derivado na leitura (4), chave
    por `codigo` e nunca por `rotulo` (12), `CURRENT_DATE` proibido em data de negocio
    (10), historico append-only (6), helpers de RLS em `privado` (8), `authenticated`
@@ -130,8 +134,9 @@ Valem para todos os blocos, sem repetir:
   **O conjunto**: Pit Wall com a calculadora dentro. **Mas a calculadora vira produto
   separado depois.** Vira restricao global 10 abaixo, e nao muda a ordem dos blocos.
 - [x] **D3 — Regras de descarte sao configuraveis por tenant?**
-  **SIM.** `calc_regra` nasce com as globais do dono como **padrao pre-marcado**, e o
-  lojista liga e desliga cada uma. "Nao vendo Android" e politica da Pitstop, nao lei.
+  **SIM.** `calc_regra` chega ao tenant novo pela semente, ja **pre-marcada**, e o
+  lojista liga e desliga cada uma no proprio catalogo. "Nao vendo Android" e politica
+  da Pitstop, nao lei.
 - [x] **D4 — `Acessório` e margem.**
   **Margem propria** (`aav`/`apc` no `config`), e **passa a entrar na calc do
   consultor**. Detalhe na secao 3.2 da spec.
@@ -139,6 +144,26 @@ Valem para todos os blocos, sem repetir:
   **Correcao factual registrada:** o dono citou "airpods, apple watchs" como
   acessorios. `Apple Watch` **e categoria propria**, ja recebe `iav`/`ipc` e **ja
   aparece no consultor hoje**. D4 muda somente `Acessório` (12 itens).
+
+- [x] **D5 — Quem atualiza o catalogo? (07/09/2026)**
+  **O CLIENTE.** Palavras do dono: *"nao assumi atualizar nenhum catalogo base. quem
+  vai atualizar e o cliente."* Isso **corrige** o desenho de 05/09, que previa uma
+  camada global mantida por ele e usava esse compromisso como justificativa da
+  cobranca recorrente.
+
+  O que muda no schema, e nao e cosmetico:
+  - `calc_modelo` e `calc_cor` ganham `tenant_id`, e a unique passa a ser
+    `(tenant_id, codigo)` com `nulls not distinct`. Sem isso o segundo cliente que
+    cadastrar `iPhone 18 Pro Max 256GB` colide com o primeiro.
+  - As cinco policies de catalogo filtram **so** por `tenant_id = fn_tenant_atual()`.
+    Nenhuma faz `or tenant_id is null`.
+  - `tenant_id is null` deixa de ser "global" e passa a ser **semente**: lida uma unica
+    vez, por `fn_provisionar_tenant`, no nascimento da conta.
+  - O lado Apple entra **duas vezes** no Bloco 1: como semente e no tenant `...0001`.
+
+  Modelo novo (`iPhone 18`) entra em cada tenant pelo laco de pendencia que ja existe,
+  sem ninguem publicar nada. **Custo aceito:** zero aprendizado compartilhado, e a
+  cobranca recorrente passa a se sustentar no sistema rodando.
 
 ### Pendencia nova aberta por D4
 
@@ -323,24 +348,34 @@ arquivo e o ativo do produto e hoje so o Claude consegue ler.
 - [ ] **Criar as tabelas globais.** `tenant_id` nulo significa global.
 
 ```sql
+-- tenant_id NULO = linha de SEMENTE, copiada no nascimento da conta e nunca
+-- lida em execucao. tenant_id preenchido = catalogo daquele lojista, que e
+-- quem o mantem (decisao do dono, 07/09/2026).
+-- A unique carrega o tenant: sem isso, o segundo cliente que cadastrar
+-- "iPhone 18 Pro Max 256GB" colide com o primeiro. `nulls not distinct`
+-- mantem a semente unica entre si.
 create table public.calc_modelo (
   id         uuid primary key default gen_random_uuid(),
-  codigo     text not null unique,          -- invariante 12: a chave e o codigo
+  tenant_id  uuid references public.tenant(id),
+  codigo     text not null,                 -- invariante 12: a chave e o codigo
   nome       text not null,                 -- nome canonico exibido
   categoria  text not null,
   ativo      boolean not null default true,
   criado_em  timestamptz not null default now(),
+  constraint calc_modelo_u unique nulls not distinct (tenant_id, codigo),
   constraint calc_modelo_categoria_ck check (categoria in
     ('iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica'))
 );
 
 create table public.calc_cor (
   id        uuid primary key default gen_random_uuid(),
-  codigo    text not null unique,
+  tenant_id uuid references public.tenant(id),
+  codigo    text not null,
   nome      text not null,
   hex       text not null,
   ativo     boolean not null default true,
   criado_em timestamptz not null default now(),
+  constraint calc_cor_u unique nulls not distinct (tenant_id, codigo),
   constraint calc_cor_hex_ck check (hex ~ '^#[0-9a-f]{6}$')
 );
 
@@ -390,13 +425,17 @@ alter table public.calc_alias      enable row level security;
 alter table public.calc_fornecedor enable row level security;
 alter table public.calc_regra      enable row level security;
 
-create policy calc_modelo_sel on public.calc_modelo for select to authenticated using (ativo);
-create policy calc_cor_sel    on public.calc_cor    for select to authenticated using (ativo);
-
+-- As CINCO filtram igual, e NENHUMA faz "or tenant_id is null".
+-- Linha de semente (tenant_id null) e invisivel em execucao, de proposito:
+-- ver a secao 2.4 da spec e a decisao do dono de 07/09/2026.
+create policy calc_modelo_sel on public.calc_modelo for select to authenticated
+  using (ativo and tenant_id = privado.fn_tenant_atual());
+create policy calc_cor_sel on public.calc_cor for select to authenticated
+  using (ativo and tenant_id = privado.fn_tenant_atual());
 create policy calc_alias_sel on public.calc_alias for select to authenticated
-  using (tenant_id is null or tenant_id = privado.fn_tenant_atual());
+  using (tenant_id = privado.fn_tenant_atual());
 create policy calc_regra_sel on public.calc_regra for select to authenticated
-  using (tenant_id is null or tenant_id = privado.fn_tenant_atual());
+  using (tenant_id = privado.fn_tenant_atual());
 
 create policy calc_fornecedor_sel on public.calc_fornecedor for select to authenticated
   using (tenant_id = privado.fn_tenant_atual() and privado.fn_papel_atual() = 'dono');
@@ -406,20 +445,35 @@ Nenhuma policy de INSERT, UPDATE ou DELETE em nenhuma das cinco. Escrita so por 
 `calc_fornecedor` exige papel `dono`: fornecedor e praca sao dado de custo, o vendedor
 nao ve.
 
-## 1.2 Seed da camada base
+## 1.2 Seed: a semente, e o tenant do dono
+
+**Duas escritas distintas, nao confundir:**
+
+| Escrita | `tenant_id` | Para que serve |
+|---|---|---|
+| **semente** | `NULL` | ser copiada no nascimento de toda conta futura. Nunca lida em execucao |
+| **tenant do dono** | `...0001` | a Pitstop Imports operando hoje. E uma conta como qualquer outra |
+
+O lado Apple (modelo, cor, alias de cor e condicao, regras) entra **duas vezes**:
+uma como semente e outra no tenant `...0001`. Parece duplicacao e nao e: a semente e
+um retrato congelado para clientes futuros, e o tenant do dono e catalogo vivo que
+**ele** vai editar, como qualquer cliente. Foi a decisao de 07/09/2026 que separou
+os dois: nao existe camada compartilhada que o dono do produto mantenha.
+
+Fornecedor e praca entram **so** no tenant `...0001`, nunca na semente.
 
 - [ ] **Carregar o catalogo de `formato-dados.md` para as tabelas.** Fonte:
   `.claude/skills/calculadoras/references/formato-dados.md`, secao 4.
 
 | Alvo | Vem de | Quantidade esperada |
 |---|---|---|
-| `calc_modelo` | iPhone 66 + iPad 6 + MacBook/Mac Mini 8 + Apple Watch 7 + Acessorio 12 + 1ª Linha 2 + Garmin 6 + Moto 1, mais os que entraram em 15/08 e 17/08 | conferir contra `calc_dados` |
-| `calc_cor` | as 32 cores em uso com hex | 32 |
-| `calc_alias` global tipo `cor` | as unificacoes de 03/08 (`Black`->`Preto`, `Blue`->`Azul`, `White`->`Branco`, `Green`->`Verde`, `Orange`->`Laranja`, `Rose`->`Rosa`, `Prateado`->`Silver`, `Dourado`->`Gold`) mais `ULTRAMARINE`/`PACIFIC BLUE`->`Azul` | >= 10 |
-| `calc_alias` global tipo `condicao` | `cpo`/`(CPO)`/`certified pre-owned`->`CPO`, `lacrado`/`novo`->`Lacrado`, `seminovo`/`usado`/`vitrine`->`Seminovo` | 8 |
-| `calc_regra` global tipo `descarte` | `mensagem`, `msg`, `aviso`, `peça não genuína`, `1ª linha`, `réplica`, `similar`, `genérico`, preco em dolar | 9 |
-| `calc_regra` global tipo `token` | `4,850,00`->4850.00, `4.3999,99`->4399.99, `7.200,00,00`->7200.00, `1.1550`->1550.00 | 4 |
-| `calc_regra` global tipo `outlier` | acima de 1.6x o menor da mesma combinacao | 1 |
+| `calc_modelo` (semente **e** `...0001`) | iPhone 66 + iPad 6 + MacBook/Mac Mini 8 + Apple Watch 7 + Acessorio 12 + 1ª Linha 2 + Garmin 6 + Moto 1, mais os que entraram em 15/08 e 17/08 | conferir contra `calc_dados` |
+| `calc_cor` (semente **e** `...0001`) | as 32 cores em uso com hex | 32 |
+| `calc_alias` tipo `cor` (semente **e** `...0001`) | as unificacoes de 03/08 (`Black`->`Preto`, `Blue`->`Azul`, `White`->`Branco`, `Green`->`Verde`, `Orange`->`Laranja`, `Rose`->`Rosa`, `Prateado`->`Silver`, `Dourado`->`Gold`) mais `ULTRAMARINE`/`PACIFIC BLUE`->`Azul` | >= 10 |
+| `calc_alias` tipo `condicao` (semente **e** `...0001`) | `cpo`/`(CPO)`/`certified pre-owned`->`CPO`, `lacrado`/`novo`->`Lacrado`, `seminovo`/`usado`/`vitrine`->`Seminovo` | 8 |
+| `calc_regra` tipo `descarte` (semente **e** `...0001`) | `mensagem`, `msg`, `aviso`, `peça não genuína`, `1ª linha`, `réplica`, `similar`, `genérico`, preco em dolar | 9 |
+| `calc_regra` tipo `token` (semente **e** `...0001`) | `4,850,00`->4850.00, `4.3999,99`->4399.99, `7.200,00,00`->7200.00, `1.1550`->1550.00 | 4 |
+| `calc_regra` tipo `outlier` (semente **e** `...0001`) | acima de 1.6x o menor da mesma combinacao | 1 |
 | `calc_fornecedor` do tenant `...0001` | os 17 do dono, com praca exata | 17 |
 | `calc_alias` do tenant `...0001` tipo `fornecedor` | `MELHOR DE CAXIAS`->Five Cell, `Charles revel`/`REVEL IMPORTS`/`APARELHOS AMERICANOS`->Revel, `Fábio souza`/`davi fabio`->Davi/Fábio, `Júnior recreio`/`Recreio`->Júnior, `TABELA ATUALIZADA`->MP Imports, `Dg JPA`->DG Jacarepaguá, `Raphael barra da Tijuca`->Rafael, `Br 10, iraja`->BR10 | >= 12 |
 
@@ -681,7 +735,9 @@ devolvendo `0` enquanto `calc_venda` devolve `1`.
 - [ ] **4.1 `privado.fn_provisionar_tenant`.** Tarefa 3 do plano de 19/08, com duas
   mudancas: nao clona `dicionario_scripts` com marca fixa (o Bloco 0 ja resolveu), e
   **nao clona `calc_dados` nem `calc_fornecedor`** (ordem do dono, ainda de pe). Passa
-  a semear o vinculo com a camada base do catalogo, que e global e nao precisa de copia.
+  a **copiar a semente do catalogo** (`tenant_id is null`) para o tenant novo: modelo,
+  cor, alias de cor e condicao, e regras. Fornecedor NAO, que e do tenant que o cadastrou.
+  A partir da copia, aquele catalogo e do cliente e ninguem mais o atualiza por ele.
 
 - [ ] **4.2 Signup.** Cria usuario no Auth, cria `tenant` com `plano='trial'` e
   `trial_ate`, cria `app_usuario` com papel `dono`, tudo numa RPC. O primeiro usuario
@@ -752,7 +808,7 @@ o plano do piloto oferece o sistema inteiro, nao so a calc; e a restricao global
 futuro barato. Conferir aquela query a cada migration, nao no fim.
 
 - [ ] **6.1 Piloto com UM lojista real, de graca**, com o dono do produto olhando a
-  carga dele. A primeira carga externa e onde se descobre o que a camada base nao sabe.
+  carga dele. A primeira carga externa e onde se descobre o que a semente nao sabe.
 - [ ] **6.2 Termo de controlador e operador**, uma pagina, antes do primeiro cliente
   cadastrar dado real. O backup diario (`backup_git.yml`) passa a conter dado comercial
   de terceiro.
@@ -778,8 +834,10 @@ vinte que ligam no dia 1 consomem a semana inteira e nenhuma mensalidade cobre.
 
 1. **Superficie de SaaS antes do primeiro pagamento** (invariante 17), decisao
    explicita do dono nesta sessao.
-2. **Compromisso recorrente de catalogo base.** Parar de atualizar derruba a cobertura
-   de todos os clientes no mesmo dia.
+2. **Sem catalogo mantido, o fosso e fraco.** Decisao do dono em 07/09/2026: quem
+   atualiza catalogo e o cliente. Consequencias aceitas: zero aprendizado compartilhado
+   (duzentos clientes ensinam `PURPLE -> Lilás` duzentas vezes), e a cobranca recorrente
+   passa a se sustentar no sistema rodando, nao em catalogo atualizado.
 3. **Um plano Supabase para todos.** O uso dos clientes conta no limite do dono.
 4. **Backup com dado de terceiro** (risco 6.2 acima).
 5. **Churn com a tabela na mao** depois de tres cargas. Defesa natural: custo envelhece

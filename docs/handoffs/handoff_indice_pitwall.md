@@ -513,8 +513,18 @@ nenhuma das duas batia com o repo.
   **nenhuma das sete tarefas executada** e com cinco erros que so a medicao
   revelou, entre eles 24 scripts que mandariam "aqui e o Ana" ao cliente.
 
-  Quatro decisoes do dono fechadas (D1 a D4); **uma aberta, a D4a**, comissao de
+  **Cinco** decisoes do dono fechadas (D1 a D5); **uma aberta, a D4a**, comissao de
   `Acessório` na escada do consultor, que trava so um passo do Bloco 3.
+
+  A **D5**, de 07/09/2026, corrigiu o desenho do dia 05: *"nao assumi atualizar
+  nenhum catalogo base. quem vai atualizar e o cliente."* Nao ha camada global
+  mantida pelo dono do produto. Ha uma **semente**, copiada no nascimento da conta
+  e invisivel em execucao; dali em diante o catalogo e do cliente. Isso mudou
+  schema, nao so texto: `calc_modelo` e `calc_cor` ganharam `tenant_id`, a unique
+  virou `(tenant_id, codigo)` com `nulls not distinct`, e nenhuma policy de
+  catalogo faz `or tenant_id is null`. **Custo aceito e registrado:** zero
+  aprendizado compartilhado, e a cobranca recorrente passa a se sustentar no
+  sistema rodando, nao em catalogo atualizado.
 
   Proximo passo, sem bloqueador: **Bloco 1**, o catalogo saindo do markdown da
   skill `calculadoras` para tabela em duas camadas, terminando no painel

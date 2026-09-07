@@ -119,17 +119,21 @@ Tres superficies, tres papeis, uma fonte:
 | **Alimentar** | `/calc/alimentar` | `dono` | catalogo + carga | **sim, por RPC** |
 | Venda | `/calc/consultor/` | `vendedor` e `dono` | `calc_venda` | nao |
 
-O catalogo base (lado Apple) **nao ganha tela nesta obra**: e mantido por migration,
-pelo dono do produto. Construir painel de catalogo antes de existir o segundo cliente
-e a mesma superficie prematura que o invariante 17 proibe, e o CHECK de `papel` so
-aceita `dono` e `vendedor` (o papel `parceiro` foi criado e revertido na v39).
+**Nao existe catalogo mantido pelo dono do produto.** Decisao explicita dele em
+07/09/2026: *"nao assumi atualizar nenhum catalogo base. quem vai atualizar e o
+cliente."* O que existe e uma **semente**, copiada uma vez no nascimento do tenant;
+a partir dai o catalogo e do cliente, e quem o mantem e ele, resolvendo pendencia.
+Detalhe em 2.4.
+
+O CHECK de `papel` segue aceitando so `dono` e `vendedor` (o papel `parceiro` foi
+criado e revertido na v39).
 
 ### 2.2 O ciclo de alimentacao, passo a passo
 
 ```
 1. COLAR       o lojista cola texto ou sobe o _chat.txt do WhatsApp
 2. FORNECEDOR  o sistema lista os cabecalhos que achou e pede nome + praca
-3. PARSE       deterministico, contra catalogo base + catalogo do tenant
+3. PARSE       deterministico, contra o catalogo DO TENANT (so ele, ver 2.4)
 4. PILHAS      casou | duvidoso | nao reconhecido | descartado
 5. LLM         roda SO na pilha "nao reconhecido", e so se houver cota
 6. PENDENCIA   agrupada POR CAUSA, nunca por linha
@@ -157,26 +161,48 @@ Efeito medido no proprio historico do dono: 46% de cobertura sem catalogo, 89% d
 de quatro cargas ensinando. Isso deixa de ser trabalho de sessao de IA e passa a ser
 propriedade do produto.
 
-### 2.4 Catalogo em duas camadas
+### 2.4 Semente no nascimento, catalogo do cliente para sempre
 
-| Camada | `tenant_id` | Conteudo | Quem mantem |
+**Decisao do dono, 07/09/2026:** *"nao assumi atualizar nenhum catalogo base. quem
+vai atualizar e o cliente."* Isso corrige o desenho de 05/09, que previa uma camada
+global mantida por ele. **Nao ha camada global viva.**
+
+| Camada | `tenant_id` | Quando e lida | Quem mantem |
 |---|---|---|---|
-| **Base** | `NULL` (global) | nomes canonicos de modelo, cores + hex, condicoes, faixas de RAM/SSD/polegada, tokens malformados, regras de leitura | o dono do produto, por migration |
-| **Tenant** | preenchido | fornecedores + praca, aliases aprendidos, politica de descarte, modelos proprios | o lojista, resolvendo pendencia |
+| **Semente** | `NULL` | **so no nascimento do tenant**, por `fn_provisionar_tenant`. Nunca no parse | ninguem, depois de escrita. E um retrato, nao um servico |
+| **Catalogo do tenant** | preenchido | em todo parse | **o lojista**, resolvendo pendencia |
 
-Resolucao de nome: **alias do tenant ganha do alias global**, e ausencia de alias cai
-em pendencia. Nunca em chute.
+O parse resolve **exclusivamente** contra `tenant_id = fn_tenant_atual()`. A policy
+de SELECT nao expoe linha de semente em tempo de execucao: se expusesse, um cliente
+veria catalogo que nao e dele e o dono do produto herdaria, na pratica, a obrigacao
+de mante-lo.
 
-Duas consequencias comerciais diretas:
+O que a semente carrega: nomes canonicos de modelo, cores mais hex, condicoes, as
+faixas de RAM/SSD/polegada, os tokens malformados e as regras de leitura. **Nunca
+fornecedor nem praca** — sao ativo do dono, e o vazamento de 14 dos 17 fornecedores
+pela linha orfa do tenant `...0004` era exatamente essa falha ja armada no banco.
 
-1. **Cliente novo comeca em torno de 80%, nao em 0%.** O lado Apple e generico para
-   qualquer revenda: qualquer um sabe que existe `iPhone 17 Pro Max 256GB`.
-2. **Lancamento da Apple e um update na base que serve todos os clientes.** E isso, e
-   nao a tela, que justifica cobranca recorrente.
+**Modelo novo entra pelo mesmo laco de 2.3.** O `iPhone 18` aparece na lista do
+fornecedor do cliente, nao casa com o catalogo dele, vira pendencia agrupada
+(`iPhone 18 Pro Max 256GB nao esta no catalogo, 4 precos`) e ele decide. O
+mecanismo ja existe e **nao depende de ninguem publicar nada**.
 
-Trava dura, nao negociavel: **nome de fornecedor e praca nunca entram na camada
-base.** Sao ativo do dono. O vazamento de 14 dos 17 fornecedores pela linha orfa do
-tenant `...0004` e exatamente essa falha ja armada no banco hoje.
+### 2.4.1 O que essa decisao custa, declarado
+
+Duas consequencias que o dono aceita ao nao manter catalogo:
+
+1. **Nao ha aprendizado compartilhado.** Duzentos clientes ensinam
+   `PURPLE -> Lilás` duzentas vezes. Cada tenant paga a propria curva: cerca de 46%
+   de cobertura na primeira carga e 89% depois de umas quatro, que foi a curva
+   medida no historico do dono.
+2. **A cobranca recorrente nao se sustenta em catalogo atualizado.** Passa a se
+   sustentar no sistema rodando: a tela de alimentar, a calc do consultor, a RLS,
+   o acesso da equipe e a hospedagem. E o argumento comercial normal de SaaS, mais
+   fraco como fosso que "eu mantenho o catalogo", e e o que ha.
+
+O ganho que sobrevive inteiro: **cliente novo comeca em torno de 80%, nao em 0%**,
+porque a semente entrega o lado Apple pronto no dia 1. Ela so nao promete nada
+sobre o dia 200.
 
 ### 2.5 Normalizar o catalogo, nao o preco
 
@@ -235,11 +261,11 @@ Tabelas novas e o que muda nas existentes. Toda tabela de dado segue o invariant
 
 | Tabela | `tenant_id` | Papel |
 |---|---|---|
-| `calc_modelo` | **NULL, global** | nome canonico, categoria, ativo. Chave e o `codigo` (inv. 12) |
-| `calc_cor` | **NULL, global** | nome canonico e hex |
-| `calc_alias` | NULL **ou** tenant | texto que aparece na lista -> codigo canonico. **A tabela do aprendizado** |
-| `calc_regra` | NULL **ou** tenant | descarte, token malformado, trava de outlier |
-| `calc_fornecedor` | tenant | nome, praca, ativo. **Nunca global** |
+| `calc_modelo` | tenant (+ linhas de semente) | nome canonico, categoria, ativo. Chave e o `codigo` (inv. 12) |
+| `calc_cor` | tenant (+ semente) | nome canonico e hex |
+| `calc_alias` | tenant (+ semente) | texto que aparece na lista -> codigo canonico. **A tabela do aprendizado** |
+| `calc_regra` | tenant (+ semente) | descarte, token malformado, trava de outlier |
+| `calc_fornecedor` | tenant, **sem semente** | nome, praca, ativo. Nunca sai do tenant |
 | `calc_carga` | tenant | uma importacao: `rascunho`/`aprovada`/`descartada`, blob proposto, contadores, quem aprovou. Append-only |
 | `calc_pendencia` | tenant | causa, linhas afetadas, decisao |
 | `calc_uso` | tenant | metering de linha enviada ao modelo, por mes |
@@ -247,10 +273,19 @@ Tabelas novas e o que muda nas existentes. Toda tabela de dado segue o invariant
 | `calc_dados` | tenant | **existe.** Ganha FK para `tenant` e unique por tenant |
 | `tenant` | — | **existe.** Ganha `plano`, `status`, `trial_ate` |
 
-Tabela global (`tenant_id is null`) tem policy de SELECT para `authenticated` sem
-filtro de tenant, e **zero** caminho de escrita para `authenticated`: escrita so por
-migration. Isso e a excecao nomeada ao invariante 7, e existe porque catalogo Apple e
-fato publico compartilhado, nao dado de negocio de ninguem.
+**As linhas de semente (`tenant_id is null`) sao invisiveis em tempo de execucao.**
+A policy de SELECT das cinco tabelas de catalogo filtra por
+`tenant_id = privado.fn_tenant_atual()` e **nao** faz `or tenant_id is null`. Elas
+existem so para `fn_provisionar_tenant` copiar no nascimento da conta, e essa funcao
+vive em `privado` (invariante 8), fora do alcance do PostgREST.
+
+Isso nao e detalhe de implementacao: se a semente fosse legivel em execucao, o
+catalogo dela viraria de fato um servico compartilhado, e o dono do produto
+herdaria por acidente a obrigacao de mante-lo, que e exatamente o que ele recusou
+em 07/09/2026.
+
+Escrita nessas tabelas: nenhuma policy para `authenticated`. Semente entra por
+migration; catalogo do tenant entra por RPC, resolvendo pendencia.
 
 ### 3.1 Caminho de escrita
 
@@ -364,18 +399,27 @@ cliente convida e desliga pela propria tela.
 
 ### 5.3 O dono do produto (Vini)
 
-Trabalho recorrente por cliente: **nenhum**. Trabalho recorrente total: uma atualizacao
-do catalogo base por lancamento da Apple, que serve todos os clientes.
+Trabalho recorrente por cliente: **nenhum**. Trabalho recorrente total: **nenhum
+tambem** — decisao dele em 07/09/2026, *"nao assumi atualizar nenhum catalogo base.
+quem vai atualizar e o cliente."* Lancamento da Apple entra em cada tenant pelo laco
+de pendencia (2.4), sem ninguem publicar nada.
+
+O que sobra para ele: manter o **sistema** de pe (banco, deploy, cota de modelo,
+correcao de defeito) e a semente do dia 1, escrita uma vez.
 
 O limite real de escala nao e token nem banco, e **suporte no dia 1**. Metrica de
 parada declarada: se mais de 1 em cada 5 clientes precisar falar com o dono do produto
-para concluir a primeira carga, para de vender e conserta o wizard.
+para concluir a primeira carga, para de vender e conserta o wizard. Com a decisao de
+07/09 esse numero fica **mais** critico, nao menos: sem catalogo mantido por ele, o
+wizard e a unica coisa entre o cliente e a desistencia.
 
 ---
 
 ## 6. Fora de escopo, declarado
 
-- **Painel de catalogo base.** Mantido por migration nesta obra.
+- **Manutencao continua de catalogo pelo dono do produto.** Recusada por ele em
+  07/09/2026. Existe semente, escrita uma vez por migration, e nada alem disso.
+- **Tela para editar a semente.** Ela muda tao raro que migration basta.
 - **Normalizacao de preco em tabela relacional.** O blob fica (secao 2.5).
 - **Preco por faixa de bateria.** O array `bateria` do blob segue vazio; e feature de
   modelo de dados e de tela, adiada pelo dono em 27/07/2026.
@@ -390,9 +434,12 @@ para concluir a primeira carga, para de vender e conserta o wizard.
 
 1. **Superficie de SaaS antes do primeiro pagamento** (invariante 17). Decisao
    explicita do dono nesta sessao.
-2. **Compromisso recorrente de catalogo.** Ao vender, o dono do produto assume manter
-   a camada base atualizada. Parar um mes derruba a cobertura de todos os clientes no
-   mesmo dia.
+2. **Sem catalogo mantido, o fosso e fraco e o churn e barato.** Decisao do dono em
+   07/09/2026. Consequencias aceitas: nao ha aprendizado compartilhado (duzentos
+   clientes ensinam `PURPLE -> Lilás` duzentas vezes), a cobranca recorrente se
+   sustenta no sistema rodando e nao em catalogo atualizado, e cada cliente carrega
+   sozinho a curva de 46% para 89% de cobertura. O ganho que fica de pe e so o dia 1,
+   pela semente.
 3. **Churn com a tabela na mao.** Depois de tres cargas o cliente tem catalogo proprio
    e pode sair levando a tabela. A defesa natural e o custo envelhecer em uma semana;
    trava contratual e decisao comercial, nao tecnica.
@@ -409,8 +456,10 @@ para concluir a primeira carga, para de vender e conserta o wizard.
 
 O desenho esta cumprido quando, com o dono do produto sem tocar em nada:
 
-1. Uma conta nova nasce, recebe o catalogo base e importa a primeira lista **sem uma
-   linha de SQL**.
+1. Uma conta nova nasce, **recebe a semente copiada para o proprio tenant** e importa
+   a primeira lista **sem uma linha de SQL**.
+1b. Com o JWT desse cliente, `select count(*) from public.calc_modelo where
+   tenant_id is null` devolve **0**: semente nao vaza para execucao.
 2. A carga do dono da Pitstop Imports roda **sem sessao de Claude Code**, com cobertura
    igual ou maior que os 89% medidos em 27/07/2026.
 3. `curl` sem sessao em qualquer URL de preco devolve **nada**.

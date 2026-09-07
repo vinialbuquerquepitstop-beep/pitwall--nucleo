@@ -33,10 +33,19 @@ Isso **rompe o invariante 17** (nao construir superficie de SaaS antes do primei
 pagamento). Foi apontado, e ele decidiu seguir. Registrado como escolha
 consciente, com o custo assumido. Nao reabrir a discussao a cada sessao.
 
-O passivo real que ele assumiu junto, e que precisa ser lembrado quando pesar:
-ao vender, **ele passa a ser responsavel por manter o catalogo base atualizado
-para todo cliente, para sempre**. Parar um mes derruba a cobertura de todos no
-mesmo dia. E isso, e nao a tela, que justifica mensalidade.
+**O que ele NAO assumiu, e isso foi dito explicitamente em 07/09/2026:** *"nao
+assumi atualizar nenhum catalogo base. quem vai atualizar e o cliente."*
+
+Nao existe catalogo mantido pelo dono do produto. Existe uma **semente**, copiada
+uma vez no nascimento da conta; dali em diante o catalogo e do cliente e quem o
+mantem e ele, resolvendo pendencia. Modelo novo (`iPhone 18`) entra em cada tenant
+pelo laco de pendencia, sem ninguem publicar nada. E a decisao **D5**.
+
+Custo que ele aceitou junto, e que vale lembrar quando o assunto for preco: zero
+aprendizado compartilhado (duzentos clientes ensinam `PURPLE -> Lilás` duzentas
+vezes), e a cobranca recorrente passa a se sustentar no **sistema rodando**, nao
+em catalogo atualizado. O ganho que sobrevive inteiro e o dia 1: a semente entrega
+o lado Apple pronto, e o cliente comeca perto de 80% em vez de 0%.
 
 ---
 
@@ -50,6 +59,7 @@ mesmo dia. E isso, e nao a tela, que justifica mensalidade.
 | D4 | `Acessório` e margem | **Margem propria** (`aav`/`apc`) e **entra no consultor** |
 | — | Assentos | **Time completo incluso.** Acesso so por login |
 | — | Cota de modelo | **3.000 linhas/mes + 3.000 de abertura** |
+| D5 | Quem atualiza o catalogo? | **O CLIENTE.** Nao ha catalogo mantido pelo dono do produto, so semente no nascimento |
 
 **Correcao registrada em D4:** o dono citou "airpods, apple watchs" como
 acessorios. `Apple Watch` **e categoria propria**, ja recebe `iav`/`ipc` e ja
@@ -159,8 +169,8 @@ nao tem contra o que parsear.
 
 | Etapa | Entrega |
 |---|---|
-| 1.1 | `calc_modelo`, `calc_cor`, `calc_alias`, `calc_fornecedor`, `calc_regra` + RLS. SQL pronto no plano |
-| 1.2 | Seed: 66 iPhones, 32 cores com hex, os 17 fornecedores do dono, os aliases de cabecalho |
+| 1.1 | `calc_modelo`, `calc_cor`, `calc_alias`, `calc_fornecedor`, `calc_regra` + RLS. SQL pronto no plano. **`calc_modelo` e `calc_cor` levam `tenant_id`, unique `(tenant_id, codigo)` com `nulls not distinct`** (D5) |
+| 1.2 | Seed em DOIS destinos: semente (`tenant_id null`) e tenant `...0001`. 66 iPhones, 32 cores com hex, aliases. Os 17 fornecedores **so** no `...0001` |
 | 1.3 | Painel `Catalogo` em `/calc/`, so leitura, **abrivel** |
 
 ### Portao do Bloco 1
@@ -178,9 +188,15 @@ Esperado: **0**. Idem para cor.
 
 ### Duas travas deste bloco especificamente
 
-1. **Nome de fornecedor e praca NUNCA entram na camada base** (`tenant_id is
-   null`). Sao ativo do dono. O vazamento de 14 dos 17 fornecedores pela linha
-   orfa do tenant `...0004` era exatamente essa falha ja armada.
+1. **Nome de fornecedor e praca NUNCA entram na semente** (`tenant_id is null`).
+   Sao ativo do dono. O vazamento de 14 dos 17 fornecedores pela linha orfa do
+   tenant `...0004` era exatamente essa falha ja armada.
+1b. **Nenhuma policy de catalogo faz `or tenant_id is null`.** Semente e lida so
+   por `fn_provisionar_tenant`, no nascimento da conta (D5). Se vazasse para
+   execucao, o dono do produto herdaria por acidente a obrigacao de mante-la.
+1c. **O lado Apple entra DUAS vezes** no Bloco 1: como semente e no tenant
+   `...0001`. Nao e duplicacao: a semente e retrato para contas futuras, o
+   `...0001` e catalogo vivo que o proprio dono edita, como qualquer cliente.
 2. **A ordem de condicao e `CPO` ANTES de `Lacrado`**, e vira coluna de
    prioridade na regra, nao ordem de insercao. Em 27/07/2026 a ordem errada gerou
    341 produtos com **zero CPO**, com CPO farto nas listas.
