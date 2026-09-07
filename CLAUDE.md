@@ -243,6 +243,19 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 ## Pipeline de deploy
 
 - Git e a fonte da verdade. Guarda os arquivos.
+- **`git add -A` e proibido neste repo, e a proibicao e MECANICA**, nao conselho:
+  `.claude/settings.json` (versionado, lido por toda sessao) nega `git add -A`,
+  `--all`, `.`, `-u` e `git commit -a`. Sempre `git add <caminho>` explicito.
+  Motivo medido em 06/09/2026: rodam varias sessoes de Claude Code nesta MESMA
+  pasta ao mesmo tempo. O `git add -A` de uma varre o trabalho em curso da outra:
+  o commit `c4017e4`, cuja mensagem fala de handoff do Financeiro, levou junto
+  24 linhas de `public/calc/index.html` que outra sessao estava editando naquele
+  minuto. A regra ja existia, mas so dentro da skill `calculadoras`, entao so
+  quem carregava aquela skill a enxergava. Aqui, todas enxergam.
+- **Working tree suja no arranque pode ser de OUTRA sessao viva, nao trabalho
+  parado.** Antes de commitar, `git log -3` e `git status`: se apareceu commit
+  que voce nao fez, outra sessao esta ativa nesta pasta. Ver a memoria
+  `duas-sessoes-mesma-pasta`.
 - Cloudflare publica sozinha no push, via Workers Builds. Empurrar pro git E o deploy.
 - Supabase fica de fora de qualquer tarefa de frontend.
 - O `name` no `wrangler.jsonc` (`flat-resonance-09ba`) tem que bater exatamente com o
