@@ -256,6 +256,11 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   parado.** Antes de commitar, `git log -3` e `git status`: se apareceu commit
   que voce nao fez, outra sessao esta ativa nesta pasta. Ver a memoria
   `duas-sessoes-mesma-pasta`.
+- **O detalhe operacional mora em `docs/runbook-operacao.md`**: como achar QUAL
+  sessao esta colidindo, o remote real (o `origin` e proxy morto), sessao sem DNS,
+  as armadilhas de Git Bash no Windows (`git show <rev>:<caminho>` mente,
+  here-string de PowerShell suja o assunto do commit), como isolar falha de suite
+  contra o `HEAD` antes de culpar a propria mudanca, e o checklist de fechamento.
 - Cloudflare publica sozinha no push, via Workers Builds. Empurrar pro git E o deploy.
 - Supabase fica de fora de qualquer tarefa de frontend.
 - O `name` no `wrangler.jsonc` (`flat-resonance-09ba`) tem que bater exatamente com o
