@@ -496,6 +496,35 @@ nenhuma das duas batia com o repo.
 
 - topo: (vazio). A bandeira nao tem Write: ela entrega o texto e a Torre grava.
 
+## Linha calculadora (produto)
+
+- topo: `handoff_calculadora_pitwall_v1.md` (07/09/2026, **a calculadora vira
+  produto comercializavel, e o Bloco 0 fecha**). Linha NOVA, criada nesta data.
+  Nasceu de um pedido do dono que **rompe o invariante 17** conscientemente:
+  transformar a calc em sistema vendavel, com outro lojista alimentando a propria
+  tabela a partir do export do chat dele. O desenho e o plano moram em
+  `docs/superpowers/` (`2026-09-05-calculadora-produto-design.md` e
+  `2026-09-05-calculadora-produto.md`); o handoff so aponta o estado e o proximo
+  passo.
+
+  **O Bloco 0 esta fechado e no ar** (6 migrations, suite 1114/0, portao
+  `orfaos=0, fks=1, marca_fixa=0, com_loja=48, tenants_com_plano=1`). Ele absorveu
+  o `plans/2026-08-19-segundo-lojista-tenant.md`, que estava escrito ha 18 dias com
+  **nenhuma das sete tarefas executada** e com cinco erros que so a medicao
+  revelou, entre eles 24 scripts que mandariam "aqui e o Ana" ao cliente.
+
+  Quatro decisoes do dono fechadas (D1 a D4); **uma aberta, a D4a**, comissao de
+  `Acessório` na escada do consultor, que trava so um passo do Bloco 3.
+
+  Proximo passo, sem bloqueador: **Bloco 1**, o catalogo saindo do markdown da
+  skill `calculadoras` para tabela em duas camadas, terminando no painel
+  `Catalogo` abrivel.
+
+  Efeito colateral desta linha que vale para TODAS as outras: nasceu daqui o
+  `docs/runbook-operacao.md` e a negacao mecanica de `git add -A` em
+  `.claude/settings.json`, depois que o commit `c4017e4` de outra sessao varreu
+  trabalho em curso desta.
+
 ## Linha financeiro
 
 - topo: `handoff_financeiro_pitwall_v21.md` (06/09/2026, **o portao de entrada

@@ -115,9 +115,14 @@ Algumas sessoes rodam em sandbox sem resolucao de nome:
 fatal: unable to access '...': Could not resolve host: github.com
 ```
 
-**Isso nao e remote quebrado.** E a sessao que nao tem rede. O trabalho fica em
-commit local e alguem com rede empurra. O ref local `github/main` fica velho e
+**Isso nao e remote quebrado.** E rede. O ref local `github/main` fica velho e
 `rev-list` mente enquanto isso.
+
+**Mas TENTE DE NOVO antes de concluir que a sessao nao tem rede.** Medido em
+07/09/2026: o mesmo host falhou com `Could not resolve host` e, no mesmo turno
+minutos depois, `git push github HEAD:main` passou sem nenhuma mudanca de
+configuracao. A falha era transitoria. Declarar "esta sessao nao empurra" cedo
+demais custou um passo manual ao dono que nao era necessario.
 
 ### `git show <rev>:<caminho>` mente no Git Bash
 
