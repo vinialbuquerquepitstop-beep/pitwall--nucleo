@@ -498,7 +498,26 @@ nenhuma das duas batia com o repo.
 
 ## Linha financeiro
 
-- topo: `handoff_financeiro_pitwall_v20.md` (05/09/2026, **AUDITORIA da E1, em sessao
+- topo: `handoff_financeiro_pitwall_v21.md` (06/09/2026, **o portao de entrada
+  reprovou, e a entrega da vez virou o conserto**). Nao e entrega do plano integral:
+  zero linha de codigo, migration ou tela. O `P-ABRE` reprovou o item 1, `git status`,
+  porque a tree carregava **1150 linhas de spec e plano de 05/09 prontas e nunca
+  commitadas** (`docs/superpowers/{specs,plans}/2026-09-05-calculadora-produto*`), com
+  as decisoes do dono daquela sessao (D1 a D4, assentos, cota) e a nota de que a frente
+  contraria o invariante 17 por escolha consciente. Terceira vez que o projeto encontra
+  trabalho pronto fora do git. Conserto: commit `2a51b9e`, 2 arquivos, 1150 insercoes.
+  Os outros nove itens do portao passaram por EXIT CODE, e o item 2 foi medido por
+  script comparando o ledger do MCP contra `git ls-files`: **as 33 migrations do
+  Financeiro no banco tem arquivo, e nenhuma versionada esta por aplicar**. Suite:
+  **1109 passou, 0 falhou**, EXIT 0 nos oito comandos, nas cinco larguras e nas tres do
+  monitor grande. Portao de confianca respondido com **NAO**: nenhum numero da tela
+  mudou, porque nenhum arquivo de `public/` foi tocado. Declarado como nao provado: a
+  suite nao foi rodada inteira DEPOIS do commit (so `validar.py` e `node --check`), e o
+  commit nao foi empurrado para o remoto. As tres pendencias do v20 seguem abertas e
+  intactas. **A E2 continua travada pela decisao D-s** (a regra `Compra no débito`), que
+  e o primeiro movimento do proximo chat.
+
+- `handoff_financeiro_pitwall_v20.md` (05/09/2026, **AUDITORIA da E1, em sessao
   separada, e ela reprovou um item**). Nao e entrega: nenhum arquivo de produto foi
   tocado. Os 13 itens da secao 7 do CONTRATO passam, cada um com consulta, EXIT code ou
   caminho de arquivo, nunca leitura no olho. O que a auditoria acrescentou ao que o v19
