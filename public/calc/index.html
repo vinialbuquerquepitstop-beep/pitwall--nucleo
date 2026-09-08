@@ -23,11 +23,36 @@
   --te:#0d9488;--te-bg:#ccfbf1;--te-bd:#99f6e4;
   --r:18px;--rs:12px
 }
-body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;min-height:100vh;padding-bottom:calc(env(safe-area-inset-bottom,0px)+80px);-webkit-font-smoothing:antialiased}
-.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);display:grid;grid-template-columns:repeat(5,1fr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
-.tb{padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;background:none;border:none;font-family:inherit;color:var(--mu);font-size:10px;font-weight:600;letter-spacing:0.04em;transition:color 0.2s}
+body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;min-height:100vh;padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 80px);-webkit-font-smoothing:antialiased}
+/* SEIS colunas desde 08/09/2026 (a aba Catalogo). Em 360px cada uma fica com
+   60px, entao o rotulo nao pode passar de ~8 caracteres em 10px. */
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);display:grid;grid-template-columns:repeat(6,1fr);z-index:100;padding-bottom:env(safe-area-inset-bottom,0px)}
+.tb{padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;background:none;border:none;font-family:inherit;color:var(--mu);font-size:10px;font-weight:600;letter-spacing:0.02em;transition:color 0.2s;white-space:nowrap;overflow:hidden}
 .tb .ti{font-size:20px}.tb.on{color:var(--tx)}
-.tb.on.tv .ti{color:var(--gr)}.tb.on.tu .ti{color:var(--or)}.tb.on.tc .ti{color:var(--bl)}.tb.on.to .ti{color:var(--pu)}.tb.on.tr .ti{color:var(--te)}
+.tb.on.tv .ti{color:var(--gr)}.tb.on.tu .ti{color:var(--or)}.tb.on.tc .ti{color:var(--bl)}.tb.on.to .ti{color:var(--pu)}.tb.on.tr .ti{color:var(--te)}.tb.on.tk .ti{color:var(--bl)}
+/* ── Catalogo (aba k) ──────────────────────────────────────────────────────
+   So leitura. O quadradinho de cor SEMPRE com borda: sem ela o Branco
+   (#f5f5f0) desaparece no fundo claro e a linha parece nao ter cor. */
+.kg{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+.kc{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--rs)}
+.ksw{width:18px;height:18px;border-radius:5px;border:1px solid var(--bd);flex:0 0 18px}
+.kh{font-size:11px;color:var(--hi);margin:-6px 0 10px}
+.kf{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--sf2)}
+.kf:last-child{border-bottom:none}
+.kfp{color:var(--mu);font-size:12px;text-align:right;white-space:nowrap}
+.kr{font-size:12px;padding:6px 0;border-bottom:1px solid var(--sf2);display:flex;gap:8px;align-items:baseline}
+.kr:last-child{border-bottom:none}
+.kr code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--tx);word-break:break-all}
+/* Regra desligada: a PALAVRA carrega a distincao, nunca so a cor. */
+.koff{opacity:.55}
+.kb{font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:100px;flex:0 0 auto;text-transform:uppercase}
+.kb-on{background:var(--gr-bg);color:var(--gr);border:1px solid var(--gr-bd)}
+.kb-off{background:var(--sf2);color:var(--mu);border:1px solid var(--bd)}
+/* Em 360px cada uma das SEIS colunas fica com 60px, e `📚CATÁLOGO` pedia 63px:
+   medido em 08/09/2026 por `python ferramentas/diag_calc.py 360`. Aperta o
+   respiro e o tracking SO na tela estreita, em vez de encurtar o rotulo (que e
+   a palavra certa) ou deixar o texto estourar a coluna. */
+@media (max-width:400px){.tb{padding-left:2px;padding-right:2px;letter-spacing:0;font-size:9.5px}}
 .pg{display:none;animation:fi 0.2s ease}.pg.on{display:block}
 @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
@@ -202,7 +227,7 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
 .btn.bfu{grid-column:1/-1}
 .es{text-align:center;padding:40px 20px;color:var(--hi);font-size:13px;line-height:1.7}
 .es .eb{font-size:36px;margin-bottom:10px}
-.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px)+72px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom, 0px) + 72px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:var(--bg);padding:12px 20px;border-radius:100px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap;z-index:999}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .bdg{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;border-radius:100px}
 .bdg-g{background:var(--gr-bg);border:1px solid var(--gr-bd);color:var(--gr)}
@@ -465,12 +490,40 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
   <div id="rves" class="es"><div class="eb">💳</div>Digite o total no cartão<br>para ver o líquido da loja</div>
 </div></div>
 
+<!-- ══ ABA CATÁLOGO ══
+     So leitura: mostra o que o sistema SABE ler das listas de fornecedor.
+     Quem escreve aqui e a tela Alimentar (Bloco 2), por RPC, nunca esta aba. -->
+<div class="pg" id="pg-k">
+<div class="w">
+  <div class="ohint"><b>Catálogo.</b> É contra isto que a lista do fornecedor é lida. Nome que não estiver aqui não vira preço: vira pendência, para você decidir. Esta tela é só leitura.</div>
+
+  <div class="sc">📱 modelos</div>
+  <div class="kh" id="kmh">carregando...</div>
+  <div id="kmod"></div>
+
+  <div class="sc">🎨 cores</div>
+  <div class="kh" id="kch">carregando...</div>
+  <div class="kg" id="kcor"></div>
+
+  <div class="sc">🏪 fornecedores</div>
+  <div class="kh" id="kfh">carregando...</div>
+  <div class="card" id="kforn"></div>
+
+  <div class="sc">🧠 o que o sistema aprendeu</div>
+  <div class="kh" id="kah">carregando...</div>
+  <div class="card" id="kali"></div>
+  <div class="kh" id="krh" style="margin-top:14px">carregando...</div>
+  <div class="card" id="kreg"></div>
+  <div style="height:24px"></div>
+</div></div>
+
 <!-- TAB BAR -->
 <div class="tab-bar">
   <button class="tb tv on" id="tbv" onclick="swTab('v')"><span class="ti">🧮</span>VENDA</button>
   <button class="tb tu" id="tbu" onclick="swTab('u')"><span class="ti">🔄</span>UPGRADE</button>
   <button class="tb tr" id="tbr" onclick="swTab('r')"><span class="ti">💳</span>REVERSO</button>
   <button class="tb to" id="tbo" onclick="swTab('o')"><span class="ti">🎯</span>OFERTA</button>
+  <button class="tb tk" id="tbk" onclick="swTab('k')"><span class="ti">📚</span>CATÁLOGO</button>
   <button class="tb tc" id="tbc" onclick="swTab('c')"><span class="ti">⚙️</span>CONFIG</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -512,14 +565,17 @@ function cp(txt,m){if(navigator.clipboard){navigator.clipboard.writeText(txt).th
 // date
 (()=>{const d=new Date();document.getElementById('hd').textContent=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});})();
 // ── TABS ──
-const HDR={v:{e:'🧮',lc:'lv',t:'Calculadora de Vendas'},u:{e:'🔄',lc:'lu',t:'Calculadora de Upgrade'},r:{e:'💳',lc:'ltr',t:'Cálculo Reverso'},o:{e:'🎯',lc:'lo',t:'Oferta da Semana'},c:{e:'⚙️',lc:'lc',t:'Configurações'}};
+const HDR={v:{e:'🧮',lc:'lv',t:'Calculadora de Vendas'},u:{e:'🔄',lc:'lu',t:'Calculadora de Upgrade'},r:{e:'💳',lc:'ltr',t:'Cálculo Reverso'},o:{e:'🎯',lc:'lo',t:'Oferta da Semana'},k:{e:'📚',lc:'lc',t:'Catálogo'},c:{e:'⚙️',lc:'lc',t:'Configurações'}};
 function swTab(id){
-  ['v','u','r','o','c'].forEach(x=>{
+  // As SEIS letras. Esquecer uma nao quebra a aba nova: quebra o ESCONDER dela
+  // ao trocar de aba, e o painel fica colado por cima do proximo.
+  ['v','u','r','o','k','c'].forEach(x=>{
     document.getElementById('tb'+x).className='tb t'+x+(x===id?' on':'');
     document.getElementById('pg-'+x).className='pg'+(x===id?' on':'');
   });
   if(id==='o')oRender();
   if(id==='r')rvCalc();
+  if(id==='k')kRender();
   const h=HDR[id];
   const lg=document.getElementById('hl');lg.textContent=h.e;lg.className='logo '+h.lc;
   document.getElementById('htt').textContent=h.t;
@@ -1423,6 +1479,90 @@ function boot(){
   if(e.length){ mostrarErro(e); return; }
   aplicarDados(DADOS);
 }
+
+// ── CATALOGO (aba k) ───────────────────────────────────────────────────────
+// Le window.CATALOGO, que o IIFE do login preenche depois da sessao (o cliente
+// supabase so existe la dentro). So leitura: nada aqui escreve no banco.
+//
+// Duas regras que a tela obedece, e as duas ja custaram caro neste projeto:
+//   1. Campo vazio APARECE, com rotulo e estado vazio nomeado. Tela que so
+//      renderiza o que tem dado some inteira na base zerada, e quem abre conclui
+//      que a funcionalidade nao existe.
+//   2. Toda secao DECLARA a contagem que esta mostrando. Tela que omite o
+//      recorte mente por omissao.
+const KCATS=['iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica'];
+const KTIPO={modelo:'modelo',cor:'cor',condicao:'condição',fornecedor:'fornecedor'};
+function kEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// Um so lugar decide o que aparece quando nao ha linha: erro diz o erro, vazio
+// diz o porque. Vazio silencioso e erro silencioso viram a mesma tela em branco.
+function kVazio(el,hdr,erro,msgVazia,contagem){
+  const h=document.getElementById(hdr);
+  if(erro){ h.textContent='não foi possível ler: '+erro; el.innerHTML='<div class="es">⚠️ leitura falhou</div>'; return true; }
+  h.textContent=contagem;
+  if(!el.dataset.temDado){ el.innerHTML='<div class="es">'+msgVazia+'</div>'; return true; }
+  return false;
+}
+function kRender(){
+  const C=window.CATALOGO;
+  if(!C)return;
+
+  // 1. modelos, contados por categoria, na ordem do catalogo (nao alfabetica)
+  const elM=document.getElementById('kmod');
+  elM.dataset.temDado=C.modelo.linhas.length?'1':'';
+  if(!kVazio(elM,'kmh',C.modelo.erro,'Nenhum modelo no catálogo ainda. A primeira carga aprovada preenche esta lista.',C.modelo.linhas.length+' modelos, em '+KCATS.length+' categorias')){
+    const cont={};C.modelo.linhas.forEach(m=>{cont[m.categoria]=(cont[m.categoria]||0)+1;});
+    elM.innerHTML='<div class="card">'+KCATS.map(c=>
+      '<div class="cr"><span class="cl">'+kEsc(c)+'</span><span class="cv">'+(cont[c]||0)+'</span></div>').join('')+
+      '<div class="cr" style="border-top:1px solid var(--bd);margin-top:6px;padding-top:8px"><span class="cl"><b>total</b></span><span class="cv"><b>'+C.modelo.linhas.length+'</b></span></div></div>';
+  }
+
+  // 2. cores, com o quadradinho do hex (o hex E o dado, entao ele se ve)
+  const elC=document.getElementById('kcor');
+  elC.dataset.temDado=C.cor.linhas.length?'1':'';
+  if(!kVazio(elC,'kch',C.cor.erro,'Nenhuma cor no catálogo ainda.',C.cor.linhas.length+' cores')){
+    elC.innerHTML=C.cor.linhas.map(c=>
+      '<div class="kc"><span class="ksw" style="background:'+kEsc(c.hex)+'"></span>'+kEsc(c.nome)+'</div>').join('');
+  }
+
+  // 3. fornecedores com praca. Acento e o travessao sao valores reais: saem do
+  //    banco como estao, sem normalizar. Zero linhas aqui e estado LEGITIMO
+  //    (loja nova, ou papel que nao e dono), e precisa dizer qual dos dois.
+  const elF=document.getElementById('kforn');
+  elF.dataset.temDado=C.fornecedor.linhas.length?'1':'';
+  if(!kVazio(elF,'kfh',C.fornecedor.erro,'Nenhum fornecedor cadastrado. Eles entram quando você nomeia os cabeçalhos das listas na primeira carga.<br><br>Fornecedor e praça são dado de custo: só o papel <b>dono</b> enxerga esta seção.',C.fornecedor.linhas.length+' fornecedores, com praça')){
+    elF.innerHTML=C.fornecedor.linhas.map(f=>
+      '<div class="kf"><span>'+kEsc(f.nome)+'</span><span class="kfp">'+kEsc(f.praca)+'</span></div>').join('');
+  }
+
+  // 4a. aliases: o que o sistema aprendeu a traduzir
+  const elA=document.getElementById('kali');
+  elA.dataset.temDado=C.alias.linhas.length?'1':'';
+  if(!kVazio(elA,'kah',C.alias.erro,'Nenhum apelido aprendido ainda. Cada pendência que você resolve grava um aqui.',C.alias.linhas.length+' apelidos que o sistema traduz')){
+    const g={};C.alias.linhas.forEach(a=>{(g[a.tipo]=g[a.tipo]||[]).push(a);});
+    elA.innerHTML=Object.keys(KTIPO).filter(t=>g[t]).map(t=>
+      '<div class="ct ctb" style="margin-top:8px">'+kEsc(KTIPO[t])+' · '+g[t].length+'</div>'+
+      g[t].map(a=>'<div class="kr"><code>'+kEsc(a.texto)+'</code><span class="cl">→</span><code>'+kEsc(a.aponta)+'</code></div>').join('')
+    ).join('');
+  }
+
+  // 4b. regras. O estado LIGADO/DESLIGADO e a informacao principal: o dono
+  //     escolheu regra a regra, e precisa poder conferir sem abrir o banco.
+  //     A palavra carrega a distincao; a cor so acompanha.
+  const elR=document.getElementById('kreg');
+  elR.dataset.temDado=C.regra.linhas.length?'1':'';
+  const lig=C.regra.linhas.filter(r=>r.ativo).length;
+  if(!kVazio(elR,'krh',C.regra.erro,'Nenhuma regra de leitura no catálogo ainda.',C.regra.linhas.length+' regras de leitura · '+lig+' ligadas, '+(C.regra.linhas.length-lig)+' desligadas')){
+    const ord={condicao:0,descarte:1,token:2,outlier:3};
+    const ls=C.regra.linhas.slice().sort((a,b)=>
+      (ord[a.tipo]-ord[b.tipo])||(a.prioridade-b.prioridade)||a.padrao.localeCompare(b.padrao));
+    elR.innerHTML=ls.map(r=>
+      '<div class="kr'+(r.ativo?'':' koff')+'">'+
+      '<span class="kb '+(r.ativo?'kb-on':'kb-off')+'">'+(r.ativo?'ligada':'desligada')+'</span>'+
+      '<code>'+kEsc(r.padrao)+'</code>'+
+      '<span class="cl" style="margin-left:auto;text-align:right">'+kEsc(r.acao)+(r.valor?' → '+kEsc(r.valor):'')+'</span></div>'+
+      (r.motivo?'<div class="kh" style="margin:-2px 0 6px 0">'+kEsc(r.motivo)+'</div>':'')).join('');
+  }
+}
 </script>
 <script>
 // ── LOGIN PROPRIO + CARGA DOS DADOS ──
@@ -1464,6 +1604,35 @@ function boot(){
     document.body.appendChild(b);
   }
 
+  // Catalogo do tenant (Bloco 1). A RLS ja filtra por tenant sozinha: nao se
+  // passa tenant_id nenhum daqui, e nao se le linha de semente (tenant_id null),
+  // que e invisivel em execucao de proposito.
+  //
+  // `calc_fornecedor` so responde ao papel `dono`. Para o vendedor ela volta
+  // VAZIA, sem erro, e a tela tem que dizer isso em vez de mostrar branco.
+  //
+  // A falha de UMA tabela nao derruba as outras: cada secao guarda o proprio
+  // erro e o proprio dado. Catalogo e leitura secundaria, entao ele nunca
+  // impede a calculadora de abrir.
+  async function carregarCatalogo(){
+    var alvos=[
+      ['modelo',      'calc_modelo',     'nome,categoria', 'nome'],
+      ['cor',         'calc_cor',        'nome,hex',       'nome'],
+      ['fornecedor',  'calc_fornecedor', 'nome,praca',     'nome'],
+      ['alias',       'calc_alias',      'tipo,texto,aponta', 'texto'],
+      ['regra',       'calc_regra',      'tipo,padrao,acao,valor,prioridade,motivo,ativo','prioridade']];
+    var C={};
+    for(var i=0;i<alvos.length;i++){
+      var a=alvos[i], res;
+      try{ res=await sb.from(a[1]).select(a[2]).order(a[3]); }
+      catch(e){ res={error:{message:e.message}}; }
+      C[a[0]]={ linhas:(res&&res.data)||[], erro:(res&&res.error&&res.error.message)||null };
+    }
+    window.CATALOGO=C;
+    // A aba pode ja estar aberta quando a carga termina.
+    if(document.getElementById('pg-k').classList.contains('on')) kRender();
+  }
+
   async function carregarPrecos(){
     var r;
     // maybeSingle, nao single: zero linha e loja NOVA, nao falha. Com
@@ -1480,6 +1649,7 @@ function boot(){
     }
     window.DADOS=r.data.dados;
     try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
+    carregarCatalogo();
     esconderInternoSeNaoDono();
     botaoSair();
     var g=document.getElementById('calc-gate'); if(g)g.remove();
