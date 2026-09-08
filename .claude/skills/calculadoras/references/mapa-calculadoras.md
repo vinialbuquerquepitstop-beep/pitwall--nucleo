@@ -1,7 +1,19 @@
 # Mapa: onde cada calculadora vive
 
-Medido em 27/07/2026, revisto em 15/08/2026. Atualizar este arquivo sempre que URL,
-arquivo, guard, RLS ou deploy mudarem.
+Medido em 27/07/2026, revisto em 15/08/2026 e em **07/09/2026**. Atualizar este
+arquivo sempre que URL, arquivo, guard, RLS ou deploy mudarem.
+
+> **Aviso de rumo, 07/09/2026.** A calculadora esta virando **produto
+> comercializavel**: outro lojista alimentando a propria tabela pela tela, sem
+> sessao de IA. O que este arquivo descreve continua verdade HOJE, mas dois blocos
+> do plano mudam onde as coisas vivem:
+>
+> - **Bloco 1** move o catalogo de `formato-dados.md` para tabela no banco;
+> - **Bloco 3** tira o `dados.js` do consultor do repo e o poe em `calc_venda`,
+>   fechando o furo descrito na secao B.
+>
+> Antes de confiar neste mapa, conferir o topo da linha:
+> `docs/handoffs/handoff_calculadora_pitwall_v1.md`.
 
 **A URL do arquivo da calc do dono e `/calc/`, nao `/calc/index.html`.** O worker roda
 com `not_found_handling: single-page-application`: pedir `/calc/index.html` cai no
@@ -59,12 +71,30 @@ fallback e devolve OUTRA pagina, sem erro nenhum. Medido em 15/08/2026, quando u
 - Escrita e por service role (Dashboard/MCP). Nao existe caminho de escrita pela pagina.
 - `CREATE OR REPLACE` em funcao/view reseta ACL: se mexer, refazer REVOKE/GRANT.
 
-**A tabela tem DUAS linhas, e uma e orfa.** Medido em 15/08/2026: o tenant do dono
-(`...0001`) e uma linha do tenant `...0004` com o blob de 27/07 (341 produtos). A RLS
-filtra, entao a tela do dono le a certa. O risco esta no `.single()` do
-`public/calc/index.html` (`sb.from('calc_dados').select('dados').single()`): se alguem
-logar num tenant que enxergue as duas, o `.single()` quebra a pagina inteira. Limpar a
-linha orfa segue pendente, e nao foi feito por nao ter sido pedido.
+**RESOLVIDO em 07/09/2026. O paragrafo abaixo era o estado ate 06/09, e a analise
+de risco dele estava ERRADA. Fica registrado, nao apagado.**
+
+> ~~A tabela tem DUAS linhas, e uma e orfa. Medido em 15/08/2026: o tenant do dono
+> (`...0001`) e uma linha do tenant `...0004` com o blob de 27/07 (341 produtos). A
+> RLS filtra, entao a tela do dono le a certa. O risco esta no `.single()`: se alguem
+> logar num tenant que enxergue as duas, o `.single()` quebra a pagina inteira.~~
+
+O que de fato foi medido em 07/09/2026:
+
+- **A linha orfa foi apagada** (D1 do dono: nao servia de historico). Eram 341
+  produtos / 520 precos com **14 dos 17 fornecedores** dele. `calc_dados` ganhou
+  **FK para `tenant`**, provada com bloco `DO` e rollback: tenant fantasma nao entra.
+- **`calc_dados` sempre teve `PRIMARY KEY (tenant_id)`.** Duas linhas do MESMO tenant
+  nunca foram possiveis, e a RLS filtra por tenant. **O cenario descrito acima nao
+  era alcancavel.**
+- **O modo de falha real do `.single()` e o oposto: ZERO linhas.** Loja nova, sem
+  carga aprovada, recebia erro cru de PostgREST. Hoje e `maybeSingle()` mais
+  `mostrarVazio()`, com barra **neutra**: vermelho e para dado quebrado, nao para
+  dado ausente. O estado vazio ganha botao para `Alimentar` no Bloco 2 do plano.
+
+Licao que vale para este arquivo inteiro: **um risco descrito e nao medido pode
+apontar para o lado errado**, e custou um item de plano redundante (uma unique que
+ja existia como PK).
 
 ### Como gravar uma carga grande (aprendido em 15/08/2026)
 

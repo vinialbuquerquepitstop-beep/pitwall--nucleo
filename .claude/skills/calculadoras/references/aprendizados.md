@@ -5,6 +5,68 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 07/09/2026 — A calc vira produto, e a skill deixa de ser o unico caminho
+
+**Nao foi carga de preco. Foi mudanca de rumo do produto**, e ela muda o papel
+desta skill no medio prazo.
+
+Decisao do dono: transformar a calculadora em **sistema comercializavel**, com
+outro lojista alimentando a propria tabela a partir do export do chat dele.
+Isso rompe o invariante 17 conscientemente. Desenho, plano e handoff:
+
+- `docs/superpowers/specs/2026-09-05-calculadora-produto-design.md`
+- `docs/superpowers/plans/2026-09-05-calculadora-produto.md`
+- `docs/handoffs/handoff_calculadora_pitwall_v1.md` (topo da linha `calculadora`)
+
+**O que isso significa para esta skill:** o catalogo de `formato-dados.md` vai
+virar TABELA no banco (Bloco 1 do plano), e o procedimento de alimentacao vai
+virar TELA (Bloco 2). Enquanto os dois blocos nao fecharem, **este arquivo e o
+`formato-dados.md` continuam sendo a fonte da verdade e o caminho de carga.**
+Quando fecharem, esta skill passa a descrever um caminho que o produto ja faz
+sozinho, e precisa ser reescrita, nao so atualizada.
+
+### D5, a decisao que corrigiu o desenho no meio
+
+O desenho de 05/09 previa uma camada de catalogo **global**, mantida pelo dono do
+produto, e usava isso como justificativa da cobranca recorrente. Em 07/09 o dono
+corrigiu: *"nao assumi atualizar nenhum catalogo base. quem vai atualizar e o
+cliente."*
+
+Consequencia de schema, nao de texto: `tenant_id is null` deixou de ser "global" e
+virou **semente**, lida uma unica vez no nascimento da conta e **invisivel em
+execucao** (nenhuma policy faz `or tenant_id is null`). Se vazasse para execucao,
+o dono herdaria por acidente a obrigacao que acabou de recusar.
+
+### Bloco 0, feito e no ar
+
+- **A linha orfa de `calc_dados` foi APAGADA.** Eram 341 produtos / 520 precos do
+  tenant `...0004`, com 14 dos 17 fornecedores do dono (nome, praca, custo por
+  cor). O dono confirmou que nao servia de historico. `calc_dados` agora tem FK
+  para `tenant`: tenant fantasma nao volta a existir.
+- **`calc_dados` ja tinha `PRIMARY KEY (tenant_id)`.** Duas linhas do MESMO tenant
+  eram impossiveis o tempo todo. O plano de 19/08 mandava criar uma unique
+  redundante, e o `mapa-calculadoras.md` descrevia um risco de `.single()` que nao
+  existia daquele jeito.
+- **O modo de falha real do `.single()` era o oposto: ZERO linhas.** Loja nova sem
+  carga recebia erro de PostgREST na cara. Corrigido para `maybeSingle()` mais
+  `mostrarVazio()`, barra neutra e nao vermelha: vermelho e para dado quebrado,
+  nao para dado ausente.
+
+### Armadilha nova, e ela nao e de preco
+
+**`git add -A` de outra sessao varre o seu trabalho.** Rodam varias sessoes de
+Claude Code na MESMA pasta. O commit `c4017e4`, cuja mensagem fala de handoff do
+Financeiro, levou junto 24 linhas de `public/calc/index.html` que esta linha
+estava editando. Agora ha negacao mecanica em `.claude/settings.json` (versionado)
+e o detalhe operacional em `docs/runbook-operacao.md`. **O passo 6 do
+`procedimento-alimentacao.md` ja mandava `git add` de caminho especifico: aquilo
+deixou de ser conselho e virou trava.**
+
+E o remote **voltou a ser `github`** (o `origin` e o proxy morto de novo). Terceira
+troca. Medir com `git remote -v` na hora, sempre, como este arquivo ja dizia.
+
+---
+
 ## 17/08/2026 (carga) — Sete armadilhas de parser, e o remote trocou de nome
 
 Rodada de 20 listas / 16 fornecedores, todas do proprio dia 17/08. Banco: **494
