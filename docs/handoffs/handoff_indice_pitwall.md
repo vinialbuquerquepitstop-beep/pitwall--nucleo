@@ -498,7 +498,41 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v1.md` (07/09/2026, **a calculadora vira
+- topo: `handoff_calculadora_pitwall_v2.md` (08/09/2026, **o Bloco 1 fecha: o
+  catalogo sai do markdown da skill e vira tabela abrivel**). Commit `9327c30`,
+  tres migrations (`calc_catalogo_duas_camadas`, `calc_catalogo_semente`,
+  `calc_catalogo_tenant_pitstop`). O ativo do produto morava em
+  `.claude/skills/calculadoras/references/formato-dados.md`, onde **so o Claude
+  lia**; agora sao cinco tabelas com RLS e uma aba `CATÁLOGO` em `/calc/`.
+
+  **A D5 saiu do texto e entrou no schema, provada com JWT:** semente 124/32/27/20
+  e **0 fornecedores**, tenant `...0001` o mesmo mais 17 fornecedores; nenhuma
+  policy faz `or tenant_id is null`; o `dono` ve **0** linhas de semente, o
+  `vendedor` ve **0** fornecedores, tenant inexistente ve **0** modelos. A ordem
+  de condicao virou **coluna de prioridade** (CPO 10, Lacrado 20, Seminovo 30), a
+  inversao que gerou 341 produtos com zero CPO em 27/07.
+
+  **D3 exercida pelo dono em 08/09, regra a regra:** 14 ligadas, 6 desligadas.
+  Paralelo desligada e coerente (a categoria `1ª Linha` de 15/08 superou a regra
+  de 27/07); Android desligada custa cerca de 6 pendencias por carga e nenhum
+  preco errado. Ele **reconsiderou** `condicao pendurada` depois do conselho: e a
+  unica das quatro que geraria preco errado, porque `caixa aberta` nao impede o
+  modelo de casar e o aparelho vira o menor custo.
+
+  **Dois defeitos que a execucao achou e nenhum plano via.** (1)
+  `calc(env(...,0px)+80px)` **sem espaco em volta do `+` e CSS invalido**: o
+  Chrome descarta a declaracao, e o `padding-bottom` do `body` das DUAS calcs era
+  **0px**, entao a barra fixa de 64px cobria o fim do conteudo em todas as abas,
+  desde sempre. Isolado com quatro variantes, 4 ocorrencias corrigidas. (2)
+  **Nenhuma ferramenta olhava para a calc**: `diag_mobile` e `diag_largo` medem
+  `public/index.html`. A barra saiu de 5 para 6 colunas com a suite verde. Nasceu
+  `ferramentas/diag_calc.py`, que ja achou `CATÁLOGO` pedindo 63px numa coluna de
+  60px em 360px. Suite em EXIT 0 nos ONZE comandos, `harness` 1114/0.
+  **Commitado, mas NAO empurrado** (push negado pelo classifier da sessao):
+  `git push github HEAD:main`. Proximo passo, sem bloqueador: **Bloco 2**, a tela
+  `Alimentar`, onde o dono passa a atualizar o proprio preco sem sessao de IA.
+
+- `handoff_calculadora_pitwall_v1.md` (07/09/2026, **a calculadora vira
   produto comercializavel, e o Bloco 0 fecha**). Linha NOVA, criada nesta data.
   Nasceu de um pedido do dono que **rompe o invariante 17** conscientemente:
   transformar a calc em sistema vendavel, com outro lojista alimentando a propria

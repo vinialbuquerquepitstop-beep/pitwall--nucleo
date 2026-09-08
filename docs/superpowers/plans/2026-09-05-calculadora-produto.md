@@ -343,6 +343,52 @@ apaga a global**, grava uma linha do tenant com `ativo=false`.
 catalogo morar em `.claude/skills/calculadoras/references/formato-dados.md`. Esse
 arquivo e o ativo do produto e hoje so o Claude consegue ler.
 
+### BLOCO 1 FECHADO em 08/09/2026
+
+Commit `9327c30`. Tres migrations: `calc_catalogo_duas_camadas`,
+`calc_catalogo_semente`, `calc_catalogo_tenant_pitstop`.
+
+**Portao medido:** 17 fornecedores com praca exata (zero divergencia contra o blob,
+acento e travessao inclusos), 124 modelos no catalogo contra 118 em uso no blob,
+`modelo_sem_catalogo=0`, `cor_sem_catalogo=0`, `fk_proibida=0`. Camadas:
+modelo 124/124, cor 32/32, alias 27/48, regra 20/20, **fornecedor 0/17**.
+Isolamento provado com JWT, nao so lido: o `dono` ve **0** linhas de semente e 17
+fornecedores; o `vendedor` ve **0** fornecedores; tenant inexistente ve **0**
+modelos. Advisors: os 3 WARN da baseline, zero achado novo.
+
+Suite em EXIT 0 nos **onze** comandos, `harness` **1114 passou, 0 falhou**
+(baseline exata). Duas provas novas: `prova_catalogo.js` (50 assercoes) e
+`diag_calc.py` (360, 390, 414).
+
+#### Tres correcoes do proprio plano, medidas na execucao
+
+| O que o plano dizia | O que a execucao mediu |
+|---|---|
+| `calc_modelo` leva 66 iPhones, aliases `>= 10` | o catalogo real e **124 modelos e 48 apelidos**. O portao so fecha com todos, porque o blob usa 118 deles: contar 66 deixaria 52 nomes de fora e reprovaria |
+| o painel mostra as regras com **interruptor por regra** | o painel do 1.3 e **so leitura**, como o proprio titulo do passo diz. Interruptor e escrita, e escrita so por RPC (Bloco 2). O painel EXIBE `ativo`, com a palavra `ligada`/`desligada`; ligar e desligar entra junto com `calc_pendencia_resolver` |
+| `calc_regra` do tenant **sobrepoe** a global de mesmo `padrao` | com D5 nao ha global viva. A semente e copiada no nascimento e dali em diante so existe a linha do tenant. **Nao ha resolucao de sobreposicao a implementar**, e isso simplifica o Bloco 2 |
+
+#### Dois defeitos que a execucao achou e nenhum plano via
+
+1. **`calc(env(...,0px)+80px)` sem espaco em volta do `+` e CSS invalido**, e o
+   Chrome descarta a declaracao inteira. Medido em 08/09/2026 com quatro variantes
+   isoladas: com espaco devolve `80px`, sem espaco devolve `0px`. Efeito: o
+   `padding-bottom` do `body` das **duas** calcs era 0, entao a barra fixa de 64px
+   cobria o fim do conteudo em todas as abas, **desde sempre**. 4 ocorrencias
+   corrigidas (2 no `body`, 2 no `.toast`).
+2. **Nenhuma ferramenta olhava para a calc.** `diag_mobile.py` e `diag_largo.py`
+   medem `public/index.html` reusando o stub do `harness.py`. A barra de abas saiu
+   de CINCO para SEIS colunas com a suite inteira verde. `ferramentas/diag_calc.py`
+   fecha o buraco, e ja na primeira corrida achou `📚CATÁLOGO` pedindo **63px numa
+   coluna de 60px** em 360px. Consertado com media query em `max-width:400px`
+   (respiro e tracking apertados na tela estreita), nao encurtando o rotulo.
+
+#### Uma ressalva de operacao
+
+O subagente `vitrine` **travou no watchdog** (600s sem progresso) sem escrever nada.
+A tela e as duas ferramentas foram construidas pela Torre. Registrado por honestidade
+de processo, nao como excecao a regra: quem constroi tela continua sendo o `vitrine`.
+
 ## 1.1 Schema
 
 - [ ] **Criar as tabelas globais.** `tenant_id` nulo significa global.
