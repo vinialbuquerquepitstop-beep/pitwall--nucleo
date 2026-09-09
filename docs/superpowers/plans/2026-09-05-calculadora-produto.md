@@ -682,6 +682,80 @@ select status, n_lidas, n_casou, n_pendencia, n_descarte,
 Esperado: cobertura **>= 89%** (a medida de 27/07/2026 com catalogo maduro). Abaixo
 disso, o seed do Bloco 1 esta incompleto e o bloco nao fecha.
 
+### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
+
+Commit `77f954c`. **A tela (2.3) NAO entra**, entao o bloco NAO esta fechado e o
+portao de cobertura NAO foi medido. A fatia foi cortada a pedido do dono: o parser
+e conferido antes de ser embrulhado em wizard, porque o defeito de CPO de
+27/07/2026 ficou sete dias no ar por ninguem olhar a pilha intermediaria.
+
+Cinco migrations (`calc_carga_schema`, `calc_parse_helpers`, `calc_parse_motor`,
+`calc_carga_rpcs`, `calc_parse_correcoes`), versionadas em
+`supabase/migrations/20260909_calc_*.sql`.
+
+Prova: `ferramentas/prova_calc_parse.sql`, **27 assercoes, PASSOU, 0 falhas**.
+Medido: `lidas=18 casou=11 duvidoso=6 nao_reconhecido=1 descarte=2 cobertura=61,1%`.
+**Os 61,1% sao o TETO da fixture**, que e um circuito de armadilhas com 7 das 18
+linhas escritas para falhar: o motor casou **11 de 11 atingiveis**. Isso nao diz
+nada sobre o portao de 89%, que so a carga real do dono mede.
+
+#### O que a execucao contradisse no plano
+
+1. **`calc_carga_aprovar` NAO deriva `calc_venda`.** O plano manda derivar e gravar
+   essa tabela no 2.2. Ela **nao existe**: o consultor ainda le o `dados.js`
+   estatico do repo, e a tabela nasce no Bloco 3. Aprovar grava custo e so.
+2. **`calc_carga` ganhou duas colunas que o plano nao previa.** `resumo jsonb`
+   (os cabecalhos achados e a quebra de descartes por motivo, que o passo 2 e o
+   passo 4 do wizard precisam mostrar e o blob nao carrega) e `texto_bruto`
+   (a lista colada, guardada SO enquanto a carga esta em rascunho e apagada na
+   aprovacao ou no descarte). Sem `texto_bruto` a RPC `calc_pendencia_resolver`
+   **nao consegue reprocessar**, e o dono resolveria 12 pendencias sem ver numero
+   nenhum mudar: o laco de aprendizado so valeria na carga do mes seguinte.
+   Retencao declarada, visivel so ao papel `dono` do proprio tenant.
+3. **Nasceu uma quarta RPC, `calc_carga_descartar`.** Sem ela a lista bruta de uma
+   carga abandonada fica no banco para sempre.
+4. **`n_casou` conta a linha que ENTRA NO BLOB, nao a que casou.** As duas divergem
+   (linha sem cor num grupo colorido nao cabe no produto), e declarar a maior seria
+   cobertura inflada.
+
+#### Seis defeitos que a execucao achou e nenhum plano via
+
+1. **`\b` em Postgres e BACKSPACE**, nao fronteira de palavra (que e `\y`). Nao da
+   erro: o regex nunca casa e a funcao devolve NULL em silencio. Estava em 8
+   lugares e teria dado polegada NULL em todo Mac e capacidade NULL em todo iPhone.
+2. **`novo` casava DENTRO de `seminovo`**, e com prioridade 20 contra 30 Lacrado
+   engolia TODO Seminovo, inclusive o banner de bloco. 5 das 12 linhas que casavam
+   sairam com a condicao errada. Estava no catalogo vivo **e na semente**, entao
+   toda conta nova nasceria com ele. **Mesma classe do CPO invertido de 27/07/2026**
+   (341 produtos com zero CPO): regra de condicao sem limite explicito. Aquela foi
+   corrigida com `prioridade`; esta precisou de fronteira de palavra, nas duas
+   camadas.
+3. **Cabecalho desconhecido nao quebrava o bloco**: os precos de um fornecedor nao
+   identificado eram atribuidos ao fornecedor ANTERIOR. Preco certo no fornecedor
+   errado passa no validador e no diff, e so aparece quando alguem compra pelo
+   custo de outra loja.
+4. **Preco com PONTO decimal sumia inteiro.** A regra de token `4,850,00 -> 4850.00`
+   do proprio catalogo produz ponto decimal; o leitor so conhecia o formato
+   brasileiro, via `4850` e `00`, pegava o ultimo e reprovava na faixa. A linha nao
+   entrava no blob **e nao virava pendencia**.
+5. **Cor decorada entrava com o hex de outra cor.** `VERDE MENTA` contem `verde`
+   como palavra inteira, entao a cor desconhecida era gravada como `Verde`, calada,
+   violando o "nunca inventar hex sem avisar".
+6. **Linha sem cor num grupo colorido sumia do blob mas contava como casou.**
+
+#### Licao de processo
+
+A prova reprovou uma vez, e **o defeito era da prova, nao do motor**: havia DUAS
+copias da fixture sintetica (uma no scratchpad, outra embutida na prova) e elas
+divergiram, entao uma assercao cobrava uma linha que a entrada nao tinha. E o
+mesmo erro do `CLAUDE.md` 17 versoes desatualizado, em miniatura. **Uma copia so.**
+
+E a separacao de papeis pagou: quem escreveu o parser escreveu a prova, entao esse
+erro so apareceu porque a `bandeira` rodou e leu. Ela tambem provou que a segunda
+rodada **nao afrouxou o criterio** (teto ainda 11, assercao do preco decimal
+intacta, `v_total` ainda 27) e registrou que o `git diff` vazio **nao era prova de
+nada**, porque o arquivo estava untracked.
+
 ---
 
 # Bloco 3 — O consultor sai do repo

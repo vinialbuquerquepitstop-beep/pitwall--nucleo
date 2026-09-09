@@ -498,7 +498,44 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v2.md` (08/09/2026, **o Bloco 1 fecha: o
+- topo: `handoff_calculadora_pitwall_v3.md` (09/09/2026, **a fatia 1 do Bloco 2:
+  a carga ganha schema, parser e RPCs. O bloco segue ABERTO**). Commit `77f954c`,
+  cinco migrations, todas versionadas em `supabase/migrations/20260909_calc_*.sql`.
+
+  **A tela `/calc/alimentar` NAO foi comecada**, entao o dono ainda nao atualiza
+  preco sem sessao de IA, que e o ponto do bloco. O corte em duas fatias foi
+  decisao dele: o parser e conferido antes de ser embrulhado em wizard.
+
+  Prova `ferramentas/prova_calc_parse.sql`: **27 assercoes, PASSOU, 0 falhas**,
+  `lidas=18 casou=11 duvidoso=6 nao_reconhecido=1 descarte=2 cobertura=61,1%`. Os
+  61,1% sao o **TETO da fixture** (7 das 18 linhas escritas para falhar de
+  proposito): o motor casou 11 de 11 atingiveis. **O portao de 89% do bloco so a
+  carga real do dono mede.**
+
+  **Seis defeitos que a execucao achou e nenhum plano via.** O pior: `novo` casava
+  DENTRO de `seminovo`, e com prioridade 20 contra 30 **Lacrado engolia todo
+  Seminovo** — 5 das 12 linhas que casavam sairam com a condicao errada, e o
+  defeito estava no catalogo vivo E NA SEMENTE, entao toda conta nova nasceria com
+  ele. Mesma classe do CPO invertido de 27/07. Os outros cinco: `\b` em Postgres e
+  BACKSPACE e nao fronteira de palavra (que e `\y`), e o regex falha em silencio;
+  cabecalho desconhecido nao quebrava o bloco e os precos iam para o fornecedor
+  ANTERIOR; preco com ponto decimal sumia inteiro, sem virar nem pendencia; cor
+  decorada (`VERDE MENTA`) entrava com o hex de outra cor; linha sem cor num grupo
+  colorido sumia do blob mas contava como casou.
+
+  **Licao de processo:** a prova reprovou uma vez e o defeito era DELA — havia duas
+  copias da fixture e elas divergiram. O mesmo fato em dois lugares, em miniatura.
+  So apareceu porque a `bandeira` rodou, e nao quem construiu.
+
+  **Decisao NOVA aberta, D6:** a coluna `calc_carga.texto_bruto` guarda a lista
+  colada enquanto a carga e rascunho (apagada na aprovacao). Sem ela o laco de
+  aprendizado so vale na carga do mes seguinte. Levada ao dono, sem resposta ainda.
+
+  **Divida encontrada e nao paga:** as tres migrations do Bloco 1
+  (`calc_catalogo_*`, 08/09) **nunca foram versionadas** e existem so no banco.
+  Proximo passo: **fatia 2**, a tela `/calc/alimentar`.
+
+- anterior: `handoff_calculadora_pitwall_v2.md` (08/09/2026, **o Bloco 1 fecha: o
   catalogo sai do markdown da skill e vira tabela abrivel**). Commit `9327c30`,
   tres migrations (`calc_catalogo_duas_camadas`, `calc_catalogo_semente`,
   `calc_catalogo_tenant_pitstop`). O ativo do produto morava em
@@ -528,9 +565,13 @@ nenhuma das duas batia com o repo.
   `public/index.html`. A barra saiu de 5 para 6 colunas com a suite verde. Nasceu
   `ferramentas/diag_calc.py`, que ja achou `CATÁLOGO` pedindo 63px numa coluna de
   60px em 360px. Suite em EXIT 0 nos ONZE comandos, `harness` 1114/0.
-  **Commitado, mas NAO empurrado** (push negado pelo classifier da sessao):
-  `git push github HEAD:main`. Proximo passo, sem bloqueador: **Bloco 2**, a tela
-  `Alimentar`, onde o dono passa a atualizar o proprio preco sem sessao de IA.
+  Dizia aqui, ate 09/09/2026, que o commit estava "feito, mas NAO empurrado".
+  **Estava desatualizado:** medido em 09/09, `git rev-list --left-right --count
+  github/main...HEAD` devolve `0 0`, ou seja o `9327c30` foi empurrado. O que de
+  fato ficou de fora do repo foram as TRES MIGRATIONS do bloco
+  (`calc_catalogo_duas_camadas`, `calc_catalogo_semente`,
+  `calc_catalogo_tenant_pitstop`), que existem so no banco: o bloco foi declarado
+  fechado com o SQL fora do git. Divida registrada na secao 8 do v3.
 
 - `handoff_calculadora_pitwall_v1.md` (07/09/2026, **a calculadora vira
   produto comercializavel, e o Bloco 0 fecha**). Linha NOVA, criada nesta data.
