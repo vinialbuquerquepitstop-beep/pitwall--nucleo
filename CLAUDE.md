@@ -9,14 +9,19 @@ aponte para arquivo inexistente.
 ## Arranque de toda sessao (nesta ordem)
 
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
-   O handoff mais novo substitui todos os anteriores. Hoje o topo e
-   `handoff_migracao_pitwall_v69.md`, e ele e uma PONTE curta: a substancia de
-   26/08 em diante mora na linha financeiro (`handoff_financeiro_pitwall_v12.md`).
+   **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
+   e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
+   nao e mais o fio unico. Em 08/09/2026 os topos vivos sao
+   `handoff_calculadora_pitwall_v2.md` (o produto novo, Blocos 0 e 1 fechados),
+   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`, que e
+   so uma PONTE curta.
    Conferir a pasta em vez de confiar nesta linha: ela ja ficou desatualizada antes
    (ficou presa no v32 ate 21/07/2026, no v35 ate 23/07/2026, no v37 ate 28/07/2026,
    no v43 ate 08/08/2026, no v48 ate 14/08/2026, no v59 ate 17/08/2026 e no v68 ate
    02/09/2026, quando SETE dias de trabalho, duas fatias do Financeiro e o conserto
    do backup ficaram fora do que o arranque enxergava).
+   Nota de 08/09/2026: a linha `calculadora` nasceu em 07/09 e ja esta no v2. Quem
+   abrir sessao lendo so a linha `migracao` **nao vera o produto novo existir**.
    Conferir tambem o `git status`: em 18/08/2026 a working tree trazia trabalho
    de 17/08 pronto, provado e NUNCA COMMITADO, entao o app publicado discordava
    do banco. Tree suja no arranque nao e ruido, e entrega parada.
@@ -161,11 +166,20 @@ Reforcos anotados na v33 (nao sao numero novo, so alcance dos existentes):
     index.html     (estrutura, aponta pra app.css e app.js; legivel)
     app.css        (legivel, ~900 linhas, tokens da referencia visual v3)
     app.js         (nucleo minificado numa linha so + blocos de dados legiveis)
+    calc/          <- as DUAS calculadoras. Arquivos SOZINHOS: nao usam app.css
+      index.html     nem app.js, cada um carrega o proprio CSS e JS inline.
+                     A calc do DONO: custo, margem, scanner, usado. ~1550 linhas,
+                     LEGIVEL. Le calc_dados e as cinco tabelas de catalogo.
+                     Login proprio (storageKey `sb-calc-auth`), papel `dono`.
+      consultor/     A calc do VENDEDOR: preco de venda e comissao, sem custo.
+        index.html   Hoje le `dados.js`, ARQUIVO ESTATICO do repo, e por isso e
+        dados.js     single-tenant: sai do repo no Bloco 3 do plano da calculadora.
   supabase/
     functions/
       sincronizar-conteudo/index.ts   <- Edge Function (Fase 6). Notion -> conteudo.
-  ferramentas/     <- suite Python de validacao e patch. validar.py, harness.py,
-                      prova_trilho.py, patch_*.py, mock_*.py, *.antes (baselines).
+  ferramentas/     <- suite Python e Node de validacao e patch. validar.py,
+                      harness.py, prova_trilho.py, prova_catalogo.js,
+                      diag_calc.py, patch_*.py, mock_*.py, *.antes (baselines).
   backups/         <- dumps do Postgres criptografados (.gpg), um por dia.
   docs/
     handoffs/      <- handoff de MAIOR versao e o de record.
@@ -278,32 +292,41 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 
 - Entregar arquivo completo, pronto para aplicar, nunca fragmento. Fragmento foi a
   causa raiz de corrupcao no historico do projeto.
-- Frontend: a suite de validacao e PYTHON, da raiz do repo (nao acorn nem jsdom, que a
-  v32 afirmava por engano e nao existem aqui). Ate a v55 este bloco listava TRES
-  provas; sao SETE comandos, e os que faltavam sao justamente os que pegaram
-  regressao real (o `diag_mobile` achou o botao fora da tela em 360px, o
-  `prova_grafico` achou os dois degraus indistinguiveis, o `diag_largo` achou
-  608px de tela vazia a 1920px):
+- Frontend: a suite de validacao e PYTHON e NODE, da raiz do repo (nao acorn nem jsdom,
+  que a v32 afirmava por engano e nao existem aqui). Ate a v55 este bloco listava TRES
+  provas, e ate 07/09/2026 listava SETE comandos. Sao **ONZE**, e os que foram
+  acrescentados sao justamente os que pegaram regressao real (o `diag_mobile` achou o
+  botao fora da tela em 360px, o `prova_grafico` achou os dois degraus
+  indistinguiveis, o `diag_largo` achou 608px de tela vazia a 1920px, o `diag_calc`
+  achou a aba nova estourando a coluna em 360px):
   ```
   python ferramentas/validar.py          # sintaxe, via esprima, + regra 11.1 do azul
   python ferramentas/harness.py          # comportamento, Chrome headless (assere cor computada)
   python ferramentas/prova_trilho.py     # contraste dos 7 trilhos de categoria
   python ferramentas/prova_grafico.py    # os degraus do grafico do Escopo
   python ferramentas/prova_atmosfera.py  # contraste da aba Conteudo nos dois chaos
+  python ferramentas/prova_taxas.py      # os 17 coeficientes, uma fonte so
   node --check public/app.js
+  node ferramentas/prova_cpo.js          # CPO: comissao de lacrado, 1 ano, chip proprio
+  node ferramentas/prova_sem_margem.js   # as classes de custo puro nao ganham margem
+  node ferramentas/prova_catalogo.js     # o painel Catalogo da calc do dono
   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
   for w in 1500 1920 2560; do python ferramentas/diag_largo.py $w; done
+  for w in 360 390 414;      do python ferramentas/diag_calc.py $w;   done
   ```
   Chrome headless ganha do jsdom aqui porque APLICA CSS, entao da para assertar sobre
-  cor computada. Estado atual medido em 02/09/2026, com a Fatia 4 fechada: **1037
-  linhas impressas** (contador `passou`, uma por chamada de `ok()` que rodou), **1042
-  rotulos declarados**, **1037 rotulos distintos executados**, 0 nao executaram (5 de
-  ramo alternativo, previstas), EXIT 0 nas cinco larguras do celular e nas tres do
-  monitor grande. As 40 novas sao as `fin4:` da contraparte.
-  Medicao de record: `docs/handoffs/handoff_financeiro_pitwall_v12.md`.
+  cor computada. Estado atual medido em 08/09/2026, com o Bloco 1 da calculadora
+  fechado: **1114 linhas impressas** (contador `passou`, uma por chamada de `ok()` que
+  rodou), **1119 rotulos declarados**, **1114 rotulos distintos executados**, 0 nao
+  executaram (5 de ramo alternativo, previstas), EXIT 0 nas cinco larguras do celular,
+  nas tres do monitor grande e nas tres da calc.
+  Medicao de record: `docs/handoffs/handoff_calculadora_pitwall_v2.md`.
   Os dois contadores contam coisas diferentes e os dois ficam: `passou` conta CHAMADA
-  em execucao, `executadas` conta ROTULO DECLARADO distinto. Ate 02/09 este bloco dizia
-  997, numero de 01/09; antes dele 885, de 26/08; antes, 133, de antes da v33.
+  em execucao, `executadas` conta ROTULO DECLARADO distinto. Ate 08/09 este bloco dizia
+  1037, numero de 02/09; antes dele 997, de 01/09; antes, 885, de 26/08; antes, 133.
+  **O `harness.py` mede `public/app.js`, o PAINEL.** As tres provas `node` e o
+  `diag_calc.py` sao o que cobre `public/calc/`, e antes de 08/09/2026 **nao havia
+  ferramenta nenhuma medindo geometria da calc**: ver o bloco do `diag_calc` abaixo.
   **`diag_mobile.py` roda UMA largura por vez**, e o harness roda numa largura so:
   quem nao rodar as cinco nao esta olhando para o celular.
   **`diag_largo.py` e o irmao do outro lado**, criado em 02/09/2026 porque nenhuma
@@ -313,6 +336,21 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   inteira verde. Ele cobra o teto por degrau (>=1500px pede 1280, >=1800px pede 1440,
   >=2300px pede 1600, sempre limitado pela coluna que sobra depois da barra lateral) e
   a centragem do bloco na coluna.
+  **`diag_calc.py` cobre a CALC**, criado em 08/09/2026 porque os dois irmaos acima
+  medem `public/index.html` pelo stub do `harness.py` e **nenhuma ferramenta olhava
+  para `public/calc/`**. A barra de abas da calc saiu de CINCO para SEIS colunas com a
+  suite inteira verde. Ele mede estouro horizontal, rotulo mais largo que a propria
+  coluna, sobreposicao entre abas e a barra fixa contra o respiro do `body`. Duas
+  armadilhas que ele ja carrega resolvidas: a pagina roda em IFRAME (o headless do
+  Chrome no Windows tem piso de ~500px, entao `--window-size=360` mente), e o
+  `<script src>` do CDN sai da COPIA medida, senao o Chrome fica pendurado esperando a
+  rede (medido: passou de 180s sem devolver nada).
+  **`calc()` com `+` ou `-` COLADO e defeito silencioso, nao estilo.** A especificacao
+  exige espaco em volta, e o Chrome descarta a declaracao inteira sem avisar. Medido em
+  08/09/2026 com quatro variantes: `calc(env(x,0px)+80px)` devolve `0px`,
+  `calc(env(x, 0px) + 80px)` devolve `80px`. Efeito que estava no ar desde sempre: o
+  `padding-bottom` do `body` das DUAS calcs era zero, entao a barra fixa de 64px cobria
+  o fim do conteudo em todas as abas.
   **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
   linhas verdes e pode terminar em `REPROVOU:`; ler o texto por cima ja fez commitar
   vermelho. Ao assertar UI, consultar o DOM RENDERIZADO (so `#lista`), nunca
