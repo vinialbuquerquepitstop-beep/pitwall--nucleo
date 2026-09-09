@@ -31,6 +31,12 @@ aponte para arquivo inexistente.
 4. Ao tocar em qualquer coisa com prefixo `fin_` ou na aba Financeiro:
    leia `docs/financeiro/CONTRATO.md` ANTES de escrever a primeira linha.
    Se o contrato conflitar com o pedido do prompt, o CONTRATO ganha e voce avisa.
+4b. Ao executar um bloco do plano da **calculadora como produto** (qualquer coisa
+   com prefixo `calc_`, a pasta `public/calc/` ou a linha `calculadora`):
+   leia `docs/calculadora/PROCESSO.md` ANTES de comecar. Ele e o guia de
+   PROCESSO (como conduzir o bloco do arranque ao fechamento), nao de dominio:
+   o fato tecnico mora no plano e na spec, de proposito, para os dois nao
+   divergirem.
 5. So entao abrir a skill do dominio do pedido.
 
 Nota sobre skills: hoje sao SETE em `.claude/skills/`, todas COMPLETAS. As tres do
@@ -183,6 +189,9 @@ Reforcos anotados na v33 (nao sao numero novo, so alcance dos existentes):
   backups/         <- dumps do Postgres criptografados (.gpg), um por dia.
   docs/
     handoffs/      <- handoff de MAIOR versao e o de record.
+    runbook-operacao.md  <- sessoes concorrentes, remote real, EXIT CODE, git no Windows.
+    calculadora/PROCESSO.md  <- como conduzir um bloco do plano da calculadora.
+    financeiro/CONTRATO.md   <- o contrato do modulo Financeiro.
     design/        <- referencia-visual-v3.html (record aprovado).
     superpowers/   <- specs e plans (ex.: hierarquia do frontend, v33).
     mapa_pitwall_nucleo_v2.html

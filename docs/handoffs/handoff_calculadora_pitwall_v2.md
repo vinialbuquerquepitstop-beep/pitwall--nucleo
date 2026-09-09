@@ -13,13 +13,17 @@ Nota de linguagem: prosa sem acento, sem cedilha, sem travessao (convencao do
 ## 0. Leia nesta ordem, antes de tocar em qualquer coisa
 
 1. `CLAUDE.md` (arranque de toda sessao).
-2. `docs/runbook-operacao.md` — como nao atropelar outra sessao, o remote real,
+2. **`docs/calculadora/PROCESSO.md`** — o guia de PROCESSO desta linha, criado em
+   08/09/2026: como conduzir um bloco do arranque ao fechamento, quem faz o que,
+   o que fazer quando um subagente trava, como perguntar ao dono, o checklist de
+   fechamento e o que NAO fazer. Ele nao repete fato de dominio, de proposito.
+3. `docs/runbook-operacao.md` — como nao atropelar outra sessao, o remote real,
    as armadilhas de Git Bash no Windows, EXIT CODE.
-3. `docs/superpowers/specs/2026-09-05-calculadora-produto-design.md` — o desenho.
+4. `docs/superpowers/specs/2026-09-05-calculadora-produto-design.md` — o desenho.
    Se o plano divergir dele, **a spec ganha** e voce avisa.
-4. `docs/superpowers/plans/2026-09-05-calculadora-produto.md` — o plano, bloco a
+5. `docs/superpowers/plans/2026-09-05-calculadora-produto.md` — o plano, bloco a
    bloco. Os Blocos 0 e 1 ja tem secao `FECHADO` com o portao medido.
-5. So entao a skill `calculadoras` e os 4 `references/` dela.
+6. So entao a skill `calculadoras` e os 4 `references/` dela.
 
 ---
 
