@@ -12,7 +12,8 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 08/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v2.md` (o produto novo, Blocos 0 e 1 fechados),
+   `handoff_calculadora_pitwall_v4.md` (o produto novo: Blocos 0 e 1 fechados, o 2
+   com a fatia 1 entregue e a tela ainda por fazer),
    `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`, que e
    so uma PONTE curta.
    Conferir a pasta em vez de confiar nesta linha: ela ja ficou desatualizada antes
@@ -20,7 +21,7 @@ aponte para arquivo inexistente.
    no v43 ate 08/08/2026, no v48 ate 14/08/2026, no v59 ate 17/08/2026 e no v68 ate
    02/09/2026, quando SETE dias de trabalho, duas fatias do Financeiro e o conserto
    do backup ficaram fora do que o arranque enxergava).
-   Nota de 08/09/2026: a linha `calculadora` nasceu em 07/09 e ja esta no v2. Quem
+   Nota de 09/09/2026: a linha `calculadora` nasceu em 07/09 e ja esta no **v4**. Quem
    abrir sessao lendo so a linha `migracao` **nao vera o produto novo existir**.
    Conferir tambem o `git status`: em 18/08/2026 a working tree trazia trabalho
    de 17/08 pronto, provado e NUNCA COMMITADO, entao o app publicado discordava

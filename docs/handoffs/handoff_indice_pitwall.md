@@ -498,7 +498,26 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v3.md` (09/09/2026, **a fatia 1 do Bloco 2:
+- topo: `handoff_calculadora_pitwall_v4.md` (09/09/2026, **o portao dos 89% cai, e o
+  proximo passo NAO e a tela**). O plano manda construir a tela do Bloco 2; a sessao
+  concluiu que ha um passo antes: **medir o parser contra uma lista REAL**, porque ele
+  so foi provado contra 18 linhas sinteticas escritas a mao, e a fatia 1 entregou
+  **zero** arquivo em `public/`. O v4 traz o SQL pronto dessa medicao.
+
+  Duas decisoes novas do dono: **D6** (`calc_carga.texto_bruto` FICA, com retencao
+  declarada) e **D7** (o portao vira **comparacao pareada**: na mesma entrada, a tela
+  nova nao pode cobrir menos que o caminho de hoje).
+
+  **D7 nasceu de uma auditoria que reprovou um numero meu.** O `89%` do portao nunca
+  foi medido: o par `612 de 690` era **exemplo de FORMATO**, entre aspas, em
+  `procedimento-alimentacao.md:92`, e a spec de 05/09 o promoveu a fato. Licao que
+  passou a valer para o projeto: numero em exemplo vira fato dois documentos adiante.
+
+  Aberto: **D4a** (comissao de acessorio, trava um passo do Bloco 3), **T8**
+  (isolamento com JWT, antes do Bloco 4) e **T9** (auditoria e `calc_uso`, antes do
+  Bloco 5). Nenhuma das tres trava a medicao.
+
+- anterior: `handoff_calculadora_pitwall_v3.md` (09/09/2026, **a fatia 1 do Bloco 2:
   a carga ganha schema, parser e RPCs. O bloco segue ABERTO**). Commit `77f954c`,
   cinco migrations, todas versionadas em `supabase/migrations/20260909_calc_*.sql`.
 
