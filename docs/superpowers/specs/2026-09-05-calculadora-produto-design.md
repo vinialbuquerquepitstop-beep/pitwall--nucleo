@@ -56,7 +56,9 @@ O que transforma a lista do fornecedor em preco canonico mora em
 praca, 66 nomes de iPhone, 32 cores com hex, a ordem obrigatoria de condicao (CPO
 antes de Lacrado), a tabela de token malformado, as regras de descarte.
 
-Cobertura medida com esse catalogo: **89%** (612 de 690 linhas, carga de 27/07/2026).
+Cobertura com esse catalogo: **89% era o numero usado ate 09/09/2026**, quando a
+auditoria mostrou que ele **nao tem medicao de origem** (secao 2.6b). Vale como alvo
+declarado do dono, nunca como baseline medida.
 Cobertura medida sem catalogo calibrado, com parser rustico: **46% de media**, e
 **0%** no formato antigo.
 
@@ -224,7 +226,7 @@ pilha nao reconhecida**.
 | Grandeza | Medido / estimado |
 |---|---|
 | Precos por carga | 1007 (blob atual) |
-| Cobertura com catalogo maduro | 89% |
+| Cobertura com catalogo maduro | 89% (alvo declarado, **nao medido** — ver 2.6b) |
 | Linhas que sobram para o modelo | ~100 por carga |
 | Cadencia real do dono | 4 cargas em 21 dias (27/07, 03/08, 15/08, 17/08) |
 | Custo por carga, Opus 5 ($5/$25 por 1M) | ~$0,30 (estimativa de token, nao medicao) |
@@ -241,6 +243,51 @@ A unidade e **linha enviada ao modelo**, nunca linha do arquivo: o lojista pode 
 Ressalva honesta: os numeros de token acima sao **estimativa**. A primeira carga real
 pelo wizard deve ser medida com `count_tokens` e a cota reajustada antes de publicar
 plano.
+
+### 2.6b Portao de cobertura: comparacao pareada, nao numero absoluto
+
+**Decisao do dono, 09/09/2026 (D7)**, tomada depois de a proveniencia dos 89% ser
+auditada e **nao se sustentar**.
+
+O portao do Bloco 2 passa a ser:
+
+> Na MESMA entrada, a tela nova nao pode cobrir menos que o caminho de hoje
+> (a skill `calculadoras` rodada por sessao de IA).
+
+Como medir, numa passada so:
+
+1. O dono cola uma lista real na tela nova. Anotar `casou`, `lidas`, `descartadas`.
+2. A **mesma** lista passa pelo caminho atual da skill. Anotar os mesmos tres.
+3. Passa se `casou_novo >= casou_velho` **na mesma entrada**.
+
+Vantagem sobre um numero fixo: nao depende de arqueologia, nao pode nascer frouxo
+nem impossivel, e mede exatamente o que importa (a tela nao pode ser pior que o
+processo que ela substitui).
+
+**Auditoria da proveniencia, 09/09/2026.** O par `612 de 690` aparece pela primeira
+vez em `.claude/skills/calculadoras/references/procedimento-alimentacao.md:92`,
+**dentro de aspas, como exemplo de FORMATO**, na frase *"Fechar com a cobertura real
+medida: 'casaram 612 de 690 linhas (89%)'"*. O `612` **nao existe como medicao em
+nenhum outro ponto do repo**. O `690` existe uma vez, em `aprendizados.md:425`, mas
+como **"690 precos"**, no contexto do volume da derivacao do consultor, nao como
+linhas lidas de uma carga. A spec de 05/09 promoveu o exemplo a fato medido. **Erro
+meu, registrado aqui em vez de apagado.**
+
+Consequencia pratica: onde este documento e os demais dizem `>= 89%`, vale a
+comparacao pareada acima. O 89% sobrevive so como **alvo declarado do dono**, nunca
+como baseline medida.
+
+**O denominador continua tendo que aparecer na tela**, com ou sem portao novo:
+
+```
+casaram 612 de 690 linhas (89%)
++ 25 linhas descartadas por regra (nao entram na conta)
+```
+
+Cobertura sem denominador visivel mente por omissao, igual a aba Conteudo que
+mostrava 3 de 8 sem declarar a janela (v33). A conta em vigor no parser e
+`casou / lidas`, com `lidas` **excluindo** as descartadas por regra ativa: descarte
+e decisao de negocio do dono, nao falha de leitura.
 
 ### 2.7 Degradacao: o produto cai em degrau, nunca de vez
 
@@ -358,7 +405,9 @@ sistema, e passam a ser asseridas por prova, nao por disciplina de quem opera:
 8. **Descarte acontece ANTES do calculo de menor custo.** Aparelho com aviso de peca
    nao genuina e produto paralelo saem antes, senao o item barato que a loja nao vende
    puxa o preco de venda para baixo.
-9. **Cobertura se declara medida, nunca estimada.** "casaram 612 de 690 (89%)".
+9. **Cobertura se declara medida, nunca estimada**, e SEMPRE com o denominador na
+   tela: `casaram X de Y linhas (Z%)`, mais a linha das descartadas. O par
+   `612 de 690` e **exemplo de formato, nao medicao** (ver 2.6b).
 10. **`tenant_id` vem da sessao, nunca do payload.**
 11. **A calculadora tem que poder sair inteira depois.** Por D2 o produto e vendido
     como conjunto agora, mas a calc vira produto separado no futuro. Entao: **nenhuma
@@ -461,7 +510,7 @@ O desenho esta cumprido quando, com o dono do produto sem tocar em nada:
 1b. Com o JWT desse cliente, `select count(*) from public.calc_modelo where
    tenant_id is null` devolve **0**: semente nao vaza para execucao.
 2. A carga do dono da Pitstop Imports roda **sem sessao de Claude Code**, com cobertura
-   igual ou maior que os 89% medidos em 27/07/2026.
+   igual ou maior que a do caminho atual da skill **na mesma entrada** (D7, secao 2.6b).
 3. `curl` sem sessao em qualquer URL de preco devolve **nada**.
 4. Um `vendedor` logado ve preco de venda e **zero** custo, provado no banco com o JWT
    dele, nao no navegador.

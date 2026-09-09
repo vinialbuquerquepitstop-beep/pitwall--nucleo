@@ -165,6 +165,37 @@ Valem para todos os blocos, sem repetir:
   sem ninguem publicar nada. **Custo aceito:** zero aprendizado compartilhado, e a
   cobranca recorrente passa a se sustentar no sistema rodando.
 
+- [x] **D6 — A coluna `calc_carga.texto_bruto` fica ou sai? (09/09/2026)**
+  **FICA.** Ela guarda a lista colada enquanto a carga esta em rascunho, e e apagada
+  no instante em que a carga e aprovada ou descartada. So o papel `dono` do proprio
+  tenant enxerga.
+
+  **Por que o dono escolheu ficar:** resolver pendencia passa a **reprocessar na
+  hora**, entao ele responde as 12 pendencias e ve a cobertura subir na propria tela,
+  antes de aprovar. Sem a coluna, resolver pendencia so ensinaria o catalogo e a
+  cobertura daquela carga **nao mudaria**: ele resolveria 12 pendencias, veria o mesmo
+  numero, e o ganho so apareceria na carga do mes seguinte.
+
+  **Tensao registrada, nao escondida:** a secao 2.3 deste plano dizia *"o texto e
+  processado e o bruto e descartado; se um dia for guardado, bucket privado com
+  retencao declarada"*. A implementacao adotou a segunda metade da frase, e o dono
+  ratificou em 09/09. A retencao esta declarada: **enquanto o rascunho existir, e nem
+  um minuto mais.**
+
+- [x] **D7 — Como travar o portao de cobertura do Bloco 2? (09/09/2026)**
+  **Comparacao pareada, nao numero absoluto.** Na MESMA entrada, a tela nova nao pode
+  cobrir menos que o caminho de hoje (a skill `calculadoras` rodada por sessao de IA).
+
+  **Por que o `>= 89%` caiu:** auditoria de 09/09/2026 mostrou que o 89% **nao tem
+  medicao de origem**. O par `612 de 690` aparece pela primeira vez em
+  `.claude/skills/calculadoras/references/procedimento-alimentacao.md:92`, **dentro de
+  aspas, como exemplo de FORMATO**. O `612` nao existe como medicao em nenhum outro
+  ponto do repo; o `690` existe uma vez, mas como **"690 precos"** no contexto do
+  volume da derivacao do consultor, nao como linhas lidas. A spec de 05/09 promoveu o
+  exemplo a fato. Detalhe e formula na **secao 2.6b da spec**.
+
+  O 89% sobrevive so como **alvo declarado do dono**, nunca como baseline medida.
+
 ### Pendencia nova aberta por D4
 
 - [ ] **D4a — Comissao de `Acessório` na escada do consultor.** A escada
@@ -662,7 +693,8 @@ Idem para as outras duas.
 | 4 Diff | subiu / caiu / novo / sumiu, **variacao acima de 15% item a item**, fornecedor sem lista nova, cobertura medida | aprovar |
 
 Textos obrigatorios na tela, porque sao trava do produto e nao enfeite:
-- cobertura na forma **`casaram 612 de 690 linhas (89%)`**, medida, nunca estimada;
+- cobertura na forma **`casaram X de Y linhas (Z%)`**, medida, nunca estimada, mais a
+  linha das descartadas. O par `612 de 690` e exemplo de FORMATO, nao medicao (D7);
 - **`N linhas nao entraram`**, com a lista, sempre visivel;
 - descarte com contagem, para o dono ver que existiram;
 - lista com mais de 7 dias entra com **aviso explicito de custo velho**.
@@ -679,8 +711,13 @@ select status, n_lidas, n_casou, n_pendencia, n_descarte,
        round(100.0*n_casou/nullif(n_lidas,0),1) as cobertura
   from public.calc_carga order by criado_em desc limit 1;
 ```
-Esperado: cobertura **>= 89%** (a medida de 27/07/2026 com catalogo maduro). Abaixo
-disso, o seed do Bloco 1 esta incompleto e o bloco nao fecha.
+Esperado: cobertura **nao menor que a do caminho atual da skill, na MESMA entrada** (D7,
+09/09/2026). A mesma lista passa pelos dois caminhos e se comparam `casou / lidas /
+descartadas`. O antigo `>= 89%` caiu porque **o 89% nao tem medicao de origem**: o par
+`612 de 690` era exemplo de FORMATO em `procedimento-alimentacao.md:92`, promovido a
+fato pela spec de 05/09. Detalhe na secao 2.6b da spec.
+Se o novo cobrir MENOS que o velho na mesma lista, o seed do Bloco 1 esta incompleto
+e o bloco nao fecha.
 
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 

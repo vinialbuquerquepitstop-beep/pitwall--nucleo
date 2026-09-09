@@ -5,6 +5,54 @@ reescrever entrada antiga: se algo virou mentira, marcar como corrigido e explic
 
 ---
 
+## 09/09/2026 — O catalogo JA e tabela, e o parser JA e SQL. Esta skill virou plano B
+
+Atualiza a entrada de 07/09 abaixo, que dizia "vai virar". **Virou.**
+
+| O que era da skill | Onde esta agora |
+|---|---|
+| catalogo em `formato-dados.md` (25 KB, so o Claude lia) | tabelas `calc_modelo`, `calc_cor`, `calc_alias`, `calc_regra`, `calc_fornecedor`, com RLS por tenant |
+| parser na cabeca da sessao de IA | funcoes SQL do Bloco 2 (`calc_carga_abrir`, `calc_carga_aprovar`, `calc_carga_descartar`, `calc_pendencia_resolver`) |
+| carga por sessao de Claude Code | RPC transacional, e a tela do Bloco 2 fatia 2 |
+
+Contado no banco em 09/09/2026, camada de **semente** (`tenant_id is null`):
+**124 modelos, 32 cores, 27 aliases, 20 regras**. O tenant do dono tem os **17
+fornecedores** com praca.
+
+**Enquanto a TELA do Bloco 2 nao existir, esta skill continua sendo o caminho real
+de carga.** Ela deixou de ser a unica fonte da verdade do catalogo, mas ainda e o
+unico jeito de o dono subir preco hoje. Nao aposentar antes da tela.
+
+### Armadilha nova, e ela custou 8 regex
+
+**`\b` em regex de Postgres e BACKSPACE, nao fronteira de palavra. Fronteira e `\y`.**
+Nao da erro: o regex simplesmente nunca casa e a funcao devolve NULL calada.
+
+```
+regexp_match('macbook air m4 13   ', '\b(11|13|14|15|16)\b')  ->  NULL
+regexp_match('macbook air m4 13   ', '\y(11|13|14|15|16)\y')  ->  13
+```
+
+Ja esta no `CLAUDE.md`, ao lado da regra do `calc()` com `+` colado, que e da mesma
+familia: sintaxe que falha em silencio.
+
+### O portao dos 89% caiu, e o motivo importa para esta skill
+
+O par `casaram 612 de 690 linhas (89%)` nasceu **aqui**, no passo 3 do
+`procedimento-alimentacao.md`, **dentro de aspas, como exemplo de FORMATO**. A spec
+de 05/09 leu aquilo como medicao e promoveu a fato, e virou o portao do Bloco 2.
+
+Auditoria de 09/09/2026: o `612` nao existe como medicao em nenhum outro ponto do
+repo, e o `690` so existe como **"690 precos"** (volume da derivacao do consultor,
+`aprendizados.md`, entrada de 15/08), nao como linhas lidas de uma carga.
+
+**Licao para quem escreve reference:** numero em exemplo de formato vira numero de
+verdade dois documentos adiante. Ou o exemplo usa valores obviamente falsos
+(`X de Y`), ou carrega a data e a fonte da medicao. O portao virou comparacao
+pareada (D7): a tela nova nao pode cobrir menos que ESTA skill na mesma entrada.
+
+---
+
 ## 07/09/2026 — A calc vira produto, e a skill deixa de ser o unico caminho
 
 **Nao foi carga de preco. Foi mudanca de rumo do produto**, e ela muda o papel

@@ -132,8 +132,17 @@ explicita: *"nao reescreva, nao melhore, nao corrija acento"*.
 Sempre incluir no prompt:
 - o caminho do arquivo, para ele nao reconstruir o conteudo de cabeca;
 - cada verificacao com o **numero esperado**, e qual resultado e reprovacao grave;
-- a baseline de advisors (hoje **3 WARN**: `registrar_venda`, `remover_nf`, leaked
-  password protection), para "achado novo" ter significado;
+- a baseline de advisors, para "achado novo" ter significado. Medida em
+  **09/09/2026: SETE achados**, nao tres. Os quatro que entraram sao as RPCs do
+  Bloco 2 (`calc_carga_abrir`, `calc_carga_aprovar`, `calc_carga_descartar`,
+  `calc_pendencia_resolver`), somadas a `registrar_venda`, `remover_nf` e o
+  leaked password protection.
+  **Os quatro novos NAO sao achado, sao consequencia declarada do desenho:**
+  `SECURITY DEFINER` mais `grant execute to authenticated`, com a barreira de papel
+  no CORPO da funcao (`fn_papel_atual() <> 'dono'` levanta excecao), seguindo o
+  precedente que `registrar_venda` e `remover_nf` ja abriram. Quem tratar os quatro
+  como regressao vai cacar defeito que nao existe, ou pior, "consertar" tirando o
+  GRANT e quebrar a tela;
 - que ele **nao commita e nao empurra**. Quem commita e a Torre.
 
 ### 4.2 Subagente que trava
@@ -221,7 +230,8 @@ Checklist da secao 7 do runbook, mais o que e desta linha:
 - [ ] `diag_calc.py` nas tres larguras, se tocou `public/calc/`
 - [ ] falha nova isolada contra o `HEAD` antes de culpar a propria mudanca
 - [ ] prova nova cobrindo o que foi construido, com stub que **nao** usa valor real
-- [ ] `get_advisors(security)` sem achado novo alem dos 3 WARN
+- [ ] `get_advisors(security)` sem achado novo alem dos **7** de 09/09/2026 (os 4
+      `calc_*` do Bloco 2, `registrar_venda`, `remover_nf`, leaked password)
 - [ ] a query da restricao global 10 devolvendo **zero** (nenhuma FK de `calc_*`
       para tabela de operacao: a calc tem que poder sair inteira depois)
 - [ ] `git add <caminho>` explicito (`git add -A` esta **mecanicamente negado**)
@@ -293,6 +303,9 @@ O que o Bloco 1 ja entregou para ele, e evita retrabalho:
   junto com `calc_pendencia_resolver`. Ele nasceu **so leitura** de proposito.
 
 O portao do Bloco 2 e o mais importante do plano inteiro, e ele nao e tecnico: **o
-dono roda a carga do mes pela tela, sozinho, sem Claude Code**, com cobertura
-medida `>= 89%`. Abaixo disso o seed do Bloco 1 esta incompleto e o bloco nao
-fecha.
+dono roda a carga do mes pela tela, sozinho, sem Claude Code**, com
+cobertura **nao menor que a do caminho atual da skill, na MESMA entrada** (D7,
+09/09/2026). A mesma lista passa pelos dois caminhos e se comparam `casou / lidas /
+descartadas`. O antigo `>= 89%` caiu porque **o 89% nao tem medicao de origem**: o par
+`612 de 690` era exemplo de FORMATO em `procedimento-alimentacao.md:92`, promovido a
+fato pela spec de 05/09. Detalhe na secao 2.6b da spec.

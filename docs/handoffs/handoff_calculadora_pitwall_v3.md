@@ -298,8 +298,12 @@ silencioso: sempre `calc(a + b)`, com espaco.
 ### O portao do bloco continua sendo o mesmo, e ele NAO e tecnico
 
 **O dono roda a carga do mes inteira pela tela, sozinho, sem Claude Code**, com
-cobertura medida **>= 89%**. Abaixo disso o seed do Bloco 1 esta incompleto e o
-bloco nao fecha. Nenhuma prova de maquina substitui isso.
+cobertura **nao menor que a do caminho atual da skill, na MESMA entrada** (D7,
+09/09/2026). A mesma lista passa pelos dois caminhos e se comparam `casou / lidas /
+descartadas`. O antigo `>= 89%` caiu porque **o 89% nao tem medicao de origem**: o par
+`612 de 690` era exemplo de FORMATO em `procedimento-alimentacao.md:92`, promovido a
+fato pela spec de 05/09. Detalhe na secao 2.6b da spec.
+Nenhuma prova de maquina substitui isso.
 
 ---
 

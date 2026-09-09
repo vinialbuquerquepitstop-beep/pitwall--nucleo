@@ -360,6 +360,14 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   `calc(env(x, 0px) + 80px)` devolve `80px`. Efeito que estava no ar desde sempre: o
   `padding-bottom` do `body` das DUAS calcs era zero, entao a barra fixa de 64px cobria
   o fim do conteudo em todas as abas.
+  **`\b` em regex de Postgres e BACKSPACE, nao fronteira de palavra. Fronteira e
+  `\y`.** Mesma familia do `calc()` acima: sintaxe que falha em SILENCIO, sem erro. O
+  regex simplesmente nunca casa e a funcao devolve NULL calada. Medido em 09/09/2026,
+  valia para OITO regex do parser da calculadora:
+  ```
+  regexp_match('macbook air m4 13   ', '\b(11|13|14|15|16)\b')  ->  NULL
+  regexp_match('macbook air m4 13   ', '\y(11|13|14|15|16)\y')  ->  13
+  ```
   **Conferir o EXIT CODE, nunca o texto da saida.** `validar.py` imprime dezenas de
   linhas verdes e pode terminar em `REPROVOU:`; ler o texto por cima ja fez commitar
   vermelho. Ao assertar UI, consultar o DOM RENDERIZADO (so `#lista`), nunca
@@ -373,6 +381,15 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 - `CREATE OR REPLACE VIEW` derruba `security_invoker = on` em silencio: sempre seguir
   com `ALTER VIEW ... SET (security_invoker = on)` e conferir em `pg_class.reloptions`.
 - `CREATE OR REPLACE FUNCTION` reseta ACLs: refazer REVOKE/GRANT explicitos depois.
+- **Provas de BANCO (`ferramentas/prova_*.sql`) sao suite tambem, e ate 09/09/2026
+  nao estavam listadas em lugar nenhum.** Sao quatro: `prova_entrega.sql`,
+  `prova_escopo.sql`, `prova_molde.sql` e `prova_calc_parse.sql`. Rodam por MCP ou
+  pelo SQL Editor, terminam em `raise exception` DE PROPOSITO (para nao sujar
+  producao, ver a memoria `provar-rpc-sem-sujar-producao`), e por isso **o resultado
+  e a MENSAGEM (`PASSOU:` / `REPROVOU:`), nunca o exit code** — ao contrario dos onze
+  comandos acima, onde vale o exit code. Prova que nao esta em suite nenhuma nao roda
+  de novo: provou uma vez, virou arquivo morto, e a regressao volta calada. Foi essa
+  a falha que o `diag_calc.py` corrigiu para a geometria da calc.
 - MCP Supabase: `execute_sql` so devolve o resultado do ultimo statement do bloco;
   cada verificacao e uma chamada separada. `apply_migration` preferido para schema e
   insert em massa (lida com acento e payload grande, transacional).
