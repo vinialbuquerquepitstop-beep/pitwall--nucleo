@@ -498,7 +498,43 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v6.md` (10/09/2026, **JBL, margem alteravel,
+- topo: `handoff_calculadora_pitwall_v7.md` (10/09/2026, **a prova passa a cobrir o
+  `calc_parse_v2`, e acha um preco errado**). Item 1 da secao 5 do v6, fechado.
+
+  `ferramentas/prova_calc_parse.sql` agora roda **duas fixtures x duas versoes,
+  71 assercoes, 0 falhas**. O v1 NAO saiu da prova: e ele quem `calc_carga_abrir`
+  chama em producao, e as duas funcoes dividem os helpers, entao mexer em
+  `calc_limpar` mexe no caminho vivo. O domino do D10 e assertado nos DOIS
+  sentidos, cada versao pelo seu contrato. `fixture B pelo v1 = 0 de 12` e
+  assercao: e a medicao que justifica o v2 existir.
+
+  **O defeito: cor ANTES do preco, alternado, dava preco errado.**
+  `🟣 Roxo / 4.480 / 🟡 Gold / 4.520` devolvia Gold = 4480 e o 4.520 virava orfa.
+  `cor_assoc` desempatava por `p.ln`, e uma cor entre dois precos empata em
+  distancia com os dois: entregava o de CIMA, que ja era da cor anterior. No
+  layout "cor DEPOIS" o mesmo desempate acerta, e **metade dos casos dar certo foi
+  o que segurou o defeito no ar**. Classe PRECO ERRADO: a cobertura nao cai, entao
+  a medicao de 98,9% do v5 nao o pegaria nunca. **Segunda vez em duas sessoes que
+  cobertura alta mascara defeito.** Conserto em
+  `20260910_calc_parse_cor_pareada.sql`: pareamento por ORDEM quando ha uma cor
+  para cada preco nu, vizinho mais proximo quando as contagens nao batem.
+
+  `privado.calc_parse` (v1) intocado, medido antes e depois: 19746 e mesmo md5.
+  Advisors seguem em **8**, sem entrante. Suite: 20 execucoes, EXIT 0.
+
+  **Licao, mais dura que "prova fora de suite nao roda de novo": handoff que
+  afirma cobertura sem prova em arquivo envelhece para MENTIRA.** O v6 dava os
+  tres formatos de cor como cobertos porque as verificacoes rodaram em prompt de
+  subagente. Um deles estava quebrado.
+
+  Aviso guardado: `privado.calc_parse_v2` esta sem grant para `authenticated`, e
+  isso e DESENHO. Quem "consertar" dando grant abre caminho de execucao que nao
+  passa pela barreira de papel da RPC.
+
+  Proximo passo: o frontend do JBL e da margem sao os frutos baixos; **a tela
+  `Alimentar` continua sendo o que importa**, e o portao dela nao e tecnico.
+
+- anterior: `handoff_calculadora_pitwall_v6.md` (10/09/2026, **JBL, margem alteravel,
   e o emoji que comia o nome do produto**). Tres decisoes do dono e um defeito
   achado ao executar a primeira.
 
