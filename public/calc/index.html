@@ -360,6 +360,7 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
     <div class="cr"><span class="cl">À vista (cliente)</span><span class="cv vgr vbi" id="unav"></span></div>
     <div class="cr"><span class="cl">12x de</span><span class="cv" id="un12"></span></div>
     <div class="cr"><span class="cl">18x de</span><span class="cv" id="un18"></span></div>
+    <div class="cr" id="unsm" style="display:none"><span class="cl" style="line-height:1.4">⚠️ <b>Sem margem configurada</b> — defina a margem desta categoria em Configurações para calcular o preço de venda.</span></div>
     <div class="cw" id="uncw" style="display:none"><span class="cwl">🎨 cor do novo</span><div class="cl2" id="uncl"></div></div>
     <div class="chg" onclick="unClr()">✎ trocar</div>
   </div>
@@ -431,9 +432,11 @@ header{padding:20px 20px 0;display:flex;align-items:center;gap:12px}
     <div class="cfr"><div><div class="cfl">Desconto de entrada</div><div class="cfsb">Abatimento padrão no usado</div></div><div class="cfv">R$ <input type="number" class="cfi" id="cfd" value="300" oninput="cfSv()"></div></div>
     <div class="cfr"><div><div class="cfl">Exibir desconto no card</div><div class="cfsb">Mostrar −R$300 na avaliação</div></div><div class="tsw" id="cfsw" onclick="cfT300()"></div></div>
     <div class="cfr"><div><div class="cfl">Exibir menor custo</div><div class="cfsb">Mostrar o custo do usado no card</div></div><div class="tsw" id="cfswc" onclick="cfTcusto()"></div></div>
-    <div class="cfr"><div><div class="cfl">Margem iPhone/iPad/Watch</div><div class="cfsb">À vista / Parcelado</div></div><div class="cfv">R$<input type="number" class="cfi" id="cfia" value="550" oninput="cfSv()" style="width:65px"> / R$<input type="number" class="cfi" id="cfip" value="650" oninput="cfSv()" style="width:65px"></div></div>
-    <div class="cfr"><div><div class="cfl">Margem MacBook</div><div class="cfsb">À vista / Parcelado</div></div><div class="cfv">R$<input type="number" class="cfi" id="cfma" value="1200" oninput="cfSv()" style="width:65px"> / R$<input type="number" class="cfi" id="cfmp" value="1300" oninput="cfSv()" style="width:65px"></div></div>
   </div>
+  <div class="sc">💵 margem por categoria</div>
+  <div class="kh">À vista / Parcelado, em R$ sobre o custo. Campo <b>vazio</b> = sem margem definida, e a categoria não calcula preço de venda. <b>Zero</b> é margem legítima, e só as classes de custo puro usam.</div>
+  <div class="cfs" id="cfml"></div>
+  <div class="br"><button class="btn bbl bfu" id="cfmb" onclick="cfSaveM()">💾 salvar margens</button></div>
   <div class="sc">🔋 bateria genuína</div>
   <div class="cfs" id="cfbl"></div>
   <div class="sc">📱 tela frontal</div>
@@ -546,12 +549,20 @@ let TX={};
 let BAT=[],TELA=[],P=[];
 const TQL={jk:'JK/Vivid Incell',ba:'Basic Incell',pr:'Premium',or:'Original Retirada'};
 // ── UTILS ──
-let CFG={d:300,s300:false,scusto:true,iav:550,ipc:650,mav:1200,mpc:1300};
+let CFG={d:300,s300:false,scusto:true,margens:null,iav:550,ipc:650,mav:1200,mpc:1300};
 // Classes de custo puro (dono, 15/08/2026): entram na tabela pelo custo e NAO
 // recebem margem. Sem isso caem no else do mg() e ganham margem de iPhone.
 const SEMMARGEM=new Set(['1ª Linha','Garmin','Moto Elétrica']);
 function semMargem(c){return SEMMARGEM.has(c)}
-function mg(c){if(SEMMARGEM.has(c))return{av:0,pc:0};return c==='MacBook'?{av:CFG.mav,pc:CFG.mpc}:{av:CFG.iav,pc:CFG.ipc}}
+// mg() le CFG.margens (calc_dados.dados.config.margens), uma entrada por categoria.
+// null NAO e zero, e a diferenca custa dinheiro: zero e margem LEGITIMA (as classes
+// de custo puro vendem no custo de proposito), null e "ninguem definiu ainda" e NAO
+// produz preco de venda nenhum. Confundir os dois faz a categoria vender no custo
+// calada, ou herdar a margem de iPhone, que era o defeito do else antigo (fonte de
+// R$ 70 saindo a R$ 620).
+// Sem CFG.margens (blob antigo, ou o stub de ferramentas/prova_sem_margem.js) vale
+// o comportamento anterior a 10/09/2026, byte a byte: e o fallback, nao um extra.
+function mg(c){if(SEMMARGEM.has(c))return{av:0,pc:0};const M=CFG&&CFG.margens;if(!M)return c==='MacBook'?{av:CFG.mav,pc:CFG.mpc}:{av:CFG.iav,pc:CFG.ipc};const r=M[c];return(r&&typeof r.av==='number'&&typeof r.pc==='number')?{av:r.av,pc:r.pc}:null}
 function fmt(v){return'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fpt(v){return v.toFixed(1)+'%'}
 function r2(v){return Math.round(v*100)/100}
@@ -671,7 +682,7 @@ function vSel(idx){
   document.getElementById('vchint').textContent='Editável — '+p.n;
   document.getElementById('vmi').style.display='flex';
   const mg2=mg(p.c);
-  document.getElementById('vmit').innerHTML=semMargem(p.c)?`Cat <strong>${p.c}</strong> → <strong>só custo</strong>, sem preço de venda calculado`:`Cat <strong>${p.c}</strong> → à vista +<strong>R$${mg2.av}</strong> / parc +<strong>R$${mg2.pc}</strong>`;
+  document.getElementById('vmit').innerHTML=semMargem(p.c)?`Cat <strong>${p.c}</strong> → <strong>só custo</strong>, sem preço de venda calculado`:mg2===null?`Cat <strong>${p.c}</strong> → ⚠️ <strong>sem margem configurada</strong>, defina em Configurações para calcular o preço de venda`:`Cat <strong>${p.c}</strong> → à vista +<strong>R$${mg2.av}</strong> / parc +<strong>R$${mg2.pc}</strong>`;
   vRSeg(VS.idx);vCalc();
 }
 function vCC(btn,n,v){document.querySelectorAll('#vcl .corb').forEach(b=>b.className='corb');btn.className='corb ag';VS.cor=n;document.getElementById('vcusto').value=v;document.getElementById('vcst').textContent=fmt(v);vCalc();}
@@ -713,10 +724,14 @@ function vCalc(){
   if(fr>0){let m='';if(VS.fm==='a')m=`🏪 Loja assume <strong>${fmt(fr)}</strong>`;else if(VS.fm==='d')m=`✂️ Loja absorve <strong>${fmt(fa)}</strong> · Cliente paga <strong>${fmt(fc)}</strong>`;else m=`👤 Cliente paga <strong>${fmt(fr)}</strong>`;frr.innerHTML=m;frr.className='frr on';}else frr.className='frr';
   if(!cu){document.getElementById('ves').style.display='block';document.getElementById('vres').style.display='none';document.getElementById('val').className='al';document.getElementById('vabres').style.display='none';return;}
   document.getElementById('ves').style.display='none';document.getElementById('vres').style.display='block';
-  const cat=VS.cat||'iPhone';if(!VS.cat){document.getElementById('vmi').style.display='flex';const mg2=mg(cat);document.getElementById('vmit').innerHTML=`Cat <strong>${cat}</strong> → +<strong>R$${mg2.av}</strong> av / +<strong>R$${mg2.pc}</strong> parc`;}
+  const cat=VS.cat||'iPhone';if(!VS.cat){document.getElementById('vmi').style.display='flex';const mg2=mg(cat);document.getElementById('vmit').innerHTML=mg2===null?`Cat <strong>${cat}</strong> → ⚠️ <strong>sem margem configurada</strong>, defina em Configurações`:`Cat <strong>${cat}</strong> → +<strong>R$${mg2.av}</strong> av / +<strong>R$${mg2.pc}</strong> parc`;}
   // Classe de custo puro: nao existe preco de venda aqui. Esconder o bloco inteiro
   // em vez de exibir margem 0%, que acenderia o alerta vermelho de margem baixa.
   if(semMargem(cat)){document.getElementById('vres').style.display='none';document.getElementById('vabres').style.display='none';const alc=document.getElementById('val');alc.className='al on ay';alc.textContent='📦 '+cat+' — só custo. Esta categoria não tem preço de venda calculado.';return;}
+  // Margem NAO configurada e coisa diferente de margem zero. Espelha o bloco de
+  // cima e RETORNA antes de qualquer conta: preco derivado de margem ausente e
+  // preco inventado, mesma familia de "nao deixar linha nao entendida virar preco".
+  if(mg(cat)===null){document.getElementById('vres').style.display='none';document.getElementById('vabres').style.display='none';const alc=document.getElementById('val');alc.className='al on ay';alc.textContent='⚙️ '+cat+' — sem margem configurada. Defina a margem desta categoria em Configurações e o preço de venda aparece.';return;}
   const m=mg(cat);
   const cl=cu+fa;const avsf=cl+m.av;const av=avsf+fc;const pc=cl+m.pc+fc;
   const lav=m.av-fa;const lpc=m.pc-fa;const mav=(lav/av)*100;const mpc=(lpc/pc)*100;
@@ -826,16 +841,25 @@ function unSel(idx){
   unShow(p);UN.bi=P.indexOf(p);UN.si=-1;
   unRSeg(UN.bi);uCalc();
 }
+// Um so lugar escreve as tres linhas de preco do card do aparelho novo. Com margem
+// NAO configurada nao existe preco: as tres viram travessao e a linha de aviso
+// aparece com a palavra. Zero silencioso aqui passaria por preco de verdade.
+function unPreco(m){
+  const av=document.getElementById('unav'),d12=document.getElementById('un12'),d18=document.getElementById('un18'),sm=document.getElementById('unsm');
+  if(!m){av.textContent='—';d12.textContent='—';d18.textContent='—';if(sm)sm.style.display='flex';return;}
+  if(sm)sm.style.display='none';
+  av.textContent=fmt(UN.av);
+  const _b=PB(UN.pc);const t12=r2(_b*TX[12]);const t18=r2(_b*TX[18]);
+  d12.textContent=fmt(r2(t12/12));
+  d18.textContent=fmt(r2(t18/18));
+}
 function unShow(p){
   const c=cm(p);const m=mg(p.c);
-  UN.idx=P.indexOf(p);UN.cu=c;UN.nm=p.n;UN.cor='';UN.av=c+m.av;UN.pc=c+m.pc;
+  UN.idx=P.indexOf(p);UN.cu=c;UN.nm=p.n;UN.cor='';UN.av=m?c+m.av:0;UN.pc=m?c+m.pc:0;
   document.getElementById('unnm').textContent=p.n;
   document.getElementById('unfn').textContent=p.f+(p.l?' · '+p.l:'');
   document.getElementById('uncs').textContent=fmt(c);
-  document.getElementById('unav').textContent=fmt(UN.av);
-  const _b=PB(UN.pc);const t12=r2(_b*TX[12]);const t18=r2(_b*TX[18]);
-  document.getElementById('un12').textContent=fmt(r2(t12/12));
-  document.getElementById('un18').textContent=fmt(r2(t18/18));
+  unPreco(m);
   UN.cor=rCores(p,'uncl','uncw','ag','unCC');
 }
 function unRSeg(ip){
@@ -868,12 +892,9 @@ function unSS(i,btn){
 function unCC(btn,n,v){
   document.querySelectorAll('#uncl .corb').forEach(b=>b.className='corb');btn.className='corb ag';
   UN.cor=n;UN.cu=v;
-  const p=P[UN.idx];const m=mg(p.c);UN.av=v+m.av;UN.pc=v+m.pc;
+  const p=P[UN.idx];const m=mg(p.c);UN.av=m?v+m.av:0;UN.pc=m?v+m.pc:0;
   document.getElementById('uncs').textContent=fmt(v);
-  document.getElementById('unav').textContent=fmt(UN.av);
-  const _b=PB(UN.pc);const t12=r2(_b*TX[12]);const t18=r2(_b*TX[18]);
-  document.getElementById('un12').textContent=fmt(r2(t12/12));
-  document.getElementById('un18').textContent=fmt(r2(t18/18));
+  unPreco(m);
   uCalc();
 }
 function unClr(){document.getElementById('uns').value='';document.getElementById('undd').className='dd';document.getElementById('uncard').style.display='none';document.getElementById('uncb').className='cb';document.getElementById('unsi').style.display='block';document.getElementById('uncw').style.display='none';document.getElementById('unseg').className='segw';UN={idx:-1,bi:-1,si:-1,cu:0,av:0,pc:0,nm:'',cor:'',fm:UN.fm};uCalc();}
@@ -1306,7 +1327,9 @@ function oRender(){
   const f=OF.piso/100;
   // agrupa por modelo+tipo; acessório nunca entra no scanner
   const grp={};
-  P.forEach(p=>{if(p.c==='Acessório'||semMargem(p.c))return;const cst=cm(p);if(cst<=0)return;const k=p.n+'|'+p.t;(grp[k]=grp[k]||[]).push({p,cst});});
+  // Categoria sem margem CONFIGURADA tambem fica fora do scanner: nao ha margem
+  // para medir, e tratar ausencia como zero acenderia oferta que nao existe.
+  P.forEach(p=>{if(p.c==='Acessório'||semMargem(p.c))return;if(mg(p.c)===null)return;const cst=cm(p);if(cst<=0)return;const k=p.n+'|'+p.t;(grp[k]=grp[k]||[]).push({p,cst});});
   const rank={hot:3,hist:2,comp:1};
   const rows=[];
   Object.values(grp).forEach(list=>{
@@ -1319,7 +1342,7 @@ function oRender(){
     if(!sig)return;                       // sem sinal = não é oferta = fora do scanner
     if(OF.cat!=='all'&&p.c!==OF.cat)return;
     if(OF.tipo!=='all'&&p.t!==OF.tipo)return;
-    const m=mg(p.c),preco=custo+m.av,lucro=m.av,marg=lucro/preco*100;
+    const m=mg(p.c);if(!m)return;const preco=custo+m.av,lucro=m.av,marg=lucro/preco*100;
     const descMax=(lucro-f*preco)/(1-f);
     rows.push({p,custo,preco,lucro,marg,descMax,sig,nf:list.length});
   });
@@ -1380,12 +1403,13 @@ function rvCopy(){
   cp(`💳 *Cálculo reverso — total no cartão ${fmt(T)}*\n\n📆 12x de ${fmt(p12)}\n   Líquido loja: *${fmt(l12)}*\n\n📆 18x de ${fmt(p18)}\n   Líquido loja: *${fmt(l18)}*`,'✅ Copiado!');
 }
 // ════════ CONFIG ════════
+// CFG.iav/ipc/mav/mpc NAO saem do literal do CFG: eles seguem sendo o FALLBACK de
+// mg() quando o blob nao traz config.margens, e ferramentas/prova_sem_margem.js
+// assere exatamente isso. O que saiu foram os quatro CAMPOS da tela, que editavam
+// um par fixo e nunca salvavam: com par fixo, toda categoria nova exigia codigo
+// novo, e foi assim que Acessorio ficou esquecido levando margem de iPhone.
 function cfSv(){
   CFG.d=parseFloat(document.getElementById('cfd').value)||300;
-  CFG.iav=parseFloat(document.getElementById('cfia').value)||550;
-  CFG.ipc=parseFloat(document.getElementById('cfip').value)||650;
-  CFG.mav=parseFloat(document.getElementById('cfma').value)||1200;
-  CFG.mpc=parseFloat(document.getElementById('cfmp').value)||1300;
   if(VS.av>0)vCalc();if(UN.av>0)uCalc();
 }
 function cfT300(){
@@ -1399,6 +1423,69 @@ function cfTcusto(){
 }
 function cfSvB(i,v){BAT[i].v=parseFloat(v)||0;}
 function cfSvT(k,q,v){const r=TELA.find(t=>t.k===k);if(r)r[q]=parseFloat(v)||null;}
+// Uma linha por categoria, na ORDEM de KCATS e nao na ordem das chaves do objeto,
+// para a tela ficar estavel entre sessoes. Categoria que existe em KCATS e nao
+// existe em CFG.margens APARECE vazia: campo vazio tem que aparecer, senao quem
+// abre conclui que a categoria nao existe.
+// A distincao entre "sem margem definida" e "zero proposital" e carregada por
+// PALAVRA e ICONE, nao por matiz: cor sozinha nao separa os dois estados.
+function cfMTxt(av,pc){return(av===null||pc===null)?'⚠️ <b>sem margem definida</b> — não calcula preço de venda':'à vista / parcelado';}
+function cfMSub(i){
+  const a=document.getElementById('cfm'+i+'a'),p=document.getElementById('cfm'+i+'p'),s=document.getElementById('cfm'+i+'s');
+  if(!a||!p||!s)return;
+  const nv=x=>{const t=String(x).trim();return(t===''||isNaN(t))?null:parseFloat(t);};
+  s.innerHTML=cfMTxt(nv(a.value),nv(p.value));
+}
+function rCfgM(){
+  const el=document.getElementById('cfml');if(!el)return;
+  const M=(CFG&&CFG.margens)||{};
+  el.innerHTML=KCATS.map((c,i)=>{
+    const r=M[c]||{};
+    const av=typeof r.av==='number'?r.av:null;
+    const pc=typeof r.pc==='number'?r.pc:null;
+    // As tres classes de custo puro sao SOMENTE-LEITURA de proposito: o zero delas
+    // e decisao do dono de 15/08/2026, vive em SEMMARGEM e mg() ignora o que
+    // estiver no banco. Campo editavel aqui seria um campo que mente.
+    if(SEMMARGEM.has(c))
+      return '<div class="cfr"><div><div class="cfl">'+kEsc(c)+'</div><div class="cfsb">🔒 custo puro — zero proposital, vende no custo</div></div><div class="cfv">R$ '+(av===null?0:av)+' / R$ '+(pc===null?0:pc)+'</div></div>';
+    return '<div class="cfr"><div><div class="cfl">'+kEsc(c)+'</div><div class="cfsb" id="cfm'+i+'s">'+cfMTxt(av,pc)+'</div></div>'+
+      '<div class="cfv">R$<input type="number" class="cfi" id="cfm'+i+'a" value="'+(av===null?'':av)+'" placeholder="—" oninput="cfMSub('+i+')" style="width:65px"> / R$<input type="number" class="cfi" id="cfm'+i+'p" value="'+(pc===null?'':pc)+'" placeholder="—" oninput="cfMSub('+i+')" style="width:65px"></div></div>';
+  }).join('');
+}
+// Monta o payload das NOVE categorias. A RPC calc_config_margem_salvar SUBSTITUI o
+// objeto {config,margens} INTEIRO, entao manda-se sempre a lista completa, nunca um
+// pedaco, e sempre com as DUAS chaves av e pc presentes (ausente, a RPC levanta
+// excecao). Campo VAZIO vira null EXPLICITO, JAMAIS zero: zero e margem legitima e
+// faria a categoria passar a vender no custo sem ninguem pedir.
+function cfMLer(){
+  const M=(CFG&&CFG.margens)||{};const out={};
+  KCATS.forEach((c,i)=>{
+    if(SEMMARGEM.has(c)){const r=M[c]||{};out[c]={av:typeof r.av==='number'?r.av:0,pc:typeof r.pc==='number'?r.pc:0};return;}
+    const nv=id=>{const el=document.getElementById(id);if(!el)return null;const t=String(el.value).trim();return(t===''||isNaN(t))?null:parseFloat(t);};
+    out[c]={av:nv('cfm'+i+'a'),pc:nv('cfm'+i+'p')};
+  });
+  return out;
+}
+async function cfSaveM(){
+  const b=document.getElementById('cfmb');
+  // Sem sessao o cliente supabase nao existe (ele vive no IIFE do login). Dizer
+  // isso e melhor do que estourar TypeError num botao.
+  if(typeof window.salvarMargens!=='function'){toast('⚠️ Sem sessão: entre de novo para salvar as margens.');return;}
+  const m=cfMLer();
+  for(const c in m){const r=m[c];if((r.av!==null&&r.av<0)||(r.pc!==null&&r.pc<0)){toast('⚠️ '+c+': margem negativa não é aceita.');return;}}
+  const rot=b.textContent;b.disabled=true;b.textContent='salvando...';
+  let res;
+  try{res=await window.salvarMargens(m);}catch(e){res={error:{message:e.message}};}
+  b.disabled=false;b.textContent=rot;
+  // Erro do banco aparece com a mensagem do banco. Engolir em silencio aqui e
+  // deixar o dono achar que salvou.
+  if(!res||res.error){toast('⛔ Não salvou: '+((res&&res.error&&res.error.message)||'resposta vazia da RPC'));return;}
+  CFG.margens=m;
+  const n=(res.data&&res.data.categorias)||Object.keys(m).length;
+  toast('✅ '+n+' categorias gravadas');
+  rCfgM();
+  if(VS.av>0)vCalc();if(UN.av>0)uCalc();
+}
 function rCfgB(){
   document.getElementById('cfbl').innerHTML=BAT.map((b,i)=>`<div class="cfr"><div><div class="cfl">${b.k}</div></div><div class="cfv">R$ <input type="number" class="cfi" value="${b.v}" oninput="cfSvB(${i},this.value)"></div></div>`).join('');
 }
@@ -1468,8 +1555,8 @@ function aplicarDados(D){
   if(D.config) Object.assign(CFG,D.config);
   TX=CFG.taxas||{};   // fonte unica: calc_dados.dados.config.taxas
   const setv=(id,v)=>{const el=document.getElementById(id); if(el&&v!=null) el.value=v;};
-  setv('cfd',CFG.d); setv('cfia',CFG.iav); setv('cfip',CFG.ipc); setv('cfma',CFG.mav); setv('cfmp',CFG.mpc);
-  rCfgB(); rCfgT();
+  setv('cfd',CFG.d);
+  rCfgB(); rCfgT(); rCfgM();
   document.getElementById('cfsw').className='tsw'+(CFG.s300?' on':'');
   document.getElementById('cfswc').className='tsw'+(CFG.scusto?' on':'');
 }
@@ -1490,7 +1577,9 @@ function boot(){
 //      que a funcionalidade nao existe.
 //   2. Toda secao DECLARA a contagem que esta mostrando. Tela que omite o
 //      recorte mente por omissao.
-const KCATS=['iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica'];
+// JBL entrou por ULTIMO de proposito: e a nona categoria do CHECK de calc_modelo,
+// e a ordem daqui e a ordem que o catalogo e a aba Config exibem.
+const KCATS=['iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica','JBL'];
 const KTIPO={modelo:'modelo',cor:'cor',condicao:'condição',fornecedor:'fornecedor'};
 function kEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 // Um so lugar decide o que aparece quando nao ha linha: erro diz o erro, vazio
@@ -1648,6 +1737,15 @@ function kRender(){
       return;
     }
     window.DADOS=r.data.dados;
+    // O cliente `sb` so existe dentro deste IIFE. A aba Config atravessa a
+    // fronteira por aqui, mesmo padrao de window.CATALOGO. Exposta SO no caminho
+    // do papel `dono`, que e o unico que chega nesta funcao.
+    // A RPC substitui {config,margens} inteiro e valida chave por chave: quem
+    // manda pedaco, ou categoria fora do catalogo, recebe excecao do banco.
+    window.salvarMargens=async function(m){
+      try{ return await sb.rpc('calc_config_margem_salvar',{p_margens:m}); }
+      catch(e){ return {data:null,error:{message:e.message}}; }
+    };
     try{ boot(); }catch(err){ mostrarErro('Erro ao iniciar: '+err.message); return; }
     carregarCatalogo();
     esconderInternoSeNaoDono();
