@@ -498,7 +498,41 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v5.md` (10/09/2026, **o parser vai de 0% a 98,9%
+- topo: `handoff_calculadora_pitwall_v6.md` (10/09/2026, **JBL, margem alteravel,
+  e o emoji que comia o nome do produto**). Tres decisoes do dono e um defeito
+  achado ao executar a primeira.
+
+  **D11** JBL Boombox 4 entra, categoria propria (nona do CHECK), seguindo o
+  precedente de `Garmin` e `Moto Elétrica`. A categoria vive em QUATRO lugares e
+  tres seguem pendentes de frontend (`KCATS`, `SEMMARGEM`, `prova_catalogo.js`).
+
+  **D12** margem alteravel. Ao implementar, dois achados: **a D4 nunca foi
+  implementada** (`aav`/`apc` nao existem no codigo, entao `Acessório` leva margem
+  de iPhone e uma fonte de R$ 70 sai a R$ 620), e **as margens ja eram editaveis
+  mas nunca salvas** (`CFG` nao ia para lugar nenhum, e `calc_dados` tinha so
+  policy de SELECT). Entrou `config.margens` por categoria mais a RPC
+  `calc_config_margem_salvar`. `null` = nao configurada, nunca zero.
+  **Licao: decisao registrada no handoff nao e decisao implementada.**
+
+  **D13** validacao de fornecedor que NAO adivinha: dos 17 fornecedores, oito sao
+  nome de pessoa, e nenhuma heuristica separa `Cristiano` (loja) de `Irajá`
+  (bairro) sem falso positivo semanal, que treina a pessoa a clicar "ok" sem ler.
+  `fornecedor_conferir` expoe o que foi ignorado, com um alarme conservador.
+
+  **O defeito: emoji colado come o nome.** `'*🎼JBL BOOMBOX 4*'` gera o token
+  `🎼jbl`, nunca `jbl`. O MP escreve sem espaco, o BR10 com. **Terceira aparicao
+  da classe PERDA SILENCIOSA**, e o MP fechava 100% porque quase tudo dele casava
+  por apelido, que atravessa o emoji: cobertura alta MASCARAVA o defeito.
+  Conserto em `calc_limpar` (so a linha crua) e nao em `calc_tokens` (que tocaria
+  o catalogo). **Unica mudanca da sessao que toca o caminho vivo**, porque o v1
+  tambem usa `calc_limpar`.
+
+  Proximo passo, sem mudanca desde o v5: **`prova_calc_parse.sql` primeiro**, que
+  prova o v1 enquanto tudo o que duas sessoes construiram esta no v2 sem prova
+  nenhuma. Depois o frontend e a tela. Advisors agora **8**, o entrante e a RPC
+  nova e nao e regressao.
+
+- anterior: `handoff_calculadora_pitwall_v5.md` (10/09/2026, **o parser vai de 0% a 98,9%
   contra lista real, e a D7 esta paga**). A medicao que o v4 pediu reprovou tudo: das
   136 linhas com preco das duas listas do dono (ATACADO BR10 e MP IMPORTS), **zero**
   traziam nome de produto ou capacidade na mesma linha do preco. O parser lia LINHA;
