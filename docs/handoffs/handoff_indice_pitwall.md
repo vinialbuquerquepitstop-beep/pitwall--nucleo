@@ -498,7 +498,45 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v4.md` (09/09/2026, **o portao dos 89% cai, e o
+- topo: `handoff_calculadora_pitwall_v5.md` (10/09/2026, **o parser vai de 0% a 98,9%
+  contra lista real, e a D7 esta paga**). A medicao que o v4 pediu reprovou tudo: das
+  136 linhas com preco das duas listas do dono (ATACADO BR10 e MP IMPORTS), **zero**
+  traziam nome de produto ou capacidade na mesma linha do preco. O parser lia LINHA;
+  as listas escrevem em BLOCO. Cobertura 0%, e o teto era zero, nao amostra ruim.
+
+  Fechou em **92 de 93 (98,9%)**, com cinco migrations aplicadas e provadas
+  (commits `9486f25` e `81554e7`). Escala junto: 40 linhas saiu de **26,4 s para
+  0,48 s**, de quadratico para linear.
+
+  **As 18 fixtures sinteticas da fatia 1 casavam 11 de 11 porque foram escritas no
+  formato que o parser ja lia.** Fixture escrita por quem escreveu o parser prova o
+  parser contra si mesmo: e a licao mais cara da sessao, e o motivo de medir contra
+  dado real antes de construir tela.
+
+  Tres decisoes novas: **D8** (consertar o parser SQL em vez de antecipar o LLM do
+  Bloco 5), **D9** (os tres itens numa migration so) e **D10** (o papel `quebra` sai;
+  ele derrubou 25, 14 e 28 linhas em tres rodadas, sempre pela mesma causa).
+
+  **D10 deixa um REQUISITO para a tela, nao uma observacao:** a trava contra preco no
+  fornecedor errado saiu do parser e passou a morar na conferencia. A tela do Bloco 2
+  **tem que mostrar os fornecedores detectados de forma dificil de ignorar**, senao a
+  defesa nao existe em lugar nenhum.
+
+  **Achado que ninguem procurava: perda silenciosa.** `AirPods 4 - COM cancelamento
+  de ruído` casava com `AirPods 4` (sem ANC); os dois viravam um produto so e
+  `min(preco)` ficava com R$ 850,00, com o ANC de R$ 1.250,00 **sumindo do blob sem
+  virar pendencia**. Licao: cobertura baixa GRITA (vira pendencia na tela); perda
+  silenciosa nao faz barulho, e so ela merece prova dedicada.
+
+  Proximo passo, nesta ordem: **`prova_calc_parse.sql` ganhar os casos de bloco**
+  (ela prova o v1; tudo o que a sessao construiu esta no v2 e nao tem prova em suite
+  nenhuma), depois a tela `Alimentar` com a promocao do v2 junto.
+  `calc_carga_abrir` ainda chama o v1: **nada disto esta no ar**.
+
+  Aberto: **D4a** (comissao de acessorio), **JBL Boombox 4** (entra no catalogo ou
+  nao), 7 linhas de catalogo faltando, **T8** e **T9**.
+
+- anterior: `handoff_calculadora_pitwall_v4.md` (09/09/2026, **o portao dos 89% cai, e o
   proximo passo NAO e a tela**). O plano manda construir a tela do Bloco 2; a sessao
   concluiu que ha um passo antes: **medir o parser contra uma lista REAL**, porque ele
   so foi provado contra 18 linhas sinteticas escritas a mao, e a fatia 1 entregou
