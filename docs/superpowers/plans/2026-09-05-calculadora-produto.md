@@ -892,7 +892,15 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   ->  2.4a ter  ->  2.4a quater  ->  2.4b  ->  2.4c
 ```
 
-- [ ] **2.4a zero — O cabecalho candidato chega a pendencia.** Hoje, sem fornecedor
+- [x] **2.4a zero — FECHADO em 11/09/2026** (handoff v10). Migration
+  `20260911_calc_parse_condicao_e_cabecalho.sql`, gerada por script a partir do
+  corpo vivo; md5 novo do v2 `e4b7f4ad8ecd66edc784ba8d43a7fbc8`. Entraram as quatro
+  coisas abaixo (cabecalho, pergunta por fornecedor, heranca D15, misto vira
+  pergunta). Prova **PASSOU, 75 assercoes**, fixture D e secao Z. **Ficou de fora,
+  e e a proxima fatia:** o leitor RECEBER as respostas de condicao da carga (muda a
+  assinatura do v2: `drop` e `create`) e o verbo novo no resolver (`calc_pendencia`
+  tem check em `decisao`: `apontar`/`descartar`/`ignorar`, entao e DDL).
+- **2.4a zero — texto original do item:** O cabecalho candidato chega a pendencia. Hoje, sem fornecedor
   anterior, a linha de cabecalho desconhecida some e as linhas abaixo dela caem numa
   pendencia so, `(sem cabecalho antes da lista)`, que nao nomeia ninguem. No dia 1 de
   um cliente e TODA lista. O leitor tem que devolver o texto do cabecalho candidato
@@ -946,12 +954,26 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   A pergunta por fornecedor da D14 fica para as linhas ANTES da primeira condicao
   daquele fornecedor.
 
-  **Ponto aberto que so o dono responde:** hoje, dentro de uma secao com banner
-  (`SEMINOVOS`), uma linha que escreve `lacrado` vale como excecao SO dela, e a linha
-  de baixo volta a ser `Seminovo`. Pela regra literal ("ate aparecer a proxima"), a
-  linha de baixo passaria a `Lacrado`. Proposta: banner define a SECAO, e condicao
-  escrita na linha dentro de secao com banner e excecao daquela linha; sem banner
-  ativo, a condicao da linha passa para as seguintes.
+  **D15 — A regra da condicao, fechada pelo dono em 11/09/2026.** Respostas citadas
+  exatas: *"a, sim"* e *"b, nesse caso, passam a ser a condição de cima. no caso,
+  lacrado. a menos que seja uma lista com o titulo misto, e condições mista. ai,
+  vale o que esta na linha."*
+
+  1. Condicao escrita na propria linha vale para ela.
+  2. Linha sem condicao herda a ULTIMA condicao declarada daquele fornecedor, venha
+     ela de banner, de cabecalho de bloco (`(CPO)`) ou de linha de modelo.
+     **Inclusive dentro de secao com banner:** `SEMINOVOS`, depois uma linha com
+     `lacrado`, e as de baixo passam a `Lacrado`. **Decisao consciente CONTRA a
+     recomendacao**, que tratava a linha como excecao so dela. Registrada e nao se
+     reabre.
+  3. **Titulo misto** (banner com condicoes incompativeis, `LACRADOS E SEMINOVOS`):
+     ali NAO ha heranca. Cada linha vale pelo que ela diz, e linha sem condicao sob
+     titulo misto vira pergunta.
+  4. Linhas antes da primeira condicao daquele fornecedor: UMA pergunta por
+     fornecedor, por lista (D14 revisada).
+  5. `CPO` com `Lacrado` no mesmo lugar e `CPO`. `Seminovo` junto de outra condicao
+     no mesmo lugar (linha ou banner) vira pergunta.
+  6. Fornecedor novo zera a condicao corrente (medido: ja e assim).
 
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de

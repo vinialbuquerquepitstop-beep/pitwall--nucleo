@@ -12,11 +12,12 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v9.md` (o produto novo: Blocos 0 e 1 fechados, o 2
-   com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
-   dado, a 2.4a bis fechada, com o laco de aprendizado recusando resposta que nao
-   ensina, e **a tela ainda por fazer, esperando o `2.4a zero`**: o nome de
-   fornecedor desconhecido no topo da lista nao chega a pendencia),
+   `handoff_calculadora_pitwall_v10.md` (o produto novo: Blocos 0 e 1 fechados, o
+   2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
+   dado, a 2.4a bis e o `2.4a zero` fechados: o laco recusa resposta que nao ensina,
+   o fornecedor desconhecido chega a pendencia e a condicao segue a regra do dono
+   (D14/D15). **A tela ainda por fazer**, e a proxima fatia e o leitor receber as
+   respostas de condicao),
    `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
    que e so uma PONTE curta.
    Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no
@@ -387,7 +388,13 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   exatamente um registro append-only com valor antes e depois.
 - `CREATE OR REPLACE VIEW` derruba `security_invoker = on` em silencio: sempre seguir
   com `ALTER VIEW ... SET (security_invoker = on)` e conferir em `pg_class.reloptions`.
-- `CREATE OR REPLACE FUNCTION` reseta ACLs: refazer REVOKE/GRANT explicitos depois.
+- REVOKE/GRANT explicitos depois de todo `CREATE OR REPLACE FUNCTION`, sempre.
+  Correcao de 11/09/2026: este bloco dizia que o `replace` RESETA a ACL. Medido no
+  `privado.calc_parse_v2` (ACL identica antes e depois) e e o que a documentacao do
+  Postgres diz: `create or replace` PRESERVA dono e permissoes. Quem reseta e
+  `DROP` + `CREATE`, que e o caminho obrigatorio para mudar a assinatura (argumento
+  novo por `replace` cria SOBRECARGA, nao substitui). A regra de refazer fica,
+  porque custa nada e cobre o `drop`; o motivo e que estava errado.
 - **Provas de BANCO (`ferramentas/prova_*.sql`) sao suite tambem, e ate 09/09/2026
   nao estavam listadas em lugar nenhum.** Sao quatro: `prova_entrega.sql`,
   `prova_escopo.sql`, `prova_molde.sql` e `prova_calc_parse.sql`. Rodam por MCP ou

@@ -498,7 +498,26 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v9.md` (11/09/2026, **o laco de aprendizado
+- topo: `handoff_calculadora_pitwall_v10.md` (11/09/2026, **o fornecedor
+  desconhecido chega a pendencia, e a condicao segue a regra do dono**). O
+  `2.4a zero`, na mesma sessao do v9. Commit `b82563d`.
+
+  Leitor v2 gerado POR SCRIPT a partir do corpo vivo (11 trocas conferidas, md5 novo
+  `e4b7f4ad...`). Lista que abre com fornecedor fora do catalogo passa a gerar
+  `fornecedor "TABELA XPTO IMPORTS"` em vez da sentinela, e **ensinar esse
+  fornecedor funciona** (era o bloqueador do `criar`). E a condicao segue a D14
+  revisada e a D15: herda a ultima declarada do fornecedor, titulo misto nao herda,
+  Seminovo junto de outra pergunta, pergunta de "sem condicao" uma por fornecedor.
+  Fixture D: **os mesmos 11 de 16, mas de 3 precos errados calados para 0.**
+  **PASSOU, 75 assercoes.**
+
+  **Decisao aberta para o dono:** com o texto real, `descartar` fornecedor passou a
+  funcionar e descarta o BLOCO INTEIRO dele em toda lista futura (contado em
+  `n_descarte`, nao some). Manter com a tela dizendo isso por extenso, ou recusar.
+  **Correcao no `CLAUDE.md`:** `create or replace` PRESERVA a ACL; quem reseta e
+  `drop`+`create`, que e o que a proxima fatia (argumento novo no v2) vai precisar.
+
+- anterior: `handoff_calculadora_pitwall_v9.md` (11/09/2026, **o laco de aprendizado
   para de aceitar resposta calada**). Fatia 2.4a bis, fechada, e maior do que o
   plano pedia.
 
