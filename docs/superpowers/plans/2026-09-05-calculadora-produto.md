@@ -197,6 +197,24 @@ Valem para todos os blocos, sem repetir:
   O 89% sobrevive so como **alvo declarado do dono**, nunca como baseline medida.
 
 - [x] **D14 — Linha sem condicao: condicao padrao por fornecedor? (11/09/2026)**
+  **REVISADA pelo dono na mesma sessao, e a revisao e a que vale:** *"na verdade,
+  pergunte quando nao houver condição descrita"*. **A opcao A abaixo CAIU.**
+  - Lista em que um fornecedor nao descreve a condicao gera **UMA pergunta por
+    fornecedor, por lista**. A resposta vale para AQUELA lista, nao vira padrao
+    silencioso.
+  - A resposta da lista anterior daquele fornecedor aparece **pre-selecionada como
+    sugestao**: desempata, e nada entra sem a confirmacao. Com isso a regra da spec
+    "o perfil desempata, nunca decide" **volta a nao ter excecao**, e o risco aceito
+    na opcao A (seminovo entrando calado como padrao) deixa de existir.
+  - Custo: um clique por fornecedor sem condicao, em toda lista. O contador
+    `n_cond_padrao` proposto abaixo nao e mais necessario.
+  - Implementacao: a pendencia de condicao passa a ser uma por fornecedor (isso nao
+    mudou, e segue junto com o `2.4a zero`), e o leitor passa a receber as respostas
+    DAQUELA carga ao reprocessar. Isso muda a assinatura de `privado.calc_parse_v2`:
+    **argumento novo nao entra por `create or replace`, cria SOBRECARGA**. E `drop` e
+    `create`, e a assercao E3 da prova so olha `public`, entao conferir `privado` a mao.
+
+  Registro da primeira resposta, que ficou sem efeito:
   **Sim, opcao A, sem marca na linha e valendo tambem para CPO.** Resposta do dono,
   citada exata: *"a"*. **Decisao consciente CONTRA a recomendacao**, que era a opcao
   B (mesmo padrao, mas a linha marcada `condicao presumida` na tela e o padrao nunca
@@ -882,9 +900,32 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   parser, no territorio da D10/D13 (bairro x loja), e por isso muda o md5 de record do
   v2 e passa pelas secoes A, B, D e E da prova inteira.
   **Leva junto a parte de leitor da D14** (11/09): a pendencia de condicao passa a
-  ser uma por fornecedor, em vez de uma so para a carga inteira. Mesmo trecho do
-  leitor, uma mexida so no v2. O resto da D14 (a coluna `perfil`, a resposta que
-  grava `condicao_padrao` e o leitor aplicando o padrao) fica na 2.4b.
+  ser uma por fornecedor, em vez de uma so para a carga inteira, e o leitor passa a
+  receber as respostas da carga ao reprocessar. Mesmo trecho do leitor, uma mexida
+  so no v2.
+
+  **Achado de 11/09, e ele e da classe PRECO ERRADO:** duas condicoes
+  INCOMPATIVEIS no mesmo lugar sao decididas pela `prioridade` da regra, calado.
+  Medido no v2:
+
+  | Onde | Texto | Sai como | Certo? |
+  |---|---|---|---|
+  | banner | `LACRADOS E SEMINOVOS` | TODAS as linhas `Lacrado` | **nao**: o seminovo de 2.700 vira o menor custo de lacrado |
+  | linha | `seminovo, era lacrado` | `Lacrado` | **nao** |
+  | linha | `seminovo cpo` | `CPO` | ambiguo |
+  | linha | `lacrado importado cpo caixa branca` | `CPO` | sim (CPO vem lacrado; assercao A2) |
+  | cabecalho `(CPO)` + banner `Lacrado` | | `CPO`, `n_cond_conflito=1` | sim |
+
+  E o que ja sai certo, medido: dois banners na mesma lista (cada bloco com a sua),
+  o mesmo modelo nas duas condicoes (dois produtos), a linha ganhando do banner, e o
+  banner NAO vazando para o fornecedor seguinte. O banner VAZA para o bloco de modelo
+  seguinte do mesmo fornecedor, que e o certo para lista em secao (`LACRADOS` e
+  depois varios modelos).
+
+  **Proposta, aguardando o dono:** `CPO` com `Lacrado` segue `CPO` (sao
+  compativeis). `Seminovo` junto de `Lacrado` ou de `CPO`, na linha ou no banner,
+  vira PERGUNTA, e a linha nao entra no blob ate a resposta. E a mesma regra da D14
+  revisada: quando a condicao nao esta clara, pergunta.
 
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de

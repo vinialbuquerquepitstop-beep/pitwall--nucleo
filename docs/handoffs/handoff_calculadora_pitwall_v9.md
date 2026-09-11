@@ -277,13 +277,24 @@ aqui com `git status` e `git log -3` antes de commitar.
 | 5 | Isolamento vendedor/tenant na secao G | nada | pequeno |
 | 6 | Derrubar o v1 | o portao do Bloco 2 | pequeno |
 
-**Item 2 DECIDIDO na mesma sessao, 11/09/2026: D14 do plano, opcao A** (resposta do
-dono: *"a"*). Condicao padrao por fornecedor, sem marca na linha, valendo tambem para
-CPO. **Decisao consciente contra a recomendacao** (que era a B, abaixo). Nao se
-reabre. Consequencias de implementacao na D14: a spec 4.4 ganha UMA excecao nomeada;
-o padrao nasce da resposta do dono, nao de carga aprovada; e a pendencia de condicao
-tem que virar uma por fornecedor, o que vai JUNTO com o `2.4a zero` (mesmo trecho do
-leitor). Registro da pergunta como foi feita:
+**Item 2 DECIDIDO na mesma sessao, 11/09/2026, D14 do plano, e REVISADO pelo dono
+minutos depois.** Primeira resposta: opcao A (*"a"*). Revisao, que e a que vale:
+*"na verdade, pergunte quando nao houver condição descrita"*. Linha sem condicao
+gera UMA pergunta por fornecedor, por lista, com a resposta da lista anterior
+pre-selecionada como sugestao. A spec 4.4 fica SEM excecao e o risco da opcao A
+some. A pendencia de condicao vira uma por fornecedor, JUNTO com o `2.4a zero`, e o
+leitor passa a receber as respostas da carga (argumento novo no v2: `drop` e
+`create`, nunca `create or replace`, que criaria sobrecarga).
+
+**E o dono perguntou o caso seguinte, "e quando houver duas condicoes na lista?"**
+Medido em 10 listas sinteticas, detalhe na tabela do `2.4a zero` no plano: dois
+banners, o mesmo modelo nas duas condicoes, linha contra banner e banner entre
+fornecedores saem CERTOS. **Condicoes incompativeis no MESMO lugar saem ERRADAS,
+caladas:** o banner `LACRADOS E SEMINOVOS` grava tudo como `Lacrado`, e o seminovo
+vira o menor custo de lacrado. Proposta levada ao dono: `CPO` + `Lacrado` segue
+`CPO`; `Seminovo` junto de outra condicao vira pergunta.
+
+Registro da pergunta original como foi feita:
 
 **A pergunta do item 2, com o efeito na mesa** (PROCESSO, secao 6): hoje uma lista
 em que o fornecedor nao escreve a condicao em linha nenhuma (fixture C, `Junior
