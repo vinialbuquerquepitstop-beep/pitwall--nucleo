@@ -498,7 +498,34 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v7.md` (10/09/2026, **a prova passa a cobrir o
+- topo: `handoff_calculadora_pitwall_v8.md` (10/09/2026, **a margem deixa de ser
+  chumbada e o parser v2 vira o caminho vivo**). Itens 1, 2 e 4 da secao 5 do v7,
+  fechados. Dois commits: `9a9f79e` e `f2d7c4c`.
+
+  **`mg()` passa a ler `config.margens`, e margem `null` NAO vira preco.** JBL ganha
+  categoria propria e `Acessório` sai do `else` que lhe dava margem de iPhone (uma
+  fonte de R$ 70 saia a R$ 620). `null` = nao configurada, nunca zero, porque zero e
+  margem legitima das classes de custo puro. Efeito visivel: `Acessório` e `JBL`
+  param de sugerir preco de venda ate o dono definir. A aba Config virou uma linha
+  por categoria e SALVA, pela `calc_config_margem_salvar`, que existia desde o v6 e
+  nunca tivera consumidor. `prova_catalogo.js`: 50 -> 119 assercoes.
+
+  **`calc_carga_abrir` chama o `calc_parse_v2` agora**, e `fornecedor_conferir`
+  viaja no `resumo` no MESMO commit: promover sozinho apagaria a defesa da D10, que
+  saiu do parser e foi morar nesse campo. O v1 saiu do laco da prova (**PASSOU, 49
+  assercoes**, eram 71, e a queda foi calculada do diff antes de rodar e bateu
+  exata). O v1 fica no banco sem chamador: **divida declarada, derrubar quando o
+  portao do Bloco 2 fechar.**
+
+  **A tela `Alimentar` NAO foi construida, de proposito.** OUTRA sessao viva na
+  mesma pasta commitou `e5fb748` quatro minutos antes, criou a fatia **2.4
+  (aprendizado de fornecedor)**, **mudou a ordem dos blocos** (o 5 subiu para antes
+  do 3 e do 4) e achou um defeito no passo 3 da tela: `calc_alias.aponta` sem FK nem
+  check, e `calc_pendencia_resolver` sem validar destino, entao apelido para
+  fornecedor novo grava calado e nao casa nada. Conferido por medicao propria.
+  **A tela espera a 2.4.**
+
+- anterior: `handoff_calculadora_pitwall_v7.md` (10/09/2026, **a prova passa a cobrir o
   `calc_parse_v2`, e acha um preco errado**). Item 1 da secao 5 do v6, fechado.
 
   `ferramentas/prova_calc_parse.sql` agora roda **duas fixtures x duas versoes,
