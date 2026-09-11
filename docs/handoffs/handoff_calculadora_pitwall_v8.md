@@ -31,7 +31,13 @@ mesma introduziu no caminho**:
 | `9a9f79e` | JBL na calc, e a margem por categoria lendo o banco e salvando |
 | `f2d7c4c` | o parser v2 promovido a caminho vivo, com a defesa da D10 junto |
 | `2fd7abe` | este handoff e o indice |
-| (o ultimo) | **`calc_pendencia_resolver` promovido tambem, mais a secao E da prova** |
+| `3b88c61` | **`calc_pendencia_resolver` promovido tambem, mais a secao E da prova** |
+| `790fd9d` | o indice registrando a promocao pela metade |
+
+**Empurrados** (`5f6c698..790fd9d`), junto com o `e5fb748` da outra sessao.
+**Deploy provado**, nao presumido: `curl` em `/calc/` devolve md5
+`7e646d01fbfe11f8d335e51871d16a8e`, 135518 bytes, **identico ao disco sem precisar
+normalizar CRLF**.
 
 **A tela `Alimentar` (item 3) NAO foi construida, e a razao nao e falta de tempo.**
 Ver a secao 5.
@@ -288,6 +294,50 @@ Entao: a tela espera a 2.4. Isso e decisao registrada, nao tarefa esquecida.
 | 4 | Comissao alteravel | Bloco 3 | decisao ja tomada |
 | 5 | Modelos e cor que faltam no catalogo | cobertura | insert |
 
+### Comece a 2.4 por aqui, ja medido em 11/09/2026
+
+O desenho e da outra sessao:
+`docs/superpowers/specs/2026-09-10-aprendizado-de-fornecedor.md`, secoes **3.1** e
+**7**. Leia antes de tocar em `calc_pendencia_resolver`.
+
+Estado do que a 2.4 mexe, medido, nao herdado:
+
+```sql
+with T as (select '00000000-0000-0000-0000-000000000001'::uuid as t),
+a as (select tipo, texto, aponta from public.calc_alias, T where tenant_id = T.t)
+select
+  (select count(*) from a) as aliases_tenant,
+  (select count(*) from a where tipo='modelo' and not exists (
+      select 1 from public.calc_modelo m, T where m.codigo=a.aponta and m.tenant_id=T.t)) as modelo_orfao,
+  (select count(*) from a where tipo='fornecedor' and not exists (
+      select 1 from public.calc_fornecedor f where f.codigo=a.aponta)) as fornecedor_orfao,
+  (select count(*) from a where tipo='cor' and not exists (
+      select 1 from public.calc_cor c, T where c.codigo=a.aponta and c.tenant_id=T.t)) as cor_orfa;
+```
+
+Esperado: **61, 0, 0, 0**. Mais 40 aliases de semente (`tenant_id is null`), e os
+tipos em uso sao `modelo`, `cor`, `fornecedor`, `condicao` (9 de condicao).
+
+**O defeito e LATENTE, nao ativo, e isso muda o trabalho.** `calc_alias.aponta` nao
+tem FK nem check, e `calc_pendencia_resolver` nao valida o destino (medido: a funcao
+nao referencia `calc_modelo` nem `calc_fornecedor`), entao apelido para destino
+inexistente grava calado e nao casa nada. Mas **hoje ha ZERO orfaos** no tenant do
+dono, porque o catalogo dele e completo e ele so aponta para o que existe. Ou seja:
+**a 2.4 e acrescentar a guarda, nao limpar dado.** Nao ha migracao de dado sujo.
+
+**ARMADILHA, e ela custa caro:** `aponta` casa com a coluna **`codigo`**, nunca com
+`nome` (invariante 12, e o corpo da RPC diz isso). `calc_modelo`, `calc_cor` e
+`calc_fornecedor` tem AS DUAS colunas. Medir contra `nome` inventa **52 orfaos
+falsos** de 61 aliases, e quem acreditar vai "consertar" 52 nao-problemas. Essa
+consulta errada foi escrita e rodada nesta sessao antes de ser pega.
+
+O que a 2.4 traz, pela spec: o verbo **`criar`** (que falta, e e por isso que
+apontar para fornecedor novo nao tem para onde apontar), o orcamento de UMA pergunta
+obrigatoria (categoria do modelo, porque decide margem, e **agora que a margem e
+`null` por padrao em categoria nova, essa pergunta ficou mais importante, nao
+menos**), o dialeto por fornecedor que DESEMPATA e nunca DECIDE, e a bandeira
+`formato_mudou`.
+
 O portao do Bloco 2 continua o mesmo e continua nao sendo tecnico: **o dono roda a
 carga do mes pela tela, sozinho, sem Claude Code**, com cobertura nao menor que a do
 caminho MANUAL da skill na MESMA entrada (D7).
@@ -318,6 +368,19 @@ assercao E3 cobre a segunda.
 tentou conferir a linha do `regexp_replace` com `LIKE` e levou um `false` FALSO:
 `\` e o caractere de escape padrao do `LIKE` em Postgres e comeu as barras do
 proprio padrao. Conferir com `~` ou com igualdade construida por `chr(92)`.
+
+**`aponta` casa com `codigo`, nunca com `nome`.** As tres tabelas de catalogo tem AS
+DUAS colunas, entao a consulta errada RODA e devolve numero. Medir orfao de
+`calc_alias` contra `nome` inventa 52 orfaos falsos de 61 aliases. Detalhe na
+secao 6.
+
+**Cache de borda da Cloudflare serve a versao VELHA por alguns segundos depois do
+push, com `CF-Cache-Status: HIT`.** Medido nesta sessao: o primeiro `curl` em
+`/calc/` devolveu 128598 bytes, ainda com `id="cfia"`, que a fatia 1 removeu. Parece
+build que nao terminou, e nao era. **O cache-buster e o que separa as duas causas**,
+porque elas pedem acoes opostas (esperar contra invalidar): com `?cb=<epoch>` vieram
+os 135518 bytes do disco na hora. Segundos depois a URL limpa ja servia a versao
+nova sozinha. Ver a memoria `conferir-deploy-cloudflare`.
 
 **Duas sessoes na mesma pasta acharam, cada uma, o defeito da outra.** Esta sessao
 conferiu o achado da outra (`calc_alias.aponta` sem FK) e a outra conferiu o desta

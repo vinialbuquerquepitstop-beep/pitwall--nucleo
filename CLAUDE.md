@@ -11,14 +11,15 @@ aponte para arquivo inexistente.
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
-   nao e mais o fio unico. Em 10/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v6.md` (o produto novo: Blocos 0 e 1 fechados, o 2
-   com a fatia 1 entregue, o parser lendo lista real a 98,9% e **a tela ainda por
-   fazer**), `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
+   nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
+   `handoff_calculadora_pitwall_v8.md` (o produto novo: Blocos 0 e 1 fechados, o 2
+   com a fatia 1 entregue, o parser v2 promovido a caminho vivo nos DOIS chamadores,
+   a margem virou dado e **a tela ainda por fazer, agora esperando a fatia 2.4**),
+   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
    que e so uma PONTE curta.
-   Ate 10/09/2026 esta linha dizia `v4`, e o v5 e o v6 sairam no mesmo dia: a
-   linha `calculadora` anda RAPIDO, entao conferir a pasta aqui vale mais do que
-   nas outras.
+   Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no
+   **v8**: QUATRO versoes em um dia. A linha `calculadora` anda RAPIDO, entao
+   conferir a pasta aqui vale mais do que nas outras.
    Conferir a pasta em vez de confiar nesta linha: ela ja ficou desatualizada antes
    (ficou presa no v32 ate 21/07/2026, no v35 ate 23/07/2026, no v37 ate 28/07/2026,
    no v43 ate 08/08/2026, no v48 ate 14/08/2026, no v59 ate 17/08/2026 e no v68 ate
