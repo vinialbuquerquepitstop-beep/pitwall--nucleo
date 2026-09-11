@@ -30,6 +30,10 @@
 --   Z — o `2.4a zero` (11/09/2026): o cabecalho desconhecido chega a pendencia,
 --       e a regra da condicao do dono (D14 revisada e D15), na fixture D.
 --       Migration: supabase/migrations/20260911_calc_parse_condicao_e_cabecalho.sql.
+--   R — as respostas de condicao (D14, 11/09/2026): o verbo `definir`, o leitor
+--       recebendo o mapa `texto -> condicao`, e a resposta sobrevivendo a cada
+--       releitura. E a D16 nomeada: `descartar` fornecedor tira o bloco inteiro.
+--       Migration: supabase/migrations/20260911_calc_parse_respostas_de_condicao.sql.
 --
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
@@ -107,6 +111,16 @@ declare
   v_perdeu     text := '';
   v_caiu       text := '';
   v_estranha   text := '';
+  -- secao R
+  v_fx     uuid;   -- a pendencia de fornecedor da carga C (TABELA XPTO IMPORTS)
+  v_jnome  text;   -- o nome do fornecedor `junior`, como sai na coluna `f`
+  v_nova   uuid;
+  v_mix    uuid;
+  v_mapa   jsonb;
+  v_ok     boolean;
+  v_sug    text;
+  v_rc     int;    -- fixture C: casou depois de `junior` = Lacrado
+  v_rd     int;    -- fixture D: casou com as cinco respondidas
 begin
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
   v_txt :=
@@ -989,7 +1003,7 @@ begin
             v_n_recusas := v_n_recusas + 1;
             -- Recusa so vale se for por motivo DECLARADO. Um erro qualquer
             -- (null, cast, divisao) tambem "recusa", e passaria por guarda.
-            if sqlerrm !~ '(nao existe no catalogo|nao ensina nada|condicao nao se ensina|apontar exige o destino|nao se ensina por apelido)' then
+            if sqlerrm !~ '(nao existe no catalogo|nao ensina nada|condicao nao se ensina|apontar exige o destino|nao se ensina por apelido|condicao nao se descarta)' then
               v_estranha := v_estranha || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec || ': ' || sqlerrm;
             end if;
           end if;
@@ -1273,6 +1287,335 @@ begin
              || ', nao reconhecido ' || (v_dd->>'n_nao_reconhecido');
   end if;
 
+  -- ══ R. AS RESPOSTAS DE CONDICAO (D14 revisada), 11/09/2026 ═══════════════════
+  -- A pergunta de condicao ganhou resposta: `definir`. Ela vale para UMA lista
+  -- (nao escreve no catalogo), o leitor a recebe como mapa `texto -> condicao`,
+  -- e o resolver passa TODAS as da carga a cada releitura, de qualquer resposta.
+  -- Carga C (v_cargas[3]): `junior` sem condicao (2 linhas, pendencia v_cond) e o
+  -- cabecalho desconhecido `TABELA XPTO IMPORTS` (2 linhas, pendencia v_fx).
+  -- Cada caso numa subtransacao desfeita: um nao contamina o outro.
+  select id into v_fx from public.calc_pendencia
+   where carga_id = v_cargas[3] and tipo = 'fornecedor';
+  select nome into v_jnome from public.calc_fornecedor
+   where tenant_id = v_tenant and codigo = 'junior';
+
+  -- R1. A resposta PEGA: `junior` = Lacrado poe as 2 linhas dele na tabela, com
+  --     a condicao respondida e o preco da lista. Antes da resposta: 0 de 4.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_res := null;
+  begin
+    execute 'set local role authenticated';
+    v_res := public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    execute 'reset role';
+    select c.n_casou = 2 and (c.resumo->>'n_cond_respondida')::int = 2
+           and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                         left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                        where p->>'f' = v_jnome and p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Lacrado'
+                          and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 4299),
+           c.n_casou
+      into v_ok, v_rc
+      from public.calc_carga c where c.id = v_cargas[3];
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] definir "junior" = Lacrado nao pos as 2 linhas do Junior na tabela como Lacrado 4299 (esperado n_casou 2, n_cond_respondida 2). Obtido: '
+             || coalesce(v_msg, v_res::text, '(nada)');
+  end if;
+
+  -- R2. A ARMADILHA DA FATIA: a resposta sobrevive a resposta SEGUINTE, de
+  --     outro tipo. O resolver rele a lista inteira a cada resposta; se relesse
+  --     so com a do momento, ensinar o fornecedor XPTO devolvia as linhas do
+  --     Junior para duvidoso, caladas.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_res := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    v_res := public.calc_pendencia_resolver(v_fx, 'apontar', 'five_cell');
+    execute 'reset role';
+    select (c.resumo->>'n_cond_respondida')::int = 2 and c.n_casou >= 2
+      into v_ok
+      from public.calc_carga c where c.id = v_cargas[3];
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] a resposta de condicao se PERDEU na releitura da resposta seguinte (apontar o fornecedor XPTO): esperado n_cond_respondida 2. Obtido: '
+             || coalesce(v_msg, v_res::text, '(nada)');
+  end if;
+
+  -- R3. Trocar a resposta: Lacrado, depois Seminovo. Fica so a ultima, e nada
+  --     de Lacrado sobra para o Junior nesse modelo.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Seminovo');
+    execute 'reset role';
+    select exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                    where p->>'f' = v_jnome and p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Seminovo')
+           and not exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                    where p->>'f' = v_jnome and p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Lacrado')
+           and (select q.aponta from public.calc_pendencia q where q.id = v_cond) = 'Seminovo'
+      into v_ok
+      from public.calc_carga c where c.id = v_cargas[3];
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] trocar a resposta (Lacrado -> Seminovo) nao deixou so a ultima no blob. Obtido: ' || coalesce(v_msg, '(nada)');
+  end if;
+
+  -- R4. `ignorar` depois de `definir` desfaz: as linhas voltam para fora.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    perform public.calc_pendencia_resolver(v_cond, 'ignorar', null);
+    execute 'reset role';
+    select c.n_casou = 0 and (c.resumo->>'n_cond_respondida')::int = 0
+           and (select q.decisao from public.calc_pendencia q where q.id = v_cond) = 'ignorar'
+      into v_ok
+      from public.calc_carga c where c.id = v_cargas[3];
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] ignorar depois de definir nao tirou as linhas do Junior da tabela (esperado n_casou 0). Obtido: ' || coalesce(v_msg, '(nada)');
+  end if;
+
+  -- R5. Condicao que o tenant nao tem e recusada, com a grafia exata: `lacrado`
+  --     minusculo e vazio. E o valor que iria para o `t` do blob.
+  v_total := v_total + 1;
+  v_msg := null; v_sug := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'lacrado');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', null);
+    raise exception 'prova_rollback';
+  exception when others then v_sug := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'nao existe neste tenant' or coalesce(v_sug,'') !~ 'nao existe neste tenant' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] definir com condicao inexistente nao foi recusado. lacrado: '
+             || coalesce(v_msg,'(nada)') || ' / vazio: ' || coalesce(v_sug,'(nada)');
+  end if;
+
+  -- R6. `definir` so vale para pergunta de condicao.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_fx, 'definir', 'Lacrado');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'definir so vale para pergunta de condicao' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] definir numa pendencia de fornecedor nao foi recusado. Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- R7. Trava T4: condicao nao se descarta. Era recusado por ACASO; descartar
+  --     `junior` gravaria regra de descarte com o nome do fornecedor.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'descartar', null);
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'condicao nao se descarta' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [T4] descartar pergunta de condicao nao foi recusado pela trava. Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- R8. Fora de rascunho nao se define (T3): sem a lista, nao ha releitura.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'reset role';
+    update public.calc_carga set status = 'descartada', texto_bruto = null where id = v_cargas[3];
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'nao esta mais em rascunho' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [T3] definir numa carga fora de rascunho nao foi recusado. Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- R9. A LISTA SEGUINTE PERGUNTA DE NOVO (D14: toda lista), e a resposta da
+  --     anterior fica disponivel como SUGESTAO, lida da tabela, nunca aplicada.
+  --     A consulta abaixo e a que a tela vai usar para pre-selecionar.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_sug := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'definir', 'Lacrado');
+    v_nova := public.calc_carga_abrir(v_txc);
+    execute 'reset role';
+    select q.aponta into v_sug
+      from public.calc_pendencia q
+     where q.tenant_id = v_tenant and q.tipo = 'condicao' and q.texto = 'junior'
+       and q.decisao = 'definir' and q.carga_id <> v_nova
+     order by q.decidido_em desc limit 1;
+    select c.n_casou = 0
+           and exists (select 1 from public.calc_pendencia q
+                        where q.carga_id = v_nova and q.tipo = 'condicao'
+                          and q.texto = 'junior' and q.decisao is null)
+      into v_ok
+      from public.calc_carga c where c.id = v_nova;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) or v_sug is distinct from 'Lacrado' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] a lista seguinte nao perguntou de novo (a resposta foi aplicada sozinha), ou a sugestao nao voltou Lacrado. Sugestao: '
+             || coalesce(v_sug,'(nada)') || '. Erro: ' || coalesce(v_msg,'(nenhum)');
+  end if;
+
+  -- R10. Linha mista: a pergunta e POR LINHA, entao uma resposta poe UMA linha.
+  --      Cristiano, titulo `LACRADOS E SEMINOVOS`: o 14 Pro 256GB = Seminovo
+  --      entra; o 13 128GB, que tambem nao disse, segue fora.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    v_nova := public.calc_carga_abrir(v_txd);
+    execute 'reset role';
+    select id into v_mix from public.calc_pendencia
+     where carga_id = v_nova and tipo = 'condicao' and texto like 'iPhone 14 Pro 256GB / %';
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_mix, 'definir', 'Seminovo');
+    execute 'reset role';
+    select c.n_casou = 12 and (c.resumo->>'n_cond_respondida')::int = 1
+           and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                         left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                        where p->>'f' = 'Cristiano' and p->>'n' = 'iPhone 14 Pro 256GB' and p->>'t' = 'Seminovo'
+                          and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 3800)
+      into v_ok
+      from public.calc_carga c where c.id = v_nova;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] linha mista: definir o 14 Pro 256GB do Cristiano nao pos UMA linha (esperado n_casou 12, n_cond_respondida 1, Seminovo 3800). Obtido: '
+             || coalesce(v_msg, '(nada)');
+  end if;
+
+  -- R11. O teto da fixture D com as cinco respondidas, direto no leitor: 16 de
+  --      16, nenhuma pergunta de condicao sobrando, e as cinco contadas como
+  --      vindas do dono. As chaves saem das PROPRIAS pendencias do leitor.
+  v_total := v_total + 1;
+  select jsonb_object_agg(q->>'texto',
+           case when q->>'causa' like 'Nenhuma%' then 'Lacrado' else 'Seminovo' end)
+    into v_mapa
+    from jsonb_array_elements(v_dd->'pendencias') q where q->>'tipo' = 'condicao';
+  v_depois := privado.calc_parse_v2(v_tenant, v_txd, v_mapa);
+  v_rd := (v_depois->>'n_casou')::int;
+  if v_rd <> 16 or (v_depois->>'n_lidas')::int <> 16
+     or (v_depois->>'n_cond_respondida')::int <> 5
+     or exists (select 1 from jsonb_array_elements(v_depois->'pendencias') q where q->>'tipo' = 'condicao')
+     or not exists (select 1 from jsonb_array_elements(v_depois->'produtos') p
+                      left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                     where p->>'n' = 'iPhone 15 128GB' and p->>'t' = 'Seminovo'
+                       and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 3000)
+     or not exists (select 1 from jsonb_array_elements(v_depois->'produtos') p
+                      left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                     where p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Lacrado'
+                       and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 4100) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] fixture D com as 5 respondidas: casou ' || coalesce(v_rd::text,'?')
+             || ' de ' || coalesce(v_depois->>'n_lidas','?') || ' (esperado 16 de 16), respondidas '
+             || coalesce(v_depois->>'n_cond_respondida','?') || ' (esperado 5). Mapa: ' || coalesce(v_mapa::text,'(vazio)');
+  end if;
+
+  -- R12. O leitor nao confia em quem o chama: condicao que o tenant nao tem,
+  --      passada DIRETO, nao vira preco, e a pergunta volta.
+  v_total := v_total + 1;
+  v_depois := privado.calc_parse_v2(v_tenant, v_txc, '{"junior":"Novo"}'::jsonb);
+  if (v_depois->>'n_casou')::int <> 0 or (v_depois->>'n_cond_respondida')::int <> 0
+     or not exists (select 1 from jsonb_array_elements(v_depois->'pendencias') q
+                     where q->>'tipo' = 'condicao' and q->>'texto' = 'junior') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] o leitor aceitou "Novo" como condicao do junior: casou '
+             || (v_depois->>'n_casou') || ', respondidas ' || coalesce(v_depois->>'n_cond_respondida','?');
+  end if;
+
+  -- R13. O leitor mudou de assinatura por DROP e CREATE, que leva a ACL junto.
+  --      Um so `calc_parse_v2` em `privado` (sem sobrecarga, que a E3 nao ve:
+  --      ela so olha `public`), com o argumento novo, e ninguem alem do dono
+  --      executa (desenho: a barreira de papel mora nas RPCs).
+  v_total := v_total + 1;
+  if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'privado' and p.proname = 'calc_parse_v2') <> 1
+     or not exists (
+       select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'privado' and p.proname = 'calc_parse_v2'
+          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb'
+          and p.proacl::text = '{postgres=X/postgres}') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [ACL] privado.calc_parse_v2: sobrecarga, assinatura errada ou grant alem do dono: '
+             || (select string_agg(pg_get_function_identity_arguments(p.oid) || ' acl=' || coalesce(p.proacl::text,'null'), ' | ')
+                   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where n.nspname = 'privado' and p.proname = 'calc_parse_v2');
+  end if;
+
+  -- R14. A D16, NOMEADA (decisao do dono em 11/09/2026: manter). `descartar`
+  --      numa pergunta de fornecedor e aceito e tira o BLOCO INTEIRO dele desta
+  --      e de toda lista futura: as 2 linhas do XPTO vao para `n_descarte`,
+  --      contadas, e a proxima carga com a mesma lista ja nao pergunta. Se um dia
+  --      virar recusa, e ESTA assercao que tem que mudar, nao so um numero.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_fx, 'descartar', null);
+    v_nova := public.calc_carga_abrir(v_txc);
+    execute 'reset role';
+    v_depois := privado.calc_parse_v2(v_tenant, v_txc);
+    select (v_depois->>'n_lidas')::int = 2 and (v_depois->>'n_descarte')::int = 2
+           and not exists (select 1 from jsonb_array_elements(v_depois->'pendencias') q
+                            where q->>'tipo' = 'fornecedor')
+           and c.n_lidas = 2 and c.n_descarte = 2
+           and not exists (select 1 from public.calc_pendencia q
+                            where q.carga_id = v_nova and q.tipo = 'fornecedor')
+           and exists (select 1 from public.calc_regra r
+                        where r.tenant_id = v_tenant and r.tipo = 'descarte'
+                          and r.padrao = 'tabela xpto imports')
+      into v_ok
+      from public.calc_carga c where c.id = v_nova;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D16] descartar o fornecedor XPTO nao tirou o bloco dele desta e da proxima lista (esperado lidas 2, descarte 2, sem pergunta de fornecedor). Obtido: '
+             || coalesce(v_msg, 'lidas ' || coalesce(v_depois->>'n_lidas','?') || ', descarte ' || coalesce(v_depois->>'n_descarte','?'));
+  end if;
+
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
@@ -1299,6 +1642,9 @@ begin
                                                 where q->>'tipo' = 'condicao')
               || E'\n  resolver: ' || v_n_aceitas || ' respostas aceitas (todas ensinaram), '
               || v_n_recusas || ' recusadas com motivo declarado, 0 aceitas caladas'
+              || E'\n  respostas de condicao (D14): fixture C casou 0 -> ' || coalesce(v_rc::text,'?')
+              || ' com "junior" = Lacrado; fixture D 11 -> ' || coalesce(v_rd::text,'?')
+              || ' de 16 com as 5 respondidas'
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;
 end;
