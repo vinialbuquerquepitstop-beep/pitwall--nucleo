@@ -34,6 +34,15 @@
 --       recebendo o mapa `texto -> condicao`, e a resposta sobrevivendo a cada
 --       releitura. E a D16 nomeada: `descartar` fornecedor tira o bloco inteiro.
 --       Migration: supabase/migrations/20260911_calc_parse_respostas_de_condicao.sql.
+--   K — o verbo `criar` (`2.4a`, 11/09/2026): `public.calc_catalogo_criar`, a
+--       guarda de quase-igual (`2.4a ter`) e a origem do que se aprende
+--       (`2.4a quater`). Fixture E.
+--       Migration: supabase/migrations/20260911_calc_catalogo_criar.sql.
+--       K13 a K16 sao a D17 (a): a resposta a uma pergunta de fornecedor nunca
+--       faz OUTRA pergunta aberta (ou ignorada) da carga sumir, nem contra o
+--       fornecedor de cima (K13, K14) nem contra um NOME reconhecido (K15).
+--       Migrations: supabase/migrations/20260911_calc_parse_pergunta_de_fornecedor_fica.sql
+--       e supabase/migrations/20260911_calc_d17_pergunta_ignorada_fica.sql.
 --
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
@@ -121,6 +130,19 @@ declare
   v_sug    text;
   v_rc     int;    -- fixture C: casou depois de `junior` = Lacrado
   v_rd     int;    -- fixture D: casou com as cinco respondidas
+  -- secao K (o verbo `criar`)
+  v_txe    text;   -- fixture E, o dia 1 com fornecedor e modelo novos
+  v_ee     jsonb;  -- resultado da fixture E pelo v2
+  v_ke     uuid;   -- a carga da fixture E
+  v_pf     uuid;   -- pendencia de fornecedor `XPTO CELL IMPORTS`
+  v_pf2    uuid;   -- pendencia de fornecedor `Xpto  Cell  Imports*` (irma dela)
+  v_pm     uuid;   -- pendencia de modelo `jbl flip 7 lacrado`
+  v_pmp    uuid;   -- pendencia de fornecedor `TABELA MP DISTRIBUIDORA`
+  v_cri    jsonb;  -- retorno do `calc_catalogo_criar`
+  v_dono   uuid := 'fb2aad8e-b728-4e59-a198-71da2156449d';
+  v_cats_f int;    -- categorias na lista do codigo
+  v_cats_c int;    -- categorias no check `calc_modelo_categoria_ck`
+  v_k13    int;    -- D17: casou depois de criar o 1o fornecedor da fixture E
 begin
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
   v_txt :=
@@ -257,6 +279,33 @@ begin
   || E'💵 *R$ 3.150,00*\n\n'
   || E'*🍎 iPhone 14 Pro – 256GB*\n'
   || E'💵 *R$ 4.480,00*\n';
+
+  -- ══ FIXTURE E — o que o verbo `criar` tem que resolver ══════════════════════
+  -- Tres coisas de uma vez, e as tres foram MEDIDAS no leitor vivo em
+  -- 11/09/2026 antes de a prova ser escrita (lidas=5, casou=0, duvidoso=4,
+  -- nao_reconhecido=1, 5 pendencias):
+  --   1. `TABELA MP DISTRIBUIDORA` — fornecedor que o catalogo nao tem, mas cujo
+  --      NUCLEO (`mp`) e o mesmo do `MP Imports` que ele ja tem. E o caso da
+  --      memoria `fornecedores-mesma-pessoa`: criar sozinho aqui mistura o custo
+  --      de duas pessoas, e e escrita SEM VOLTA enquanto a 2.4c nao existir.
+  --   2. `XPTO CELL IMPORTS` em TRES grafias que normalizam para o mesmo texto
+  --      (`XPTO CELL IMPORTS`, `*Xpto  Cell  Imports*`, `xpto cell imports`).
+  --      Sao tres pendencias, e um clique so tem que virar um fornecedor e tres
+  --      apelidos. E a prova 2 da secao 7 da spec.
+  --   3. `JBL Flip 7` — modelo que nao esta no catalogo (o `JBL Boombox 4` esta;
+  --      este nao). E o unico caso do fluxo inteiro com pergunta obrigatoria de
+  --      lista fechada: a CATEGORIA, porque e ela que decide a margem.
+  -- Lista sintetica, precos inventados (restricao global 8).
+  v_txe :=
+     E'[11/09/2026, 10:00:00] Vini: TABELA MP DISTRIBUIDORA\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.400\n\n'
+  || E'[11/09/2026, 10:05:00] Vini: XPTO CELL IMPORTS\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.450\n'
+  || E'JBL Flip 7 Lacrado - 650\n\n'
+  || E'[11/09/2026, 10:10:00] Vini: *Xpto  Cell  Imports*\n'
+  || E'iPhone 16 256GB Azul Lacrado - 4.900\n\n'
+  || E'[11/09/2026, 10:15:00] Vini: xpto cell imports\n'
+  || E'iPhone 15 128GB Preto Lacrado - 3.700\n';
 
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
@@ -846,33 +895,55 @@ begin
   -- A regra e "todos no mesmo", nao "todos no v2": no dia em que nascer um v3,
   -- esta assercao continua cobrando a coerencia sem precisar ser reescrita, e
   -- reprova exatamente na janela perigosa, que e a de promocao pela metade.
+  --
+  -- DESDE 11/09/2026 (`2.4a`, o verbo `criar`) a releitura mora em
+  -- `privado.calc_reprocessar`, chamada pelo resolver e pelo `criar`. Entao o
+  -- chamador do parser no caminho de RESPONDER nao esta mais em `public`. Olhar
+  -- so `public` deixaria esta assercao vendo um chamador so (`calc_carga_abrir`),
+  -- e "todos no mesmo" com um so e verde por construcao. Foi a E2 que pegou isso
+  -- na primeira rodada depois da extracao: exatamente o trabalho para o qual ela
+  -- existe. O escopo passa a ser `public` MAIS o `calc_reprocessar`.
   v_total := v_total + 1;
   if (select count(distinct case when prosrc like '%calc_parse_v2%'
                                  then 'v2' else 'v1' end)
         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.prosrc like '%calc_parse%') <> 1 then
+       where p.prosrc like '%calc_parse%'
+         and (n.nspname = 'public'
+              or (n.nspname = 'privado' and p.proname = 'calc_reprocessar'))) <> 1 then
     v_falhas := v_falhas + 1;
     v_log := v_log || E'
-  FALHA  [chamadores] as RPCs de public nao chamam todas a MESMA versao do parser'
-             || E' (promocao pela metade: a cobertura muda sozinha entre abrir e resolver)'
+  FALHA  [chamadores] os chamadores do parser nao usam todos a MESMA versao'
+             || E' (promocao pela metade: a cobertura muda sozinha entre abrir e responder)'
              || E'
          ' || (
-               select string_agg(p.proname || '=' ||
+               select string_agg(n.nspname || '.' || p.proname || '=' ||
                       case when p.prosrc like '%calc_parse_v2%' then 'v2' else 'v1' end, ', '
                       order by p.proname)
                  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                where n.nspname = 'public' and p.prosrc like '%calc_parse%');
+                where p.prosrc like '%calc_parse%'
+                  and (n.nspname = 'public'
+                       or (n.nspname = 'privado' and p.proname = 'calc_reprocessar')));
   end if;
 
-  -- E2. E os dois chamadores que existem hoje estao nomeados, para a assercao
-  --     acima nao passar verde por nao encontrar ninguem.
+  -- E2. Os chamadores estao nomeados, para a assercao acima nao passar verde
+  --     por nao encontrar ninguem. E a cadeia do caminho de RESPONDER esta
+  --     inteira: os dois verbos que releem (`calc_pendencia_resolver` e
+  --     `calc_catalogo_criar`) passam por `privado.calc_reprocessar` e NENHUM
+  --     deles chama o parser direto. Um que voltasse a chamar seria a segunda
+  --     copia da releitura renascendo, que e o que a extracao existe para impedir.
   v_total := v_total + 1;
   if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname = 'public' and p.prosrc like '%calc_parse%'
-         and p.proname in ('calc_carga_abrir','calc_pendencia_resolver')) <> 2 then
+       where p.prosrc like '%calc_parse%'
+         and ((n.nspname = 'public'  and p.proname = 'calc_carga_abrir')
+           or (n.nspname = 'privado' and p.proname = 'calc_reprocessar'))) <> 2
+     or (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public'
+            and p.proname in ('calc_pendencia_resolver','calc_catalogo_criar')
+            and p.prosrc like '%privado.calc_reprocessar(%'
+            and p.prosrc not like '%calc_parse%') <> 2 then
     v_falhas := v_falhas + 1;
     v_log := v_log || E'
-  FALHA  [chamadores] sumiu um dos dois consumidores conhecidos do parser';
+  FALHA  [chamadores] a cadeia de chamada do parser mudou: esperado calc_carga_abrir e privado.calc_reprocessar chamando o parser, e o resolver e o criar passando SO pelo calc_reprocessar';
   end if;
 
   -- E3. NENHUMA `calc_*` de `public` tem sobrecarga.
@@ -1573,7 +1644,7 @@ begin
      or not exists (
        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'privado' and p.proname = 'calc_parse_v2'
-          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb'
+          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb, p_forn_abertos text[]'
           and p.proacl::text = '{postgres=X/postgres}') then
     v_falhas := v_falhas + 1;
     v_log := v_log || E'\n  FALHA  [ACL] privado.calc_parse_v2: sobrecarga, assinatura errada ou grant alem do dono: '
@@ -1616,6 +1687,529 @@ begin
              || coalesce(v_msg, 'lidas ' || coalesce(v_depois->>'n_lidas','?') || ', descarte ' || coalesce(v_depois->>'n_descarte','?'));
   end if;
 
+  -- ══ K. O VERBO `criar` (2.4a, 2.4a ter e 2.4a quater, 11/09/2026) ═══════════
+  -- Ate esta fatia o dono so sabia dizer "isto e outro nome de uma coisa que ja
+  -- existe" e "isto nunca e preco". Fornecedor novo e modelo novo so nasciam por
+  -- migration, ou seja, so com o dono do PRODUTO do outro lado. No dia 1 de um
+  -- cliente todo fornecedor e desconhecido, entao sem `criar` o produto nao
+  -- existe: existe um servico.
+  --
+  -- As tres coisas que estas assercoes cobram, e cada uma nasceu de um risco
+  -- medido, nao de simetria de API:
+  --   a) um clique ensina TODAS as grafias provadamente iguais (K1), senao o
+  --      dono responde a mesma pergunta tres vezes na mesma lista;
+  --   b) fornecedor parecido NAO se cria sozinho (K2/K3): enquanto a 2.4c
+  --      (desfazer) nao existir, criar e escrita sem volta, e unir duas grafias
+  --      por conta propria mistura o custo de duas pessoas diferentes;
+  --   c) tudo que se aprende carrega `origem`, `carga_id` e `criado_por`
+  --      (K1/K7/K12), senao a linha com mais chance de estar errada e justamente
+  --      a que ninguem acha depois.
+  -- A carga da fixture E e aberta UMA vez, aqui fora; cada assercao mexe nela
+  -- dentro da propria subtransacao, entao todas partem do mesmo estado.
+
+  -- K0. A fixture E le como foi medido em 11/09/2026, antes de qualquer resposta.
+  --     Se este numero mudar, as assercoes abaixo estao medindo outra coisa.
+  v_total := v_total + 1;
+  v_ee := privado.calc_parse_v2(v_tenant, v_txe);
+  if (v_ee->>'n_lidas')::int <> 5 or (v_ee->>'n_casou')::int <> 0
+     or (v_ee->>'n_duvidoso')::int <> 4 or (v_ee->>'n_nao_reconhecido')::int <> 1
+     or (select count(*) from jsonb_array_elements(v_ee->'pendencias') q
+          where q->>'tipo' = 'fornecedor') <> 4
+     or (select count(*) from jsonb_array_elements(v_ee->'pendencias') q
+          where q->>'tipo' = 'modelo' and q->>'texto' = 'jbl flip 7 lacrado') <> 1 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K0] fixture E nao leu como o medido (esperado lidas 5, casou 0, duvidoso 4, nao reconhecido 1, 4 pendencias de fornecedor e a do modelo jbl). Obtido: lidas '
+             || coalesce(v_ee->>'n_lidas','?') || ' casou ' || coalesce(v_ee->>'n_casou','?')
+             || ' duvidoso ' || coalesce(v_ee->>'n_duvidoso','?')
+             || ' nao_reconhecido ' || coalesce(v_ee->>'n_nao_reconhecido','?');
+  end if;
+
+  execute 'set local role authenticated';
+  v_ke := public.calc_carga_abrir(v_txe);
+  execute 'reset role';
+  select id into v_pf  from public.calc_pendencia
+   where carga_id = v_ke and tipo = 'fornecedor' and texto = 'XPTO CELL IMPORTS';
+  select id into v_pmp from public.calc_pendencia
+   where carga_id = v_ke and tipo = 'fornecedor' and texto = 'TABELA MP DISTRIBUIDORA';
+  select id into v_pf2 from public.calc_pendencia
+   where carga_id = v_ke and tipo = 'fornecedor' and texto = 'Xpto  Cell  Imports*';
+  select id into v_pm  from public.calc_pendencia
+   where carga_id = v_ke and tipo = 'modelo' and texto = 'jbl flip 7 lacrado';
+
+  -- K1. Um clique, um fornecedor, TRES apelidos. E a prova 2 da secao 7 da spec.
+  --     Junto: o carimbo de origem (2.4a quater) nas duas escritas, e as tres
+  --     pendencias irmas saindo da fila de uma vez.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    v_cri := public.calc_catalogo_criar(v_pf, 'XPTO Cell Imports',
+                                        '{"praca":"Centro — RJ"}'::jsonb);
+    execute 'reset role';
+    select v_cri->>'codigo' = 'xpto_cell_imports'
+           and (v_cri->>'grafias')::int = 3
+           and (v_cri->>'n_casou')::int = 3
+           and c.n_casou = 3 and c.n_duvidoso = 1 and c.n_lidas = 5
+           and exists (select 1 from public.calc_fornecedor f
+                        where f.tenant_id = v_tenant and f.codigo = 'xpto_cell_imports'
+                          and f.nome = 'XPTO Cell Imports' and f.praca = 'Centro — RJ'
+                          and f.origem = 'aprendizado' and f.carga_id = v_ke
+                          and f.criado_por = v_dono)
+           and (select count(*) from public.calc_alias a
+                 where a.tenant_id = v_tenant and a.tipo = 'fornecedor'
+                   and a.aponta = 'xpto_cell_imports' and a.origem = 'aprendizado'
+                   and a.carga_id = v_ke and a.criado_por = v_dono) = 3
+           and (select count(*) from public.calc_pendencia q
+                 where q.carga_id = v_ke and q.tipo = 'fornecedor'
+                   and q.decisao = 'criar' and q.aponta = 'xpto_cell_imports') = 3
+           and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                        where p->>'f' = 'XPTO Cell Imports' and p->>'n' = 'iPhone 15 128GB')
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K1] criar o XPTO nao virou 1 fornecedor + 3 apelidos com origem, ou as 3 linhas dele nao entraram (esperado codigo xpto_cell_imports, grafias 3, casou 3). Obtido: '
+             || coalesce(v_msg, coalesce(v_cri::text,'(nada)'));
+  end if;
+
+  -- K2. 2.4a ter. `TABELA MP DISTRIBUIDORA` tem o mesmo NUCLEO do `MP Imports`
+  --     que ele ja tem. Nao cria, NAO une, e a recusa poe as duas grafias lado a
+  --     lado e diz como seguir. "Nada gravado" NAO se mede aqui: ate 11/09 esta
+  --     assercao contava os fornecedores DEPOIS do rollback da subtransacao, e
+  --     isso passa por construcao (achado da `bandeira`). Quem garante que a
+  --     recusa nao grava e o `raise` dentro da RPC, que desfaz a transacao dela.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_pmp, 'MP Distribuidora',
+                                       '{"praca":"Campo Grande — RJ"}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback'
+     or v_msg not like '%MP Imports%' or v_msg not like '%confirmar_novo%'
+     or v_msg not like '%apontar%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [2.4a ter] criar "MP Distribuidora" com "MP Imports" no catalogo nao devolveu a pergunta com as duas grafias, ou gravou assim mesmo. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K3. E quando ele diz que e outro fornecedor MESMO, cria, e a linha entra.
+  --     So o que o `criar` promete: o fornecedor nasce e a linha DELE entra. O
+  --     que acontece com os fornecedores de BAIXO e a K13, e e defeito.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    v_cri := public.calc_catalogo_criar(v_pmp, 'MP Distribuidora',
+               '{"praca":"Campo Grande — RJ","confirmar_novo":"sim"}'::jsonb);
+    execute 'reset role';
+    select v_cri->>'codigo' = 'mp_distribuidora'
+           and (v_cri->>'grafias')::int = 1
+           and exists (select 1 from public.calc_fornecedor f
+                        where f.tenant_id = v_tenant and f.codigo = 'mp_distribuidora'
+                          and f.origem = 'aprendizado')
+           and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                        left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                        where p->>'f' = 'MP Distribuidora' and p->>'n' = 'iPhone 16 128GB'
+                          and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 4400)
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [2.4a ter] confirmando que e outro fornecedor, criar o MP Distribuidora nao pos a linha dele (esperado codigo mp_distribuidora, iPhone 16 128GB a 4400). Obtido: '
+             || coalesce(v_msg, coalesce(v_cri::text,'(nada)'));
+  end if;
+
+  -- K13. D17 (a), decidida pelo dono em 11/09/2026. A resposta a UMA pergunta
+  --      de fornecedor nunca faz OUTRA pergunta aberta da mesma carga sumir.
+  --
+  --      O defeito, achado pela K3 na primeira rodada desta prova e medido de
+  --      novo fora dela (classe PRECO ERRADO): no dia 1 cada cabecalho e
+  --      pergunta (4 na fixture E), e criar o PRIMEIRO (`MP Distribuidora`, no
+  --      topo) fazia a D10 engolir os tres de baixo. Casou ia de 1 para 4: o 16
+  --      256GB a 4.900 e o 15 128GB a 3.700, do XPTO, entravam no nome do MP, e o
+  --      16 128GB do XPTO a 4.450 sumia no `min()`. As tres perguntas que o dono
+  --      ja tinha visto sumiam, e a cobertura SUBIA, entao nada reclamava.
+  --
+  --      Consertado em `20260911_calc_parse_pergunta_de_fornecedor_fica.sql`:
+  --      cabecalho que ja e pergunta aberta vira `forn_aberto` e fecha o bloco.
+  --      Esperado agora: casou 1 (so a linha do MP), 4 pendencias na leitura (as
+  --      3 do XPTO de pe + a do modelo JBL), nenhum preco do XPTO no nome do MP,
+  --      e o `fornecedor_conferir` do MP sem nada ignorado (os tres cabecalhos
+  --      nao sao mais "ruido dentro do bloco do MP": sao outro fornecedor).
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_k13 := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_pmp, 'MP Distribuidora',
+              '{"praca":"Campo Grande — RJ","confirmar_novo":"sim"}'::jsonb);
+    execute 'reset role';
+    select c.n_casou,
+           c.n_duvidoso = 3 and c.n_pendencia = 4 and c.n_lidas = 5
+           and not exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                            where p->>'f' = 'MP Distribuidora'
+                              and p->>'n' in ('iPhone 16 256GB','iPhone 15 128GB'))
+           and not exists (select 1 from jsonb_array_elements(c.resumo->'fornecedor_conferir') f
+                            where f->>'fornecedor' = 'MP Distribuidora'
+                              and jsonb_array_length(f->'ignoradas') > 0)
+      into v_k13, v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) or v_k13 is distinct from 1 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D17] criar o 1o fornecedor da lista engoliu os de baixo de novo (esperado casou 1, duvidoso 3, 4 pendencias, nenhum preco do XPTO no nome do MP). Obtido: casou '
+             || coalesce(v_k13::text,'?') || '. Erro: ' || coalesce(v_msg,'(nenhum)');
+  end if;
+
+  -- K14. D17 (a) tambem para o `ignorar`. "Deixar estas linhas fora desta
+  --      lista" tem que continuar fora depois de OUTRA resposta: se o XPTO
+  --      ignorado pudesse ser engolido pelo MP criado em seguida, `ignorar`
+  --      viraria "entra no nome do fornecedor de cima", que e o contrario do que
+  --      o botao diz. So a grafia `XPTO CELL IMPORTS` e ignorada aqui, e as duas
+  --      linhas dela (o 16 128GB a 4.450 e o JBL) seguem fora do MP.
+  --      A prova e a CONTAGEM, nao o preco: engolido, o 4.450 some no `min()`
+  --      contra o 4.400 do MP e nao aparece em lugar nenhum, entao procurar o
+  --      4.450 no nome do MP passaria verde com o defeito vivo. Engolido, o
+  --      16 128GB do XPTO conta como casou (2) e sai do duvidoso (2); de pe,
+  --      casou 1 e duvidoso 3.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_pf, 'ignorar', null);
+    perform public.calc_catalogo_criar(v_pmp, 'MP Distribuidora',
+              '{"praca":"Campo Grande — RJ","confirmar_novo":"sim"}'::jsonb);
+    execute 'reset role';
+    select c.n_casou = 1 and c.n_duvidoso = 3
+           and (select q.decisao from public.calc_pendencia q where q.id = v_pf) = 'ignorar'
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D17] a pergunta IGNORADA do XPTO foi engolida pelo MP criado depois (esperado casou 1, duvidoso 3). Erro: '
+             || coalesce(v_msg,'(nenhum)');
+  end if;
+
+  -- K15. D17 (a) contra um NOME reconhecido, e nao so contra o fornecedor de
+  --      cima. Achado da `bandeira` com as 104 assercoes verdes, 11/09/2026,
+  --      classe PRECO ERRADO: o dono ignora a mensagem `XPTO CELL IMPORTS` e
+  --      cria o fornecedor pela grafia `*Xpto  Cell  Imports*`. O leitor
+  --      reconhece fornecedor pelo NOME, e `XPTO CELL IMPORTS` contem
+  --      `xpto cell imports`: a mensagem ignorada voltava como fornecedor
+  --      reconhecido e o preco dela entrava. No vetor dela, com o mesmo modelo
+  --      a 4.100 na ignorada e 4.900 na outra, o blob saia com 4.100.
+  --      Aqui, a linha da ignorada e o 16 128GB (4.450), que so ela tem no
+  --      XPTO: ela NAO pode aparecer no nome do XPTO. Engolida, casou 3; de pe,
+  --      casou 2. E a irma ignorada NAO ganha apelido (grafias 2, nao 3).
+  --      Consertado em `20260911_calc_d17_pergunta_ignorada_fica.sql`.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_cri := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_pf, 'ignorar', null);
+    v_cri := public.calc_catalogo_criar(v_pf2, 'XPTO Cell Imports',
+                                        '{"praca":"Centro — RJ"}'::jsonb);
+    execute 'reset role';
+    select c.n_casou = 2 and (v_cri->>'grafias')::int = 2
+           and (select q.decisao from public.calc_pendencia q where q.id = v_pf) = 'ignorar'
+           and (select q.decisao from public.calc_pendencia q where q.id = v_pf2) = 'criar'
+           and not exists (select 1 from public.calc_alias a
+                            where a.tenant_id = v_tenant and a.tipo = 'fornecedor'
+                              and a.texto = 'XPTO CELL IMPORTS')
+           and not exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                            where p->>'f' = 'XPTO Cell Imports' and p->>'n' = 'iPhone 16 128GB')
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D17] a mensagem IGNORADA do XPTO voltou pelo NOME do fornecedor criado por outra grafia (esperado casou 2, grafias 2, o 16 128GB fora do XPTO, a ignorada ainda ignorar). Obtido: '
+             || coalesce(v_msg, coalesce(v_cri::text,'(nada)'));
+  end if;
+
+  -- K16. `criar` sobre a PROPRIA pergunta que o dono tinha ignorado e resposta
+  --      nova, e o historico tem que dizer isso (invariante 6). Ate o conserto,
+  --      a pendencia seguia `ignorar` com o efeito de `criar`, e o `grafias`
+  --      contava so as irmas (2). Esperado: ela vira `criar`, tres apelidos, e
+  --      as tres linhas do XPTO entram.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null; v_cri := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_pf, 'ignorar', null);
+    v_cri := public.calc_catalogo_criar(v_pf, 'XPTO Cell Imports',
+                                        '{"praca":"Centro — RJ"}'::jsonb);
+    execute 'reset role';
+    select c.n_casou = 3 and (v_cri->>'grafias')::int = 3
+           and (select q.decisao from public.calc_pendencia q where q.id = v_pf) = 'criar'
+           and (select count(*) from public.calc_pendencia q
+                 where q.carga_id = v_ke and q.tipo = 'fornecedor'
+                   and q.decisao = 'criar' and q.aponta = 'xpto_cell_imports') = 3
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K16] criar sobre a pergunta ignorada nao a marcou como criar, ou nao contou as 3 grafias (esperado casou 3, grafias 3). Obtido: '
+             || coalesce(v_msg, coalesce(v_cri::text,'(nada)'));
+  end if;
+
+  -- K4. Nome que JA esta no catalogo nao se cria de novo: isso e `apontar`.
+  --     Sem esta guarda o catalogo ganha `MP Imports` duas vezes, com codigos
+  --     diferentes, e metade dos apelidos aponta para cada um.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_pmp, 'MP Imports',
+                                       '{"praca":"Campo Grande — RJ"}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback' or v_msg not like '%use apontar%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K4] criar um fornecedor que ja existe pelo nome nao mandou usar apontar. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K5. Modelo novo sem categoria e RECUSA, nao default. A categoria decide a
+  --     margem: default silencioso aqui e preco errado com cara de certo.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_pm, 'JBL Flip 7', '{}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback' or v_msg not like '%exige a categoria%'
+     or v_msg not like '%margem%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K5] criar modelo sem categoria foi aceito, ou a recusa nao disse por que. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K6. Categoria inventada tambem e recusa, e a recusa LISTA as validas.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_pm, 'JBL Flip 7',
+                                       '{"categoria":"Caixa de som"}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback' or v_msg not like '%Validas%'
+     or v_msg not like '%iPhone%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K6] categoria inventada foi aceita, ou a recusa nao listou as validas. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K7. Com a categoria, o modelo entra e o leitor PARA de nao reconhecer a
+  --     linha. Ela vira duvidoso, nao preco: o fornecedor dela segue
+  --     desconhecido nesta sequencia, e linha que nao se entende inteira nunca
+  --     vira preco (restricao global do plano).
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    v_cri := public.calc_catalogo_criar(v_pm, 'JBL Flip 7', '{"categoria":"JBL"}'::jsonb);
+    execute 'reset role';
+    select v_cri->>'codigo' = 'jbl_flip_7'
+           and (v_cri->>'grafias')::int = 1
+           and c.n_lidas = 5 and c.n_duvidoso = 5 and c.n_casou = 0
+           and exists (select 1 from public.calc_modelo m
+                        where m.tenant_id = v_tenant and m.codigo = 'jbl_flip_7'
+                          and m.nome = 'JBL Flip 7' and m.categoria = 'JBL'
+                          and m.origem = 'aprendizado' and m.carga_id = v_ke
+                          and m.criado_por = v_dono)
+           and exists (select 1 from public.calc_alias a
+                        where a.tenant_id = v_tenant and a.tipo = 'modelo'
+                          and a.texto = 'jbl flip 7 lacrado' and a.aponta = 'jbl_flip_7'
+                          and a.origem = 'aprendizado')
+           and not exists (select 1 from public.calc_pendencia q
+                            where q.carga_id = v_ke and q.tipo = 'modelo'
+                              and q.decisao is null)
+      into v_ok
+      from public.calc_carga c where c.id = v_ke;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K7] criar o modelo JBL Flip 7 nao ensinou o leitor (esperado codigo jbl_flip_7, nenhuma pendencia de modelo aberta, duvidoso 5). Obtido: '
+             || coalesce(v_msg, coalesce(v_cri::text,'(nada)'));
+  end if;
+
+  -- K8. Condicao NAO se cria no catalogo. A resposta dela vale so para aquela
+  --     lista (D14, verbo `definir`), e criar condicao seria transformar em
+  --     regra permanente exatamente o que a D14 decidiu que nao vira.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    v_nova := public.calc_carga_abrir(v_txc);
+    execute 'reset role';
+    select id into v_cond from public.calc_pendencia
+     where carga_id = v_nova and tipo = 'condicao' limit 1;
+    execute 'set local role authenticated';
+    perform public.calc_catalogo_criar(v_cond, 'Novo', '{}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback'
+     or v_msg not like '%condicao nao se cria%' or v_msg not like '%definir%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K8] criar condicao no catalogo foi aceito, ou a recusa nao mandou usar definir. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K9. T3 tambem vale para `criar`: sem a lista crua nao da para provar que a
+  --     criacao ensina, entao nao se escreve no catalogo as cegas.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_carga_descartar(v_ke);
+    perform public.calc_catalogo_criar(v_pf, 'XPTO Cell Imports',
+                                       '{"praca":"Centro — RJ"}'::jsonb);
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    v_msg := sqlerrm;
+  end;
+  if v_msg is null or v_msg = 'prova_rollback' or v_msg not like '%nao esta mais em rascunho%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K9] criar em carga fora de rascunho foi aceito. Erro: '
+             || coalesce(v_msg, '(nenhum, e isso e a falha)');
+  end if;
+
+  -- K10. A lista de categorias do codigo e o check `calc_modelo_categoria_ck`
+  --      sao DUAS copias do mesmo fato. Esta assercao existe para que a segunda
+  --      copia nao envelheca calada: categoria nova no check e invisivel para o
+  --      dono ate alguem lembrar de mexer na funcao.
+  v_total := v_total + 1;
+  select count(*) into v_cats_c
+    from regexp_matches(
+      (select pg_get_constraintdef(k.oid) from pg_constraint k
+        where k.conname = 'calc_modelo_categoria_ck'),
+      '''([^'']+)''::text', 'g') m;
+  select count(*) into v_cats_f
+    from regexp_matches(
+      (select substring(pr.prosrc from 'v_cats\s+text\[\] := array\[(.*?)\];')
+         from pg_proc pr join pg_namespace ns on ns.oid = pr.pronamespace
+        where ns.nspname = 'public' and pr.proname = 'calc_catalogo_criar'),
+      '''([^'']+)''', 'g') m;
+  if coalesce(v_cats_c,0) <> 9 or coalesce(v_cats_f,0) <> v_cats_c
+     or exists (
+       select 1 from regexp_matches(
+           (select pg_get_constraintdef(k.oid) from pg_constraint k
+             where k.conname = 'calc_modelo_categoria_ck'),
+           '''([^'']+)''::text', 'g') m
+        where position(m[1] in (select pr.prosrc from pg_proc pr
+                                  join pg_namespace ns on ns.oid = pr.pronamespace
+                                 where ns.nspname = 'public'
+                                   and pr.proname = 'calc_catalogo_criar')) = 0) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [K10] a lista de categorias de calc_catalogo_criar divergiu do check calc_modelo_categoria_ck (check '
+             || coalesce(v_cats_c::text,'?') || ', codigo ' || coalesce(v_cats_f::text,'?') || ').';
+  end if;
+
+  -- K11. A RPC nova e publica para `authenticated` (a barreira de papel mora no
+  --      CORPO dela); as duas de `privado` NAO recebem grant nenhum, senao
+  --      existiria caminho que pula a barreira.
+  v_total := v_total + 1;
+  if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'calc_catalogo_criar') <> 1
+     or not exists (
+       select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'calc_catalogo_criar'
+          and pg_get_function_identity_arguments(p.oid) = 'p_pendencia uuid, p_nome text, p_extra jsonb'
+          and p.prosecdef
+          and p.proacl::text like '%authenticated=X%'
+          and p.proacl::text not like '%anon=X%')
+     or exists (
+       select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'privado' and p.proname in ('calc_reprocessar','calc_nucleo')
+          -- igualdade ESTRITA, como a R13: ACL nula NAO e segura, ela quer
+          -- dizer EXECUTE para PUBLIC (achado da `bandeira`, 11/09/2026)
+          and p.proacl::text is distinct from '{postgres=X/postgres}')
+     or (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'privado' and p.proname in ('calc_reprocessar','calc_nucleo')) <> 2 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [ACL] calc_catalogo_criar ou as funcoes de privado estao com grant errado: '
+             || coalesce((select string_agg(n.nspname || '.' || p.proname || ' acl=' || coalesce(p.proacl::text,'null'), ' | ')
+                   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                  where (n.nspname = 'public' and p.proname = 'calc_catalogo_criar')
+                     or (n.nspname = 'privado' and p.proname in ('calc_reprocessar','calc_nucleo'))), '(nao existe)');
+  end if;
+
+  -- K12. 2.4a quater no OUTRO verbo: o que o `calc_pendencia_resolver` aprende
+  --      tambem carrega origem. Sem isso metade do aprendizado seria rastreavel
+  --      e a outra metade nao, que e pior do que nenhuma.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_pmp, 'apontar', 'mp_imports');
+    perform public.calc_pendencia_resolver(v_pm, 'descartar', null);
+    execute 'reset role';
+    select exists (select 1 from public.calc_alias a
+                    where a.tenant_id = v_tenant and a.tipo = 'fornecedor'
+                      and a.texto = 'TABELA MP DISTRIBUIDORA' and a.aponta = 'mp_imports'
+                      and a.origem = 'aprendizado' and a.carga_id = v_ke
+                      and a.criado_por = v_dono)
+           and exists (select 1 from public.calc_regra r
+                        where r.tenant_id = v_tenant and r.tipo = 'descarte'
+                          and r.padrao = 'jbl flip 7 lacrado'
+                          and r.origem = 'aprendizado' and r.carga_id = v_ke
+                          and r.criado_por = v_dono)
+      into v_ok;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [2.4a quater] o resolver nao carimbou origem/carga/autor no apelido ou na regra de descarte. Erro: '
+             || coalesce(v_msg, '(nenhum)');
+  end if;
+
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
@@ -1645,6 +2239,16 @@ begin
               || E'\n  respostas de condicao (D14): fixture C casou 0 -> ' || coalesce(v_rc::text,'?')
               || ' com "junior" = Lacrado; fixture D 11 -> ' || coalesce(v_rd::text,'?')
               || ' de 16 com as 5 respondidas'
+              || E'\n  fixture E (dia 1, criar), v2: lidas=' || (v_ee->>'n_lidas')
+              || ' casou=' || (v_ee->>'n_casou')
+              || ' pendencias=' || (v_ee->>'n_pendencia')
+              || E'\n  verbo criar (2.4a): XPTO = 1 fornecedor + 3 apelidos num clique;'
+              || ' MP Distribuidora recusado por quase-igual ao MP Imports;'
+              || ' JBL Flip 7 so entra com a categoria; tudo com origem=aprendizado'
+              || E'\n  D17 (a): criar o 1o fornecedor da fixture E fica em casou '
+              || coalesce(v_k13::text,'?')
+              || ' (era 4): as 3 perguntas do XPTO seguem de pe, e nenhum preco dele entra no nome do MP;'
+              || ' a mensagem IGNORADA nao volta pelo nome do fornecedor criado por outra grafia'
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;
 end;
