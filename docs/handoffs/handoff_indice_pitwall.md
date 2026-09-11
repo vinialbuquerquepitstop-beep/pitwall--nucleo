@@ -521,9 +521,15 @@ nenhuma das duas batia com o repo.
   **O achado que muda a fila:** cabecalho de fornecedor desconhecido no TOPO da
   lista vira `(sem cabecalho antes da lista)` e o nome nao chega a pendencia. No dia
   1 de um cliente e toda lista, entao o `criar` fornecedor nao tem onde se apoiar.
-  Nasceu o **`2.4a zero`** no plano, antes do `criar`. E uma **decisao do dono**
-  ficou aberta: linha sem condicao nao tem caminho, e condicao padrao por fornecedor
-  conflita com "o perfil desempata, nunca decide" da spec.
+  Nasceu o **`2.4a zero`** no plano, antes do `criar`.
+
+  **D14, decidida na mesma sessao:** linha sem condicao ganha **condicao padrao por
+  fornecedor, sem marca na linha, valendo tambem para CPO** (opcao A, resposta do
+  dono *"a"*), **contra a recomendacao** (opcao B: marcar `condicao presumida` e
+  excluir CPO). Risco aceito: fornecedor que passa a mandar seminovo sem escrever
+  entra com a condicao padrao, calado. A regra "o perfil desempata, nunca decide"
+  ganha UMA excecao nomeada. A parte de leitor (pendencia de condicao uma por
+  fornecedor) vai junto com o `2.4a zero`.
 
 - anterior: `handoff_calculadora_pitwall_v8.md` (10/09/2026, **a margem deixa de ser
   chumbada e o parser v2 vira o caminho vivo**). Itens 1, 2 e 4 da secao 5 do v7,

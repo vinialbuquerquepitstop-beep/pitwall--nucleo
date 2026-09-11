@@ -196,6 +196,41 @@ Valem para todos os blocos, sem repetir:
 
   O 89% sobrevive so como **alvo declarado do dono**, nunca como baseline medida.
 
+- [x] **D14 — Linha sem condicao: condicao padrao por fornecedor? (11/09/2026)**
+  **Sim, opcao A, sem marca na linha e valendo tambem para CPO.** Resposta do dono,
+  citada exata: *"a"*. **Decisao consciente CONTRA a recomendacao**, que era a opcao
+  B (mesmo padrao, mas a linha marcada `condicao presumida` na tela e o padrao nunca
+  valendo para CPO, que e onde a comissao muda). Registrada e nao se reabre.
+
+  O problema medido: fornecedor que nao escreve a condicao em linha nenhuma (fixture
+  C, `Junior recreio`) casa **0 de N**, e nenhuma resposta resolve (a pendencia tem o
+  texto-sentinela `sem condicao declarada`, e o leitor nao le apelido de condicao).
+
+  **O risco aceito, nomeado para nao sumir:** se o fornecedor passar a mandar
+  seminovo sem escrever, o custo entra como a condicao padrao, calado, e nada na tela
+  denuncia. O `formato_mudou` da 2.4b NAO pega esse caso (o layout e o mesmo).
+
+  O que a decisao muda e o que ela NAO muda:
+  - **A spec perde uma regra dura.** "O perfil desempata, nunca decide" (4.4) passa a
+    ter UMA excecao nomeada, `condicao_padrao`. O resto do perfil segue so
+    desempatando.
+  - O padrao so preenche linha em que NEM a linha NEM o bloco dizem a condicao.
+    Condicao escrita sempre ganha, e a ordem de `calc_regra.prioridade` (CPO 10 antes
+    de Lacrado 20) segue intacta.
+  - **Ele nao se aprende de carga aprovada**, ao contrario do resto do perfil: um
+    fornecedor que nunca escreve condicao nunca tem linha casada de onde aprender.
+    Ele nasce da RESPOSTA do dono a pendencia de condicao daquele fornecedor.
+  - **Isso exige mudanca no leitor, e ela vai JUNTO com o `2.4a zero`:** hoje a
+    pendencia de condicao se agrupa por (`tipo`, `texto`) com texto fixo, entao dois
+    fornecedores sem condicao caem numa pendencia so e uma resposta valeria para os
+    dois. Ela passa a ser uma por fornecedor. E o mesmo trecho do leitor (`pend_bruta`)
+    que o `2.4a zero` mexe, e cada mexida no v2 muda o md5 de record e roda a prova
+    inteira: juntar e mexer uma vez so.
+  - Transparencia sem marcar a linha: um contador de proveniencia `n_cond_padrao` no
+    `resumo`, igual aos tres que ja existem (`n_do_cabecalho`, `n_cor_vizinha`,
+    `n_cond_conflito`). Diz quantas linhas vieram do padrao, nao quais. **Proposta
+    da Torre, dentro da opcao A**: nao e a marca por linha da opcao B.
+
 ### Pendencia nova aberta por D4
 
 - [ ] **D4a — Comissao de `Acessório` na escada do consultor.** A escada
@@ -846,6 +881,10 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   como `texto` da pendencia de fornecedor, uma pendencia por cabecalho. Trabalho de
   parser, no territorio da D10/D13 (bairro x loja), e por isso muda o md5 de record do
   v2 e passa pelas secoes A, B, D e E da prova inteira.
+  **Leva junto a parte de leitor da D14** (11/09): a pendencia de condicao passa a
+  ser uma por fornecedor, em vez de uma so para a carga inteira. Mesmo trecho do
+  leitor, uma mexida so no v2. O resto da D14 (a coluna `perfil`, a resposta que
+  grava `condicao_padrao` e o leitor aplicando o padrao) fica na 2.4b.
 
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de

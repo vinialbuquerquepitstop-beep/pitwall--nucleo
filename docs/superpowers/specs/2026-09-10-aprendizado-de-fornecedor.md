@@ -205,6 +205,13 @@ perfil so serve para duas coisas:
 Se o perfil virasse regra dura, fornecedor que muda de formato passaria a perder
 linha calada, que e a pior familia de defeito que este projeto ja mediu.
 
+**Excecao unica, decidida pelo dono em 11/09/2026 (D14 do plano):**
+`condicao_padrao` DECIDE. Ela preenche a condicao de linha em que nem a linha nem
+o bloco dizem nada, sem marcar a linha, inclusive CPO. Condicao escrita sempre
+ganha. Nasce da resposta do dono a pendencia de condicao daquele fornecedor, nao
+de carga aprovada. Qualquer outro campo do perfil que queira decidir e decisao
+nova, nao extensao desta.
+
 ### 4.5 `formato_mudou`: a bandeira que protege o cliente sem suporte
 
 Aceso quando, para um fornecedor com `n_listas >= 2`:
@@ -363,7 +370,10 @@ afirmacoes desta spec nao se sustentam, e uma quarta ficou pequena:
    linha sem condicao e outro (candidato natural: condicao padrao por
    fornecedor, que e `perfil.condicao_padrao` da 4.4) e **conflita com a regra
    "o perfil desempata, nunca decide"**: preencher condicao que a linha nao diz
-   e decidir. Decisao do dono, ainda nao tomada.
+   e decidir. **Decidido pelo dono em 11/09/2026: D14 do plano, opcao A**
+   (condicao padrao por fornecedor, sem marca na linha, valendo tambem para CPO),
+   contra a recomendacao, que marcava a linha e excluia CPO. A regra da 4.4 ganha
+   UMA excecao nomeada, `condicao_padrao`, e so ela. Detalhe e risco aceito na D14.
 4. **O verbo `criar` fornecedor nao tem onde se apoiar hoje.** Cabecalho de
    fornecedor desconhecido no TOPO da lista (sem fornecedor anterior) vira a
    sentinela `(sem cabecalho antes da lista)`: o texto `TABELA XPTO IMPORTS` nem

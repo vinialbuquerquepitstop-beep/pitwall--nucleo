@@ -270,12 +270,20 @@ aqui com `git status` e `git log -3` antes de commitar.
 
 | # | Item | Trava | Peso |
 |---|---|---|---|
-| 1 | **`2.4a zero`**: o cabecalho candidato chega a pendencia | o `criar` fornecedor | parser, medio |
-| 2 | **Decisao do dono**: linha sem condicao, condicao padrao por fornecedor? | 2.4b | conversa |
+| 1 | **`2.4a zero`**: o cabecalho candidato chega a pendencia, **e a pendencia de condicao vira uma por fornecedor (D14)** | o `criar` fornecedor | parser, medio |
+| 2 | ~~Decisao do dono: linha sem condicao~~ **DECIDIDA: D14, opcao A** | ~~2.4b~~ | feito |
 | 3 | `2.4a` `criar`, `ter` quase-igual, `quater` origem | a tela | o grosso |
 | 4 | A tela `Alimentar` | o portao do Bloco 2 | grande |
 | 5 | Isolamento vendedor/tenant na secao G | nada | pequeno |
 | 6 | Derrubar o v1 | o portao do Bloco 2 | pequeno |
+
+**Item 2 DECIDIDO na mesma sessao, 11/09/2026: D14 do plano, opcao A** (resposta do
+dono: *"a"*). Condicao padrao por fornecedor, sem marca na linha, valendo tambem para
+CPO. **Decisao consciente contra a recomendacao** (que era a B, abaixo). Nao se
+reabre. Consequencias de implementacao na D14: a spec 4.4 ganha UMA excecao nomeada;
+o padrao nasce da resposta do dono, nao de carga aprovada; e a pendencia de condicao
+tem que virar uma por fornecedor, o que vai JUNTO com o `2.4a zero` (mesmo trecho do
+leitor). Registro da pergunta como foi feita:
 
 **A pergunta do item 2, com o efeito na mesa** (PROCESSO, secao 6): hoje uma lista
 em que o fornecedor nao escreve a condicao em linha nenhuma (fixture C, `Junior
