@@ -512,10 +512,21 @@ nenhuma das duas batia com o repo.
 
   **`calc_carga_abrir` chama o `calc_parse_v2` agora**, e `fornecedor_conferir`
   viaja no `resumo` no MESMO commit: promover sozinho apagaria a defesa da D10, que
-  saiu do parser e foi morar nesse campo. O v1 saiu do laco da prova (**PASSOU, 49
-  assercoes**, eram 71, e a queda foi calculada do diff antes de rodar e bateu
-  exata). O v1 fica no banco sem chamador: **divida declarada, derrubar quando o
-  portao do Bloco 2 fechar.**
+  saiu do parser e foi morar nesse campo. O v1 fica no banco sem chamador: **divida
+  declarada, derrubar quando o portao do Bloco 2 fechar.**
+
+  **E a promocao saiu PELA METADE, o que virou a licao mais cara da noite.**
+  `calc_pendencia_resolver` REPROCESSA a carga inteira a cada pendencia resolvida e
+  ficou no v1: a carga abria pelo v2 e, na PRIMEIRA resposta do dono, era reescrita
+  pelo v1, que le menos (na fixture B, `n_casou` de **11 de 12 para 0 de 12**), com
+  `fornecedor_conferir` sobrevivendo OBSOLETO ao `||` do `resumo`. Achado pela OUTRA
+  sessao viva na pasta, conferido aqui, corrigido em `3b88c61`.
+  **Nenhuma assercao pegava: cada versao, sozinha, estava certa; errada era a
+  COMBINACAO de chamadores.** Dai a **secao E** da prova (E1 todos os chamadores na
+  MESMA versao, e nao "no v2", para sobreviver ao v3; E2 os consumidores existem;
+  E3 nenhuma `calc_*` com SOBRECARGA, que e a variante silenciosa). **PASSOU, 52
+  assercoes.** Segunda licao: **assinatura se copia da migration de ORIGEM, com
+  defaults**, nunca de `pg_get_function_identity_arguments()`.
 
   **A tela `Alimentar` NAO foi construida, de proposito.** OUTRA sessao viva na
   mesma pasta commitou `e5fb748` quatro minutos antes, criou a fatia **2.4
