@@ -829,6 +829,24 @@ executar, na ordem.
 **Agentes:** `base` (RPC e colunas), `vitrine` (a aba), `bandeira` (as seis provas),
 `pit-guard` antes do commit (a RPC nova e caminho de escrita novo).
 
+**A ordem interna mudou em 11/09/2026, por medicao.** A RPC foi chamada pela
+primeira vez e o `criar` fornecedor nao tem onde se apoiar: cabecalho desconhecido
+no topo da lista vira a sentinela `(sem cabecalho antes da lista)` e o texto dele
+nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
+
+```
+2.4a bis (guardas)  ->  2.4a zero (o cabecalho chega a pendencia)  ->  2.4a (criar)
+  ->  2.4a ter  ->  2.4a quater  ->  2.4b  ->  2.4c
+```
+
+- [ ] **2.4a zero — O cabecalho candidato chega a pendencia.** Hoje, sem fornecedor
+  anterior, a linha de cabecalho desconhecida some e as linhas abaixo dela caem numa
+  pendencia so, `(sem cabecalho antes da lista)`, que nao nomeia ninguem. No dia 1 de
+  um cliente e TODA lista. O leitor tem que devolver o texto do cabecalho candidato
+  como `texto` da pendencia de fornecedor, uma pendencia por cabecalho. Trabalho de
+  parser, no territorio da D10/D13 (bairro x loja), e por isso muda o md5 de record do
+  v2 e passa pelas secoes A, B, D e E da prova inteira.
+
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de
   `privado.fn_tenant_atual()` (restricao global 1). O `tipo` vem da PENDENCIA, nunca
@@ -836,9 +854,18 @@ executar, na ordem.
   aliases das demais grafias do mesmo texto vistas na carga, e reprocessa. `codigo`
   por hash deterministico de `privado.calc_norm(nome)`, nunca do rotulo (invariante 12).
   GRANT explicito depois do `CREATE OR REPLACE` (restricao global 5).
-- [ ] **2.4a bis — Fechar o buraco silencioso.** `calc_pendencia_resolver` passa a
+- [x] **2.4a bis — Fechar o buraco silencioso.** `calc_pendencia_resolver` passa a
   REPROVAR apelido que aponta para codigo inexistente. Hoje grava sem erro e nao casa
   nada. Medido em 10/09: `calc_alias.aponta` nao tem FK nem check.
+  **FECHADO em 11/09/2026, e maior do que este item pedia.** Medidas 21 combinacoes
+  pendencia x resposta antes de escrever: 4 ensinavam, 16 eram aceitas sem ensinar e
+  1 (este item) fazia a linha SUMIR de todas as pilhas. Entraram tres guardas gerais
+  (destino existe; `n_lidas = n_casou + n_duvidoso + n_nao_reconhecido`, tambem no
+  `calc_carga_abrir`; a mesma pendencia nao pode voltar) e tres travas (condicao nao
+  se ensina por apelido; nao responder duas vezes; so em rascunho). Migration
+  `20260911_calc_resolver_nada_calado.sql`; prova `prova_calc_parse.sql` **PASSOU, 66
+  assercoes** (eram 52), com `4 aceitas, 17 recusadas com motivo, 0 aceitas caladas`.
+  Handoff v9.
 - [ ] **2.4a ter — Guarda de quase-igual.** Antes de criar fornecedor, buscar parecido
   por `privado.calc_norm`. Achou, **nao cria e nao une**: devolve a pergunta com as
   duas grafias lado a lado (memoria `fornecedores-mesma-pessoa`).

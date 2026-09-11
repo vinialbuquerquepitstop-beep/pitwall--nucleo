@@ -338,6 +338,50 @@ Prova que nao esta em suite nenhuma nao roda de novo. Estas entram em
 
 ---
 
+## 7b. O que a execucao contradisse (11/09/2026)
+
+A RPC `calc_pendencia_resolver` foi CHAMADA pela primeira vez em 11/09 (ate ali
+so tinha sido provada na estrutura), com as duas fixtures da prova mais uma
+terceira, 21 combinacoes de pendencia x decisao, tudo desfeito no fim. Tres
+afirmacoes desta spec nao se sustentam, e uma quarta ficou pequena:
+
+1. **O buraco 3.1 e maior do que a secao 3.1 descreve.** Ela diz que o apelido
+   para codigo inexistente deixa a linha "fora, e NADA diz por que". Medido: a
+   linha SOME DE TODAS AS PILHAS. `lidas=3 casou=1 nao_reconhecido=2
+   pendencias=2` virou `lidas=3 casou=1 nao_reconhecido=0 pendencias=0`: a carga
+   fica sem pendencia, pronta para aprovar, com dois produtos a menos.
+2. **Nao e um buraco, e uma classe.** Das 21 combinacoes, 4 ensinavam e as
+   outras eram aceitas, gravavam no catalogo e nao mudavam a leitura. Por isso a
+   2.4a bis entrou como TRES guardas gerais (destino existe; conservacao de
+   linhas; a resposta tem que ensinar), e nao como a guarda unica da prova 1.
+   Detalhe e tabela: `supabase/migrations/20260911_calc_resolver_nada_calado.sql`.
+3. **Condicao NAO se ensina por apelido** (tabela da 4.2, linha `condicao`). O
+   leitor, v1 e v2, le condicao so de `calc_regra`; nenhum dos dois consulta
+   `calc_alias` com tipo `condicao`. Os 9 apelidos de condicao do tenant sao dado
+   morto. E a pendencia de condicao tem sempre o texto-sentinela
+   `sem condicao declarada`, que nao e grafia da lista. O caminho que resolve
+   linha sem condicao e outro (candidato natural: condicao padrao por
+   fornecedor, que e `perfil.condicao_padrao` da 4.4) e **conflita com a regra
+   "o perfil desempata, nunca decide"**: preencher condicao que a linha nao diz
+   e decidir. Decisao do dono, ainda nao tomada.
+4. **O verbo `criar` fornecedor nao tem onde se apoiar hoje.** Cabecalho de
+   fornecedor desconhecido no TOPO da lista (sem fornecedor anterior) vira a
+   sentinela `(sem cabecalho antes da lista)`: o texto `TABELA XPTO IMPORTS` nem
+   chega a pendencia nem a `cabecalhos`. No dia 1 de um cliente TODO fornecedor e
+   desconhecido, entao toda lista cai numa pendencia so, que nao nomeia ninguem.
+   **Antes de `calc_catalogo_criar`, o leitor tem que carregar o texto do
+   cabecalho candidato ate a pendencia.** Isso e trabalho de parser (territorio
+   da D10 e da D13: `Irajá` e bairro, `Cristiano` e loja), e e o bloqueador real
+   da 2.4a.
+
+Duas limitacoes menores, medidas e nao consertadas: cor decorada
+(`verde menta`) nao aprende por apelido, e `descartar` de pendencia de CABECALHO
+de modelo nao pega a linha do preco (a regra casa por linha, e a linha do preco
+nao repete o nome). Com as guardas, as duas passam a ser RECUSADAS com motivo em
+vez de aceitas caladas.
+
+---
+
 ## 8. O que NAO muda
 
 - Restricao global 1: `tenant_id` sempre de `privado.fn_tenant_atual()`.

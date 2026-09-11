@@ -498,7 +498,34 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v8.md` (10/09/2026, **a margem deixa de ser
+- topo: `handoff_calculadora_pitwall_v9.md` (11/09/2026, **o laco de aprendizado
+  para de aceitar resposta calada**). Fatia 2.4a bis, fechada, e maior do que o
+  plano pedia.
+
+  **A `calc_pendencia_resolver` foi CHAMADA pela primeira vez** (o v8 a provara so
+  na estrutura), com a identidade do dono, em 21 combinacoes pendencia x resposta:
+  **4 ensinavam, 16 eram aceitas sem ensinar nada, e 1 fazia a linha SUMIR de todas
+  as pilhas** (apontar para codigo inexistente: `lidas=3 casou=1 pendencias=0`, a
+  carga pronta para aprovar com produto a menos). Quarta perda silenciosa do projeto.
+
+  Migration `20260911_calc_resolver_nada_calado.sql`: tres guardas por LEI, nao por
+  caso (destino existe no catalogo do tenant; conservacao
+  `n_lidas = n_casou + n_duvidoso + n_nao_reconhecido`, tambem no
+  `calc_carga_abrir`; a mesma pendencia nao pode voltar depois de reler) e tres
+  travas (condicao nao se ensina por apelido, porque **o leitor nunca le apelido de
+  condicao e os 9 do tenant sao dado morto**; nao responder duas vezes; so em
+  rascunho). **PASSOU, 66 assercoes** (eram 52): `4 aceitas, 17 recusadas com
+  motivo, 0 aceitas caladas`, e a G6 cobra que as quatro que ensinavam seguem
+  ensinando.
+
+  **O achado que muda a fila:** cabecalho de fornecedor desconhecido no TOPO da
+  lista vira `(sem cabecalho antes da lista)` e o nome nao chega a pendencia. No dia
+  1 de um cliente e toda lista, entao o `criar` fornecedor nao tem onde se apoiar.
+  Nasceu o **`2.4a zero`** no plano, antes do `criar`. E uma **decisao do dono**
+  ficou aberta: linha sem condicao nao tem caminho, e condicao padrao por fornecedor
+  conflita com "o perfil desempata, nunca decide" da spec.
+
+- anterior: `handoff_calculadora_pitwall_v8.md` (10/09/2026, **a margem deixa de ser
   chumbada e o parser v2 vira o caminho vivo**). Itens 1, 2 e 4 da secao 5 do v7,
   fechados. Dois commits: `9a9f79e` e `f2d7c4c`.
 
