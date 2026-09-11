@@ -27,6 +27,9 @@
 --       (`request.jwt.claims` + `set local role authenticated`), cada decisao
 --       numa subtransacao. Ate 11/09 a RPC so tinha sido provada na estrutura.
 --       Migration: supabase/migrations/20260911_calc_resolver_nada_calado.sql.
+--   Z — o `2.4a zero` (11/09/2026): o cabecalho desconhecido chega a pendencia,
+--       e a regra da condicao do dono (D14 revisada e D15), na fixture D.
+--       Migration: supabase/migrations/20260911_calc_parse_condicao_e_cabecalho.sql.
 --
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
@@ -78,6 +81,8 @@ declare
   v_b1     jsonb;  -- resultado da fixture B pelo v1
   v_txc    text;   -- fixture C, fornecedor desconhecido no topo e linha sem condicao
   v_cc     jsonb;  -- resultado da fixture C pelo v2
+  v_txd    text;   -- fixture D, a regra da condicao (D15)
+  v_dd     jsonb;  -- resultado da fixture D pelo v2
   v_falhas int := 0;
   v_total  int := 0;
   v_log    text := '';
@@ -185,8 +190,11 @@ begin
   -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════
   -- Fornecedor que o catalogo NAO conhece no TOPO da lista (sem fornecedor
   -- anterior para herdar), e um fornecedor conhecido com linhas SEM condicao.
-  -- Sao as duas pendencias-sentinela: o texto delas e uma CAUSA, nao uma grafia
-  -- da lista, e por isso nenhuma resposta por apelido ensina nada a partir dela.
+  -- Ate o `2.4a zero` as duas pendencias dela eram SENTINELAS (`(sem cabecalho
+  -- antes da lista)` e `sem condicao declarada`): texto que e causa, nao grafia
+  -- da lista, e nenhuma resposta ensinava nada. Agora a de fornecedor nomeia o
+  -- cabecalho (`TABELA XPTO IMPORTS`) e a de condicao nomeia o fornecedor
+  -- (`junior`). Assercoes Z1 e Z2.
   v_txc :=
      E'[08/09/2026, 11:30:00] Vini: TABELA XPTO IMPORTS\n'
   || E'iPhone 17 256GB Preto Lacrado - 7.300\n'
@@ -195,9 +203,51 @@ begin
   || E'iPhone 16 128GB Preto - 4.299\n'
   || E'iPhone 16 128GB Azul - 4.299\n';
 
+  -- ══ FIXTURE D — a regra da condicao (D14 revisada e D15, 11/09/2026) ════════
+  -- Um fornecedor por regra. No v2 anterior esta lista casava os MESMOS 11 de 16
+  -- de agora, mas com TRES precos errados calados (o misto do Cristiano e a
+  -- linha da Raposa entravam como Lacrado) e as cinco linhas sem condicao numa
+  -- pergunta so, Rafael e Dg misturados. A contagem nao denuncia: so o conteudo.
+  v_txd :=
+  -- regra 2: a condicao da LINHA passa para as de baixo, ate aparecer outra
+     E'[11/09/2026, 09:00:00] Vini: Junior recreio\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.299\n'
+  || E'iPhone 16 256GB Preto - 4.899\n'
+  || E'iPhone 14 128GB Azul Seminovo - 2.700\n'
+  || E'iPhone 13 128GB Preto - 2.100\n\n'
+  -- regra 2, decisao B do dono: `lacrado` dentro da secao SEMINOVOS vale para baixo
+  || E'[11/09/2026, 09:05:00] Vini: ATACADO BR10\n'
+  || E'SEMINOVOS\n'
+  || E'iPhone 12 128GB Preto - 2.150\n'
+  || E'iPhone 15 128GB Azul lacrado - 3.900\n'
+  || E'iPhone 15 256GB Azul - 4.300\n\n'
+  -- regra 3: titulo misto, sem heranca; so entra quem diz a propria condicao
+  || E'[11/09/2026, 09:10:00] Vini: Cristiano\n'
+  || E'LACRADOS E SEMINOVOS\n'
+  || E'iPhone 16 Pro 256GB Preto Lacrado - 6.000\n'
+  || E'iPhone 14 Pro 256GB Preto - 3.800\n'
+  || E'iPhone 13 256GB Preto seminovo - 2.300\n'
+  || E'iPhone 13 128GB Azul - 2.000\n\n'
+  -- regra 5: duas condicoes que nao combinam na mesma linha
+  || E'[11/09/2026, 09:15:00] Vini: ATACADO E REVENDA DA RAPOSA\n'
+  || E'iPhone 15 128GB Preto seminovo, era lacrado - 3.000\n\n'
+  -- regras 4 e 6: dois fornecedores sem condicao, DUAS perguntas, e a linha
+  -- ambigua da Raposa logo acima NAO passa para eles
+  || E'[11/09/2026, 09:20:00] Vini: Raphael barra da Tijuca\n'
+  || E'iPhone 16 128GB Preto - 4.100\n\n'
+  || E'[11/09/2026, 09:25:00] Vini: Dg JPA\n'
+  || E'iPhone 16 128GB Azul - 4.150\n\n'
+  -- regra 2 no formato bloco: o `(CPO)` do 1o cabecalho passa ao bloco seguinte
+  || E'[11/09/2026, 09:30:00] Vini: Fábio Fmata\n'
+  || E'*🍎 iPhone 13 Pro – 128GB (CPO)*\n'
+  || E'💵 *R$ 3.150,00*\n\n'
+  || E'*🍎 iPhone 14 Pro – 256GB*\n'
+  || E'💵 *R$ 4.480,00*\n';
+
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
   v_cc := privado.calc_parse_v2(v_tenant, v_txc);
+  v_dd := privado.calc_parse_v2(v_tenant, v_txd);
 
   -- Cada bloco abaixo soma 1 em v_total e, se falhar, soma 1 em v_falhas e
   -- anota o motivo. O relatorio sai inteiro, nao para no primeiro erro: parar
@@ -1097,6 +1147,132 @@ begin
   end if;
   execute 'reset role';
 
+  -- ══ Z. O `2.4a zero`: o cabecalho chega a pendencia, e a regra da condicao ══
+  -- Z1. Lista que ABRE com fornecedor fora do catalogo: a pendencia nomeia o
+  --     cabecalho, nao a sentinela. Sem isto o `criar` fornecedor nao tinha o
+  --     que criar, e no dia 1 de um cliente todo fornecedor e desconhecido.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_cc->'pendencias') q
+                  where q->>'tipo' = 'fornecedor' and q->>'texto' = 'TABELA XPTO IMPORTS')
+     or exists (select 1 from jsonb_array_elements(v_cc->'pendencias') q
+                  where q->>'texto' in ('(sem cabecalho antes da lista)', 'sem condicao declarada')) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [2.4a zero] fixture C: a pendencia nao nomeia o cabecalho TABELA XPTO IMPORTS, ou uma sentinela voltou: '
+             || coalesce((select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
+                            from jsonb_array_elements(v_cc->'pendencias') q), '(nenhuma)');
+  end if;
+
+  -- Z2. E agora ENSINAR esse fornecedor funciona: na matriz da secao G,
+  --     apontar o cabecalho para um fornecedor existente foi aceito e a pendencia
+  --     sumiu. Antes do `2.4a zero` a mesma resposta era recusada pela G3 da
+  --     migration (a sentinela voltava). E o caminho que o `criar` vai usar.
+  v_total := v_total + 1;
+  if position('fornecedor:TABELA XPTO IMPORTS/apontar_valido;' in v_aceitas) = 0 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [2.4a zero] apontar o cabecalho desconhecido para um fornecedor nao ensinou. Aceitas: ' || v_aceitas;
+  end if;
+
+  -- Z3. Regra 2: a condicao escrita na LINHA passa para as de baixo, ate outra.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 16 256GB' and p->>'t' = 'Lacrado'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 4899)
+     or not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 13 128GB' and p->>'t' = 'Seminovo'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 2100) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] a condicao da linha nao passou para as de baixo (Junior: 16 256GB Lacrado 4899 / 13 128GB Seminovo 2100)';
+  end if;
+
+  -- Z4. Regra 2, decisao B do dono: `lacrado` escrito dentro da secao SEMINOVOS
+  --     vale para a linha de baixo. E o banner segue valendo antes dele.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 15 256GB' and p->>'t' = 'Lacrado'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 4300)
+     or not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 12 128GB' and p->>'t' = 'Seminovo'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 2150) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] decisao B: dentro de SEMINOVOS, a linha abaixo de `lacrado` nao virou Lacrado (15 256GB 4300), ou o banner parou de valer (12 128GB Seminovo 2150)';
+  end if;
+
+  -- Z5. Regra 2 no formato bloco: o `(CPO)` do 1o cabecalho passa ao bloco
+  --     seguinte, que nao declara nada.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                  where p->>'n' = 'iPhone 14 Pro 256GB' and p->>'t' = 'CPO'
+                    and (p->>'v')::numeric = 4480) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] o (CPO) do 1o cabecalho de bloco nao passou ao bloco seguinte (14 Pro 256GB CPO 4480)';
+  end if;
+
+  -- Z6. Regra 3: titulo misto. Quem diz a propria condicao entra; quem nao diz
+  --     vira pergunta, uma por linha. No v2 anterior as duas de baixo entravam
+  --     como Lacrado, caladas, e o seminovo virava o menor custo de lacrado.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 16 Pro 256GB' and p->>'t' = 'Lacrado'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 6000)
+     or not exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where p->>'n' = 'iPhone 13 256GB' and p->>'t' = 'Seminovo'
+                    and coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 2300)
+     or exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                   left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                  where coalesce((c->>'v')::numeric, (p->>'v')::numeric) in (3800, 2000))
+     or (select count(*) from jsonb_array_elements(v_dd->'pendencias') q
+          where q->>'tipo' = 'condicao' and q->>'causa' like 'A condicao declarada acima e mista%') <> 2 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] titulo misto: esperado 16 Pro Lacrado 6000 e 13 256GB Seminovo 2300 no blob, 3800 e 2000 FORA, e 2 perguntas por linha. Pendencias: '
+             || coalesce((select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
+                            from jsonb_array_elements(v_dd->'pendencias') q), '(nenhuma)');
+  end if;
+
+  -- Z7. Regra 5: `seminovo, era lacrado` e pergunta, nao Lacrado calado.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_dd->'produtos') p
+                left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+               where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 3000)
+     or (select count(*) from jsonb_array_elements(v_dd->'pendencias') q
+          where q->>'tipo' = 'condicao' and q->>'causa' like 'A linha traz duas condicoes%') <> 1 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] a linha com duas condicoes que nao combinam entrou no blob ou nao virou UMA pergunta';
+  end if;
+
+  -- Z8. Regras 4 e 6: dois fornecedores sem condicao sao DUAS perguntas, uma por
+  --     fornecedor, pelo `codigo`. E a linha ambigua da Raposa, logo acima, nao
+  --     passa para eles. No v2 anterior era UMA pergunta para a carga inteira.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_dd->'pendencias') q
+                  where q->>'tipo' = 'condicao' and q->>'texto' = 'rafael' and (q->>'n_linhas')::int = 1)
+     or not exists (select 1 from jsonb_array_elements(v_dd->'pendencias') q
+                  where q->>'tipo' = 'condicao' and q->>'texto' = 'dg_jacarepagua' and (q->>'n_linhas')::int = 1) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D14] a pergunta de condicao nao saiu uma por fornecedor (rafael, dg_jacarepagua). Pendencias: '
+             || coalesce((select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '" x' || (q->>'n_linhas'), ', ')
+                            from jsonb_array_elements(v_dd->'pendencias') q), '(nenhuma)');
+  end if;
+
+  -- Z9. O teto da fixture D, e a conservacao. 16 linhas; entram 11 (Junior 4,
+  --     BR10 3, Cristiano 2, Fmata 2); 5 viram pergunta. O numero e o MESMO do
+  --     v2 anterior, e por isso ele sozinho nao prova nada: Z3 a Z8 provam o
+  --     conteudo, este cobra que nada sumiu nem sobrou.
+  v_total := v_total + 1;
+  if (v_dd->>'n_lidas')::int <> 16 or (v_dd->>'n_casou')::int <> 11
+     or (v_dd->>'n_lidas')::int is distinct from
+        (v_dd->>'n_casou')::int + (v_dd->>'n_duvidoso')::int + (v_dd->>'n_nao_reconhecido')::int then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [D15] fixture D: casou ' || (v_dd->>'n_casou') || ' de ' || (v_dd->>'n_lidas')
+             || ' (esperado 11 de 16), duvidoso ' || (v_dd->>'n_duvidoso')
+             || ', nao reconhecido ' || (v_dd->>'n_nao_reconhecido');
+  end if;
+
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
@@ -1117,6 +1293,10 @@ begin
               || ' casou=' || (v_cc->>'n_casou')
               || ' pendencias=' || (select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
                                       from jsonb_array_elements(v_cc->'pendencias') q)
+              || E'\n  fixture D (condicao), v2: lidas=' || (v_dd->>'n_lidas')
+              || ' casou=' || (v_dd->>'n_casou')
+              || ' perguntas de condicao=' || (select count(*) from jsonb_array_elements(v_dd->'pendencias') q
+                                                where q->>'tipo' = 'condicao')
               || E'\n  resolver: ' || v_n_aceitas || ' respostas aceitas (todas ensinaram), '
               || v_n_recusas || ' recusadas com motivo declarado, 0 aceitas caladas'
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
