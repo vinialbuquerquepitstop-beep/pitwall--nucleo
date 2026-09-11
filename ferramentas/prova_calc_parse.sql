@@ -718,6 +718,78 @@ begin
              || ' de ' || (v_b->>'n_lidas') || ' (esperado 11 de 12)';
   end if;
 
+  -- == E. TODO CHAMADOR DO PARSER USA A MESMA VERSAO ==========================
+  -- Esta secao nasceu de um defeito REAL, em 10/09/2026, e ela e o guarda contra
+  -- a classe inteira, nao contra o caso.
+  --
+  -- A promocao do v2 trocou o parser de `calc_carga_abrir` e DEIXOU
+  -- `calc_pendencia_resolver` para tras. Mas o resolver REPROCESSA a carga
+  -- inteira a cada pendencia respondida. Efeito: a carga abria lida pelo v2 e,
+  -- na PRIMEIRA resposta do dono, era reescrita pelo v1, que le menos. Na
+  -- fixture B deste arquivo isso e `n_casou` caindo de 11 de 12 para 0 de 12: o
+  -- dono resolve uma pendencia para MELHORAR a carga e a carga desaba, calado.
+  --
+  -- Nenhuma assercao de parse pegava isso, porque cada versao, sozinha, estava
+  -- certa. O que estava errado era a COMBINACAO de chamadores, e combinacao nao
+  -- se ve olhando funcao por funcao.
+  --
+  -- A regra e "todos no mesmo", nao "todos no v2": no dia em que nascer um v3,
+  -- esta assercao continua cobrando a coerencia sem precisar ser reescrita, e
+  -- reprova exatamente na janela perigosa, que e a de promocao pela metade.
+  v_total := v_total + 1;
+  if (select count(distinct case when prosrc like '%calc_parse_v2%'
+                                 then 'v2' else 'v1' end)
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.prosrc like '%calc_parse%') <> 1 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'
+  FALHA  [chamadores] as RPCs de public nao chamam todas a MESMA versao do parser'
+             || E' (promocao pela metade: a cobertura muda sozinha entre abrir e resolver)'
+             || E'
+         ' || (
+               select string_agg(p.proname || '=' ||
+                      case when p.prosrc like '%calc_parse_v2%' then 'v2' else 'v1' end, ', '
+                      order by p.proname)
+                 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'public' and p.prosrc like '%calc_parse%');
+  end if;
+
+  -- E2. E os dois chamadores que existem hoje estao nomeados, para a assercao
+  --     acima nao passar verde por nao encontrar ninguem.
+  v_total := v_total + 1;
+  if (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.prosrc like '%calc_parse%'
+         and p.proname in ('calc_carga_abrir','calc_pendencia_resolver')) <> 2 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'
+  FALHA  [chamadores] sumiu um dos dois consumidores conhecidos do parser';
+  end if;
+
+  -- E3. NENHUMA `calc_*` de `public` tem sobrecarga.
+  --     Irma da E1, e a variante SILENCIOSA dela. `create or replace` que erra o
+  --     TIPO de um parametro (`varchar` onde era `text`) nao e recusado: cria uma
+  --     SOBRECARGA. Ficariam duas `calc_pendencia_resolver` convivendo, uma no v1
+  --     e outra no v2, e qual o PostgREST chama depende dos nomes de argumento do
+  --     POST. A E1 passaria verde, porque as duas existem e uma delas esta no v2.
+  --     Medido em 10/09/2026: a mesma edicao que originou a E1 errou a assinatura
+  --     (omitiu `default null`); ali o Postgres GRITOU (42P13). Se o erro tivesse
+  --     sido de tipo, teria passado calado.
+  v_total := v_total + 1;
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname like 'calc\_%'
+     group by p.proname having count(*) > 1) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'
+  FALHA  [chamadores] existe calc_* com SOBRECARGA em public: '
+             || (select string_agg(x.proname || ' x' || x.n, ', ' order by x.proname)
+                   from (select p.proname, count(*) as n
+                           from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                          where n.nspname = 'public' and p.proname like 'calc\_%'
+                          group by p.proname having count(*) > 1) x)
+             || ' (o PostgREST escolhe pelos nomes de argumento do POST)';
+  end if;
+
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
