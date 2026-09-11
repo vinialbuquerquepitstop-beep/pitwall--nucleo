@@ -12,12 +12,19 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v11.md` (o produto novo: Blocos 0 e 1 fechados, o
+   `handoff_calculadora_pitwall_v12.md` (o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
    dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
    resposta que nao ensina, o fornecedor desconhecido chega a pendencia, a condicao
    segue a regra do dono (D14/D15) e a pergunta de condicao ja tem resposta, o verbo
-   `definir`. **A tela ainda por fazer**, e a proxima fatia e o verbo `criar`),
+   `definir`. Em 11/09 a tarde entrou o verbo `criar`: fornecedor e modelo novos
+   nascem num clique, com guarda de quase-igual e origem do que se aprende (D17).
+   **A tela ainda por fazer**, e a proxima fatia NAO e ela: a `bandeira` reprovou
+   com as 106 assercoes verdes porque o `descartar` de fornecedor nao descarta e
+   entrega o bloco ao fornecedor de cima (D18, secao 7 do v12). **Regra que saiu
+   dali e vale para o projeto todo: padrao gravado tem que estar na MESMA
+   normalizacao do texto contra o qual ele casa** (`lower()` contra
+   `privado.calc_norm()` falha calado, mesma familia do `\b` e do `calc()` colado)),
    `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
    que e so uma PONTE curta.
    Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no

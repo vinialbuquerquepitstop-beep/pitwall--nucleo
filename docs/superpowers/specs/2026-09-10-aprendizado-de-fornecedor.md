@@ -110,7 +110,7 @@ cria. Os tres que importam:
 | Verbo | Significado | Existe? |
 |---|---|---|
 | `apontar` | isso e outro nome de uma coisa que ja esta no catalogo | sim |
-| **`criar`** | **isso e coisa nova, entra no catalogo do tenant** | **nao** |
+| `criar` | isso e coisa nova, entra no catalogo do tenant | sim, desde 11/09/2026 |
 | `descartar` | isso nunca e preco, nem agora nem depois | sim |
 | `definir` | a condicao destas linhas, NESTA lista (so pergunta de `condicao`) | sim, desde 11/09/2026 |
 
@@ -136,6 +136,37 @@ O `codigo` sai de hash deterministico do nome normalizado (`privado.calc_norm`),
 com sufixo numerico em colisao. **Nunca do rotulo que o fornecedor escreveu**
 (invariante 12): rotulo e display e muda; codigo e chave e nao muda.
 
+**Construido em 11/09/2026** (`20260911_calc_catalogo_criar.sql`, version
+`20260911135930`). Tres correcoes que a execucao impos a esta secao, e o texto
+acima fica como estava so para o leitor ver o que mudou:
+
+1. **A releitura nao virou copia.** O item 4 acima ("reprocessa, igual o `apontar`
+   ja faz") era, na letra, duplicar as ~90 linhas de cauda do
+   `calc_pendencia_resolver`. Duas copias daquele bloco bastaria UMA divergir para
+   a cobertura passar a depender do VERBO usado, sem aparecer em contagem nenhuma.
+   Saiu para `privado.calc_reprocessar`, UMA copia, chamada pelos dois. E a mesma
+   licao da `cond_chave` (7b item 3): o que se le em dois lugares vira uma coluna
+   so, o que se executa em dois lugares vira uma funcao so.
+2. **O `codigo` nao e hash, e slug.** O catalogo vivo usa slug legivel
+   (`mp_imports`, `airpods_4_anc`). Hash faria metade dele ilegivel, e o `codigo`
+   e o que aparece em apelido e em pendencia. Slug de `calc_norm(nome)` com sufixo
+   numerico em colisao: continua deterministico, continua sendo o codigo.
+3. **O item 3 ("alias para todas as outras grafias vistas nesta carga") ficou mais
+   estreito, de proposito:** so as grafias que normalizam para o MESMO texto
+   (`privado.calc_norm` igual). "Todas as grafias" sem um teste de igualdade seria
+   exatamente a uniao automatica que a 4.3 abaixo proibe. Medido na fixture E:
+   `XPTO CELL IMPORTS`, `*Xpto  Cell  Imports*` e `xpto cell imports` sao tres
+   pendencias e um clique so, porque as tres sao a mesma coisa PROVADA. Grafia
+   parecida mas nao igual continua sendo pergunta, e e a 4.3 que a atende.
+
+**E `cor` nao se cria.** Medido em 11/09/2026: o leitor **nunca** devolve pendencia
+de `tipo = 'cor'`. Cor que ele nao conhece cai em `duvidoso` junto com a linha, sem
+virar pergunta, entao `criar` cor nao teria de onde ser chamado. Criar o ramo assim
+mesmo seria codigo sem consumidor e sem prova, que e o que este projeto ja paga com
+o parser v1. A RPC recusa com motivo, e o ramo entra no dia em que o leitor aprender
+a perguntar cor, junto com a prova dele. `condicao` tambem recusa, por outro motivo:
+a resposta dela vale so para aquela lista (D14, verbo `definir`).
+
 ### 4.2 O orcamento de perguntas, e por que ele e o produto
 
 Cada campo obrigatorio a mais e uma chance de o cliente travar e te ligar. Entao
@@ -145,7 +176,7 @@ o desenho fixa o minimo, e o resto se deriva:
 |---|---|---|
 | `fornecedor` | nome e praca | codigo, todas as grafias vistas, o perfil de dialeto |
 | `modelo` | **so a categoria**, num dropdown fechado | codigo, nome, capacidade, o alias da grafia |
-| `cor` | nada (o nome e o proprio texto) | codigo, hex aproximado, alias |
+| `cor` | ~~nada~~ **nao se cria** (11/09/2026): o leitor nunca pergunta cor | — |
 | `condicao` | qual das conhecidas, **para esta lista** (`definir`) | nada: nao vira alias nem padrao (D14, 7b item 3) |
 
 **Uma unica pergunta obrigatoria com dropdown em todo o fluxo: a categoria do
@@ -170,6 +201,26 @@ dono, e a memoria `contas-secundarias-caique` mostra o custo do lado oposto
 6,2%). Unir sozinho mistura o custo de duas pessoas diferentes; nao perguntar
 nunca duplica fornecedor ate o catalogo virar lixo. **O certo e perguntar uma
 vez e memorizar a resposta para sempre.**
+
+**Construida em 11/09/2026, na MESMA migration do `criar`**, e nao depois como o
+custo da secao 6 previa. Motivo: enquanto a 2.4c (desfazer) nao existir, criar
+fornecedor e escrita sem volta, e soltar o verbo sem esta guarda seria entregar um
+botao irreversivel desprotegido.
+
+`privado.calc_nucleo(text)` tira o enfeite comercial do nome (`TABELA`, `IMPORTS`,
+`DISTRIBUIDORA`, `ATACADO`, `CELL`, `STORE`, `LOJA`, `REVENDA`, e as preposicoes) e
+ordena o que sobra. `TABELA MP DISTRIBUIDORA` e `MP Imports` caem os dois em `mp`.
+Nucleo igual: **nao cria e nao une**, recusa citando as duas grafias e dizendo os
+dois caminhos (`apontar` para o codigo dela, ou repetir com
+`{"confirmar_novo":"sim"}`). Assercoes K2 e K3.
+
+**Nao e medida de distancia, e igualdade sobre o que sobra**, e a escolha foi
+consciente: `pg_trgm` nao esta instalado neste banco (medido), e uma regra que se
+explica ao dono em uma frase e melhor do que um limiar que ninguem sabe calibrar.
+O preco, declarado: falso positivo custa UMA pergunta a mais; falso negativo (erro
+de digitacao, `MP Improts`) nao e pego e vira fornecedor duplicado. Os dois sao
+baratos perto de unir sozinho o custo de duas pessoas diferentes, que e o erro que
+nao se desfaz.
 
 ### 4.4 A camada nova: o dialeto do fornecedor
 
@@ -261,6 +312,18 @@ alguem seria voce, que e exatamente o que esta spec existe para evitar.
 
 Com origem, o desfazer e uma linha e o cliente faz sozinho.
 
+**Construido em 11/09/2026**, tambem na mesma migration, e pelo mesmo raciocinio:
+`criar` e a primeira RPC que escreve linha NOVA de catalogo, entao sem proveniencia
+a linha com mais chance de estar errada nasce ja invisivel. **15 colunas**, com
+check em `origem`. Backfill TOTAL para `semente`: tudo que existia no banco entrou
+por migration, nada foi aprendido de carga, porque o verbo que aprende nasceu
+agora. Medido depois de aplicar: **zero** linha com `origem <> 'semente'`.
+`calc_catalogo_criar` e `calc_pendencia_resolver` carimbam `aprendizado`.
+
+Uma diferenca da DDL acima: **nao ha FK de `carga_id` para `calc_carga`**.
+Proveniencia nao pode sumir quando a carga sumir, e `calc_carga.aprovado_por` ja e
+uuid solto pelo mesmo motivo.
+
 ### 4.7 O palpavel: a aba mostra a curva de aprendizado
 
 O painel `Catalogo` (Bloco 1) ganha a secao **"O que a calculadora aprendeu"**,
@@ -351,6 +414,13 @@ Prova que nao esta em suite nenhuma nao roda de novo. Estas entram em
 6. Restricao global 10 conferida de novo: `calc_*` sem FK para tabela de
    operacao. As colunas novas nao criam nenhuma.
 
+**Placar em 11/09/2026**, depois do `2.4a`: a 1 fechou na 2.4a bis (handoff v9); a
+2 e a 3 fecharam agora (assercoes K1, K2 e K3 de `ferramentas/prova_calc_parse.sql`);
+a 6 foi conferida e as colunas novas de fato nao criaram FK nenhuma. **Faltam a 4
+(depende da 2.4b) e a 5**, que e a mais importante das seis: ela e o portao do 2.4
+e a unica que poe numero na promessa de que o produto aprende. Sem ela, "a segunda
+lista pergunta menos" e frase, nao medicao.
+
 ---
 
 ## 7b. O que a execucao contradisse (11/09/2026)
@@ -401,6 +471,22 @@ Duas limitacoes menores, medidas e nao consertadas: cor decorada
 de modelo nao pega a linha do preco (a regra casa por linha, e a linha do preco
 nao repete o nome). Com as guardas, as duas passam a ser RECUSADAS com motivo em
 vez de aceitas caladas.
+
+5. **A cor nem chega a ser pergunta** (medido em 11/09/2026, ao construir o
+   `criar`). A limitacao acima diz que cor decorada "nao aprende por apelido"; e
+   mais fundo do que isso: o leitor **nunca** devolve pendencia de `tipo = 'cor'`.
+   Cor desconhecida cai em `duvidoso` junto com a linha inteira, sem nomear a cor.
+   Entao a linha da 4.2 que dizia "`cor`: ele responde nada, o sistema deriva hex
+   aproximado" descrevia um fluxo que nao existe. `calc_catalogo_criar` recusa
+   `cor` com motivo, em vez de carregar um ramo sem chamador e sem prova. Quando o
+   leitor aprender a perguntar cor, o ramo e a prova dele entram juntos.
+
+6. **O custo da secao 6 subestimou a costura, nao o codigo.** A 2.4a, a `ter` e a
+   `quater` estavam orcadas como 1,5 sessao em tres passos; sairam juntas, numa
+   migration so, porque as duas ultimas sao o que torna a primeira segura: sem
+   quase-igual, `criar` fornecedor e botao irreversivel sem guarda; sem `origem`, o
+   que ele grava no catalogo do cliente ninguem acha depois. Fatiar mais fino aqui
+   teria entregue, entre uma fatia e outra, um estado pior do que nao ter nada.
 
 ---
 

@@ -498,7 +498,35 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v11.md` (11/09/2026, **a pergunta de condicao
+- topo: `handoff_calculadora_pitwall_v12.md` (11/09/2026, **o verbo `criar`, e o
+  `descartar` achado quebrado**). O `2.4a` com o `ter` e o `quater`, na mesma sessao
+  do v9, v10 e v11. **Quatro migrations** (`20260911135930`, `164835`, `183244`,
+  `184409`).
+
+  Fornecedor e modelo novos passam a nascer num clique, com todas as grafias
+  provadamente iguais virando apelido de uma vez, guarda de quase-igual que **nao
+  cria e nao une**, e `origem` / `carga_id` / `criado_por` em cinco tabelas. A
+  releitura saiu do resolver para `privado.calc_reprocessar`, UMA copia (duas
+  fariam a cobertura depender do VERBO). `cor` nao se cria: e recusa declarada,
+  porque o leitor nunca pergunta cor. Prova **PASSOU, 106 assercoes** (eram 89).
+
+  **D17, decidida pelo dono:** a pergunta de fornecedor ja feita fica de pe, e uma
+  resposta nunca faz outra pergunta aberta ou ignorada sumir. Ela apareceu porque a
+  prova do `criar` achou preco no nome errado: criar o primeiro fornecedor de uma
+  lista de dia 1 engolia os de baixo, com a cobertura SUBINDO.
+
+  **LEIA A SECAO 7 ANTES DE CONSTRUIR A TELA:** a `bandeira` reprovou a fatia com
+  as 106 verdes, e o motivo (D18) e que o `descartar` de fornecedor nao descarta e
+  entrega o bloco ao fornecedor de cima. Regra gravada com `lower()`, texto casado
+  com `calc_norm()`: acento, `*` e espaco duplo nunca casam. Vem da 2.4a bis e do
+  Bloco 1, nao desta fatia. As regras de semente `réplica`, `genérico` e
+  `peça não genuína` nunca casaram.
+
+  **Duas licoes de metodo, com preco pago:** aplicar e so depois provar custou uma
+  migration que declara um conserto que nao aconteceu; e prova verde nao e contrato
+  cumprido quando a amostra e mais estreita que a frase decidida pelo dono.
+
+- anterior: `handoff_calculadora_pitwall_v11.md` (11/09/2026, **a pergunta de condicao
   vira resposta**). O `2.4a zero bis`, na mesma sessao do v9 e do v10.
 
   Verbo novo `definir` (DDL no check de `calc_pendencia.decisao`): a resposta vale

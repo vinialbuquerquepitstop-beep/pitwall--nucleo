@@ -913,6 +913,14 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   ->  2.4a ter  ->  2.4a quater  ->  2.4b  ->  2.4c
 ```
 
+**Correcao de 11/09/2026, tarde:** o `2.4a`, o `ter` e o `quater` sairam JUNTOS,
+numa migration so, e nao em tres passos. Motivo, e ele vale registrar porque a
+tentacao de fatiar mais fino vai voltar: `criar` fornecedor e escrita SEM VOLTA
+enquanto a 2.4c nao existir. Entregar o verbo sem a guarda de quase-igual seria
+entregar um botao irreversivel sem protecao nenhuma, e entregar sem `origem` seria
+gravar no catalogo do cliente linhas que ninguem consegue achar depois. As tres
+fatias eram uma so o tempo todo.
+
 - [x] **2.4a zero — FECHADO em 11/09/2026** (handoff v10). Migration
   `20260911_calc_parse_condicao_e_cabecalho.sql`, gerada por script a partir do
   corpo vivo; md5 novo do v2 `e4b7f4ad8ecd66edc784ba8d43a7fbc8`. Entraram as quatro
@@ -1030,13 +1038,176 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
     conservacao de linhas, a G3 so olha a pendencia do momento, e a G4 vive so
     na matriz da prova). Hoje o cenario nao se realiza (a `bandeira` mediu os
     dois caminhos), mas a defesa e circunstancial, nao estrutural.
-- [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
-  p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de
-  `privado.fn_tenant_atual()` (restricao global 1). O `tipo` vem da PENDENCIA, nunca
-  do payload. Cria a linha do catalogo, o alias da grafia que gerou a pendencia, os
-  aliases das demais grafias do mesmo texto vistas na carga, e reprocessa. `codigo`
-  por hash deterministico de `privado.calc_norm(nome)`, nunca do rotulo (invariante 12).
-  GRANT explicito depois do `CREATE OR REPLACE` (restricao global 5).
+- [x] **2.4a — O verbo `criar`. FECHADO em 11/09/2026** (handoff v12), junto com o
+  `ter` e o `quater` abaixo, numa migration so:
+  `20260911_calc_catalogo_criar.sql` (version `20260911135930`).
+  `public.calc_catalogo_criar(p_pendencia uuid, p_nome text, p_extra jsonb)`,
+  `SECURITY DEFINER`, papel `dono`, `tenant_id` de `privado.fn_tenant_atual()`. O
+  `tipo` vem da PENDENCIA, nunca do payload. Cria a linha do catalogo, o alias da
+  grafia que gerou a pendencia, os aliases das demais grafias **provadamente
+  iguais** vistas na carga, tira as pendencias irmas da fila e reprocessa.
+  md5 `4f3b1f4a9cca7e8a38afa4c1c7db964c` (len 8093).
+  **Tres coisas que a execucao contradisse, e o documento se corrige aqui:**
+  1. **A releitura nao podia ser duplicada.** Uma RPC separada, como este item e a
+     spec pediam, repetiria as ~90 linhas de cauda do `calc_pendencia_resolver`
+     (G2, G3, remontagem do blob, refresco do resumo, pendencia nova). Duas copias
+     bastaria UMA divergir para a cobertura passar a depender do VERBO usado, e
+     isso nao aparece em contagem nenhuma. Saiu para
+     `privado.calc_reprocessar(uuid, uuid, text, text, text, boolean, text)`, UMA
+     copia, chamada pelos dois verbos. md5 `3db9a91b6be0462910321615b92e4ccc`
+     (len 4814). O resolver caiu de 10448 para 6468 chars, exatamente a cauda.
+     Os 10 trechos movidos foram conferidos byte a byte contra o corpo VIVO antes
+     de aplicar, e as 89 assercoes anteriores sao o que prova que a extracao nao
+     mudou comportamento.
+  2. **`codigo` nao e hash, e slug.** Este item mandava hash deterministico de
+     `privado.calc_norm(nome)`. O catalogo VIVO nao usa hash: usa slug legivel
+     (`mp_imports`, `airpods_4_anc`, `iphone_15_pro_max_256gb`). Hash faria metade
+     do catalogo ilegivel, e o `codigo` e o que aparece em apelido e em pendencia.
+     Ficou slug de `calc_norm(nome)` com sufixo numerico em colisao: continua
+     deterministico e continua sendo o `codigo`, nunca o rotulo (invariante 12).
+  3. **`cor` NAO se cria, e e recusa declarada.** Medido em 11/09/2026: o leitor
+     **nunca** devolve pendencia de `tipo = 'cor'`. Cor desconhecida cai em
+     `duvidoso` junto com a linha, sem virar pergunta. Criar cor seria caminho sem
+     chamador e sem prova, que e exatamente o que este projeto ja paga com o
+     parser v1. Quando o leitor aprender a PERGUNTAR cor, o ramo entra junto com a
+     prova dele. `condicao` tambem e recusa, por outro motivo: a resposta dela vale
+     so para aquela lista (D14, verbo `definir`), entao nao ha o que criar.
+- [x] **D17 — DECIDIDA pelo dono em 11/09/2026: opcao (a), a recomendada.
+  CONSTRUIDA no mesmo dia** (handoff v12). Resposta citada exata: *"a"*. A pergunta
+  de fornecedor ja feita fica de pe: uma resposta nunca faz outra pergunta aberta
+  (ou ignorada) da mesma carga sumir. O caso do mes seguinte (fornecedor novo
+  depois de um conhecido, na PRIMEIRA leitura) **segue aberto de proposito** e
+  continua coberto so pelo alarme da D13 e pela obrigacao de tela da D10.
+  Migration `20260911_calc_parse_pergunta_de_fornecedor_fica.sql` (version
+  `20260911164835`), gerada por script dos corpos vivos, cinco trocas. O leitor
+  ganhou `p_forn_abertos text[] default '{}'` (DROP + CREATE, ACL refeita): o
+  cabecalho cujo texto e pergunta aberta vira papel `forn_aberto` e fecha o bloco
+  do fornecedor de cima. `privado.calc_reprocessar` monta a lista a cada releitura
+  (`decisao is null` ou `ignorar`). Na abertura a lista e vazia: **a foto da
+  primeira leitura da fixture E ficou identica antes e depois**
+  (`5b3461788184f306b6865c45451ed384`). md5 novos: leitor
+  `2f6addafb4b3d26c6a43f2c8dceec4cc` (35417), releitura
+  `85c66ad95414f1386a394ba4e6a4bfb3` (5485). Fumaca: criar o MP do topo agora da
+  casou **1** (era 4), blob 494 -> 495 (so o 16 128GB a 4.400 no nome do MP), e as
+  tres perguntas do XPTO seguem abertas. Assercoes K13 e K14 (esta, a pergunta
+  ignorada).
+  **A primeira versao NAO fechava a (a), e a `bandeira` reprovou com as 104
+  assercoes verdes.** O criterio dela foi o texto que o dono decidiu, nao a
+  amostra da prova. Caso medido, classe PRECO ERRADO: o dono IGNORA a mensagem
+  `XPTO CELL IMPORTS` (16 256GB a 4.100) e cria o fornecedor pela grafia
+  `*Xpto  Cell  Imports*` (o mesmo modelo a 4.900); o blob saia com **4.100**. O
+  leitor reconhece fornecedor pelo NOME, `XPTO CELL IMPORTS` contem `xpto cell
+  imports`, e `forn_aberto` vinha DEPOIS de `forn` no `case`: nome reconhecido
+  vencia pergunta ignorada. A primeira tentativa de correcao
+  (`20260911_calc_d17_pergunta_ignorada_fica.sql`, version `20260911183244`) pos
+  `forn_aberto` ANTES de `forn` e **nao consertou**: o `base` rodou a fumaca ao
+  aplicar e o blob saiu com o mesmo 4.100. Erro da Torre: o `case` so escreve o
+  ROTULO `papel`; o fornecedor da linha vem de `h.forn`, calculado pelo casamento
+  por NOME, que nao olha o papel. A K13 tinha passado por acaso de dado (la o
+  cabecalho do XPTO nao casava nome nenhum). O conserto de verdade e uma linha,
+  em `20260911_calc_d17_forn_aberto_sem_fornecedor.sql`: `hdr_forn` e nulo
+  quando o cabecalho e `forn_aberto`. Desta vez o `base` provou ANTES de aplicar,
+  com o `create` dentro de um bloco desfeito. **Cabe na (a) sem decisao nova:** a pergunta ja feita fica de pe ate o
+  dono responder ELA; o custo e no maximo um clique para confirmar uma grafia que
+  o nome ja reconheceria, e o ganho e nunca entrar preco que ele mandou deixar
+  fora. Junto, um defeito do `criar` achado no mesmo passe: `criar` sobre a
+  propria pergunta ignorada nao a incluia (apelido e marcacao pegavam so
+  `decisao is null`), entao o historico dizia `ignorar` com efeito de `criar`
+  (invariante 6) e o `grafias` voltava 2 ou 0 (esse entrou certo na segunda
+  migration). Assercoes K15 e K16. md5 finais: leitor
+  `85c430fa9540b653298c85ab5ab5ce6f` (36324), criar
+  `cf70594b319b96b7ba313ddab4782af9` (8579).
+  **Segunda licao, e ela e sobre a Torre:** aplicar e so depois provar custou uma
+  migration que declara um conserto que nao aconteceu. Mudanca de leitor que
+  promete mudar PRECO se prova antes de aplicar, com o `create` dentro de um
+  bloco desfeito e a fumaca do caso que motivou.
+  **Licao de metodo, e ela vale para toda assercao desta prova:** a K14 amostrou
+  UM caso (pergunta ignorada contra um fornecedor de OUTRO nome) e o comentario
+  dela prometia o caso geral. Prova verde nao e contrato cumprido quando a
+  amostra e mais estreita que a frase.
+  **Texto original do achado:** Responder uma pergunta de fornecedor faz
+  OUTRAS perguntas de fornecedor sumirem, e os precos delas entram no nome errado.
+  Achado pela prova do `2.4a` na primeira rodada (assercao K3), em 11/09/2026, e
+  medido de novo fora da prova. **Classe PRECO ERRADO.**
+  No dia 1 todo fornecedor e desconhecido, entao cada cabecalho vira pergunta. Na
+  fixture E sao quatro: `TABELA MP DISTRIBUIDORA` no topo e tres grafias do XPTO
+  abaixo. Criar o primeiro (`MP Distribuidora`) faz o leitor aplicar a D10 ("o
+  fornecedor vale ate o proximo cabecalho RECONHECIDO") aos tres de baixo:
+
+  | | Antes de responder | Depois de criar o MP |
+  |---|---|---|
+  | perguntas de fornecedor na leitura | 4 | **1** (so a do modelo JBL sobra) |
+  | casou | 0 | **4** (1 do MP + 3 do XPTO) |
+  | 16 256GB a 4.900 e 15 128GB a 3.700 (do XPTO) | fora | **na tabela, no nome do MP** |
+  | 16 128GB do XPTO a 4.450 | fora | **some no `min()`** contra o 4.400 do MP |
+  | o que avisa | | so `fornecedor_conferir` com `suspeita_alta` |
+
+  Tres perguntas que o dono JA VIU somem por causa da resposta a OUTRA, e a
+  cobertura SOBE, entao nenhuma guarda de queda pegaria. **Nao nasceu com o
+  `criar`:** `apontar` o primeiro cabecalho para um fornecedor que ja existe faz o
+  mesmo, desde a 2.4a zero. O `criar` so torna o dia 1 o caminho normal ate ele.
+  **Por que e decisao do dono:** o conserto mexe na D10 e na D13, que sao dele.
+  As opcoes, com o efeito:
+  - **(a) A pergunta ja feita fica de pe (recomendada).** O leitor passa a receber
+    as perguntas de fornecedor ainda abertas da carga (como ja recebe as respostas
+    de condicao) e nao absorve aquele cabecalho no fornecedor de cima. A primeira
+    leitura continua exatamente como a D10/D13 decidiram. Fecha o dia 1. Custo:
+    uma fatia de parser (argumento novo no v2, `drop` + `create`). **Nao fecha** o
+    caso do mes seguinte: fornecedor NOVO depois de um conhecido ainda entra no
+    nome do de cima, e se o nome dele nao tiver palavra de fornecedor cadastrado,
+    nem o alarme acende.
+  - **(b) Mensagem nova com cabecalho desconhecido nunca herda (revisa a D10).**
+    Fecha o dia 1 E o mes seguinte. Custo: lista longa do MESMO fornecedor
+    quebrada em varias mensagens, com primeira linha que nao e produto (`🔥
+    PROMOCAO 🔥`), vira pergunta falsa. E o falso positivo que a D13 recusou, e
+    so da para medir numa lista real dele.
+  - **(c) Deixar, e a tela mostrar `fornecedor_conferir` de forma dificil de
+    ignorar** (ja e requisito da D10 no v5). Nao conserta nada; depende de o dono
+    ler um alarme toda vez.
+  Enquanto nao decidir, a assercao **K13** e excecao nomeada: passa enquanto o
+  defeito se comporta como medido e o alarme acende, e o `PASSOU` da prova imprime
+  o defeito em toda rodada. Quando o conserto entrar, ela reprova sozinha.
+- [ ] **D18 — ABERTA, e e a PROXIMA fatia. O `descartar` nao descarta, e o que ele
+  deveria tirar entra no nome do fornecedor de cima.** Achado pela `bandeira` em
+  11/09/2026, com as **106 assercoes verdes**, procurando o proximo buraco da D17
+  em vez de aceitar a prova. Classe PRECO ERRADO. Nao nasceu nesta fatia: vem da
+  2.4a bis (o `descartar` grava a regra) e, na parte da semente, do Bloco 1.
+
+  **A causa raiz, uma so:** a regra de descarte e gravada com
+  `lower(v_p.texto)` (mais escape de regex), mas o leitor casa o padrao contra o
+  texto **normalizado** (`privado.calc_norm`, que tira acento, `*`, `|`, aspas e
+  colapsa espaco). Padrao numa normalizacao, texto em outra: nunca casa, e falha
+  **calada**. Mesma familia do `\b` que era backspace e do `calc()` colado.
+
+  | # | Vetor medido | Efeito |
+  |---|---|---|
+  | 13 | `descartar` o cabecalho `Fábrica Zeta` (acento) | padrao `fábrica zeta` contra texto `fabrica zeta`: `n_descarte` 0 e o bloco vai para **MP Distribuidora iPhone 16 256GB 3100** |
+  | 15 | `descartar` `*Fabrica  Zeta*` (asterisco, espaco duplo) | padrao `fabrica  zeta\*`: descarte 0, **3100 no MP** |
+  | 16 | ASCII, mas em formato BLOCO (cabecalho de modelo entre o fornecedor e o preco) | o padrao casa, o cabecalho de modelo corta o descarte: descarte 0, **3100 no MP** |
+  | 17 | `descartar` um padrao curto sem ancora (`PROMO`) | casa a linha de OUTRO fornecedor: a pergunta `Loja Delta` **some da leitura** e fica `decisao is null` orfa |
+  | 14 | controle, ASCII em formato linha | funciona (e por isso a R14 passava) |
+
+  **A R14 passava por sorte de dado:** o cabecalho da fixture C e ASCII, esta em
+  formato linha e nao aparece na linha de nenhum outro fornecedor. Quatro formas
+  de cabecalho, tres quebradas, uma na prova.
+
+  **Defeito lateral, mesma causa, e este esta no ar desde o Bloco 1:** as regras
+  de descarte da SEMENTE que tem acento nunca casaram: `réplica` (900),
+  `genérico` (950) e `peça não genuína` (1.900) entram como preco, medido 5 de 5.
+  Preco de replica vira o menor da combinacao e, pelo fator de outlier 1.6, pode
+  EXPULSAR da tabela o preco real de outros fornecedores. O efeito de outlier nao
+  foi medido; vetor: somar a linha de replica a uma lista com o mesmo modelo em
+  outro fornecedor.
+
+  **O conserto tem que garantir tres coisas, e a prova ganha uma assercao por
+  vetor (13 a 18):**
+  1. o padrao sai do texto NORMALIZADO e ancorado na linha inteira, entao acento,
+     `*` e espaco duplo casam e linha de outro fornecedor nao casa;
+  2. o cabecalho descartado FECHA o bloco do fornecedor de cima (senao o descarte
+     que falha vira preco no nome errado, que e pior do que nao descartar);
+  3. as linhas dele vao para `n_descarte` ate o proximo cabecalho de fornecedor,
+     mesmo com cabecalho de modelo no meio.
+  E as regras de semente com acento precisam ser regravadas na normalizacao certa.
 - [x] **2.4a bis — Fechar o buraco silencioso.** `calc_pendencia_resolver` passa a
   REPROVAR apelido que aponta para codigo inexistente. Hoje grava sem erro e nao casa
   nada. Medido em 10/09: `calc_alias.aponta` nao tem FK nem check.
@@ -1049,13 +1220,35 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   `20260911_calc_resolver_nada_calado.sql`; prova `prova_calc_parse.sql` **PASSOU, 66
   assercoes** (eram 52), com `4 aceitas, 17 recusadas com motivo, 0 aceitas caladas`.
   Handoff v9.
-- [ ] **2.4a ter — Guarda de quase-igual.** Antes de criar fornecedor, buscar parecido
-  por `privado.calc_norm`. Achou, **nao cria e nao une**: devolve a pergunta com as
-  duas grafias lado a lado (memoria `fornecedores-mesma-pessoa`).
-- [ ] **2.4a quater — Origem em tudo que se aprende.** `origem text default 'manual'`
-  (`semente` / `aprendizado` / `manual`), `carga_id uuid` e `criado_por uuid` em
-  `calc_alias`, `calc_regra`, `calc_modelo`, `calc_cor` e `calc_fornecedor`. Sem isso,
-  resposta errada do cliente vira apelido permanente que so o dono do produto acha.
+- [x] **2.4a ter — Guarda de quase-igual. FECHADO em 11/09/2026**, na MESMA
+  migration do `2.4a`, e nao depois, por um motivo: enquanto a 2.4c (desfazer) nao
+  existir, criar fornecedor e escrita SEM VOLTA. Soltar o `criar` sozinho seria
+  entregar um botao irreversivel sem a unica guarda que o protege.
+  `privado.calc_nucleo(text)` (md5 `9e9545726257a1bd3a877852cf9495c4`, len 716) tira
+  o enfeite comercial (`TABELA`, `IMPORTS`, `DISTRIBUIDORA`, `ATACADO`, `CELL`...) e
+  ordena o que sobra. `TABELA MP DISTRIBUIDORA` e `MP Imports` caem os dois em `mp`,
+  entao a pergunta aparece: **nao cria e nao une**, devolve as duas grafias lado a
+  lado (memoria `fornecedores-mesma-pessoa`). O dono responde no proprio payload
+  (`{"confirmar_novo":"sim"}`) ou usa `apontar`. Assercoes K2 e K3.
+  **Nao e medida de distancia, e igualdade sobre o que sobra**, e isso foi escolha:
+  nao exige extensao (`pg_trgm` nao esta instalado neste banco, medido), e da para
+  explicar ao dono em uma frase. O preco declarado: falso positivo custa uma
+  pergunta a mais; falso negativo (erro de digitacao) nao e pego. Os dois sao
+  baratos perto de unir sozinho o custo de duas pessoas diferentes.
+- [x] **2.4a quater — Origem em tudo que se aprende. FECHADO em 11/09/2026**, na
+  mesma migration, e tambem nao depois: `criar` e a primeira RPC que escreve linha
+  NOVA de catalogo, e sem proveniencia a linha com mais chance de estar errada (a
+  que o cliente inventou as pressas) e justamente a que ninguem acha depois.
+  `origem text not null default 'manual'` (`semente` / `aprendizado` / `manual`, com
+  check), `carga_id uuid` e `criado_por uuid` nas cinco: `calc_alias`, `calc_regra`,
+  `calc_modelo`, `calc_cor`, `calc_fornecedor`. **15 colunas, conferidas.**
+  Backfill total para `semente`: tudo que existia entrou por migration, nada foi
+  aprendido de carga, porque o verbo que aprende nasceu agora. Medido depois de
+  aplicar: **zero** linha com `origem <> 'semente'`.
+  `calc_catalogo_criar` e `calc_pendencia_resolver` carimbam `aprendizado` (K1, K7,
+  K12). **Sem FK de `carga_id` para `calc_carga`**, de proposito: proveniencia nao
+  pode sumir quando a carga sumir, e `calc_carga.aprovado_por` ja e uuid solto pelo
+  mesmo motivo.
 - [ ] **2.4b — Dialeto do fornecedor.** `perfil jsonb`, `n_listas int` e
   `cobertura_media numeric` em `calc_fornecedor`, aprendidos **so de carga aprovada**.
   **O perfil desempata, nunca decide**: o parser segue generico. Mais a bandeira
