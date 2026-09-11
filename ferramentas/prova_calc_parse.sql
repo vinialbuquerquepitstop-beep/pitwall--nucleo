@@ -19,6 +19,15 @@
 -- Os helpers (`calc_limpar`, `calc_norm`, `calc_tokens`, `calc_preco`) seguem
 -- compartilhados, mas agora o caminho vivo e o v2, e e ele que esta provado.
 --
+-- DESDE 11/09/2026 COBRE TAMBEM O LACO DE APRENDIZADO (secoes F e G), com as
+-- MESMAS fixtures, de proposito: duas copias de fixture ja divergiram uma vez
+-- neste projeto e a prova reprovou por defeito dela, nao do motor.
+--   F — conservacao de linhas: toda linha lida esta em alguma pilha.
+--   G — `calc_pendencia_resolver` CHAMADA de verdade, com a identidade do dono
+--       (`request.jwt.claims` + `set local role authenticated`), cada decisao
+--       numa subtransacao. Ate 11/09 a RPC so tinha sido provada na estrutura.
+--       Migration: supabase/migrations/20260911_calc_resolver_nada_calado.sql.
+--
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
 -- e nada e gravado em producao. Sucesso = a excecao final dizer PASSOU.
@@ -67,9 +76,32 @@ declare
   v_r      jsonb;  -- resultado da fixture A, da versao do laco
   v_b      jsonb;  -- resultado da fixture B pelo v2
   v_b1     jsonb;  -- resultado da fixture B pelo v1
+  v_txc    text;   -- fixture C, fornecedor desconhecido no topo e linha sem condicao
+  v_cc     jsonb;  -- resultado da fixture C pelo v2
   v_falhas int := 0;
   v_total  int := 0;
   v_log    text := '';
+  -- secao G
+  v_fxs    text[];
+  v_cargas uuid[] := '{}';
+  v_i      int;
+  v_pd     record;
+  v_dec    text;
+  v_dest   text;
+  v_res    jsonb;
+  v_depois jsonb;
+  v_casou0 int;
+  v_msg    text;
+  v_poco   uuid;
+  v_cond   uuid;
+  v_n_aceitas  int := 0;
+  v_n_recusas  int := 0;
+  v_aceitas    text := '';
+  v_sem_ensinar text := '';
+  v_inexist    text := '';
+  v_perdeu     text := '';
+  v_caiu       text := '';
+  v_estranha   text := '';
 begin
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
   v_txt :=
@@ -150,8 +182,22 @@ begin
   || E'*🍎 iPhone Zeta – 256GB (CPO)*\n'
   || E'💵 *R$ 9.999,00*\n';
 
+  -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════
+  -- Fornecedor que o catalogo NAO conhece no TOPO da lista (sem fornecedor
+  -- anterior para herdar), e um fornecedor conhecido com linhas SEM condicao.
+  -- Sao as duas pendencias-sentinela: o texto delas e uma CAUSA, nao uma grafia
+  -- da lista, e por isso nenhuma resposta por apelido ensina nada a partir dela.
+  v_txc :=
+     E'[08/09/2026, 11:30:00] Vini: TABELA XPTO IMPORTS\n'
+  || E'iPhone 17 256GB Preto Lacrado - 7.300\n'
+  || E'iPhone 17 512GB Preto Lacrado - 8.100\n\n'
+  || E'[08/09/2026, 12:00:00] Vini: Junior recreio\n'
+  || E'iPhone 16 128GB Preto - 4.299\n'
+  || E'iPhone 16 128GB Azul - 4.299\n';
+
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
+  v_cc := privado.calc_parse_v2(v_tenant, v_txc);
 
   -- Cada bloco abaixo soma 1 em v_total e, se falhar, soma 1 em v_falhas e
   -- anota o motivo. O relatorio sai inteiro, nao para no primeiro erro: parar
@@ -790,6 +836,267 @@ begin
              || ' (o PostgREST escolhe pelos nomes de argumento do POST)';
   end if;
 
+  -- ══ F. CONSERVACAO DE LINHAS ═══════════════════════════════════════════════
+  -- Toda linha lida esta em ALGUMA pilha: `n_lidas = n_casou + n_duvidoso +
+  -- n_nao_reconhecido` (o descarte sai de `n_lidas`, por desenho). Linha que
+  -- nao esta em pilha nenhuma nao vira preco, nao vira pendencia e nao aparece
+  -- em contador nenhum: e a PERDA SILENCIOSA, e em 11/09/2026 ela foi medida
+  -- acontecendo via apelido para destino inexistente (lidas=3, casou=1,
+  -- pendencias=0). As duas RPCs agora recusam isso em execucao (guarda G2 da
+  -- migration); aqui a lei e cobrada direto no leitor, nas tres fixtures.
+  v_total := v_total + 1;
+  if (v_r->>'n_lidas')::int is distinct from
+     (v_r->>'n_casou')::int + (v_r->>'n_duvidoso')::int + (v_r->>'n_nao_reconhecido')::int then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [conservacao] fixture A: lidas ' || (v_r->>'n_lidas')
+             || ' <> casou ' || (v_r->>'n_casou') || ' + duvidoso ' || (v_r->>'n_duvidoso')
+             || ' + nao reconhecido ' || (v_r->>'n_nao_reconhecido');
+  end if;
+  v_total := v_total + 1;
+  if (v_b->>'n_lidas')::int is distinct from
+     (v_b->>'n_casou')::int + (v_b->>'n_duvidoso')::int + (v_b->>'n_nao_reconhecido')::int then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [conservacao] fixture B: lidas ' || (v_b->>'n_lidas')
+             || ' <> casou ' || (v_b->>'n_casou') || ' + duvidoso ' || (v_b->>'n_duvidoso')
+             || ' + nao reconhecido ' || (v_b->>'n_nao_reconhecido');
+  end if;
+  v_total := v_total + 1;
+  if (v_cc->>'n_lidas')::int is distinct from
+     (v_cc->>'n_casou')::int + (v_cc->>'n_duvidoso')::int + (v_cc->>'n_nao_reconhecido')::int then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [conservacao] fixture C: lidas ' || (v_cc->>'n_lidas')
+             || ' <> casou ' || (v_cc->>'n_casou') || ' + duvidoso ' || (v_cc->>'n_duvidoso')
+             || ' + nao reconhecido ' || (v_cc->>'n_nao_reconhecido');
+  end if;
+
+  -- ══ G. O RESOLVER, CHAMADO DE VERDADE ══════════════════════════════════════
+  -- A regra desta secao, e ela e a frase da spec de 10/09 em forma de teste:
+  -- **toda resposta do dono ou ENSINA ou e RECUSADA com motivo. Nunca e aceita
+  -- calada.** Medido em 11/09/2026, ANTES da migration: das 21 combinacoes
+  -- pendencia x decisao das tres fixtures, 4 ensinavam e as outras eram aceitas,
+  -- gravavam no catalogo e nao mudavam a leitura (e uma delas fazia linha
+  -- evaporar). As assercoes abaixo nao listam quais combinacoes falham: cobram a
+  -- regra. Se o leitor aprender a ler cor decorada amanha, elas passam sozinhas.
+  --
+  -- Tudo roda com a identidade do DONO, como a tela vai rodar. Cada decisao fica
+  -- numa subtransacao (`begin ... exception`), entao uma nao contamina a outra,
+  -- e o `raise` final desfaz as tres cargas junto com o resto.
+  perform set_config('request.jwt.claims',
+    '{"sub":"fb2aad8e-b728-4e59-a198-71da2156449d","role":"authenticated"}', true);
+
+  -- Um modelo que so existe na SEMENTE. Pela D5 a semente e invisivel em
+  -- execucao, entao apontar para ele tem que reprovar como se nao existisse.
+  insert into public.calc_modelo (tenant_id, codigo, nome, categoria)
+  values (null, 'so_na_semente_prova', 'Modelo de Prova 999GB', 'iPhone');
+
+  v_fxs := array[v_txt, v_txb, v_txc];
+  for v_i in 1..3 loop
+    execute 'set local role authenticated';
+    v_cargas := v_cargas || public.calc_carga_abrir(v_fxs[v_i]);
+    execute 'reset role';
+  end loop;
+
+  -- A matriz: cada pendencia de cada carga, contra tres respostas.
+  for v_i in 1..3 loop
+    for v_pd in select * from public.calc_pendencia
+                 where carga_id = v_cargas[v_i] order by tipo, texto loop
+      foreach v_dec in array array['apontar_valido','apontar_inexistente','descartar'] loop
+        v_dest := case when v_dec = 'descartar' then null
+                       when v_dec = 'apontar_inexistente' then 'nao_existe_prova'
+                       else case v_pd.tipo when 'modelo' then 'iphone_13_128gb'
+                                           when 'cor' then 'verde'
+                                           when 'fornecedor' then 'five_cell'
+                                           when 'condicao' then 'CPO' end end;
+        select n_casou into v_casou0 from public.calc_carga where id = v_cargas[v_i];
+        begin
+          execute 'set local role authenticated';
+          v_res := public.calc_pendencia_resolver(v_pd.id,
+                     case when v_dec = 'descartar' then 'descartar' else 'apontar' end, v_dest);
+          execute 'reset role';
+          -- ACEITA. Agora ela tem que ter ensinado, sem perder nada.
+          v_n_aceitas := v_n_aceitas + 1;
+          v_aceitas := v_aceitas || v_pd.tipo || ':' || v_pd.texto || '/' || v_dec || '; ';
+          v_depois := privado.calc_parse_v2(v_tenant, v_fxs[v_i]);
+          if exists (select 1 from jsonb_array_elements(v_depois->'pendencias') q
+                      where q->>'tipo' = v_pd.tipo and q->>'texto' = v_pd.texto) then
+            v_sem_ensinar := v_sem_ensinar || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec;
+          end if;
+          if v_dec = 'apontar_inexistente' then
+            v_inexist := v_inexist || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '"';
+          end if;
+          if (v_depois->>'n_lidas')::int is distinct from
+             (v_depois->>'n_casou')::int + (v_depois->>'n_duvidoso')::int
+               + (v_depois->>'n_nao_reconhecido')::int then
+            v_perdeu := v_perdeu || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec;
+          end if;
+          if (v_res->>'n_casou')::int < v_casou0 then
+            v_caiu := v_caiu || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec
+                      || ': ' || v_casou0 || ' -> ' || (v_res->>'n_casou');
+          end if;
+          raise exception 'prova_rollback';
+        exception when others then
+          if sqlerrm <> 'prova_rollback' then
+            v_n_recusas := v_n_recusas + 1;
+            -- Recusa so vale se for por motivo DECLARADO. Um erro qualquer
+            -- (null, cast, divisao) tambem "recusa", e passaria por guarda.
+            if sqlerrm !~ '(nao existe no catalogo|nao ensina nada|condicao nao se ensina|apontar exige o destino|nao se ensina por apelido)' then
+              v_estranha := v_estranha || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec || ': ' || sqlerrm;
+            end if;
+          end if;
+        end;
+      end loop;
+    end loop;
+  end loop;
+
+  -- G1. Apelido para codigo INEXISTENTE reprova. E a prova 1 da secao 7 da
+  --     spec de 10/09, e o primeiro buraco a fechar.
+  v_total := v_total + 1;
+  if v_inexist <> '' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] apontar para codigo inexistente foi ACEITO:' || v_inexist;
+  end if;
+
+  -- G2. Resposta aceita tem que ter ensinado: a mesma pendencia nao volta.
+  v_total := v_total + 1;
+  if v_sem_ensinar <> '' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] resposta ACEITA que nao ensinou (a pendencia volta ao reler):' || v_sem_ensinar;
+  end if;
+
+  -- G3. Resposta aceita nao pode tirar linha de todas as pilhas.
+  v_total := v_total + 1;
+  if v_perdeu <> '' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] resposta aceita fez o leitor PERDER linhas:' || v_perdeu;
+  end if;
+
+  -- G4. Resposta aceita nunca derruba a cobertura. Ela pode SUBIR (e o ponto do
+  --     laco) e pode ficar igual (descarte tira de `lidas`, nao de `casou`).
+  v_total := v_total + 1;
+  if v_caiu <> '' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] resposta aceita DERRUBOU n_casou:' || v_caiu;
+  end if;
+
+  -- G5. Toda recusa e por motivo declarado, nunca por erro qualquer.
+  v_total := v_total + 1;
+  if v_estranha <> '' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] recusa por erro NAO declarado (defeito, nao guarda):' || v_estranha;
+  end if;
+
+  -- G6. O QUE ENSINAVA CONTINUA ENSINANDO. As guardas nao podem ter fechado a
+  --     porta que funcionava: as quatro combinacoes que ensinavam antes da
+  --     migration seguem aceitas.
+  v_total := v_total + 1;
+  if position('modelo:poco f8 pro 256gb preto lacrado/apontar_valido;' in v_aceitas) = 0
+     or position('modelo:poco f8 pro 256gb preto lacrado/descartar;' in v_aceitas) = 0
+     or position('cor:verde menta/descartar;' in v_aceitas) = 0
+     or v_aceitas !~ 'modelo:[^;]*Zeta[^;]*/apontar_valido;' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] uma resposta que ENSINAVA passou a ser recusada. Aceitas: ' || v_aceitas;
+  end if;
+
+  select id into v_poco from public.calc_pendencia
+   where carga_id = v_cargas[1] and tipo = 'modelo' and texto like 'poco f8%';
+  select id into v_cond from public.calc_pendencia
+   where carga_id = v_cargas[3] and tipo = 'condicao';
+
+  -- G7. D5: modelo que so existe na SEMENTE conta como inexistente.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_poco, 'apontar', 'so_na_semente_prova');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'nao existe no catalogo' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] apontar para modelo que so existe na SEMENTE nao reprovou (D5). Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- G8. Condicao nao se ensina por apelido: o leitor nao le apelido de
+  --     condicao (medido: nem o v1 nem o v2 consultam `calc_alias` com esse
+  --     tipo). Aceitar seria gravar dado morto.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_cond, 'apontar', 'CPO');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'condicao nao se ensina' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] apontar condicao nao foi recusado pela trava T1. Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- G9. Pendencia ja respondida nao se responde de novo (T2): o segundo
+  --     `descartar` duplicava a regra; o segundo `apontar` estourava a unique.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_poco, 'apontar', 'iphone_13_128gb');
+    perform public.calc_pendencia_resolver(v_poco, 'descartar', null);
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'ja foi respondida' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] a mesma pendencia foi respondida duas vezes (T2). Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+
+  -- G10. Fora de rascunho nao se ensina (T3): sem a lista nao ha como provar
+  --      que a resposta ensina. E `ignorar` segue aceito, sem reprocessar.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'reset role';
+    update public.calc_carga set status = 'descartada', texto_bruto = null where id = v_cargas[1];
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_poco, 'apontar', 'iphone_13_128gb');
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  v_res := null;
+  begin
+    execute 'reset role';
+    update public.calc_carga set status = 'descartada', texto_bruto = null where id = v_cargas[1];
+    execute 'set local role authenticated';
+    v_res := public.calc_pendencia_resolver(v_poco, 'ignorar', null);
+    raise exception 'prova_rollback';
+  exception when others then null;
+  end;
+  if coalesce(v_msg,'') !~ 'nao esta mais em rascunho'
+     or coalesce((v_res->>'reprocessou')::boolean, true) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [resolver] carga fora de rascunho: apontar nao reprovou, ou ignorar nao foi aceito sem reprocessar (T3). Obtido: '
+             || coalesce(v_msg,'(nada)') || ' / ignorar=' || coalesce(v_res::text,'(nada)');
+  end if;
+
+  -- G11. A conservacao vale tambem ao ABRIR. O apelido orfao aqui e plantado
+  --      direto na tabela, que e exatamente o formato do defeito medido: a
+  --      linha do Poco casa com um codigo que nao existe e evapora. Abrir tem
+  --      que recusar, nao gravar carga com linha a menos.
+  v_total := v_total + 1;
+  v_msg := null;
+  begin
+    execute 'reset role';
+    insert into public.calc_alias (tenant_id, tipo, texto, aponta)
+    values (v_tenant, 'modelo', 'poco f8 pro 256gb preto lacrado', 'nao_existe_prova');
+    execute 'set local role authenticated';
+    perform public.calc_carga_abrir(v_txt);
+    raise exception 'prova_rollback';
+  exception when others then v_msg := sqlerrm;
+  end;
+  if coalesce(v_msg,'') !~ 'perdeu linhas' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [abrir] o leitor perdeu linha e calc_carga_abrir gravou a carga mesmo assim (G2). Obtido: ' || coalesce(v_msg,'(nada)');
+  end if;
+  execute 'reset role';
+
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
@@ -806,6 +1113,12 @@ begin
               || ' cobertura=' || (v_b->>'cobertura') || '%'
               || E'\n  fixture B (formato bloco), v1: casou=' || (v_b1->>'n_casou')
               || ' de ' || (v_b1->>'n_lidas') || ' (o v1 nao le bloco, por desenho)'
+              || E'\n  fixture C (dia 1), v2: lidas=' || (v_cc->>'n_lidas')
+              || ' casou=' || (v_cc->>'n_casou')
+              || ' pendencias=' || (select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
+                                      from jsonb_array_elements(v_cc->'pendencias') q)
+              || E'\n  resolver: ' || v_n_aceitas || ' respostas aceitas (todas ensinaram), '
+              || v_n_recusas || ' recusadas com motivo declarado, 0 aceitas caladas'
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;
 end;
