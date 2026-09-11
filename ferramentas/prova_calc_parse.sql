@@ -1,15 +1,23 @@
 -- prova_calc_parse.sql — assere o motor de leitura de lista de fornecedor.
 --
--- COBRE AS DUAS FUNCOES QUE CONVIVEM HOJE (10/09/2026):
---   `privado.calc_parse`     — o v1, quem `calc_carga_abrir` chama EM PRODUCAO;
---   `privado.calc_parse_v2`  — o que as sessoes de 09/09 e 10/09 construiram,
---                              ainda SEM consumidor.
--- As duas dividem os helpers (`calc_limpar`, `calc_norm`, `calc_tokens`,
--- `calc_preco`), entao mexer num helper mexe no CAMINHO VIVO. Por isso o v1
--- continua provado enquanto for ele quem roda: prova que sai de suite nao roda
--- de novo, e a regressao volta calada.
--- Quando o chamador for trocado (item 5 da secao 5 do handoff v6), a lista de
--- versoes do laco perde o `calc_parse` e o bloco `-- v1` da secao D some junto.
+-- COBRE O PARSER VIVO (10/09/2026):
+--   `privado.calc_parse_v2`  — promovido a caminho vivo neste mesmo dia:
+--                              `calc_carga_abrir` chama ELE agora
+--                              (supabase/migrations/20260910_calc_carga_abrir_promove_v2.sql).
+-- O v1 (`privado.calc_parse`) SAIU do laco de versoes e o bloco `-- v1` da
+-- secao D foi apagado, exatamente como o cabecalho anterior mandava fazer no
+-- dia da promocao.
+--
+-- ATENCAO, e isto e divida declarada: o v1 continua EXISTINDO no banco, sem
+-- chamador e agora quase sem prova. A UNICA assercao que ainda o executa e a
+-- B0, que so cobra que ele casa 0 no formato bloco. Ele nao e rede de seguranca
+-- de nada: o portao do Bloco 2 (D7) compara a tela contra o caminho MANUAL da
+-- skill, nunca contra o v1. Codigo sem consumidor e sem prova e o que este
+-- projeto ja pagou caro para aprender: DERRUBAR o v1 assim que o portao do
+-- Bloco 2 fechar.
+--
+-- Os helpers (`calc_limpar`, `calc_norm`, `calc_tokens`, `calc_preco`) seguem
+-- compartilhados, mas agora o caminho vivo e o v2, e e ele que esta provado.
 --
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
@@ -219,11 +227,11 @@ begin
   end if;
 
   -- ══ A. FIXTURE A, nas DUAS versoes ══════════════════════════════════════════
-  foreach v_ver in array array['calc_parse', 'calc_parse_v2'] loop
+  foreach v_ver in array array['calc_parse_v2'] loop
   execute format('select privado.%I($1,$2)', v_ver) into v_r using v_tenant, v_txt;
   v_p   := E'\n  FALHA  [' || v_ver || '] ';
   -- teto atingivel da fixture A, por versao. Ver A20.
-  v_esp := case when v_ver = 'calc_parse' then 11 else 13 end;
+  v_esp := 13;
 
   -- A1. O carimbo do WhatsApp nao vira cabecalho de fornecedor.
   --     Se `Vini` (o remetente) virasse fornecedor, todo preco seria dele.
@@ -424,7 +432,7 @@ begin
     v_log := v_log || v_p || 'produto saiu com v e cs juntos';
   end if;
 
-  -- ── D. Onde as duas versoes DIVERGEM de proposito (D10, 09/09/2026) ─────────
+  -- ── D. O contrato do v2 no cabecalho desconhecido (D10, 09/09/2026) ──────────
   -- A regra antiga: "linha que eu nao reconheco = trocou de fornecedor". Numa
   -- lista de WhatsApp linha nao reconhecida e o caso COMUM, e ela derrubou 25,
   -- 14 e 28 linhas em tres rodadas de medicao contra lista real.
@@ -432,58 +440,36 @@ begin
   -- cabecalho de fornecedor RECONHECIDO. A trava nao sumiu, MUDOU DE LUGAR:
   -- vai para `fornecedor_conferir`, que a tela tem que por na frente do dono
   -- antes do botao de aprovar.
-  if v_ver = 'calc_parse' then
-    -- v1: o cabecalho desconhecido QUEBRA o bloco. As linhas dele nao podem
-    -- sair com o nome do fornecedor anterior: preco certo no fornecedor errado
-    -- passa no validador e so aparece quando alguem compra pelo custo de outra
-    -- loja.
-    v_total := v_total + 1;
-    if exists (
-      select 1 from jsonb_array_elements(v_r->'produtos') p
-       where p->>'n' = 'iPhone 17 256GB') then
-      v_falhas := v_falhas + 1;
-      v_log := v_log || v_p || 'linha de cabecalho desconhecido virou preco de outro fornecedor';
-    end if;
+  -- v2: o cabecalho desconhecido NAO derruba o bloco...
+  v_total := v_total + 1;
+  if not exists (
+    select 1 from jsonb_array_elements(v_r->'produtos') p
+     where p->>'n' = 'iPhone 17 256GB' and p->>'f' = 'Five Cell') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || v_p || 'o cabecalho desconhecido voltou a derrubar o bloco (o domino do D10)';
+  end if;
 
-    v_total := v_total + 1;
-    if not exists (
-      select 1 from jsonb_array_elements(v_r->'pendencias') p
-       where p->>'tipo' = 'fornecedor' and p->>'texto' ilike '%XPTO%') then
-      v_falhas := v_falhas + 1;
-      v_log := v_log || v_p || 'cabecalho desconhecido nao virou pendencia de fornecedor';
-    end if;
-  else
-    -- v2: o cabecalho desconhecido NAO derruba o bloco...
-    v_total := v_total + 1;
-    if not exists (
-      select 1 from jsonb_array_elements(v_r->'produtos') p
-       where p->>'n' = 'iPhone 17 256GB' and p->>'f' = 'Five Cell') then
-      v_falhas := v_falhas + 1;
-      v_log := v_log || v_p || 'o cabecalho desconhecido voltou a derrubar o bloco (o domino do D10)';
-    end if;
+  -- ...e por isso ele NAO e mais pendencia de fornecedor...
+  v_total := v_total + 1;
+  if exists (
+    select 1 from jsonb_array_elements(v_r->'pendencias') p
+     where p->>'tipo' = 'fornecedor') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || v_p || 'cabecalho desconhecido ainda vira pendencia de fornecedor no v2';
+  end if;
 
-    -- ...e por isso ele NAO e mais pendencia de fornecedor...
-    v_total := v_total + 1;
-    if exists (
-      select 1 from jsonb_array_elements(v_r->'pendencias') p
-       where p->>'tipo' = 'fornecedor') then
-      v_falhas := v_falhas + 1;
-      v_log := v_log || v_p || 'cabecalho desconhecido ainda vira pendencia de fornecedor no v2';
-    end if;
-
-    -- ...mas a trava TEM que aparecer em `fornecedor_conferir`, nomeando a linha
-    -- ignorada, e com `suspeita_alta` ACESO: `XPTO IMPORTS` carrega `imports`,
-    -- palavra que aparece em nome de fornecedor ja cadastrado. Sem isto a defesa
-    -- que saiu do parser nao existe em lugar nenhum.
-    v_total := v_total + 1;
-    if not exists (
-      select 1 from jsonb_array_elements(v_r->'fornecedor_conferir') f
-       where f->>'cabecalho' = 'MELHOR DE CAXIAS'
-         and (f->>'suspeita_alta')::boolean
-         and (f->'ignoradas')::text ilike '%XPTO%') then
-      v_falhas := v_falhas + 1;
-      v_log := v_log || v_p || 'o cabecalho ignorado nao aparece em fornecedor_conferir com suspeita_alta';
-    end if;
+  -- ...mas a trava TEM que aparecer em `fornecedor_conferir`, nomeando a linha
+  -- ignorada, e com `suspeita_alta` ACESO: `XPTO IMPORTS` carrega `imports`,
+  -- palavra que aparece em nome de fornecedor ja cadastrado. Sem isto a defesa
+  -- que saiu do parser nao existe em lugar nenhum.
+  v_total := v_total + 1;
+  if not exists (
+    select 1 from jsonb_array_elements(v_r->'fornecedor_conferir') f
+     where f->>'cabecalho' = 'MELHOR DE CAXIAS'
+       and (f->>'suspeita_alta')::boolean
+       and (f->'ignoradas')::text ilike '%XPTO%') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || v_p || 'o cabecalho ignorado nao aparece em fornecedor_conferir com suspeita_alta';
   end if;
 
   -- A20. O TETO DA FIXTURE A. Esta lista e um circuito de armadilhas, nao uma
