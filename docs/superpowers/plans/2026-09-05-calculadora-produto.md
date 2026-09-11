@@ -212,16 +212,41 @@ Valem para todos os blocos, sem repetir:
 
 | Bloco | Entrega | Termina em | Depende de |
 |---|---|---|---|
-| **0** | Saneamento multi-tenant | FK provada, marca fora da tela | **nada, comeca agora** |
-| **1** | Catalogo vira tabela, duas camadas | painel `Catalogo` em `/calc/` | Bloco 0 |
+| **0** | Saneamento multi-tenant | FK provada, marca fora da tela | ~~nada~~ **FECHADO 06/09** |
+| **1** | Catalogo vira tabela, duas camadas | painel `Catalogo` em `/calc/` | ~~Bloco 0~~ **FECHADO 08/09** |
 | **2** | Tela `Alimentar` | **o dono roda a carga dele sem Claude Code** | Bloco 1 |
-| **3** | Consultor sai do repo | `curl` sem sessao devolve nada | Bloco 2, **D4a** |
+| **2.4** | **Aprendizado de fornecedor** | **o cliente ensina fornecedor novo sozinho** | Bloco 2 |
+| **5** | Modelo na pilha 3 e cota | cobertura de dia 1 medida | **2.4** |
+| **3** | Consultor sai do repo | `curl` sem sessao devolve nada | Bloco 5, **D4a** |
 | **4** | Nascimento de tenant e equipe | conta nova criada sem SQL | Bloco 3 |
-| **5** | Modelo na pilha 3 e cota | cobertura de dia 1 medida | Bloco 4 |
-| **6** | Piloto e cobranca | primeiro lojista externo | Bloco 5 |
+| **6** | Piloto e cobranca | primeiro lojista externo | Bloco 4 |
 
 Com D1 a D4 fechadas, **o Bloco 0 nao tem mais bloqueador.** A unica decisao aberta e
 D4a (comissao de acessorio), e ela trava um passo dentro do Bloco 3, nao o inicio.
+
+### A ordem mudou em 10/09/2026, e o motivo nao e tecnico
+
+Ordem do dono, citada exata: *"nao darei auxilio de atualizacao de lista de forn para
+clientes."* Desenho de record:
+`docs/superpowers/specs/2026-09-10-aprendizado-de-fornecedor.md`.
+
+Duas mudancas na fila, e as duas sao consequencia daquela frase:
+
+1. **Nasce o 2.4, aprendizado de fornecedor**, fatia do Bloco 2. O laco de aprendizado
+   ja existe (`calc_pendencia_resolver` escreve alias e reprocessa), mas **so ensina
+   sinonimo de coisa que ja esta no catalogo**. Medido em 10/09: `calc_alias.aponta`
+   nao tem FK nem check, e a RPC nao valida o destino, entao apelido para fornecedor
+   novo grava sem erro e **nao casa nada**, calado. Isso nunca apareceu no tenant do
+   dono (catalogo completo) e aparece em **todo** cliente.
+2. **O Bloco 5 sobe para antes do 3 e do 4.** A primeira carga de um tenant novo tem
+   todo fornecedor desconhecido; sem o modelo pre-preenchendo a resposta, o cliente
+   encara dezenas de perguntas cruas no dia 1, que e exatamente o portao do Bloco 6
+   reprovando. O Bloco 4 desce porque criar UMA conta na mao, no painel do Supabase,
+   custa minutos.
+
+O papel do modelo nao muda (5.2): ele nao le preco e nao grava nada. Devolve proposta
+na forma dos tres verbos (`criar` / `apontar` / `descartar`) e o cliente aprova em
+bloco.
 
 ---
 
@@ -795,9 +820,53 @@ nada**, porque o arquivo estava untracked.
 
 ---
 
+## 2.4 Aprendizado de fornecedor (fatia nova, 10/09/2026)
+
+**Desenho de record:** `docs/superpowers/specs/2026-09-10-aprendizado-de-fornecedor.md`.
+Se este plano divergir dela, **a spec ganha** e o executor avisa. Aqui so o que
+executar, na ordem.
+
+**Agentes:** `base` (RPC e colunas), `vitrine` (a aba), `bandeira` (as seis provas),
+`pit-guard` antes do commit (a RPC nova e caminho de escrita novo).
+
+- [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
+  p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de
+  `privado.fn_tenant_atual()` (restricao global 1). O `tipo` vem da PENDENCIA, nunca
+  do payload. Cria a linha do catalogo, o alias da grafia que gerou a pendencia, os
+  aliases das demais grafias do mesmo texto vistas na carga, e reprocessa. `codigo`
+  por hash deterministico de `privado.calc_norm(nome)`, nunca do rotulo (invariante 12).
+  GRANT explicito depois do `CREATE OR REPLACE` (restricao global 5).
+- [ ] **2.4a bis — Fechar o buraco silencioso.** `calc_pendencia_resolver` passa a
+  REPROVAR apelido que aponta para codigo inexistente. Hoje grava sem erro e nao casa
+  nada. Medido em 10/09: `calc_alias.aponta` nao tem FK nem check.
+- [ ] **2.4a ter — Guarda de quase-igual.** Antes de criar fornecedor, buscar parecido
+  por `privado.calc_norm`. Achou, **nao cria e nao une**: devolve a pergunta com as
+  duas grafias lado a lado (memoria `fornecedores-mesma-pessoa`).
+- [ ] **2.4a quater — Origem em tudo que se aprende.** `origem text default 'manual'`
+  (`semente` / `aprendizado` / `manual`), `carga_id uuid` e `criado_por uuid` em
+  `calc_alias`, `calc_regra`, `calc_modelo`, `calc_cor` e `calc_fornecedor`. Sem isso,
+  resposta errada do cliente vira apelido permanente que so o dono do produto acha.
+- [ ] **2.4b — Dialeto do fornecedor.** `perfil jsonb`, `n_listas int` e
+  `cobertura_media numeric` em `calc_fornecedor`, aprendidos **so de carga aprovada**.
+  **O perfil desempata, nunca decide**: o parser segue generico. Mais a bandeira
+  `formato_mudou` (cobertura 15 pontos abaixo da media do proprio fornecedor, ou
+  layout/`cor_pos` diferente do memorizado). Os 15 pontos sao constante DECLARADA,
+  recalibrada depois da terceira carga real, igual ao token da 5.4.
+- [ ] **2.4c — O palpavel: a aba mostra o que aprendeu.** Secao nova no painel
+  `Catalogo`, newest-first (invariante 6), com `desfazer` por linha, e a curva por
+  fornecedor (`MP Imports · 3 listas · 61% -> 88% -> 97%`).
+
+**Portao do 2.4:** a MESMA lista de um fornecedor novo passa duas vezes, e a segunda
+abre **estritamente menos pendencias** que a primeira. Sem essa medicao a promessa do
+produto nao tem numero. As seis provas estao na secao 7 da spec; a primeira a fechar e
+o apelido apontando para codigo inexistente.
+
+---
+
 # Bloco 3 — O consultor sai do repo
 
-**Depende de:** Bloco 2. O Passo 3.3 depende tambem de **D4a**.
+**Depende de:** ~~Bloco 2~~ **Bloco 5** (a ordem mudou em 10/09, ver o mapa dos
+blocos). O Passo 3.3 depende tambem de **D4a**.
 **Agentes:** `base`, `vitrine`, `pit-guard`, `bandeira`.
 
 **Por que:** enquanto `public/calc/consultor/dados.js` for arquivo estatico, a frase
@@ -924,7 +993,9 @@ para o tenant errado, nos dois sentidos.
 
 # Bloco 5 — O modelo na pilha 3, e a cota
 
-**Depende de:** Bloco 4. **Agentes:** `base`, `pit-guard`, `bandeira`.
+**Depende de:** ~~Bloco 4~~ **a fatia 2.4** (a ordem mudou em 10/09: este bloco subiu
+para antes do 3 e do 4, e deixou de ser opcional, porque o dono nao dara auxilio de
+atualizacao de lista aos clientes). **Agentes:** `base`, `pit-guard`, `bandeira`.
 
 - [ ] **5.1 Edge Function** que recebe **so a pilha nao reconhecida** mais o catalogo,
   chama a API com `claude-opus-5`, e devolve proposta estruturada. A chave vive em
