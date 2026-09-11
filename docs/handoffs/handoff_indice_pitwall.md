@@ -498,7 +498,27 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v10.md` (11/09/2026, **o fornecedor
+- topo: `handoff_calculadora_pitwall_v11.md` (11/09/2026, **a pergunta de condicao
+  vira resposta**). O `2.4a zero bis`, na mesma sessao do v9 e do v10.
+
+  Verbo novo `definir` (DDL no check de `calc_pendencia.decisao`): a resposta vale
+  para AQUELA lista, nao escreve no catalogo, pode ser trocada e desfeita com
+  `ignorar`. O leitor passou a `(uuid, text, jsonb default '{}')` por **DROP +
+  CREATE** (argumento novo por `replace` criaria sobrecarga, e a chamada de 2
+  argumentos ficaria ambigua); ACL refeita e conferida, segue
+  `{postgres=X/postgres}`. md5 novos: leitor `3b5338e9...`, resolver `2efc6bd9...`.
+  **A armadilha:** o resolver rele a lista inteira a cada resposta, entao ele passa
+  TODAS as respostas de condicao da carga a cada releitura; passar so a do momento
+  devolveria para duvidoso, calada, cada linha ja respondida (assercao R2).
+  Medido: fixture C de 0 para 2 linhas na tabela; fixture D de 11 para **16 de 16**.
+  **PASSOU, 89 assercoes** (eram 75), secao R.
+
+  **D16, decidida pelo dono:** `descartar` em pergunta de fornecedor MANTIDO (tira o
+  bloco inteiro dele de toda lista futura, contado em `n_descarte`), com a tela
+  obrigada a dizer isso por extenso e oferecer `ignorar` ao lado. Assercao R14.
+  Junto: `descartar` em pergunta de CONDICAO passou a ser recusado com motivo (T4).
+
+- anterior: `handoff_calculadora_pitwall_v10.md` (11/09/2026, **o fornecedor
   desconhecido chega a pendencia, e a condicao segue a regra do dono**). O
   `2.4a zero`, na mesma sessao do v9. Commit `b82563d`.
 
@@ -511,9 +531,9 @@ nenhuma das duas batia com o repo.
   Fixture D: **os mesmos 11 de 16, mas de 3 precos errados calados para 0.**
   **PASSOU, 75 assercoes.**
 
-  **Decisao aberta para o dono:** com o texto real, `descartar` fornecedor passou a
-  funcionar e descarta o BLOCO INTEIRO dele em toda lista futura (contado em
-  `n_descarte`, nao some). Manter com a tela dizendo isso por extenso, ou recusar.
+  **Decisao que ele abriu, ja FECHADA no v11 (D16: manter):** com o texto real,
+  `descartar` fornecedor passou a funcionar e descarta o BLOCO INTEIRO dele em toda
+  lista futura (contado em `n_descarte`, nao some).
   **Correcao no `CLAUDE.md`:** `create or replace` PRESERVA a ACL; quem reseta e
   `drop`+`create`, que e o que a proxima fatia (argumento novo no v2) vai precisar.
 

@@ -12,12 +12,12 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v10.md` (o produto novo: Blocos 0 e 1 fechados, o
+   `handoff_calculadora_pitwall_v11.md` (o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
-   dado, a 2.4a bis e o `2.4a zero` fechados: o laco recusa resposta que nao ensina,
-   o fornecedor desconhecido chega a pendencia e a condicao segue a regra do dono
-   (D14/D15). **A tela ainda por fazer**, e a proxima fatia e o leitor receber as
-   respostas de condicao),
+   dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
+   resposta que nao ensina, o fornecedor desconhecido chega a pendencia, a condicao
+   segue a regra do dono (D14/D15) e a pergunta de condicao ja tem resposta, o verbo
+   `definir`. **A tela ainda por fazer**, e a proxima fatia e o verbo `criar`),
    `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
    que e so uma PONTE curta.
    Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no

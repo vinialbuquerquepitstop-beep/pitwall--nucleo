@@ -112,6 +112,14 @@ cria. Os tres que importam:
 | `apontar` | isso e outro nome de uma coisa que ja esta no catalogo | sim |
 | **`criar`** | **isso e coisa nova, entra no catalogo do tenant** | **nao** |
 | `descartar` | isso nunca e preco, nem agora nem depois | sim |
+| `definir` | a condicao destas linhas, NESTA lista (so pergunta de `condicao`) | sim, desde 11/09/2026 |
+
+`definir` entrou em 11/09/2026 (D14) e e diferente dos outros tres: **nao escreve
+no catalogo**. A resposta fica na propria pendencia, vale para aquela carga, pode
+ser trocada e desfeita (`ignorar`), e a lista seguinte pergunta de novo, com ela
+como sugestao. `descartar` em pergunta de condicao e recusado (trava T4), e
+`descartar` em pergunta de fornecedor tira o bloco inteiro dele de toda lista
+futura, por decisao do dono (D16 do plano).
 
 **RPC nova: `calc_catalogo_criar(p_pendencia uuid, p_nome text, p_extra jsonb)`**,
 `SECURITY DEFINER`, papel `dono`, `tenant_id` de `privado.fn_tenant_atual()`
@@ -138,7 +146,7 @@ o desenho fixa o minimo, e o resto se deriva:
 | `fornecedor` | nome e praca | codigo, todas as grafias vistas, o perfil de dialeto |
 | `modelo` | **so a categoria**, num dropdown fechado | codigo, nome, capacidade, o alias da grafia |
 | `cor` | nada (o nome e o proprio texto) | codigo, hex aproximado, alias |
-| `condicao` | qual das conhecidas | alias |
+| `condicao` | qual das conhecidas, **para esta lista** (`definir`) | nada: nao vira alias nem padrao (D14, 7b item 3) |
 
 **Uma unica pergunta obrigatoria com dropdown em todo o fluxo: a categoria do
 modelo.** Ela fica porque decide margem, e margem errada e dinheiro errado. Toda
@@ -373,6 +381,11 @@ afirmacoes desta spec nao se sustentam, e uma quarta ficou pequena:
    e decidir. **Decidido pelo dono em 11/09/2026, D14 do plano, REVISADA na mesma
    sessao:** pergunta uma vez por fornecedor, por lista, com a resposta anterior
    pre-selecionada como sugestao. A regra da 4.4 fica sem excecao.
+   **Construido em 11/09/2026** (`20260911_calc_parse_respostas_de_condicao.sql`):
+   o verbo `definir` (4.1), e o leitor recebendo o mapa `texto -> condicao` da
+   carga. O resolver passa TODAS as respostas da carga a cada releitura, de
+   qualquer resposta: passar so a do momento devolveria para duvidoso, calada,
+   cada linha ja respondida.
 4. **O verbo `criar` fornecedor nao tem onde se apoiar hoje.** Cabecalho de
    fornecedor desconhecido no TOPO da lista (sem fornecedor anterior) vira a
    sentinela `(sem cabecalho antes da lista)`: o texto `TABELA XPTO IMPORTS` nem

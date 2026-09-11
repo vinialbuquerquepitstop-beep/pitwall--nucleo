@@ -249,6 +249,26 @@ Valem para todos os blocos, sem repetir:
     `n_cond_conflito`). Diz quantas linhas vieram do padrao, nao quais. **Proposta
     da Torre, dentro da opcao A**: nao e a marca por linha da opcao B.
 
+- [x] **D16 — `descartar` numa pergunta de FORNECEDOR: manter (11/09/2026).**
+  Resposta do dono, citada exata: *"a"*. **Com a recomendacao.**
+  - O que ela faz, medido pela `bandeira` no `2.4a zero`: grava `calc_regra` tipo
+    `descarte` com o texto do cabecalho, a linha do cabecalho vira aviso e o aviso
+    tira o BLOCO INTEIRO daquele fornecedor desta lista e de TODA lista futura. As
+    linhas vao para `n_descarte`, contadas: nao e perda silenciosa. E o que a spec
+    4.1 diz que `descartar` significa ("isso nunca e preco, nem agora nem depois").
+  - **Obrigacao da tela `Alimentar`, parte da decisao:** o botao diz por extenso
+    *"nunca mais ler preco deste fornecedor, em nenhuma lista"*, com `ignorar` (so
+    nesta lista) ao lado. Enquanto a 2.4c (desfazer) nao existir, e um clique sem
+    volta pela tela.
+  - A alternativa recusada: o resolver recusar `descartar` em pendencia de
+    fornecedor, deixando so `ignorar`, lista a lista.
+  - Assercao que nomeia a combinacao: R14 da `prova_calc_parse.sql`. Se um dia
+    virar recusa, e ela que muda, nao so um numero da mensagem.
+  - Efeito colateral fechado junto: `descartar` numa pergunta de CONDICAO passa a
+    ser recusado com motivo (trava T4). O texto dela e o `codigo` do fornecedor, e
+    descarta-lo levaria ao mesmo efeito da D16 por uma pergunta que era so "qual a
+    condicao". Ate aqui era recusado, mas por acaso (a G3 pegava).
+
 ### Pendencia nova aberta por D4
 
 - [ ] **D4a — Comissao de `Acessório` na escada do consultor.** A escada
@@ -888,7 +908,8 @@ no topo da lista vira a sentinela `(sem cabecalho antes da lista)` e o texto del
 nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
 
 ```
-2.4a bis (guardas)  ->  2.4a zero (o cabecalho chega a pendencia)  ->  2.4a (criar)
+2.4a bis (guardas)  ->  2.4a zero (o cabecalho chega a pendencia)
+  ->  2.4a zero bis (a pergunta de condicao vira resposta)  ->  2.4a (criar)
   ->  2.4a ter  ->  2.4a quater  ->  2.4b  ->  2.4c
 ```
 
@@ -975,6 +996,40 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
      no mesmo lugar (linha ou banner) vira pergunta.
   6. Fornecedor novo zera a condicao corrente (medido: ja e assim).
 
+- [x] **2.4a zero bis — A pergunta de condicao vira resposta. FECHADO em
+  11/09/2026** (handoff v11). Migration
+  `20260911_calc_parse_respostas_de_condicao.sql` (version `20260911100937`),
+  gerada por script a partir dos dois corpos vivos, 19 trocas conferidas. md5
+  novos: leitor `3b5338e92f74e84e8def43ca2d77d02b` (len 34483), resolver
+  `2efc6bd94b3600b060079254c27f4f58` (len 10448). Prova **PASSOU, 89 assercoes**
+  (eram 75), secao R. O que entrou:
+  - **Verbo `definir`** em `calc_pendencia.decisao` (DDL no check). So em
+    pendencia de `condicao`, so com condicao ATIVA do tenant e grafia exata
+    (`CPO`, `Lacrado`, `Seminovo`). **Nao escreve no catalogo:** a resposta fica
+    na propria pendencia, vale para AQUELA carga, pode ser trocada (definir de
+    novo) e desfeita (`ignorar`). E a D14 ao pe da letra.
+  - **O leitor recebe as respostas:** `privado.calc_parse_v2` passou a
+    `(uuid, text, jsonb default '{}')`, por **DROP + CREATE** (argumento novo por
+    `replace` criaria SOBRECARGA, e com `default` a chamada de 2 argumentos
+    ficaria AMBIGUA). A ACL foi refeita: segue `{postgres=X/postgres}`.
+  - **A chave da pergunta virou coluna** (`cond_chave`), lida nos DOIS lugares:
+    na pendencia e na aplicacao da resposta. Duas expressoes separadas bastava
+    uma divergir para a resposta nunca pegar e a pergunta voltar para sempre.
+  - **O resolver passa TODAS as respostas da carga a cada releitura**, nao so a
+    do momento. Era a armadilha da fatia: a releitura acontece em QUALQUER
+    resposta, entao responder o fornecedor devolveria para duvidoso, calada,
+    cada linha de condicao ja respondida. Assercao R2.
+  - **Trava T4:** `descartar` em pergunta de condicao recusado com motivo (era
+    recusado por acaso, pela G3). Ver D16.
+  - Contador de proveniencia novo no `resumo`: `n_cond_respondida` (quantas
+    linhas entraram pela resposta do dono).
+  - Medido: fixture C vai de 0 para 2 linhas na tabela com `junior` = Lacrado;
+    fixture D vai de 11 para **16 de 16** com as cinco respondidas.
+  - **Ficou de fora, e e divida nomeada:** nao ha guarda no resolver contra
+    QUEDA de `n_cond_respondida` ou de `n_casou` numa releitura (a G2 cobra
+    conservacao de linhas, a G3 so olha a pendencia do momento, e a G4 vive so
+    na matriz da prova). Hoje o cenario nao se realiza (a `bandeira` mediu os
+    dois caminhos), mas a defesa e circunstancial, nao estrutural.
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de
   `privado.fn_tenant_atual()` (restricao global 1). O `tipo` vem da PENDENCIA, nunca
