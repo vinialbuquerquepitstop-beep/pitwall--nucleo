@@ -294,6 +294,13 @@ caladas:** o banner `LACRADOS E SEMINOVOS` grava tudo como `Lacrado`, e o semino
 vira o menor custo de lacrado. Proposta levada ao dono: `CPO` + `Lacrado` segue
 `CPO`; `Seminovo` junto de outra condicao vira pergunta.
 
+**E a regra de heranca, dada pelo dono em seguida:** a condicao do comeco da lista
+vale para os modelos seguintes do mesmo fornecedor ate aparecer outra. Hoje so o
+banner passa adiante; condicao escrita na linha do 1o modelo ou no `(CPO)` do
+cabecalho vale so para ela, e o resto vira pergunta (medido: 1 de 3, 2 de 4, 1 de
+2). Entra no `2.4a zero`. Ponto aberto: linha com `lacrado` dentro de secao com
+banner `SEMINOVOS` e excecao so dela, ou muda a secao? Tabela no plano.
+
 Registro da pergunta original como foi feita:
 
 **A pergunta do item 2, com o efeito na mesa** (PROCESSO, secao 6): hoje uma lista

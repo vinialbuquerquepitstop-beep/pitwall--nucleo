@@ -927,6 +927,32 @@ nao chega a pendencia. Detalhe na secao 7b da spec. Ordem nova:
   vira PERGUNTA, e a linha nao entra no blob ate a resposta. E a mesma regra da D14
   revisada: quando a condicao nao esta clara, pergunta.
 
+  **Heranca da condicao, regra do dono (11/09/2026):** *"muitas vezes, a lista
+  inicia com a condição e o restante dos modelos segue sem condição acompanhando. se
+  for em uma lista só, fica sem até aparecer a condição dos próximos modelos na
+  lista"*. A condicao declarada vale para os modelos seguintes do MESMO fornecedor
+  ate aparecer outra. Medido no v2:
+
+  | Lista | Hoje | Com a regra |
+  |---|---|---|
+  | banner `LACRADOS` no topo, modelos sem nada | herda, 2 de 2 | igual |
+  | condicao so na linha do 1o modelo, os outros sem | **1 de 3**, 2 viram pergunta | 3 de 3 |
+  | `Lacrado` ... sem ... `Seminovo` ... sem | **2 de 4** | 4 de 4 |
+  | bloco: `(CPO)` so no 1o cabecalho | **1 de 2** | 2 de 2 |
+  | condicao do 1o fornecedor e o 2o sem nada | nao passa, pergunta | igual (lista nova) |
+
+  Hoje so a linha que e SO condicao (banner) passa adiante. A condicao escrita
+  dentro da linha de um modelo, ou no cabecalho do bloco, vale so para ela.
+  A pergunta por fornecedor da D14 fica para as linhas ANTES da primeira condicao
+  daquele fornecedor.
+
+  **Ponto aberto que so o dono responde:** hoje, dentro de uma secao com banner
+  (`SEMINOVOS`), uma linha que escreve `lacrado` vale como excecao SO dela, e a linha
+  de baixo volta a ser `Seminovo`. Pela regra literal ("ate aparecer a proxima"), a
+  linha de baixo passaria a `Lacrado`. Proposta: banner define a SECAO, e condicao
+  escrita na linha dentro de secao com banner e excecao daquela linha; sem banner
+  ativo, a condicao da linha passa para as seguintes.
+
 - [ ] **2.4a — O verbo `criar`.** `calc_catalogo_criar(p_pendencia uuid, p_nome text,
   p_extra jsonb)`, `SECURITY DEFINER`, papel `dono`, `tenant_id` de
   `privado.fn_tenant_atual()` (restricao global 1). O `tipo` vem da PENDENCIA, nunca
