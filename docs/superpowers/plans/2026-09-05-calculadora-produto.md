@@ -841,6 +841,18 @@ tela, sozinho) NAO foi medido: e dele.**
 4. **A tabela de pendencias pode ter linha sem decisao que a releitura ja tirou**
    (o `resumo` guarda so `n_pendencia`, a contagem viva). A tela compara e avisa.
 
+**A primeira lista real pela tela (12/09/2026, noite) achou tres defeitos** (handoff v16):
+1. **Preco errado, 35 de 35.** `calc_preco` lia `🔋94% à 100%` como R$ 100, e o outlier
+   (1,6x o menor) EXPULSOU os `R$` reais. Consertado em
+   `20260912_calc_preco_nao_le_porcentagem.sql` (porcentagem, horario e prazo nunca sao
+   preco), secao P e fixture G nas provas de banco (120 assercoes). Lista real: 40 de 40.
+   **O outlier so olha para cima, e isso segue verdade:** um preco baixo errado de outra
+   origem ainda expulsaria o certo. A tela passou a separar queda de mais da metade num
+   card com confirmacao propria. Guarda no LEITOR contra preco baixo e decisao do dono:
+   pendencia de preco so aceita `ignorar`, entao promocao real ficaria sem caminho.
+2. **O export em .zip** era lido como texto e o banco devolvia 400. A tela abre o zip.
+3. **O export em ingles** escreve mes/dia; a tela lia 9/12 como dezembro.
+
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 
 Commit `77f954c`. **A tela (2.3) NAO entra**, entao o bloco NAO esta fechado e o

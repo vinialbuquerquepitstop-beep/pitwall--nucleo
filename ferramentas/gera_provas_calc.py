@@ -42,7 +42,7 @@ FONTE = os.path.join(AQUI, "prova_calc_parse.sql")
 
 # arquivo -> (secoes, rotulo do relatorio)
 ARQUIVOS = [
-    ("prova_calc_leitor.sql",   ["H", "A", "B", "E", "F"], "leitor"),
+    ("prova_calc_leitor.sql",   ["H", "A", "B", "E", "F", "P"], "leitor"),
     ("prova_calc_laco.sql",     ["G", "Z", "R"],           "laco"),
     ("prova_calc_catalogo.sql", ["K", "L"],                "catalogo"),
 ]

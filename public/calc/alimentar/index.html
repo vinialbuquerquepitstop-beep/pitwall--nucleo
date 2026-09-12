@@ -189,6 +189,11 @@ var KCATS=['iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Gar
 var ORDEM_TIPO={fornecedor:0,condicao:1,modelo:2,cor:3,preco:4};
 var NOME_TIPO={fornecedor:'fornecedor',condicao:'condição',modelo:'modelo',cor:'cor',preco:'preço'};
 var VARIACAO=0.15;   // plano 2.3: variacao acima de 15% item a item
+// 12/09/2026, primeira lista real: 35 de 35 precos cairam ~97% (a bateria lida
+// como preco) e apareciam MISTURADOS nas variacoes comuns, um checkbox so para
+// tudo. Queda de mais da metade quase sempre e leitura errada: card proprio,
+// confirmacao propria.
+var QUEDA_FORTE=0.5;
 var DIAS_VELHO=7;    // plano 2.3: lista com mais de 7 dias entra com aviso
 
 var E={carga:null,pend:[],cat:{modelo:[],cor:[],fornecedor:[],cond:[]},catErro:null,
@@ -212,22 +217,43 @@ function dataBR(ts){if(!ts)return '';return new Date(ts).toLocaleString('pt-BR',
 function diaBR(ts){if(!ts)return '';return new Date(ts).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'});}
 function hojeBR(){var p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2]);}
 
-// As datas das MENSAGENS da lista. O export do iPhone escreve `[12/09/2026, 09:12:03]`
-// e o do Android `12/09/2026 09:12 - `. Sem data nenhuma, a tela diz isso: nao
-// presume que a lista e de hoje.
+// As datas das MENSAGENS da lista. O export do iPhone em portugues escreve
+// `[12/09/2026, 09:12:03]`, o do Android `12/09/2026 09:12 - `, e o do celular em
+// INGLES `[9/12/26, 7:52:23 PM]`, com o MES primeiro. Medido em 12/09/2026 na
+// primeira lista real: lido como dia/mes, 9/12 virava 9 de dezembro, a lista
+// parecia do futuro e o aviso de custo velho nunca acenderia.
+// Como `9/12/26` e valido nas duas leituras, a escolha segue esta ordem:
+//   1. descarta a leitura com mes acima de 12 ou com data no FUTURO;
+//   2. se as duas sobram, `AM/PM` no horario e sinal do formato americano;
+//   3. sem sinal nenhum, fica o brasileiro (dia/mes).
+// Sem data nenhuma, a tela diz isso: nao presume que a lista e de hoje.
 function datasDaLista(txt){
-  var re=/(?:^|\n)\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4})[,\s]/g,m,min=null,max=null,n=0;
+  var re=/(?:^|\n)\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s+\d{1,2}:\d{2}(?::\d{2})?(\s*[AaPp]\.?\s?[Mm]\.?)?/g,m,it=[],ampm=false;
   while((m=re.exec(txt||''))){
     var a=+m[3];if(a<100)a+=2000;
-    var d=Date.UTC(a,+m[2]-1,+m[1]);
-    if(isNaN(d)||+m[2]>12||+m[1]>31)continue;
-    n++;if(min===null||d<min)min=d;if(max===null||d>max)max=d;
+    it.push([+m[1],+m[2],a]);if(m[4])ampm=true;
   }
-  if(!n)return {n:0};
-  function f(d){var x=new Date(d);return ('0'+x.getUTCDate()).slice(-2)+'/'+('0'+(x.getUTCMonth()+1)).slice(-2)+'/'+x.getUTCFullYear();}
-  return {n:n,de:f(min),ate:f(max),dias:Math.round((hojeBR()-max)/86400000)};
+  if(!it.length)return {n:0};
+  var amanha=hojeBR()+86400000;
+  function ler(dm){
+    var min=null,max=null;
+    for(var i=0;i<it.length;i++){
+      var dia=dm?it[i][0]:it[i][1],mes=dm?it[i][1]:it[i][0];
+      if(mes<1||mes>12||dia<1||dia>31)return null;
+      var d=Date.UTC(it[i][2],mes-1,dia);
+      if(isNaN(d)||d>amanha)return null;
+      if(min===null||d<min)min=d;if(max===null||d>max)max=d;
+    }
+    return {min:min,max:max};
+  }
+  var br=ler(true),us=ler(false),x;
+  if(br&&us)x=ampm?us:br;else x=br||us;
+  if(!x)return {n:0,invalida:true};
+  function f(d){var y=new Date(d);return ('0'+y.getUTCDate()).slice(-2)+'/'+('0'+(y.getUTCMonth()+1)).slice(-2)+'/'+y.getUTCFullYear();}
+  return {n:it.length,de:f(x.min),ate:f(x.max),dias:Math.round((hojeBR()-x.max)/86400000),formato:(x===us&&x!==br)?'mes/dia':'dia/mes'};
 }
 function textoDatas(d){
+  if(d&&d.invalida)return 'As datas das mensagens não fazem sentido (no futuro ou com mês acima de 12): confira se a lista é recente antes de aprovar.';
   if(!d||!d.n)return 'Não achei data nas mensagens: confira se a lista é recente antes de aprovar.';
   return 'Mensagens de '+d.de+' a '+d.ate+' ('+pl(d.n,'mensagem','mensagens')+' com data).';
 }
@@ -644,17 +670,20 @@ function indice(lista){
   return ix;
 }
 function calcularDiff(velho,novo){
-  var A=indice(velho),B=indice(novo),r={novos:[],sumiram:[],subiram:[],cairam:[],iguais:0,grandes:[]};
+  var A=indice(velho),B=indice(novo),r={novos:[],sumiram:[],subiram:[],cairam:[],iguais:0,grandes:[],quedas:[]};
   Object.keys(B).forEach(function(k){
     if(!(k in A)){r.novos.push(B[k].p);return;}
     var a=A[k].v,b=B[k].v;
     if(a===b){r.iguais++;return;}
     var it={p:B[k].p,antes:a,depois:b,pct:a?(b-a)/a:null};
     (b>a?r.subiram:r.cairam).push(it);
-    if(it.pct===null||Math.abs(it.pct)>VARIACAO)r.grandes.push(it);
+    // A queda forte sai das variacoes comuns: cada uma tem a propria confirmacao.
+    if(it.pct!==null&&it.pct<=-QUEDA_FORTE)r.quedas.push(it);
+    else if(it.pct===null||Math.abs(it.pct)>VARIACAO)r.grandes.push(it);
   });
   Object.keys(A).forEach(function(k){if(!(k in B))r.sumiram.push(A[k].p);});
   r.grandes.sort(function(x,y){return Math.abs(y.pct||9)-Math.abs(x.pct||9);});
+  r.quedas.sort(function(x,y){return x.pct-y.pct;});
   return r;
 }
 function semListaNova(velho,lidos){
@@ -681,6 +710,7 @@ function travas(){
   sus.forEach(function(f){if(!E.conf[confChave(f)])t.push('conferir o bloco suspeito de '+f.fornecedor+' (passo 2)');});
   if(k.abertas>0&&!E.conf['abertas'])t.push('aceitar as '+k.abertas+' pendências abertas');
   var d=calcularDiff(E.dados&&E.dados.produtos,c.blob_proposto&&c.blob_proposto.produtos);
+  if(d.quedas.length&&!E.conf['quedas'])t.push('conferir '+(d.quedas.length===1?'o preço que caiu':'os '+d.quedas.length+' preços que caíram')+' mais da metade');
   if(d.grandes.length&&!E.conf['grandes'])t.push('conferir as '+d.grandes.length+' variações acima de 15%');
   if(!num(R.produtos_novos))t.push('ter pelo menos um preço desta lista');
   return {faltam:t,diff:d,abertas:k.abertas};
@@ -699,6 +729,12 @@ function rPasso4(){
      '<div class="linha"><span>sumiram (fornecedor mandou lista e o produto não veio)</span><span class="v">'+d.sumiram.length+'</span></div>'+
      '<div class="linha"><span>iguais</span><span class="v">'+d.iguais+'</span></div></div>';
 
+  if(d.quedas.length){
+    h+='<div class="card re" id="aQuedas"><span class="chip re">pare e confira</span>'+
+       '<div style="margin-top:6px"><b>'+(d.quedas.length===1?'1 preço caiu':d.quedas.length+' preços caíram')+' mais da metade.</b> Quase sempre isso é a leitura pegando o número errado da linha (bateria, garantia, parcela), e não promoção. Confira na lista antes de aprovar.</div>'+
+       tabelaVar(d.quedas)+
+       '<label class="cx"><input type="checkbox" data-conf="quedas"'+(E.conf['quedas']?' checked':'')+'> Conferi na lista: '+(d.quedas.length===1?'este preço está certo':'estes '+d.quedas.length+' preços estão certos')+'.</label></div>';
+  }
   h+='<div class="card'+(d.grandes.length?' ye':'')+'" id="aGrandes"><div class="pt" style="font-size:13px">Variação acima de 15%, item a item</div>';
   if(!d.grandes.length)h+='<div class="vazio">Nenhum preço mudou mais de 15%.</div>';
   else h+=tabelaVar(d.grandes)+'<label class="cx"><input type="checkbox" data-conf="grandes"'+(E.conf['grandes']?' checked':'')+'> Conferi '+(d.grandes.length===1?'a variação':'as '+d.grandes.length+' variações')+' acima de 15%.</label>';

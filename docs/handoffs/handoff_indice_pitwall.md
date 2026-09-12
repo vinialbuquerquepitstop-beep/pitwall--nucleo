@@ -498,7 +498,17 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v15.md` (12/09/2026, noite, **a tela
+- topo: `handoff_calculadora_pitwall_v16.md` (12/09/2026, noite, **a primeira lista
+  real**). Achou tres defeitos. O caro: `calc_preco` lia `🔋94% à 100%` como R$ 100, e o
+  outlier expulsou os precos certos (35 de 35 produtos errados; o dono viu no passo 4 e
+  nao aprovou). Migration `20260912_calc_preco_nao_le_porcentagem.sql` pelo `base`; lista
+  real 40 de 40; provas de banco **120**. Na tela: `.zip`, data mes/dia, queda forte com
+  confirmacao propria; `prova_alimentar.py` **102**.
+
+  **Aberto e do dono:** o outlier so olha para cima. Guarda contra preco baixo no leitor
+  deixaria promocao real sem caminho. O portao D7 segue sem medida.
+
+- anterior: `handoff_calculadora_pitwall_v15.md` (12/09/2026, noite, **a tela
   Alimentar**). `public/calc/alimentar/`, com o "ver o que aprendeu" dentro
   (D19), sem mudanca de banco: le `calc_*` e escreve so pelas cinco RPCs que ja
   existiam. Prova nova `ferramentas/prova_alimentar.py`, **76 assercoes**, clicada

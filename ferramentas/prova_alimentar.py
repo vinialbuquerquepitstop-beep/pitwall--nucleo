@@ -87,8 +87,11 @@ STUB = r"""
   function P(f,n,t,v){ return {n:n,c:'iPhone',t:t,f:f,l:'x',v:v}; }
   var velho = [P('Loja Alfa','iPhone 16 128GB','Lacrado',4000), P('Loja Alfa','iPhone 15 128GB','Lacrado',3000),
                P('Loja Alfa','iPhone 14 128GB','Seminovo',2000), P('Loja Gama','iPhone 13 128GB','Seminovo',1500)];
+  // iPhone 14 128GB Seminovo cai de 2000 para 95: e a bateria da primeira lista
+  // real lida como preco, e tem que cair no card de QUEDA FORTE, nao nas variacoes.
   var novo  = [P('Loja Alfa','iPhone 16 128GB','Lacrado',4100), P('Loja Alfa','iPhone 15 128GB','Lacrado',3600),
-               P('Loja Alfa','iPhone 17 256GB','Lacrado',7000), P('Loja Gama','iPhone 13 128GB','Seminovo',1500)];
+               P('Loja Alfa','iPhone 17 256GB','Lacrado',7000), P('Loja Gama','iPhone 13 128GB','Seminovo',1500),
+               P('Loja Alfa','iPhone 14 128GB','Seminovo',95)];
   // 20 dias antes de HOJE em Sao Paulo, o mesmo fuso que a tela usa: com a data
   // em UTC a prova daria 19 dias entre 21h e meia-noite.
   var hp = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-');
@@ -231,6 +234,8 @@ TESTE = r"""
   // passo 4 antes das travas
   o.s4 = txt(D.getElementById('s4Corpo'));
   o.grandesLinhas = D.querySelectorAll('#aGrandes tbody tr').length;
+  o.quedasLinhas = D.querySelectorAll('#aQuedas tbody tr').length;
+  o.quedasTxt = txt(D.getElementById('aQuedas'));
   o.aprovarDesligado0 = D.getElementById('aAprovar').disabled;
 
   // D16: descartar fornecedor por extenso, com a grafia
@@ -279,6 +284,9 @@ TESTE = r"""
   o.nConf = cxs().length;
   var marca = function(k){ var e=D.querySelector('input[data-conf="'+k+'"]'); if(e){ e.checked=true; e.dispatchEvent(new W.Event('change',{bubbles:true})); } return !!e; };
   marca('grandes'); await sl(30); marca('abertas'); await sl(30);
+  o.aprovarDesligadoSemQueda = D.getElementById('aAprovar').disabled;
+  o.faltaQueda = txt(D.getElementById('aTravas'));
+  marca('quedas'); await sl(30);
   o.aprovarDesligadoSemSuspeita = D.getElementById('aAprovar').disabled;
   o.faltaSuspeita = txt(D.getElementById('aTravas'));
   marca('forn|LOJA ALFA|Loja Alfa'); await sl(30);
@@ -422,6 +430,9 @@ R = rodar('base', [frame('S2', 360), frame('S1', 390), frame('S3', 390), frame('
 ini_a = html.index('// ── O ARQUIVO')
 fim_a = html.index('// ── LEITURA')
 FUNCOES = html[ini_a:fim_a]
+# as datas tambem: hojeBR e datasDaLista, do arquivo real
+FUNCOES += html[html.index('function hojeBR()'):html.index('\n', html.index('function hojeBR()'))] + '\n'
+FUNCOES += html[html.index('function datasDaLista(txt)'):html.index('function textoDatas(d)')]
 NODE = FUNCOES + r'''
 const ARQ = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 (async () => {
@@ -434,6 +445,16 @@ const ARQ = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     out[nome] = { igual: r.texto === CHAT, temTexto: r.texto != null, origem: r.origem || null, erro: String(r.erro || '') };
   }
   out.__nuloDireto = problemaTexto('Loja Alfa\u0000lixo');
+  out.__datas = {
+    us:      datasDaLista('[9/12/26, 7:52:23 PM] Vini: x\n[9/12/26, 8:10:00 PM] Vini: y\n'),
+    br:      datasDaLista('[12/09/2026, 19:52:23] Vini: x\n'),
+    usDia13: datasDaLista('[9/13/25, 19:00] Vini: x\n'),
+    android: datasDaLista('12/09/2025 09:12 - Vini: x\n'),
+    futuro:  datasDaLista('[12/31/99, 1:00 PM] Vini: x\n'),
+    ambiguoAmpm:  datasDaLista('[3/4/26, 1:00 PM] Vini: x\n'),
+    ambiguo24h:   datasDaLista('[3/4/26, 13:00] Vini: x\n'),
+    nada:    datasDaLista('iPhone 16 128GB - 4.299\n')
+  };
   process.stdout.write(JSON.stringify(out));
 })().catch(e => { process.stdout.write(JSON.stringify({__erro: String(e && e.stack || e)})); });
 '''
@@ -515,14 +536,18 @@ ok('definir manda a condicao escolhida  %s' % o['definir'],
 ok('depois de responder, o card mostra a decisao gravada', 'condição: Lacrado (só esta lista)' in o['p2depois'])
 
 print('— passo 4 e as travas do aprovar —')
-ok('o diff conta novos, subiram e iguais', 'novos 1' in o['s4'] and 'subiram 2' in o['s4'] and 'iguais 1' in o['s4'])
-ok('variacao acima de 15%% listada item a item (so a de 20%%)  [%d linha]' % o['grandesLinhas'], o['grandesLinhas'] == 1)
+ok('o diff conta novos, subiram, cairam e iguais', 'novos 1' in o['s4'] and 'subiram 2' in o['s4'] and 'caíram 1' in o['s4'] and 'iguais 1' in o['s4'])
+ok('variacao acima de 15%% listada item a item (so a de 20%%, sem a queda forte)  [%d linha]' % o['grandesLinhas'], o['grandesLinhas'] == 1)
+ok('queda de mais da metade tem card proprio, com a linha dela  [%d]' % o['quedasLinhas'],
+   o['quedasLinhas'] == 1 and '1 preço caiu mais da metade' in o['quedasTxt'] and 'iPhone 14 128GB' in o['quedasTxt'])
+ok('com variacao e abertas conferidas, a queda forte ainda trava o aprovar', o['aprovarDesligadoSemQueda'])
+ok('e a tela diz que falta a queda', 'conferir o preço que caiu mais da metade' in o['faltaQueda'])
 ok('fornecedor sem lista nova aparece com o custo antigo', 'Loja Gama 1 produto' in o['s4'] and '1 produtos' not in o['s4'] and '17/08/2026' in o['s4'])
 ok('o aprovar nasce desligado', o['aprovarDesligado0'])
-ok('as tres confirmacoes existem (suspeita, abertas, variacao)  [%d]' % o['nConf'], o['nConf'] == 3)
+ok('as quatro confirmacoes existem (suspeita, queda forte, abertas, variacao)  [%d]' % o['nConf'], o['nConf'] == 4)
 ok('sem conferir o suspeito, o aprovar segue desligado', o['aprovarDesligadoSemSuspeita'])
 ok('e a tela diz o que falta', 'conferir o bloco suspeito de Loja Alfa' in o['faltaSuspeita'])
-ok('com as tres, o aprovar acende', o['aprovarLigado'])
+ok('com as quatro, o aprovar acende', o['aprovarLigado'])
 ok('o primeiro clique so pede confirmacao, sem RPC', o['semRpcAntesDoSim'] and 'Confirmar?' in o['confirmaTexto'])
 ok('o "sim" aprova a carga certa  %s' % o['aprovar'], o['aprovar'] == {'p_carga': 'c-0001'})
 ok('o resultado diz produtos, precos e pendencias que ficaram de fora', '4 produtos, 4 preços, com 3 pendências' in o['ok'])
@@ -557,6 +582,19 @@ ok('texto UTF-8 com BOM perde o BOM', A['chat.txt']['igual'])
 ok('imagem e recusada como nao texto  [%s]' % A['foto.png']['erro'][:40],
    'não é texto' in A['foto.png']['erro'] and not A['foto.png']['temTexto'])
 ok('texto com caractere nulo e recusado pela funcao', 'não é texto' in (A['__nuloDireto'] or ''))
+DT = A['__datas']
+print('— as datas do export (12/09/2026: o celular em ingles escreve mes/dia) —')
+ok('export em ingles [9/12/26, 7:52 PM] e 12 de setembro, nao 9 de dezembro  %s' % DT['us'],
+   DT['us'].get('de') == '12/09/2026' and DT['us'].get('formato') == 'mes/dia' and DT['us'].get('n') == 2)
+ok('export em portugues segue dia/mes  %s' % DT['br'], DT['br'].get('ate') == '12/09/2026' and DT['br'].get('formato') == 'dia/mes')
+ok('mes/dia sem AM/PM, com dia 13: so uma leitura e valida  %s' % DT['usDia13'], DT['usDia13'].get('de') == '13/09/2025')
+ok('formato Android (12/09/2025 09:12 - ) segue lido  %s' % DT['android'], DT['android'].get('de') == '12/09/2025')
+ok('data no futuro nas duas leituras nao vira data  %s' % DT['futuro'], DT['futuro'].get('invalida') is True and not DT['futuro'].get('n'))
+ok('as duas leituras validas e com AM/PM: vale o mes/dia  %s' % DT['ambiguoAmpm'],
+   DT['ambiguoAmpm'].get('de') == '04/03/2026' and DT['ambiguoAmpm'].get('formato') == 'mes/dia')
+ok('as duas leituras validas e sem AM/PM: vale o dia/mes brasileiro  %s' % DT['ambiguo24h'],
+   DT['ambiguo24h'].get('de') == '03/04/2026' and DT['ambiguo24h'].get('formato') == 'dia/mes')
+ok('lista sem carimbo nao inventa data', DT['nada'].get('n') == 0 and not DT['nada'].get('invalida'))
 # o caminho do input nao roda aqui (DataTransfer so existe no navegador, e no
 # Chrome da prova ler arquivo trava): cobra-se que ele USA a funcao provada acima
 # e que o erro dela vai para a tela e esvazia a caixa.

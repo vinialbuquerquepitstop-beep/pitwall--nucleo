@@ -1,5 +1,5 @@
 -- prova_calc_catalogo.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 8fc41b102fd6e504794628508804f259).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 a5e5f3f1e851e68d8d696e77cba1b851).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: K, L. Fixtures: C, E, F.
@@ -81,6 +81,9 @@ declare
   v_alvo   text;   -- o cabecalho que esta sendo descartado na volta do laco
   v_preco  uuid;   -- uma pendencia de `preco` (fixture A), para a trava T5
   v_l      text;   -- rotulo do vetor, so para a mensagem de falha
+  -- secao P (a bateria da primeira lista real, 12/09/2026)
+  v_txg    text;   -- fixture G, o formato da MP: bateria e preco em linhas proprias
+  v_gg     jsonb;  -- resultado da fixture G pelo v2
 begin
   -- @@fixture C
   -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════

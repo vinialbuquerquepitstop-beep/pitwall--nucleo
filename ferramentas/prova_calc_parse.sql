@@ -173,6 +173,9 @@ declare
   v_alvo   text;   -- o cabecalho que esta sendo descartado na volta do laco
   v_preco  uuid;   -- uma pendencia de `preco` (fixture A), para a trava T5
   v_l      text;   -- rotulo do vetor, so para a mensagem de falha
+  -- secao P (a bateria da primeira lista real, 12/09/2026)
+  v_txg    text;   -- fixture G, o formato da MP: bateria e preco em linhas proprias
+  v_gg     jsonb;  -- resultado da fixture G pelo v2
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -378,12 +381,40 @@ begin
   || E'[11/09/2026, 11:20:00] Vini: PROMO\n'
   || E'iPhone 16 128GB Preto Lacrado - 3.900\n';
 
+  -- @@fixture G
+  -- ══ FIXTURE G — a bateria que virava preco (12/09/2026) ═════════════════════
+  -- A PRIMEIRA lista real passada pela tela saiu com 35 de 35 produtos a R$ 90-100:
+  -- a MP escreve `🔋94% à 100%` numa linha propria, antes do preco, e
+  -- `calc_preco` pegava o 100. Pior: o outlier (1,6x o menor) EXPULSOU o preco
+  -- verdadeiro como fora de faixa. Esta fixture copia o FORMATO, nao a lista:
+  -- carimbo americano (`[9/12/26, 7:52:23 PM]`), garantia em dias, bateria em
+  -- linha propria, uma com faixa e uma sem, e o preco em linha `R$`. Precos
+  -- inventados (restricao global 8). Medido antes do conserto: os dois produtos a
+  -- 100,00. Depois: 3.111,11 e 2.222,22, 2 de 2.
+  v_txg :=
+     E'[9/12/26, 7:52:23 PM] Vini: ATENÇÃO! NÃO TROCAMOS APARELHO SEM OS SELOS\n'
+  || E'MP IMPORTS\n'
+  || E'📱 IPHONES SEMINOVOS\n'
+  || E'📌 GARANTIA 30 DIAS\n'
+  || E'📲 IPHONE 16 128GB 🇺🇸\n'
+  || E'🔋100%\n'
+  || E'(Com garantia Apple 🍎 )\n'
+  || E'R$3.111,11\n'
+  || E'⚫️preto\n'
+  || E'⚪️branco\n'
+  || E'—————————————————\n'
+  || E'📲 IPHONE 15 128GB 🇺🇸\n'
+  || E'🔋88% à 100%\n'
+  || E'R$2.222,22\n'
+  || E'⚫️preto\n';
+
   -- @@preambulo
   -- O gerador leva cada linha daqui SO para o arquivo que le a variavel dela.
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
   v_cc := privado.calc_parse_v2(v_tenant, v_txc);
   v_dd := privado.calc_parse_v2(v_tenant, v_txd);
+  v_gg := privado.calc_parse_v2(v_tenant, v_txg);
 
   -- Cada bloco abaixo soma 1 em v_total e, se falhar, soma 1 em v_falhas e
   -- anota o motivo. O relatorio sai inteiro, nao para no primeiro erro: parar
@@ -1088,6 +1119,74 @@ begin
     v_log := v_log || E'\n  FALHA  [conservacao] fixture C: lidas ' || (v_cc->>'n_lidas')
              || ' <> casou ' || (v_cc->>'n_casou') || ' + duvidoso ' || (v_cc->>'n_duvidoso')
              || ' + nao reconhecido ' || (v_cc->>'n_nao_reconhecido');
+  end if;
+
+  -- @@secao P
+  -- ══ P. O QUE NUNCA E PRECO (12/09/2026) ════════════════════════════════════
+  -- A primeira lista real. `calc_preco` pega o ULTIMO numero entre 20 e 200000 da
+  -- linha, e porcentagem, horario e prazo passavam. Migration:
+  -- supabase/migrations/20260912_calc_preco_nao_le_porcentagem.sql.
+
+  -- P1. As tres armadilhas medidas na lista devolvem nulo.
+  v_total := v_total + 1;
+  if privado.calc_preco('🔋94% à 100%') is not null or privado.calc_preco('🔋100%') is not null then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P1] a saude da bateria virou preco: 94% a 100% = '
+             || coalesce(privado.calc_preco('🔋94% à 100%')::text,'null');
+  end if;
+  v_total := v_total + 1;
+  if privado.calc_preco('ATENÇÃO 7:52:23 PM') is not null then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P1] o horario da mensagem virou preco: ' || privado.calc_preco('ATENÇÃO 7:52:23 PM');
+  end if;
+  v_total := v_total + 1;
+  if privado.calc_preco('📌 GARANTIA 30 DIAS') is not null or privado.calc_preco('garantia de 1 ano') is not null then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P1] o prazo de garantia virou preco';
+  end if;
+
+  -- P2. E o conserto nao pode apagar o preco que divide a linha com uma
+  --     porcentagem. Guarda nova se mede contra o que ja funcionava.
+  v_total := v_total + 1;
+  if privado.calc_preco('iPhone 13 128GB Seminovo 87% - 2.700') is distinct from 2700
+     or privado.calc_preco('iPhone 16 128GB Preto Lacrado - 4.299 10% off') is distinct from 4299 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P2] a porcentagem apagou o preco da mesma linha: '
+             || coalesce(privado.calc_preco('iPhone 13 128GB Seminovo 87% - 2.700')::text,'null') || ' / '
+             || coalesce(privado.calc_preco('iPhone 16 128GB Preto Lacrado - 4.299 10% off')::text,'null');
+  end if;
+
+  -- P3. A fixture G inteira: as duas linhas `R$` entram, e so elas.
+  v_total := v_total + 1;
+  if (v_gg->>'n_lidas')::int <> 2 or (v_gg->>'n_casou')::int <> 2 or (v_gg->>'n_duvidoso')::int <> 0 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P3] fixture G: lidas ' || (v_gg->>'n_lidas') || ' casou ' || (v_gg->>'n_casou')
+             || ' duvidoso ' || (v_gg->>'n_duvidoso') || ' (esperado 2, 2, 0: a bateria e a garantia contaram como linha de preco)';
+  end if;
+
+  -- P4. Nenhum preco da fixture G abaixo de R$ 500. E a assercao que teria
+  --     pegado a lista real: 35 de 35 produtos entre 90 e 100.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_gg->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) < 500) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P4] fixture G tem preco abaixo de R$ 500 (a bateria voltou a ser lida como preco): '
+             || (v_gg->'produtos')::text;
+  end if;
+
+  -- P5. O preco CERTO em cada produto e cor: sem isso P4 passaria com o preco
+  --     de outro produto no lugar.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_gg->'produtos') p, jsonb_array_elements(p->'cs') c
+                  where p->>'n' = 'iPhone 16 128GB' and c->>'n' = 'Preto' and (c->>'v')::numeric = 3111.11)
+     or not exists (select 1 from jsonb_array_elements(v_gg->'produtos') p, jsonb_array_elements(p->'cs') c
+                  where p->>'n' = 'iPhone 16 128GB' and c->>'n' = 'Branco' and (c->>'v')::numeric = 3111.11)
+     or not exists (select 1 from jsonb_array_elements(v_gg->'produtos') p, jsonb_array_elements(p->'cs') c
+                  where p->>'n' = 'iPhone 15 128GB' and c->>'n' = 'Preto' and (c->>'v')::numeric = 2222.22) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [P5] fixture G nao deu 16 128GB Preto/Branco 3111.11 e 15 128GB Preto 2222.22: '
+             || (v_gg->'produtos')::text;
   end if;
 
   -- @@secao G
@@ -2540,6 +2639,11 @@ begin
               || ' casou=' || (v_cc->>'n_casou')
               || ' pendencias=' || (select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
                                       from jsonb_array_elements(v_cc->'pendencias') q)
+              || E'\n  fixture G (bateria da MP), v2: lidas=' || (v_gg->>'n_lidas')
+              || ' casou=' || (v_gg->>'n_casou')
+              || ' menor preco=' || coalesce((select min(coalesce((c->>'v')::numeric, (p->>'v')::numeric))::text
+                                                from jsonb_array_elements(v_gg->'produtos') p
+                                                left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true), '?')
   -- @@relatorio laco
               || E'\n  fixture D (condicao), v2: lidas=' || (v_dd->>'n_lidas')
               || ' casou=' || (v_dd->>'n_casou')
