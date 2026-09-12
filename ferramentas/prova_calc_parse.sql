@@ -1,5 +1,21 @@
 -- prova_calc_parse.sql — assere o motor de leitura de lista de fornecedor.
 --
+-- NAO RODAR POR MCP: rodar os tres gerados.
+--   ferramentas/prova_calc_leitor.sql    (secoes H, A, B, E, F)
+--   ferramentas/prova_calc_laco.sql      (secoes G, Z, R)
+--   ferramentas/prova_calc_catalogo.sql  (secoes K, L)
+-- Este arquivo e a FONTE UNICA das tres. Enxuto ele tem ~78 KB, e esse payload
+-- passou uma vez e travou outra no transporte do MCP (12/09/2026). Mudou alguma
+-- coisa aqui, regere:
+--   python ferramentas/gera_provas_calc.py
+-- O gerador parte pelos marcadores `-- @@...` abaixo, e RECUSA se um arquivo
+-- gerado ler variavel que ele nao atribui, se uma secao ficar sem arquivo, se a
+-- soma das assercoes mudar, ou se o enxuto de algum passar do limite seguro.
+-- Nunca editar os gerados a mao: eles sao sobrescritos. A soma das tres rodadas
+-- tem que dar o total desta fonte (113 em 12/09/2026).
+-- Colar ESTE arquivo inteiro no SQL Editor continua valendo: ele segue sendo um
+-- bloco so e roda igual.
+--
 -- COBRE O PARSER VIVO (10/09/2026):
 --   `privado.calc_parse_v2`  — promovido a caminho vivo neste mesmo dia:
 --                              `calc_carga_abrir` chama ELE agora
@@ -88,6 +104,7 @@
 -- Consertado em `supabase/migrations/20260910_calc_parse_cor_pareada.sql`, e a
 -- assercao B3 abaixo e o que impede a volta.
 
+-- @@declare
 do $prova$
 declare
   v_tenant uuid := '00000000-0000-0000-0000-000000000001';
@@ -157,6 +174,7 @@ declare
   v_preco  uuid;   -- uma pendencia de `preco` (fixture A), para a trava T5
   v_l      text;   -- rotulo do vetor, so para a mensagem de falha
 begin
+  -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
   v_txt :=
      E'[08/09/2026, 09:12:03] Vini: Junior recreio\n'
@@ -186,6 +204,7 @@ begin
   || E'iPhone 12 128GB Preto - 2.150\n'
   || E'iPhone 12 256GB Branco - 2.390\n';
 
+  -- @@fixture B
   -- ══ FIXTURE B — formato BLOCO ═══════════════════════════════════════════════
   -- Escrita no formato das listas reais: o nome do produto aparece SO no
   -- cabecalho, a condicao vem num banner, e a linha do preco nao repete nada.
@@ -236,6 +255,7 @@ begin
   || E'*🍎 iPhone Zeta – 256GB (CPO)*\n'
   || E'💵 *R$ 9.999,00*\n';
 
+  -- @@fixture C
   -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════
   -- Fornecedor que o catalogo NAO conhece no TOPO da lista (sem fornecedor
   -- anterior para herdar), e um fornecedor conhecido com linhas SEM condicao.
@@ -252,6 +272,7 @@ begin
   || E'iPhone 16 128GB Preto - 4.299\n'
   || E'iPhone 16 128GB Azul - 4.299\n';
 
+  -- @@fixture D
   -- ══ FIXTURE D — a regra da condicao (D14 revisada e D15, 11/09/2026) ════════
   -- Um fornecedor por regra. No v2 anterior esta lista casava os MESMOS 11 de 16
   -- de agora, mas com TRES precos errados calados (o misto do Cristiano e a
@@ -293,6 +314,7 @@ begin
   || E'*🍎 iPhone 14 Pro – 256GB*\n'
   || E'💵 *R$ 4.480,00*\n';
 
+  -- @@fixture E
   -- ══ FIXTURE E — o que o verbo `criar` tem que resolver ══════════════════════
   -- Tres coisas de uma vez, e as tres foram MEDIDAS no leitor vivo em
   -- 11/09/2026 antes de a prova ser escrita (lidas=5, casou=0, duvidoso=4,
@@ -320,6 +342,7 @@ begin
   || E'[11/09/2026, 10:15:00] Vini: xpto cell imports\n'
   || E'iPhone 15 128GB Preto Lacrado - 3.700\n';
 
+  -- @@fixture F
   -- ══ FIXTURE F — o descarte que nao descartava (D18, 11/09/2026) ═════════════
   -- A `bandeira` reprovou a fatia do `criar` com as 106 assercoes verdes porque
   -- `descartar` um cabecalho de fornecedor nao tirava nada, e o que ele deveria
@@ -355,6 +378,8 @@ begin
   || E'[11/09/2026, 11:20:00] Vini: PROMO\n'
   || E'iPhone 16 128GB Preto Lacrado - 3.900\n';
 
+  -- @@preambulo
+  -- O gerador leva cada linha daqui SO para o arquivo que le a variavel dela.
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
   v_cc := privado.calc_parse_v2(v_tenant, v_txc);
@@ -364,6 +389,15 @@ begin
   -- anota o motivo. O relatorio sai inteiro, nao para no primeiro erro: parar
   -- no primeiro esconde os outros e custa uma rodada por defeito.
 
+  -- @@comum rpc
+  -- A identidade do DONO, como a tela vai rodar. Morava dentro da secao G, e
+  -- era uma dependencia que a medida por variavel nao ve: a K e a L chamam RPC
+  -- com `set local role authenticated` e dependiam de a G ter rodado antes. O
+  -- gerador poe este bloco em todo arquivo que troca de papel.
+  perform set_config('request.jwt.claims',
+    '{"sub":"fb2aad8e-b728-4e59-a198-71da2156449d","role":"authenticated"}', true);
+
+  -- @@secao H
   -- ══ H. HELPERS ══════════════════════════════════════════════════════════════
   -- Nao dependem de versao: `calc_parse` e `calc_parse_v2` chamam os MESMOS.
   -- Sao o caminho por onde uma mudanca de helper vaza para producao.
@@ -433,6 +467,7 @@ begin
     v_log := v_log || E'\n  FALHA  [helper] a separacao de emoji mexeu no ordinal (3ª) ou na polegada (13")';
   end if;
 
+  -- @@secao A
   -- ══ A. FIXTURE A, nas DUAS versoes ══════════════════════════════════════════
   foreach v_ver in array array['calc_parse_v2'] loop
   execute format('select privado.%I($1,$2)', v_ver) into v_r using v_tenant, v_txt;
@@ -695,6 +730,7 @@ begin
 
   end loop;
 
+  -- @@secao B
   -- ══ B. FIXTURE B — formato BLOCO, so o v2 ═══════════════════════════════════
 
   -- B0. Por que o v2 existe, medido e nao herdado de documento: o v1 exige
@@ -925,6 +961,7 @@ begin
              || ' de ' || (v_b->>'n_lidas') || ' (esperado 11 de 12)';
   end if;
 
+  -- @@secao E
   -- == E. TODO CHAMADOR DO PARSER USA A MESMA VERSAO ==========================
   -- Esta secao nasceu de um defeito REAL, em 10/09/2026, e ela e o guarda contra
   -- a classe inteira, nao contra o caso.
@@ -1019,6 +1056,7 @@ begin
              || ' (o PostgREST escolhe pelos nomes de argumento do POST)';
   end if;
 
+  -- @@secao F
   -- ══ F. CONSERVACAO DE LINHAS ═══════════════════════════════════════════════
   -- Toda linha lida esta em ALGUMA pilha: `n_lidas = n_casou + n_duvidoso +
   -- n_nao_reconhecido` (o descarte sai de `n_lidas`, por desenho). Linha que
@@ -1052,6 +1090,7 @@ begin
              || ' + nao reconhecido ' || (v_cc->>'n_nao_reconhecido');
   end if;
 
+  -- @@secao G
   -- ══ G. O RESOLVER, CHAMADO DE VERDADE ══════════════════════════════════════
   -- A regra desta secao, e ela e a frase da spec de 10/09 em forma de teste:
   -- **toda resposta do dono ou ENSINA ou e RECUSADA com motivo. Nunca e aceita
@@ -1063,9 +1102,8 @@ begin
   --
   -- Tudo roda com a identidade do DONO, como a tela vai rodar. Cada decisao fica
   -- numa subtransacao (`begin ... exception`), entao uma nao contamina a outra,
-  -- e o `raise` final desfaz as tres cargas junto com o resto.
-  perform set_config('request.jwt.claims',
-    '{"sub":"fb2aad8e-b728-4e59-a198-71da2156449d","role":"authenticated"}', true);
+  -- e o `raise` final desfaz as tres cargas junto com o resto. O `set_config`
+  -- da identidade saiu daqui para o bloco `@@comum rpc` (12/09/2026).
 
   -- Um modelo que so existe na SEMENTE. Pela D5 a semente e invisivel em
   -- execucao, entao apontar para ele tem que reprovar como se nao existisse.
@@ -1285,6 +1323,7 @@ begin
   end if;
   execute 'reset role';
 
+  -- @@secao Z
   -- ══ Z. O `2.4a zero`: o cabecalho chega a pendencia, e a regra da condicao ══
   -- Z1. Lista que ABRE com fornecedor fora do catalogo: a pendencia nomeia o
   --     cabecalho, nao a sentinela. Sem isto o `criar` fornecedor nao tinha o
@@ -1411,6 +1450,7 @@ begin
              || ', nao reconhecido ' || (v_dd->>'n_nao_reconhecido');
   end if;
 
+  -- @@secao R
   -- ══ R. AS RESPOSTAS DE CONDICAO (D14 revisada), 11/09/2026 ═══════════════════
   -- A pergunta de condicao ganhou resposta: `definir`. Ela vale para UMA lista
   -- (nao escreve no catalogo), o leitor a recebe como mapa `texto -> condicao`,
@@ -1746,6 +1786,7 @@ begin
              || coalesce(v_msg, 'lidas ' || coalesce(v_depois->>'n_lidas','?') || ', descarte ' || coalesce(v_depois->>'n_descarte','?'));
   end if;
 
+  -- @@secao K
   -- ══ K. O VERBO `criar` (2.4a, 2.4a ter e 2.4a quater, 11/09/2026) ═══════════
   -- Ate esta fatia o dono so sabia dizer "isto e outro nome de uma coisa que ja
   -- existe" e "isto nunca e preco". Fornecedor novo e modelo novo so nasciam por
@@ -2272,6 +2313,7 @@ begin
              || coalesce(v_msg, '(nenhum)');
   end if;
 
+  -- @@secao L
   -- ══ L. D18 — O DESCARTE QUE DESCARTA (11/09/2026) ══════════════════════════
   -- A causa era UMA: a regra era gravada com `lower(texto)` e o leitor casa o
   -- padrao contra `privado.calc_norm(linha)`. Padrao numa normalizacao, texto em
@@ -2441,12 +2483,20 @@ begin
   --      (`preco com condicao pendurada: ...`), nunca um pedaco da lista.
   v_total := v_total + 1;
   v_msg := null; v_ok := null;
+  --      Desde 12/09/2026 ela abre a PROPRIA carga. Ate ali lia as cargas
+  --      abertas pela secao G, e isso amarrava o arquivo do catalogo ao do laco:
+  --      assercao que depende do estado deixado por outra secao quebra quando a
+  --      outra muda. A lista de duas linhas abaixo foi medida em 12/09/2026 e
+  --      gera a pergunta `preco com condicao pendurada: a calc nao tem onde
+  --      guardar condicao`. Tem que ser `preco`: `cor` agora e ACEITO, e de
+  --      proposito.
   begin
     execute 'set local role authenticated';
-    -- as tres cargas da secao G continuam em rascunho. Tem que ser `preco`:
-    -- `cor` agora e ACEITO, e de proposito.
+    v_kf := public.calc_carga_abrir(
+         E'[11/09/2026, 14:00:00] Vini: Junior recreio\n'
+      || E'iPhone 16 128GB Preto Lacrado - 4.100 a vista\n');
     select id into v_preco from public.calc_pendencia
-     where carga_id = any(v_cargas) and tipo = 'preco'
+     where carga_id = v_kf and tipo = 'preco'
      order by texto limit 1;
     if v_preco is null then
       v_msg := 'nenhuma pergunta de preco nas fixtures: a assercao perdeu o alvo';
@@ -2466,9 +2516,13 @@ begin
              || coalesce(v_msg, '(nenhuma mensagem)');
   end if;
 
+  -- @@relatorio
+  -- Cada linha de sumario pertence a UM arquivo gerado, pelo marcador acima
+  -- dela. Juntas, as tres dizem o que este relatorio diz.
   raise exception E'%',
     case when v_falhas = 0
          then 'PASSOU: ' || v_total || ' assercoes, 0 falhas'
+  -- @@relatorio leitor
               || E'\n  fixture A (formato linha), v2: lidas=' || (v_r->>'n_lidas')
               || ' casou=' || (v_r->>'n_casou')
               || ' duvidoso=' || (v_r->>'n_duvidoso')
@@ -2486,6 +2540,7 @@ begin
               || ' casou=' || (v_cc->>'n_casou')
               || ' pendencias=' || (select string_agg(q->>'tipo' || ' "' || (q->>'texto') || '"', ', ')
                                       from jsonb_array_elements(v_cc->'pendencias') q)
+  -- @@relatorio laco
               || E'\n  fixture D (condicao), v2: lidas=' || (v_dd->>'n_lidas')
               || ' casou=' || (v_dd->>'n_casou')
               || ' perguntas de condicao=' || (select count(*) from jsonb_array_elements(v_dd->'pendencias') q
@@ -2495,6 +2550,7 @@ begin
               || E'\n  respostas de condicao (D14): fixture C casou 0 -> ' || coalesce(v_rc::text,'?')
               || ' com "junior" = Lacrado; fixture D 11 -> ' || coalesce(v_rd::text,'?')
               || ' de 16 com as 5 respondidas'
+  -- @@relatorio catalogo
               || E'\n  fixture E (dia 1, criar), v2: lidas=' || (v_ee->>'n_lidas')
               || ' casou=' || (v_ee->>'n_casou')
               || ' pendencias=' || (v_ee->>'n_pendencia')
@@ -2509,6 +2565,7 @@ begin
               || ' (acento, asterisco e espaco duplo, formato bloco, ASCII em linha),'
               || ' e o padrao ancorado nao come mais a linha `- 5.400 PROMO` do fornecedor de cima;'
               || ' as 5 regras de semente com acento foram regravadas na normalizacao do leitor'
+  -- @@relatorio fim
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;
 end;

@@ -12,7 +12,7 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v13.md` (o produto novo: Blocos 0 e 1 fechados, o
+   `handoff_calculadora_pitwall_v14.md` (o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
    dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
    resposta que nao ensina, o fornecedor desconhecido chega a pendencia, a condicao
@@ -20,11 +20,10 @@ aponte para arquivo inexistente.
    `definir`. Em 11/09 a tarde entrou o verbo `criar`: fornecedor e modelo novos
    nascem num clique, com guarda de quase-igual e origem do que se aprende (D17).
    E a noite fechou a **D18**: o `descartar` de fornecedor, que nao descartava e
-   entregava o bloco ao fornecedor de cima, com preco e tudo. **A proxima sessao
-   comeca pela SECAO 10 do v13**, ja preparada e medida: partir a prova de banco
-   (78 KB enxugada, travou uma vez no transporte do MCP) em tres arquivos gerados
-   por script, com o prompt pronto. **Depois vem a tela `Alimentar`**, que por
-   decisao do dono (D19) ja nasce mostrando o que o laco aprendeu.
+   entregava o bloco ao fornecedor de cima, com preco e tudo. Em 12/09 o **v14**
+   partiu a prova de banco em tres arquivos gerados por script (soma 113). **A
+   proxima sessao e a tela `Alimentar`**, que por decisao do dono (D19) ja nasce
+   mostrando o que o laco aprendeu; prompt na secao 7 do v14.
    **Tres regras que sairam da D18 e valem para o projeto todo:** padrao gravado
    tem que estar na MESMA normalizacao do texto contra o qual ele casa (`lower()`
    contra `privado.calc_norm()` falha calado, mesma familia do `\b` e do `calc()`
@@ -409,8 +408,14 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   novo por `replace` cria SOBRECARGA, nao substitui). A regra de refazer fica,
   porque custa nada e cobre o `drop`; o motivo e que estava errado.
 - **Provas de BANCO (`ferramentas/prova_*.sql`) sao suite tambem, e ate 09/09/2026
-  nao estavam listadas em lugar nenhum.** Sao quatro: `prova_entrega.sql`,
-  `prova_escopo.sql`, `prova_molde.sql` e `prova_calc_parse.sql`. Rodam por MCP ou
+  nao estavam listadas em lugar nenhum.** Sao seis: `prova_entrega.sql`,
+  `prova_escopo.sql`, `prova_molde.sql` e as TRES da calculadora,
+  `prova_calc_leitor.sql` (55), `prova_calc_laco.sql` (34) e
+  `prova_calc_catalogo.sql` (24), que somam 113 em 12/09/2026. As tres sao GERADAS
+  por `python ferramentas/gera_provas_calc.py` a partir de `prova_calc_parse.sql`,
+  que e a FONTE e **nao roda por MCP** (enxuta tem 78 KB, e o transporte trava).
+  Assercao se muda na fonte e se regera; gerado nunca se edita a mao. Por MCP,
+  enxugar antes: `python ferramentas/enxuga_sql.py <prova> <saida>`. Rodam por MCP ou
   pelo SQL Editor, terminam em `raise exception` DE PROPOSITO (para nao sujar
   producao, ver a memoria `provar-rpc-sem-sujar-producao`), e por isso **o resultado
   e a MENSAGEM (`PASSOU:` / `REPROVOU:`), nunca o exit code** — ao contrario dos onze

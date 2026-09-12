@@ -498,7 +498,22 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v13.md` (11/09/2026, **o `descartar` que
+- topo: `handoff_calculadora_pitwall_v14.md` (12/09/2026, **a prova partida em
+  tres**). A divida da secao 7.2 do v13, fechada, sem migration. A fonte
+  `ferramentas/prova_calc_parse.sql` virou a origem de TRES provas geradas por
+  `ferramentas/gera_provas_calc.py`: `prova_calc_leitor.sql` (55),
+  `prova_calc_laco.sql` (34) e `prova_calc_catalogo.sql` (24). **Soma 113, 0
+  falhas**, enxutos de 24,8 / 32,1 / 27,5 KB contra 78,4 KB, producao intacta nas
+  tres rodadas, gerador deterministico.
+
+  **A licao:** o corte medido no v13 so via dependencia de VARIAVEL. Havia uma de
+  ESTADO DE SESSAO (o `set_config` da identidade do dono, dentro da secao G) que
+  deixaria a K e a L rodando como ninguem. Foi para um bloco comum.
+
+  **Proximo: a tela `Alimentar` (D19)**, prompt na secao 7 do v14. Toda mudanca de
+  `calc_*` roda as tres geradas; assercao se muda na FONTE e se regera.
+
+- anterior: `handoff_calculadora_pitwall_v13.md` (11/09/2026, **o `descartar` que
   descarta**). A D18, fechada. **Duas migrations** (`20260911200343` e
   `20260911233727`), e a segunda conserta um erro da primeira.
 
@@ -532,7 +547,7 @@ nenhuma das duas batia com o repo.
   enxugada, passou duas vezes e TRAVOU uma no transporte do MCP. Precisa ser
   partida por script a partir de UMA fonte, senao vira arquivo morto.
 
-  **A PROXIMA SESSAO COMECA PELA SECAO 10 DO v13**, preparada em 12/09/2026: o
+  (Fechada no v14.) A secao 10 do v13, preparada em 12/09/2026: o
   corte medido (TRES arquivos, nao dois, pelas dependencias entre secoes), a unica
   mudanca de assercao necessaria (a L19 deixa de ler a carga da secao G), o
   criterio de aceite (soma de 113 assercoes) e o prompt pronto. As duas
