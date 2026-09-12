@@ -43,6 +43,13 @@
 --       fornecedor de cima (K13, K14) nem contra um NOME reconhecido (K15).
 --       Migrations: supabase/migrations/20260911_calc_parse_pergunta_de_fornecedor_fica.sql
 --       e supabase/migrations/20260911_calc_d17_pergunta_ignorada_fica.sql.
+--   L — a D18 (11/09/2026): o `descartar` de fornecedor DESCARTA, nas quatro
+--       formas de cabecalho, e o padrao ancorado nao come a linha de quem esta
+--       em volta. Fixture F. Junto vao as regras de semente com acento, que
+--       nunca casaram desde o Bloco 1, e a trava T5.
+--       Migration: supabase/migrations/20260911_calc_d18_descartar_descarta.sql.
+--       A causa era UMA, e a licao vale para o projeto todo: **padrao gravado
+--       tem que estar na MESMA normalizacao do texto contra o qual ele casa.**
 --
 -- COMO RODAR: cole no SQL Editor do Supabase, ou por MCP.
 -- O bloco TERMINA EM `raise exception` de proposito: a transacao inteira volta
@@ -143,6 +150,12 @@ declare
   v_cats_f int;    -- categorias na lista do codigo
   v_cats_c int;    -- categorias no check `calc_modelo_categoria_ck`
   v_k13    int;    -- D17: casou depois de criar o 1o fornecedor da fixture E
+  -- secao L (a D18: o descarte que descarta)
+  v_txf    text;   -- fixture F, as quatro formas de cabecalho descartado
+  v_kf     uuid;   -- a carga da fixture F
+  v_alvo   text;   -- o cabecalho que esta sendo descartado na volta do laco
+  v_preco  uuid;   -- uma pendencia de `preco` (fixture A), para a trava T5
+  v_l      text;   -- rotulo do vetor, so para a mensagem de falha
 begin
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
   v_txt :=
@@ -306,6 +319,41 @@ begin
   || E'iPhone 16 256GB Azul Lacrado - 4.900\n\n'
   || E'[11/09/2026, 10:15:00] Vini: xpto cell imports\n'
   || E'iPhone 15 128GB Preto Lacrado - 3.700\n';
+
+  -- ══ FIXTURE F — o descarte que nao descartava (D18, 11/09/2026) ═════════════
+  -- A `bandeira` reprovou a fatia do `criar` com as 106 assercoes verdes porque
+  -- `descartar` um cabecalho de fornecedor nao tirava nada, e o que ele deveria
+  -- tirar entrava no nome do fornecedor de CIMA. Classe PRECO ERRADO.
+  --
+  -- A fixture reproduz os quatro vetores medidos no codigo vivo em 11/09/2026,
+  -- ANTES do conserto, e o que cada um devolvia:
+  --   13  `Fábrica Zeta` (acento)        padrao `fábrica zeta`: descarte 0 e o
+  --                                      3.100 no blob COMO SE FOSSE do Alfa
+  --   15  `*Fabrica  Zeta*` (asterisco,  mesma coisa: o `*` e o espaco duplo
+  --       espaco duplo)                  somem no `calc_norm` e nao no `lower`
+  --   16  ASCII em formato BLOCO         o padrao casava, mas o cabecalho de
+  --                                      modelo cortava o descarte: descarte 0
+  --   17  `PROMO`, padrao curto sem      casava a linha `- 5.400 PROMO` do
+  --       ancora                         ALFA e APAGAVA um preco que era dele
+  --
+  -- O primeiro cabecalho e criado (`Alfa Imports`) de proposito: e ele que da a
+  -- um cabecalho desconhecido um fornecedor RECONHECIDO acima para ser engolido.
+  -- Sem isso a G3 pega o defeito sozinha ("esta resposta nao ensina nada") e o
+  -- preco errado nunca aparece: foi assim que ele viveu com a prova verde.
+  -- Lista sintetica, precos inventados (restricao global 8).
+  v_txf :=
+     E'[11/09/2026, 11:00:00] Vini: ALFA IMPORTS\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.200\n'
+  || E'iPhone 16 Pro 256GB Preto Lacrado - 5.400 PROMO\n\n'
+  || E'[11/09/2026, 11:05:00] Vini: Fábrica Zeta\n'
+  || E'iPhone 16 256GB Preto Lacrado - 3.100\n\n'
+  || E'[11/09/2026, 11:10:00] Vini: *Fabrica  Zeta*\n'
+  || E'iPhone 15 128GB Azul Lacrado - 2.900\n\n'
+  || E'[11/09/2026, 11:15:00] Vini: Fabrica Zeta\n'
+  || E'*🍎 iPhone 13 Pro – 128GB (CPO)*\n'
+  || E'💵 *R$ 3.150,00*\n\n'
+  || E'[11/09/2026, 11:20:00] Vini: PROMO\n'
+  || E'iPhone 16 128GB Preto Lacrado - 3.900\n';
 
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
   v_b1 := privado.calc_parse(v_tenant, v_txb);
@@ -1074,7 +1122,12 @@ begin
             v_n_recusas := v_n_recusas + 1;
             -- Recusa so vale se for por motivo DECLARADO. Um erro qualquer
             -- (null, cast, divisao) tambem "recusa", e passaria por guarda.
-            if sqlerrm !~ '(nao existe no catalogo|nao ensina nada|condicao nao se ensina|apontar exige o destino|nao se ensina por apelido|condicao nao se descarta)' then
+            -- D18 acrescentou tres motivos declarados, e eles entram aqui pelo
+            -- mesmo criterio dos outros: recusa so vale se for por motivo que o
+            -- codigo DECLARA. `nao se descarta` cobre condicao (T4) e preco
+            -- (T5); `nao aparece em nenhuma linha` e a guarda de medida da
+            -- ancora; `nao tirou linha nenhuma` e a G4.
+            if sqlerrm !~ '(nao existe no catalogo|nao ensina nada|condicao nao se ensina|apontar exige o destino|nao se ensina por apelido|nao se descarta|nao aparece em nenhuma linha|nao tirou linha nenhuma|nao sobra texto nenhum)' then
               v_estranha := v_estranha || E'\n         ' || v_pd.tipo || ' "' || v_pd.texto || '" / ' || v_dec || ': ' || sqlerrm;
             end if;
           end if;
@@ -1672,9 +1725,15 @@ begin
            and c.n_lidas = 2 and c.n_descarte = 2
            and not exists (select 1 from public.calc_pendencia q
                             where q.carga_id = v_nova and q.tipo = 'fornecedor')
+           -- D18: o padrao agora sai do texto NORMALIZADO e ancorado na linha
+           -- inteira, e o descarte de FORNECEDOR fecha o bloco (escopo). Este
+           -- e o vetor 14, o controle: ASCII em formato linha, o unico que ja
+           -- funcionava, e por isso esta assercao passava sozinha.
            and exists (select 1 from public.calc_regra r
                         where r.tenant_id = v_tenant and r.tipo = 'descarte'
-                          and r.padrao = 'tabela xpto imports')
+                          and r.padrao = '^tabela xpto imports$'
+                          and r.escopo = 'fornecedor'
+                          and r.origem = 'aprendizado')
       into v_ok
       from public.calc_carga c where c.id = v_nova;
     raise exception 'prova_rollback';
@@ -2194,9 +2253,12 @@ begin
                       and a.texto = 'TABELA MP DISTRIBUIDORA' and a.aponta = 'mp_imports'
                       and a.origem = 'aprendizado' and a.carga_id = v_ke
                       and a.criado_por = v_dono)
+           -- D18: o padrao de uma pergunta de MODELO comeca a linha (o texto e a
+           -- linha sem o preco do fim), entao ele entra ancorado so na frente.
            and exists (select 1 from public.calc_regra r
                         where r.tenant_id = v_tenant and r.tipo = 'descarte'
-                          and r.padrao = 'jbl flip 7 lacrado'
+                          and r.padrao = '^jbl flip 7 lacrado'
+                          and r.escopo = 'linha'
                           and r.origem = 'aprendizado' and r.carga_id = v_ke
                           and r.criado_por = v_dono)
       into v_ok;
@@ -2208,6 +2270,200 @@ begin
     v_falhas := v_falhas + 1;
     v_log := v_log || E'\n  FALHA  [2.4a quater] o resolver nao carimbou origem/carga/autor no apelido ou na regra de descarte. Erro: '
              || coalesce(v_msg, '(nenhum)');
+  end if;
+
+  -- ══ L. D18 — O DESCARTE QUE DESCARTA (11/09/2026) ══════════════════════════
+  -- A causa era UMA: a regra era gravada com `lower(texto)` e o leitor casa o
+  -- padrao contra `privado.calc_norm(linha)`. Padrao numa normalizacao, texto em
+  -- outra: nunca casa, e falha CALADA. Mesma familia do `\b` que era backspace e
+  -- do `calc()` com sinal colado. A regra que sai daqui vale para o projeto
+  -- todo: **padrao gravado tem que estar na MESMA normalizacao do texto contra o
+  -- qual ele casa.**
+  --
+  -- Cada volta do laco abre a fixture F do zero, cria o `Alfa Imports` e
+  -- descarta UM dos quatro cabecalhos, dentro da propria subtransacao. Elas nao
+  -- se contaminam, e nenhuma sobrevive ao `raise` do fim.
+  --
+  -- As tres coisas que o conserto tem que garantir, e que estas assercoes
+  -- cobram JUNTAS em cada volta (uma propriedade sozinha nao basta):
+  --   1. o padrao sai do texto normalizado e ancorado na linha inteira;
+  --   2. o cabecalho descartado FECHA o bloco do fornecedor de cima;
+  --   3. as linhas dele vao para `n_descarte` ate o proximo cabecalho de
+  --      fornecedor, mesmo com cabecalho de modelo no meio.
+  -- O `Alfa Imports` com EXATAMENTE dois produtos e o que prova as duas pontas
+  -- do erro de preco: nada de outro fornecedor entra no nome dele (vetores 13,
+  -- 15 e 16) e nada que e dele some (vetor 17).
+  for v_i in 1..4 loop
+    v_alvo := (array['Fábrica Zeta','Fabrica  Zeta*','Fabrica Zeta','PROMO'])[v_i];
+    v_l    := (array['L13 acento','L15 asterisco e espaco duplo',
+                     'L16 formato bloco','L17 padrao curto sem ancora'])[v_i];
+    v_total := v_total + 1;
+    v_msg := null; v_ok := null;
+    begin
+      execute 'set local role authenticated';
+      v_kf := public.calc_carga_abrir(v_txf);
+      perform public.calc_catalogo_criar(
+        (select id from public.calc_pendencia
+          where carga_id = v_kf and tipo = 'fornecedor' and texto = 'ALFA IMPORTS'),
+        'Alfa Imports', '{"praca":"Centro — RJ"}'::jsonb);
+      perform public.calc_pendencia_resolver(
+        (select id from public.calc_pendencia
+          where carga_id = v_kf and tipo = 'fornecedor' and texto = v_alvo),
+        'descartar', null);
+      execute 'reset role';
+      select c.n_lidas    = (case when v_i = 4 then 5 else 3 end)
+         and c.n_casou    = 2
+         and c.n_duvidoso = (case when v_i = 4 then 3 else 1 end)
+         and c.n_descarte = (case when v_i = 4 then 1 else 3 end)
+         -- o Alfa tem os DOIS precos que sao dele, e nada alem deles
+         and (select count(*) from jsonb_array_elements(c.blob_proposto->'produtos') p
+               where p->>'f' = 'Alfa Imports') = 2
+         and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                       left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                      where p->>'f' = 'Alfa Imports' and p->>'n' = 'iPhone 16 128GB'
+                        and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 4200)
+         -- vetor 17: a linha `- 5.400 PROMO` e do ALFA e continua dele
+         and exists (select 1 from jsonb_array_elements(c.blob_proposto->'produtos') p
+                       left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) x on true
+                      where p->>'f' = 'Alfa Imports' and p->>'n' = 'iPhone 16 Pro 256GB'
+                        and coalesce((x->>'v')::numeric, (p->>'v')::numeric) = 5400)
+         -- a regra gravada: normalizada, ancorada na linha inteira, com escopo
+         and exists (select 1 from public.calc_regra r
+                      where r.tenant_id = v_tenant and r.tipo = 'descarte'
+                        and r.origem = 'aprendizado' and r.escopo = 'fornecedor'
+                        and r.ativo
+                        and r.padrao = (case when v_i = 4 then '^promo$'
+                                             else '^fabrica zeta$' end))
+         -- vetor 16: o `n_linhas` do descarte INCLUI o preco que vive sob um
+         -- cabecalho de modelo (3 nas tres primeiras voltas, 1 na do PROMO).
+         -- Contar aqui vale mais do que procurar o valor no blob: o blob traz
+         -- tambem os fornecedores que nao vieram nesta lista (trava 4), e um
+         -- deles tem um preco igual ao da fixture. Assercao que casa por VALOR
+         -- solto no blob prova o catalogo, nao a fixture.
+         -- E o motivo diz QUEM foi descartado: `descartes` e o que a tela mostra.
+         and exists (select 1 from jsonb_array_elements(c.resumo->'descartes') d
+                      where d->>'motivo' like 'fornecedor descartado pelo dono em%'
+                        and (d->>'n_linhas')::int = (case when v_i = 4 then 1 else 3 end))
+        into v_ok
+        from public.calc_carga c where c.id = v_kf;
+      raise exception 'prova_rollback';
+    exception when others then
+      if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+    end;
+    if not coalesce(v_ok, false) then
+      v_falhas := v_falhas + 1;
+      v_log := v_log || E'\n  FALHA  [' || v_l || '] descartar "' || v_alvo
+               || '" nao tirou o bloco dele, ou mexeu no preco do Alfa Imports. Obtido: '
+               || coalesce(v_msg,
+                    coalesce((select 'lidas=' || c.n_lidas || ' casou=' || c.n_casou
+                                     || ' duvidoso=' || c.n_duvidoso || ' descarte=' || c.n_descarte
+                                from public.calc_carga c where c.id = v_kf), '(carga sumiu)'));
+    end if;
+  end loop;
+
+  -- L18. As regras de SEMENTE com acento nunca casaram, e este defeito e do
+  --      Bloco 1, nao desta fatia. `réplica` e `genérico` estao desligadas por
+  --      DECISAO do dono (17/08/2026), entao o preco de replica entrar nao era
+  --      so a normalizacao; as que estavam ATIVAS e falhavam calado sao
+  --      `peça não genuína`, `somente para mídia` (dentro de uma regra ativa) e
+  --      `à vista` / `só hoje` (na regra de pendencia). As cinco foram
+  --      regravadas, inclusive as duas desligadas: senao o defeito volta no dia
+  --      em que o dono ligar o interruptor, e ai ninguem lembra por que.
+  v_total := v_total + 1;
+  if exists (
+       select 1
+         from (values
+           ('peca nao genuina', 'iPhone 16 256GB Preto peça não genuína - 1.900'),
+           ('replica',          'iPhone 16 256GB Preto réplica - 900'),
+           ('generico',         'iPhone 16 256GB Preto genérico - 950'),
+           ('a vista|so hoje|unidades',
+            'iPhone 16 256GB Preto - 4.700 à vista'),
+           ('caixa aberta|lacre rompido|deslacrado|somente para midia|c/caixa',
+            'iPhone 16 256GB Preto somente para mídia - 1.000')
+         ) as v(p, l)
+         left join public.calc_regra r
+           on r.tenant_id = v_tenant and r.tipo = 'descarte' and r.padrao = v.p
+        where r.id is null or not (privado.calc_norm(v.l) ~ r.padrao)) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [L18] regra de semente que nao casa a propria linha: '
+             || coalesce((select string_agg(v.p, ' | ')
+                            from (values
+                              ('peca nao genuina', 'iPhone 16 256GB Preto peça não genuína - 1.900'),
+                              ('replica',          'iPhone 16 256GB Preto réplica - 900'),
+                              ('generico',         'iPhone 16 256GB Preto genérico - 950'),
+                              ('a vista|so hoje|unidades',
+                               'iPhone 16 256GB Preto - 4.700 à vista'),
+                              ('caixa aberta|lacre rompido|deslacrado|somente para midia|c/caixa',
+                               'iPhone 16 256GB Preto somente para mídia - 1.000')
+                            ) as v(p, l)
+                            left join public.calc_regra r
+                              on r.tenant_id = v_tenant and r.tipo = 'descarte' and r.padrao = v.p
+                           where r.id is null or not (privado.calc_norm(v.l) ~ r.padrao)),
+                         '(nenhuma, e ainda assim falhou)');
+  end if;
+
+  -- L18b. A regra GERAL, e nao os cinco casos: nenhum padrao de descarte ou de
+  --       condicao pode ter alternativa numa normalizacao diferente da do texto
+  --       contra o qual ele casa. As alternativas que sao REGEX de verdade
+  --       (`\$\s?[0-9]`, e as ancoradas do proprio `descartar`) ficam de fora,
+  --       porque nelas `calc_norm` nao e a pergunta certa.
+  v_total := v_total + 1;
+  if exists (
+       select 1 from (
+         select unnest(string_to_array(g.padrao, '|')) as alt
+           from public.calc_regra g
+          where g.tipo in ('descarte','condicao')
+       ) x
+        where x.alt is distinct from privado.calc_norm(x.alt)
+          and strpos(x.alt, chr(92)) = 0
+          and strpos(x.alt, '^') = 0
+          and strpos(x.alt, '$') = 0) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [L18b] padrao gravado fora da normalizacao do texto: '
+             || coalesce((select string_agg(x.alt, ' | ') from (
+                  select unnest(string_to_array(g.padrao, '|')) as alt
+                    from public.calc_regra g
+                   where g.tipo in ('descarte','condicao')) x
+                 where x.alt is distinct from privado.calc_norm(x.alt)
+                   and strpos(x.alt, chr(92)) = 0
+                   and strpos(x.alt, '^') = 0
+                   and strpos(x.alt, '$') = 0), '(nenhuma)');
+  end if;
+
+  -- L19. T5, e ela encolheu no mesmo dia em que nasceu. A primeira peca da D18
+  --      recusava `descartar` em `cor` TAMBEM, e isso estava errado: o texto de
+  --      uma pergunta de cor (`verde menta`) esta DENTRO da linha do preco, a
+  --      regra casa essa linha e a resposta ensina de verdade. Quem pegou foi a
+  --      G6 ("o que ensinava continua ensinando"), que e o unico motivo de ela
+  --      existir. A ancora passou a sair da MEDIDA contra a lista (iguala ->
+  --      `^...$`, comeca -> `^...`, aparece dentro -> `\y...\y`), e a T5 ficou
+  --      so com `preco`, cujo texto e um MOTIVO por construcao
+  --      (`preco com condicao pendurada: ...`), nunca um pedaco da lista.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    -- as tres cargas da secao G continuam em rascunho. Tem que ser `preco`:
+    -- `cor` agora e ACEITO, e de proposito.
+    select id into v_preco from public.calc_pendencia
+     where carga_id = any(v_cargas) and tipo = 'preco'
+     order by texto limit 1;
+    if v_preco is null then
+      v_msg := 'nenhuma pergunta de preco nas fixtures: a assercao perdeu o alvo';
+    else
+      perform public.calc_pendencia_resolver(v_preco, 'descartar', null);
+      v_msg := 'ACEITOU descartar uma pergunta de preco';
+    end if;
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  v_ok := v_msg is not null and v_msg like '%nao se descarta%' and v_msg like '%ignorar%';
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [L19] pergunta de preco tinha que ser recusada com motivo e caminho (ignorar). Obtido: '
+             || coalesce(v_msg, '(nenhuma mensagem)');
   end if;
 
   raise exception E'%',
@@ -2249,6 +2505,10 @@ begin
               || coalesce(v_k13::text,'?')
               || ' (era 4): as 3 perguntas do XPTO seguem de pe, e nenhum preco dele entra no nome do MP;'
               || ' a mensagem IGNORADA nao volta pelo nome do fornecedor criado por outra grafia'
+              || E'\n  D18: descartar fornecedor tira o BLOCO nas quatro formas de cabecalho'
+              || ' (acento, asterisco e espaco duplo, formato bloco, ASCII em linha),'
+              || ' e o padrao ancorado nao come mais a linha `- 5.400 PROMO` do fornecedor de cima;'
+              || ' as 5 regras de semente com acento foram regravadas na normalizacao do leitor'
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;
 end;
