@@ -34,7 +34,7 @@ O laco de aprendizado **nao comeca do zero**. Isto aqui esta pronto e funciona:
 |---|---|---|
 | `calc_pendencia_resolver` escreve no catalogo do tenant e **reprocessa a carga na hora** | vivo | corpo da RPC, migration `20260909_calc_carga_rpcs.sql`, secao 2 |
 | `calc_alias` com os quatro tipos (`modelo`, `cor`, `condicao`, `fornecedor`) | vivo | check constraint `calc_alias_tipo_ck`; 101 linhas, sendo **21 de fornecedor** |
-| `decisao='descartar'` vira regra permanente em `calc_regra` | vivo | mesma RPC |
+| ~~`decisao='descartar'` vira regra permanente em `calc_regra`~~ **virava regra que nao casava nada** (D18, corrigido em 11/09/2026, secao 4.1) | vivo e correto desde 11/09 | assercoes L13 a L19 |
 | `fornecedor_conferir` viajando no `resumo` da carga | na tree, nao commitado | `20260910_calc_carga_abrir_promove_v2.sql` |
 | Unicidade que impede apelido duplicado | vivo | `calc_alias_u UNIQUE NULLS NOT DISTINCT (tenant_id, tipo, texto)` |
 
@@ -111,7 +111,7 @@ cria. Os tres que importam:
 |---|---|---|
 | `apontar` | isso e outro nome de uma coisa que ja esta no catalogo | sim |
 | `criar` | isso e coisa nova, entra no catalogo do tenant | sim, desde 11/09/2026 |
-| `descartar` | isso nunca e preco, nem agora nem depois | sim |
+| `descartar` | isso nunca e preco, nem agora nem depois | sim, e so DESCARTA desde 11/09/2026 (D18) |
 | `definir` | a condicao destas linhas, NESTA lista (so pergunta de `condicao`) | sim, desde 11/09/2026 |
 
 `definir` entrou em 11/09/2026 (D14) e e diferente dos outros tres: **nao escreve
@@ -120,6 +120,32 @@ ser trocada e desfeita (`ignorar`), e a lista seguinte pergunta de novo, com ela
 como sugestao. `descartar` em pergunta de condicao e recusado (trava T4), e
 `descartar` em pergunta de fornecedor tira o bloco inteiro dele de toda lista
 futura, por decisao do dono (D16 do plano).
+
+**Corrigido em 11/09/2026 (D18), e ate esse dia a linha acima era falsa:** o
+`descartar` gravava a regra com `lower(texto)` e o leitor casa contra
+`privado.calc_norm(linha)`. Cabecalho com acento, com `*` ou com espaco duplo
+nunca casava, e o bloco que deveria sair da lista ia inteiro para o nome do
+fornecedor de CIMA, com preco e tudo. Agora:
+
+- o padrao sai do texto NORMALIZADO e vai ANCORADO: `^...$` quando o texto da
+  pergunta e a linha inteira, `^...` quando ele so comeca a linha (pergunta de
+  modelo, cujo texto as vezes e a linha sem o preco do fim), e a resposta e
+  RECUSADA quando ele nao comeca nenhuma linha da lista, em vez de gravar uma
+  regra que nunca casaria;
+- `calc_regra.escopo` diz o alcance: `linha` (a semente, `caixa aberta`) ou
+  `fornecedor`, que fecha o bloco e leva tudo ate o proximo cabecalho de
+  fornecedor, mesmo com cabecalho de modelo no meio;
+- **trava T5:** pergunta de `cor` e de `preco` nao se descarta. O texto delas nao
+  e uma linha (`grafite`, `preco fora de faixa (outlier)`), entao a regra ou nao
+  casaria nada, ou calaria a linha de quem nao tem nada com isso;
+- **guarda G4:** `descartar` que nao aumenta `n_descarte` e recusado. Ela existe
+  porque a G3 ("a resposta tem que ensinar") **nao pega esta classe**: quando o
+  descarte falha, as linhas sao absorvidas pelo fornecedor de cima e a pergunta
+  some da leitura do mesmo jeito, entao ensinar e engolir ficam indistinguiveis.
+
+Limite declarado, e e o lado certo do erro: a ancora amarra o descarte a GRAFIA.
+O mesmo fornecedor voltando com outro nome vira pergunta de novo. Perguntar de
+novo custa um clique; calar o bloco de outra pessoa custa preco errado.
 
 **RPC nova: `calc_catalogo_criar(p_pendencia uuid, p_nome text, p_extra jsonb)`**,
 `SECURITY DEFINER`, papel `dono`, `tenant_id` de `privado.fn_tenant_atual()`
@@ -466,11 +492,13 @@ afirmacoes desta spec nao se sustentam, e uma quarta ficou pequena:
    da D10 e da D13: `Irajá` e bairro, `Cristiano` e loja), e e o bloqueador real
    da 2.4a.
 
-Duas limitacoes menores, medidas e nao consertadas: cor decorada
+Duas limitacoes ditas "menores", medidas e nao consertadas: cor decorada
 (`verde menta`) nao aprende por apelido, e `descartar` de pendencia de CABECALHO
 de modelo nao pega a linha do preco (a regra casa por linha, e a linha do preco
 nao repete o nome). Com as guardas, as duas passam a ser RECUSADAS com motivo em
 vez de aceitas caladas.
+**A segunda nao era menor: ver o item 6b abaixo.** Ela era PRECO ERRADO, e so
+foi medida de verdade em 11/09/2026.
 
 5. **A cor nem chega a ser pergunta** (medido em 11/09/2026, ao construir o
    `criar`). A limitacao acima diz que cor decorada "nao aprende por apelido"; e
@@ -481,7 +509,21 @@ vez de aceitas caladas.
    `cor` com motivo, em vez de carregar um ramo sem chamador e sem prova. Quando o
    leitor aprender a perguntar cor, o ramo e a prova dele entram juntos.
 
-6. **O custo da secao 6 subestimou a costura, nao o codigo.** A 2.4a, a `ter` e a
+6b. **A pior das duas limitacoes "menores" acima era, na verdade, PRECO ERRADO**
+   (medido em 11/09/2026, D18). O texto dizia que `descartar` de cabecalho "nao
+   pega a linha do preco". Media pouco: o que acontecia e que o cabecalho
+   descartado **deixava de fechar o bloco**, e todas as linhas dele iam para o
+   nome do fornecedor de CIMA, viravam produto e entravam na tabela. E a regra
+   nem chegava a casar, porque era gravada em outra normalizacao. Com o `escopo`
+   e a ancora (4.1), descartar um fornecedor fecha o bloco e leva as linhas dele
+   para `n_descarte` ate o proximo cabecalho de fornecedor, cabecalho de modelo
+   no meio inclusive.
+   Licao que vale para o projeto inteiro: **padrao gravado tem que estar na MESMA
+   normalizacao do texto contra o qual ele casa.** `lower()` contra `calc_norm()`
+   falha calado, e e a mesma familia do `\b` que era backspace e do `calc()` com
+   sinal colado.
+
+7. **O custo da secao 6 subestimou a costura, nao o codigo.** A 2.4a, a `ter` e a
    `quater` estavam orcadas como 1,5 sessao em tres passos; sairam juntas, numa
    migration so, porque as duas ultimas sao o que torna a primeira segura: sem
    quase-igual, `criar` fornecedor e botao irreversivel sem guarda; sem `origem`, o

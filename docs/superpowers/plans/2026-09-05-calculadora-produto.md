@@ -1167,8 +1167,8 @@ fatias eram uma so o tempo todo.
   Enquanto nao decidir, a assercao **K13** e excecao nomeada: passa enquanto o
   defeito se comporta como medido e o alarme acende, e o `PASSOU` da prova imprime
   o defeito em toda rodada. Quando o conserto entrar, ela reprova sozinha.
-- [ ] **D18 — ABERTA, e e a PROXIMA fatia. O `descartar` nao descarta, e o que ele
-  deveria tirar entra no nome do fornecedor de cima.** Achado pela `bandeira` em
+- [x] **D18 — FECHADA em 11/09/2026. O `descartar` nao descartava, e o que ele
+  deveria tirar entrava no nome do fornecedor de cima.** Achado pela `bandeira` em
   11/09/2026, com as **106 assercoes verdes**, procurando o proximo buraco da D17
   em vez de aceitar a prova. Classe PRECO ERRADO. Nao nasceu nesta fatia: vem da
   2.4a bis (o `descartar` grava a regra) e, na parte da semente, do Bloco 1.
@@ -1208,6 +1208,62 @@ fatias eram uma so o tempo todo.
   3. as linhas dele vao para `n_descarte` ate o proximo cabecalho de fornecedor,
      mesmo com cabecalho de modelo no meio.
   E as regras de semente com acento precisam ser regravadas na normalizacao certa.
+
+  **COMO FICOU, e o que a execucao contradisse do que esta escrito acima.**
+  Duas migrations, e a segunda conserta um erro da primeira:
+  `20260911_calc_d18_descartar_descarta.sql` (version `20260911200343`) e
+  `20260911_calc_d18_ancora_por_medida.sql`.
+
+  - **`calc_regra.escopo`** (`linha` | `fornecedor`) carrega o ALCANCE. O leitor
+    ganhou o papel `forn_descartado`, que vem ANTES de `forn` e de `forn_aberto`
+    no `case` (mesma licao da D17: papel novo depois de `forn` e so rotulo), fecha
+    o bloco de cima e manda tudo para `n_descarte` ate o proximo cabecalho de
+    fornecedor. Cabecalho de modelo no meio nao interrompe mais: era ele que fazia
+    o vetor 16 escapar.
+  - **A ancora sai da MEDIDA contra a propria lista, nao do tipo da pergunta.**
+    Conta-se, com a mesma cadeia do leitor (`calc_norm(calc_limpar(linha))`),
+    quantas linhas o texto IGUALA, quantas ele COMECA e em quantas ele APARECE:
+    iguala -> `^texto$`; comeca -> `^texto`; aparece dentro -> `\ytexto\y`; nao
+    aparece -> RECUSA com mensagem, em vez de gravar regra que nunca casaria.
+    A ordem e a defesa do vetor 17: `PROMO` iguala a linha do cabecalho, entao
+    vira `^promo$` e nao casa mais a linha `- 5.400 PROMO` de outro fornecedor.
+  - **G4: `descartar` tem que aumentar `n_descarte`.** E a guarda que faltava, e
+    a razao dela e o achado mais caro desta fatia: **a G3 ("a resposta tem que
+    ensinar") nao pega esta classe.** Quando o descarte falha, as linhas sao
+    ABSORVIDAS pelo fornecedor de cima e a pendencia some da leitura do mesmo
+    jeito. Ensinar e engolir sao indistinguiveis para a G3, e foi exatamente
+    assim que a D18 viveu com a prova verde.
+  - **T5: pergunta de `preco` nao se descarta.** O texto dela e um MOTIVO por
+    construcao (`preco com condicao pendurada: ...`), nunca um pedaco da lista.
+
+  **O erro que eu cometi no meio, e quem pegou.** A primeira migration fez a T5
+  recusar `cor` TAMBEM. Estava errado: descartar uma pergunta de cor era uma
+  resposta que FUNCIONAVA (o texto `verde menta` esta dentro da linha do preco, a
+  regra casa essa linha, a pendencia some de verdade), e estreitar o verbo teria
+  tirado do dono uma resposta permanente, deixando so o `ignorar`, que vale para
+  UMA lista. Quem pegou foi a assercao **G6** da prova, "o que ensinava continua
+  ensinando", que existe so para isso. Registrado porque a licao nao e sobre cor:
+  **guarda nova se mede contra o que ja funcionava, nao so contra o defeito.**
+
+  **Tres correcoes ao que esta escrito acima:**
+  1. `réplica` (900) e `genérico` (950) estao `ativo = false` por DECISAO do dono
+     (17/08/2026). O preco de replica entrar **nao era** so o defeito de
+     normalizacao, e nao e esta fatia que muda isso: e interruptor. As regras
+     ATIVAS que falhavam calado eram `peça não genuína`, `somente para mídia`
+     (dentro de uma regra ativa) e `à vista` / `só hoje` (na de pendencia). As
+     cinco foram regravadas, as duas desligadas inclusive, para o defeito nao
+     voltar no dia em que o interruptor subir.
+  2. `1ª linha` NAO estava quebrada: o `ª` sobrevive ao `calc_norm` (medido).
+  3. O vetor 16, medido no vivo, dava `descarte=0` mas **nao** dava preco errado
+     na fixture que eu montei, porque havia outra pergunta ABERTA entre ele e o
+     fornecedor de cima, e a D17 ja protegia. O defeito dele e o descarte que nao
+     acontece; o preco errado exige que o cabecalho de cima ja esteja reconhecido.
+
+  Prova: secao **L** de `ferramentas/prova_calc_parse.sql` (fixture F, os quatro
+  vetores num laco, L18/L18b para a semente e a regra geral, L19 para a T5).
+  **L18b e a assercao que vale mais que as outras:** ela nao lista casos, cobra a
+  regra. Nenhum padrao de `descarte` ou de `condicao` pode ter alternativa numa
+  normalizacao diferente da do texto contra o qual ele casa.
 - [x] **2.4a bis — Fechar o buraco silencioso.** `calc_pendencia_resolver` passa a
   REPROVAR apelido que aponta para codigo inexistente. Hoje grava sem erro e nao casa
   nada. Medido em 10/09: `calc_alias.aponta` nao tem FK nem check.

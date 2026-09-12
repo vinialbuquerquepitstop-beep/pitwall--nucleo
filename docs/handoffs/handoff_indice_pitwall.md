@@ -498,7 +498,41 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v12.md` (11/09/2026, **o verbo `criar`, e o
+- topo: `handoff_calculadora_pitwall_v13.md` (11/09/2026, **o `descartar` que
+  descarta**). A D18, fechada. **Duas migrations** (`20260911200343` e
+  `20260911233727`), e a segunda conserta um erro da primeira.
+
+  `descartar` fornecedor gravava a regra com `lower(texto)` e o leitor casa contra
+  `privado.calc_norm(linha)`. Padrao numa normalizacao, texto em outra: nunca
+  casava, e o bloco que devia sair da lista ia inteiro para o nome do fornecedor de
+  CIMA, com preco e tudo. Quatro vetores medidos no vivo antes do conserto, dois
+  deles com preco errado na mesa: o 3.100 da `Fábrica Zeta` entrando como produto
+  do fornecedor de cima, e o descarte de `PROMO` apagando o 5.400 DELE.
+
+  Entraram `calc_regra.escopo`, o papel `forn_descartado` no leitor (fecha o bloco
+  de cima, e cabecalho de modelo no meio nao interrompe mais), a **ancora que sai
+  da MEDIDA contra a lista** (iguala a linha vira `^texto$`; comeca vira `^texto`;
+  aparece dentro vira `\ytexto\y`; nao aparece e RECUSA), a trava T5 e a guarda G4.
+  Prova **PASSOU, 113 assercoes** (eram 106), e a linha que conta a fatia e
+  `6 respostas aceitas` no resolver, contra 4: duas combinacoes que eram recusadas
+  passaram a ensinar.
+
+  **Tres licoes, e as duas primeiras custaram caro:**
+  1. **A G3 nao pega esta classe.** Quando o descarte falha, as linhas sao
+     absorvidas e a pergunta some do mesmo jeito: ensinar e engolir ficam
+     indistinguiveis. Foi assim que a D18 viveu com a prova verde. Dai a G4.
+  2. **Guarda nova se mede contra o que ja funcionava**, nao so contra o defeito.
+     Eu fiz a T5 recusar `descartar` em pergunta de COR, que era resposta que
+     FUNCIONAVA; quem pegou foi a assercao G6, que existe so para isso.
+  3. **Assercao que casa por VALOR solto no blob prova o catalogo, nao a fixture.**
+     Quatro das sete falhas da primeira rodada eram isso: o blob carrega tambem os
+     fornecedores que nao vieram na lista, e um deles tinha o mesmo preco.
+
+  **Divida aberta na secao 7.2, e ela vence rapido:** a prova tem 78 KB depois de
+  enxugada, passou uma vez e TRAVOU outra no transporte do MCP. Precisa virar dois
+  arquivos gerados por script a partir de UMA fonte, senao vira arquivo morto.
+
+- anterior: `handoff_calculadora_pitwall_v12.md` (11/09/2026, **o verbo `criar`, e o
   `descartar` achado quebrado**). O `2.4a` com o `ter` e o `quater`, na mesma sessao
   do v9, v10 e v11. **Quatro migrations** (`20260911135930`, `164835`, `183244`,
   `184409`).
@@ -515,12 +549,11 @@ nenhuma das duas batia com o repo.
   prova do `criar` achou preco no nome errado: criar o primeiro fornecedor de uma
   lista de dia 1 engolia os de baixo, com a cobertura SUBINDO.
 
-  **LEIA A SECAO 7 ANTES DE CONSTRUIR A TELA:** a `bandeira` reprovou a fatia com
-  as 106 verdes, e o motivo (D18) e que o `descartar` de fornecedor nao descarta e
-  entrega o bloco ao fornecedor de cima. Regra gravada com `lower()`, texto casado
-  com `calc_norm()`: acento, `*` e espaco duplo nunca casam. Vem da 2.4a bis e do
-  Bloco 1, nao desta fatia. As regras de semente `réplica`, `genérico` e
-  `peça não genuína` nunca casaram.
+  A secao 7 dele registra a D18 (`descartar` que nao descarta), achada pela
+  `bandeira` com as 106 verdes. **Ja esta FECHADA no v13**, entao leia ali, nao
+  aqui: a descricao do v12 tem duas imprecisoes que o conserto mediu (`réplica` e
+  `genérico` estao desligadas por decisao do dono, e `1ª linha` nunca esteve
+  quebrada).
 
   **Duas licoes de metodo, com preco pago:** aplicar e so depois provar custou uma
   migration que declara um conserto que nao aconteceu; e prova verde nao e contrato

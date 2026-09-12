@@ -133,14 +133,18 @@ Sempre incluir no prompt:
 - o caminho do arquivo, para ele nao reconstruir o conteudo de cabeca;
 - cada verificacao com o **numero esperado**, e qual resultado e reprovacao grave;
 - a baseline de advisors, para "achado novo" ter significado. Medida em
-  **09/09/2026: SETE achados**, nao tres. Os quatro que entraram sao as RPCs do
-  Bloco 2 (`calc_carga_abrir`, `calc_carga_aprovar`, `calc_carga_descartar`,
-  `calc_pendencia_resolver`), somadas a `registrar_venda`, `remover_nf` e o
-  leaked password protection.
-  **Os quatro novos NAO sao achado, sao consequencia declarada do desenho:**
+  **11/09/2026: NOVE achados**. SEIS sao RPCs do Bloco 2 (`calc_carga_abrir`,
+  `calc_carga_aprovar`, `calc_carga_descartar`, `calc_catalogo_criar`,
+  `calc_config_margem_salvar`, `calc_pendencia_resolver`), somadas a
+  `registrar_venda`, `remover_nf` e o leaked password protection.
+  Ate 11/09/2026 este bloco dizia **sete**, numero de 09/09, e listava so quatro
+  `calc_*`. O custo apareceu na mesma tarde: o prompt da D18 saiu com a baseline
+  velha e o `base` teve que reportar "9, e nenhum entrante" como divergencia,
+  gastando uma ida e volta para descobrir que quem estava errado era o processo.
+  **Os seis NAO sao achado, sao consequencia declarada do desenho:**
   `SECURITY DEFINER` mais `grant execute to authenticated`, com a barreira de papel
   no CORPO da funcao (`fn_papel_atual() <> 'dono'` levanta excecao), seguindo o
-  precedente que `registrar_venda` e `remover_nf` ja abriram. Quem tratar os quatro
+  precedente que `registrar_venda` e `remover_nf` ja abriram. Quem tratar os seis
   como regressao vai cacar defeito que nao existe, ou pior, "consertar" tirando o
   GRANT e quebrar a tela;
 - que ele **nao commita e nao empurra**. Quem commita e a Torre.
@@ -195,6 +199,34 @@ o `finAte` para calar**, e nao repontar baseline no meio da obra.
 Bloco `DO` que testa e termina em `raise exception`: a transacao inteira volta.
 Isolamento se prova com JWT de cada papel, nao lendo a policy.
 
+### 5.4 Mudanca no LEITOR se mede antes e se pre-prova antes de aplicar
+
+Duas regras que nasceram medidas, nas duas pontas do mesmo dia (11/09/2026).
+
+**Medir o defeito no codigo VIVO antes de consertar.** Na D18 a fixture obvia
+(cabecalho descartado sem fornecedor conhecido acima) **nao reproduzia o defeito**:
+a guarda G3 pegava sozinha e devolvia "esta resposta nao ensina nada". O preco
+errado so aparece quando existe um fornecedor RECONHECIDO acima para absorver o
+bloco. Quem escreve a assercao sem medir antes escreve uma assercao que passa
+com o defeito no ar, que foi exatamente o que aconteceu com a R14.
+
+**Pre-provar dentro de bloco revertido ANTES de aplicar.** A primeira correcao da
+D17 foi aplicada sem isso, nao funcionou, e custou uma migration a mais e a
+sessao inteira de credito do documento (o cabecalho dela afirma um conserto que
+nao aconteceu). A receita que funcionou na D18, em UMA chamada de `execute_sql`:
+
+```
+migration sem o cabecalho e sem o `commit;`
+  + guarda de md5 dos corpos gravados (pega erro de transcricao)
+  + o bloco de prova
+  + `raise exception`
+```
+
+Tudo volta, e a mensagem diz se o conserto conserta. Duas coisas que o tamanho
+cobra: o payload tem que caber em UMA chamada (quebrar em duas aplica a primeira
+metade e mata o rollback), e para caber vale tirar comentario **fora de string**
+por script, nunca a mao.
+
 ---
 
 ## 6. Perguntar ao dono: quando, e como
@@ -230,7 +262,7 @@ Checklist da secao 7 do runbook, mais o que e desta linha:
 - [ ] `diag_calc.py` nas tres larguras, se tocou `public/calc/`
 - [ ] falha nova isolada contra o `HEAD` antes de culpar a propria mudanca
 - [ ] prova nova cobrindo o que foi construido, com stub que **nao** usa valor real
-- [ ] `get_advisors(security)` sem achado novo alem dos **7** de 09/09/2026 (os 4
+- [ ] `get_advisors(security)` sem achado novo alem dos **9** de 11/09/2026 (os 6
       `calc_*` do Bloco 2, `registrar_venda`, `remover_nf`, leaked password)
 - [ ] a query da restricao global 10 devolvendo **zero** (nenhuma FK de `calc_*`
       para tabela de operacao: a calc tem que poder sair inteira depois)
@@ -276,6 +308,13 @@ apagado tres dias de trabalho.
 - Nao deixar linha nao entendida virar preco. Duvidoso e nao reconhecido nao
   entram no blob, em circunstancia nenhuma.
 - Nao gravar carga sem diff aprovado por gente.
+- Nao contar com o `begin;` / `commit;` do corpo da migration para proteger o que
+  vem DEPOIS dele. Os arquivos desta linha abrem com `begin;` e fecham com
+  `commit;` para poderem ser colados no SQL Editor, e isso fica; mas o
+  `apply_migration` ja e transacional, e o `commit;` do corpo fecha a transacao
+  externa antes do fim da chamada. Statement que venha depois do `commit;` nao e
+  coberto por rollback nenhum. Medido pelo `base` em 11/09/2026, sem efeito
+  porque nao havia nada depois: entao **nao ha nada depois do `commit;`**.
 - Nao usar `calc()` com `+` ou `-` colado: e CSS invalido, o Chrome descarta a
   declaracao **em silencio**, e foi assim que as duas calcs ficaram sem respiro
   embaixo. Sempre `calc(a + b)`, com espaco.
