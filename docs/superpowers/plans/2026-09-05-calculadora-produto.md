@@ -817,6 +817,30 @@ fato pela spec de 05/09. Detalhe na secao 2.6b da spec.
 Se o novo cobrir MENOS que o velho na mesma lista, o seed do Bloco 1 esta incompleto
 e o bloco nao fecha.
 
+### 2.3 A TELA ENTREGUE em 12/09/2026 — o bloco segue ABERTO ate o portao
+
+`public/calc/alimentar/index.html` (handoff v15), com o "ver o que aprendeu" dentro
+(D19). Prova `ferramentas/prova_alimentar.py`, 76 assercoes, clicada no Chrome
+contra stub, oito mutacoes reprovadas. **O portao (o dono roda a carga real pela
+tela, sozinho) NAO foi medido: e dele.**
+
+**O que a execucao contradisse nesta secao, e o documento se corrige aqui:**
+1. **Os quatro passos nao sao quatro telas.** Sao quatro secoes numa pagina so,
+   mais a do aprendido. O passo 2 ("nomear e dar a praca") ja nao existe como
+   passo proprio: desde o `2.4a` o fornecedor desconhecido e pendencia e se cria
+   ali, entao o passo 2 virou "o que a leitura achou" (cobertura, descarte,
+   fornecedores reconhecidos e o `fornecedor_conferir`).
+2. **"`N linhas nao entraram`, com a lista" nao cabe no banco de hoje.** O leitor
+   devolve contagem e o exemplo de cada pendencia, nao a linha a linha. A tela
+   mostra o numero e aponta para as pendencias. Ter a lista exige o leitor
+   devolve-la no `resumo`.
+3. **`calc_carga_aprovar` nao trava pendencia aberta nem `suspeita_alta`** (medido
+   no corpo: devolve so o numero). As tres travas moram na TELA: bloco suspeito
+   conferido, pendencias abertas aceitas, variacao acima de 15% conferida. Travar
+   no banco tambem e divida, porque qualquer outro cliente das RPCs pula a tela.
+4. **A tabela de pendencias pode ter linha sem decisao que a releitura ja tirou**
+   (o `resumo` guarda so `n_pendencia`, a contagem viva). A tela compara e avisa.
+
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 
 Commit `77f954c`. **A tela (2.3) NAO entra**, entao o bloco NAO esta fechado e o

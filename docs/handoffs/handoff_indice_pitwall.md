@@ -498,7 +498,19 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v14.md` (12/09/2026, **a prova partida em
+- topo: `handoff_calculadora_pitwall_v15.md` (12/09/2026, noite, **a tela
+  Alimentar**). `public/calc/alimentar/`, com o "ver o que aprendeu" dentro
+  (D19), sem mudanca de banco: le `calc_*` e escreve so pelas cinco RPCs que ja
+  existiam. Prova nova `ferramentas/prova_alimentar.py`, **76 assercoes**, clicada
+  no Chrome contra stub, e oito mutacoes que ela reprovou. Suite inteira EXIT 0.
+
+  **A licao:** as travas do aprovar (bloco suspeito, pendencia aberta, variacao
+  acima de 15%) moram SO na tela, porque `calc_carga_aprovar` nao as tem. E divida
+  de banco nomeada.
+
+  **Proximo: o portao e do dono** (a carga real pela tela, sozinho). Secao 7 do v15.
+
+- anterior: `handoff_calculadora_pitwall_v14.md` (12/09/2026, **a prova partida em
   tres**). A divida da secao 7.2 do v13, fechada, sem migration. A fonte
   `ferramentas/prova_calc_parse.sql` virou a origem de TRES provas geradas por
   `ferramentas/gera_provas_calc.py`: `prova_calc_leitor.sql` (55),

@@ -1,0 +1,813 @@
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f5f7fa">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<title>Alimentar preços · Pitstop Imports</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!--
+  Tela ALIMENTAR (Bloco 2.3 do plano docs/superpowers/plans/2026-09-05-calculadora-produto.md).
+  Arquivo SOZINHO, como a calc do dono e a do consultor: nao usa app.css nem app.js.
+
+  O que ela NAO faz, de proposito:
+  - nao escreve em tabela nenhuma. Toda escrita e RPC (calc_carga_abrir,
+    calc_pendencia_resolver, calc_catalogo_criar, calc_carga_aprovar,
+    calc_carga_descartar), e a barreira de papel mora no corpo delas;
+  - nao passa tenant_id: a RLS filtra sozinha;
+  - nao guarda a lista colada: ela vai para o banco, que a apaga na aprovacao ou
+    no descarte (D6).
+
+  Travas que moram AQUI porque o banco so devolve o numero:
+  - `calc_carga_aprovar` aceita carga com pendencia aberta e com fornecedor
+    suspeito (D10). O botao so acende depois de o dono conferir as tres coisas.
+  - regra de descarte se mostra pelo MOTIVO, nunca pelo padrao (D19).
+  - a decisao que vale e a GRAVADA em calc_pendencia (obrigacao 2 do v12), e o
+    n_linhas e o da primeira leitura (obrigacao 3).
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+:root{
+  --bg:#f5f7fa;--sf:#ffffff;--sf2:#eef2f8;--bd:#dbe3ee;
+  --tx:#0a1633;--mu:#5a6b85;--hi:#8593aa;
+  --gr:#127a3a;--gr-bg:#e7f8ee;--gr-bd:#bce7cd;
+  --ye:#8a6205;--ye-bg:#fdf6e3;--ye-bd:#ecd9a3;
+  --re:#b01235;--re-bg:#fdecec;--re-bd:#f5c2c2;
+  --bl:#0025cc;--bl-bg:#e8f0ff;--bl-bd:#bcd4ff;
+  --r:16px;--rs:10px
+}
+body{background:var(--bg);color:var(--tx);font-family:'Montserrat',-apple-system,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+a{color:var(--bl)}
+.top{position:sticky;top:0;z-index:10;background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top .tt{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.top .st{margin-left:auto;font-size:12px;color:var(--mu)}
+.volta{font-size:13px;font-weight:600;text-decoration:none}
+.w{max-width:760px;margin:0 auto;padding-inline:16px}
+.passo{margin-top:22px}
+.ph{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.pn{flex:0 0 26px;height:26px;border-radius:50%;background:var(--tx);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.pt{font-size:15px;font-weight:700}
+.ps{font-size:12px;color:var(--mu)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.card.re{border-color:var(--re-bd);background:var(--re-bg)}
+.card.ye{border-color:var(--ye-bd);background:var(--ye-bg)}
+.card.gr{border-color:var(--gr-bd);background:var(--gr-bg)}
+.hint{font-size:12px;color:var(--mu)}
+.big{font-size:22px;font-weight:800;letter-spacing:-.4px}
+.linha{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--sf2);font-size:13px}
+.linha:last-child{border-bottom:none}
+.linha .v{font-weight:600;text-align:right}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-word}
+.ex{display:block;background:var(--sf2);border-radius:8px;padding:6px 8px;margin-top:6px}
+textarea{width:100%;min-height:180px;border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--tx);background:var(--sf);resize:vertical}
+input[type=text],input[type=password],select{width:100%;border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;font:inherit;font-size:14px;color:var(--tx);background:var(--sf)}
+label.cx{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:8px 0;cursor:pointer}
+label.cx input{margin-top:3px;flex:0 0 auto;width:18px;height:18px}
+.campo{margin-top:8px}
+.campo>span{display:block;font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px;letter-spacing:.03em}
+.bts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bt{border:1px solid var(--bd);background:var(--sf);color:var(--tx);border-radius:100px;padding:8px 14px;font:600 13px 'Montserrat',-apple-system,sans-serif;cursor:pointer;min-height:36px}
+.bt:disabled{opacity:.45;cursor:not-allowed}
+.bt.pri{background:var(--bl);border-color:var(--bl);color:#fff}
+.bt.pe{background:var(--sf);border-color:var(--re-bd);color:var(--re)}
+.bt.on{background:var(--tx);border-color:var(--tx);color:#fff}
+.bt.big2{padding:12px 20px;font-size:14px}
+.chip{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:100px;border:1px solid var(--bd);background:var(--sf2);color:var(--mu);white-space:nowrap}
+.chip.re{background:var(--re-bg);border-color:var(--re-bd);color:var(--re)}
+.chip.ye{background:var(--ye-bg);border-color:var(--ye-bd);color:var(--ye)}
+.chip.gr{background:var(--gr-bg);border-color:var(--gr-bd);color:var(--gr)}
+.chip.bl{background:var(--bl-bg);border-color:var(--bl-bd);color:var(--bl)}
+.pend{padding:12px 14px}
+.pend .cab{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pend .tx{font-weight:700;word-break:break-word}
+.pend .causa{font-size:12px;color:var(--mu);margin-top:4px}
+.pend.feita{opacity:.8}
+.form{border-top:1px dashed var(--bd);margin-top:10px;padding-top:10px}
+.aviso{font-size:12px;color:var(--re);font-weight:600;margin-top:6px}
+.erro{font-size:13px;color:var(--re);font-weight:600;margin-top:8px;word-break:break-word}
+.tab{width:100%;border-collapse:collapse;font-size:12px}
+.tab th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--mu);padding:6px 6px;border-bottom:1px solid var(--bd)}
+.tab td{padding:6px;border-bottom:1px solid var(--sf2);vertical-align:top}
+.tab td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rola{overflow-x:auto}
+details{margin-top:8px}
+summary{cursor:pointer;font-size:13px;font-weight:600}
+.apr{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--sf2);font-size:13px}
+.apr:last-child{border-bottom:none}
+.apr .q{flex:0 0 auto;font-size:11px;color:var(--mu);min-width:78px}
+.vazio{font-size:13px;color:var(--mu);padding:6px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--tx);color:#fff;border-radius:100px;padding:10px 18px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px);text-align:center}
+.toast.on{opacity:1}
+.ocupado{position:fixed;inset:0;background:rgba(245,247,250,.7);display:flex;align-items:center;justify-content:center;z-index:50;font-weight:700}
+@media (max-width:480px){.big{font-size:19px}.tab{font-size:11px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="volta" href="/calc/">← calculadora</a>
+  <div class="tt">Alimentar preços</div>
+  <div class="st" id="aStatus">carregando...</div>
+</header>
+
+<main class="w">
+  <div id="aFatal" class="card re passo" hidden></div>
+
+  <!-- LOGIN: a mesma sessao da calc (storageKey sb-calc-auth) -->
+  <section id="aLogin" class="passo" hidden>
+    <div class="card">
+      <div class="pt">Entre para alimentar os preços</div>
+      <label class="campo"><span>E-MAIL</span><input type="text" id="aEmail" autocomplete="username"></label>
+      <label class="campo"><span>SENHA</span><input type="password" id="aSenha" autocomplete="current-password"></label>
+      <div class="bts"><button class="bt pri" data-acao="entrar">Entrar</button></div>
+      <div class="erro" id="aLoginErro" hidden></div>
+    </div>
+  </section>
+
+  <section id="aNaoDono" class="passo" hidden>
+    <div class="card ye">Só o papel <b>dono</b> alimenta preço. <a href="/calc/consultor/">Abrir a calculadora do consultor</a></div>
+  </section>
+
+  <div id="aApp" hidden>
+    <!-- PASSO 1 -->
+    <section class="passo" id="s1">
+      <div class="ph"><span class="pn">1</span><div><div class="pt">Colar a lista</div><div class="ps">o export do WhatsApp (_chat.txt) ou o texto copiado</div></div></div>
+      <div id="s1Nova">
+        <div class="card">
+          <textarea id="aTexto" placeholder="[12/09/2026, 09:12:03] Fornecedor: TABELA&#10;iPhone 16 128GB Preto Lacrado - 4.299"></textarea>
+          <div class="campo"><span>OU ESCOLHA O ARQUIVO</span><input type="file" id="aArq" accept=".txt,text/plain"></div>
+          <div class="hint" id="aDatas">Nenhuma lista colada ainda.</div>
+          <div class="bts"><button class="bt pri big2" data-acao="ler">Ler a lista</button></div>
+          <div class="erro" id="aErro1" hidden></div>
+        </div>
+      </div>
+      <div id="s1Aberta" hidden></div>
+    </section>
+
+    <!-- PASSO 2 -->
+    <section class="passo" id="s2" hidden>
+      <div class="ph"><span class="pn">2</span><div><div class="pt">O que a leitura achou</div><div class="ps">medido na lista, nunca estimado</div></div></div>
+      <div id="s2Corpo"></div>
+    </section>
+
+    <!-- PASSO 3 -->
+    <section class="passo" id="s3" hidden>
+      <div class="ph"><span class="pn">3</span><div><div class="pt">Pendências</div><div class="ps" id="s3Sub"></div></div></div>
+      <div id="s3Corpo"></div>
+    </section>
+
+    <!-- O QUE O SISTEMA APRENDEU (D19): sempre visivel para o dono -->
+    <section class="passo" id="sA">
+      <div class="ph"><span class="pn">🧠</span><div><div class="pt">O que o sistema aprendeu</div><div class="ps">o que você ensinou, do mais novo para o mais antigo</div></div></div>
+      <div id="sACorpo"></div>
+    </section>
+
+    <!-- PASSO 4 -->
+    <section class="passo" id="s4" hidden>
+      <div class="ph"><span class="pn">4</span><div><div class="pt">Conferir e aprovar</div><div class="ps">o que muda na tabela da calculadora</div></div></div>
+      <div id="s4Corpo"></div>
+    </section>
+
+    <div id="aAprovada"></div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<div class="ocupado" id="aOcupado" hidden>...</div>
+
+<script>
+'use strict';
+var SB_URL='https://unjzpyexgtbcmjfgcqrx.supabase.co';
+var SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU';
+var sb=null;
+
+// Ordem das categorias do CHECK de calc_modelo (a mesma da calc e do `criar`).
+var KCATS=['iPhone','iPad','MacBook','Apple Watch','Acessório','1ª Linha','Garmin','Moto Elétrica','JBL'];
+// Fornecedor primeiro: responder os cabecalhos organiza os blocos antes de o
+// dono gastar clique em modelo que pode estar no bloco de um descartado.
+var ORDEM_TIPO={fornecedor:0,condicao:1,modelo:2,cor:3,preco:4};
+var NOME_TIPO={fornecedor:'fornecedor',condicao:'condição',modelo:'modelo',cor:'cor',preco:'preço'};
+var VARIACAO=0.15;   // plano 2.3: variacao acima de 15% item a item
+var DIAS_VELHO=7;    // plano 2.3: lista com mais de 7 dias entra com aviso
+
+var E={carga:null,pend:[],cat:{modelo:[],cor:[],fornecedor:[],cond:[]},catErro:null,
+       sug:{},aprendido:[],aprendidoErros:[],dados:null,dadosEm:null,dadosErro:null,
+       datas:null,visao:'lista',form:{},erroPend:{},quase:{},conf:{},confirmar:null,
+       aprovada:null};
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function num(v){return Number(v)||0;}
+function pl(n,um,varios){return n+' '+(n===1?um:varios);}
+function reais(v){return 'R$ '+num(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});}
+function pct1(v){return (Math.round(v*10)/10).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});}
+function toast(m){var t=$('toast');t.textContent=m;t.className='toast on';clearTimeout(toast._t);toast._t=setTimeout(function(){t.className='toast';},3200);}
+function status(m){$('aStatus').textContent=m;}
+function ocupado(on,m){$('aOcupado').hidden=!on;if(m)$('aOcupado').textContent=m;}
+function semPrefixo(m){return String(m||'').replace(/^(calc_[a-z_]+|guarda [a-z]+):\s*/,'');}
+
+// Datas em America/Sao_Paulo, nunca no fuso da maquina (invariante 10).
+function dataBR(ts){if(!ts)return '';return new Date(ts).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function diaBR(ts){if(!ts)return '';return new Date(ts).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'});}
+function hojeBR(){var p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-');return Date.UTC(+p[0],+p[1]-1,+p[2]);}
+
+// As datas das MENSAGENS da lista. O export do iPhone escreve `[12/09/2026, 09:12:03]`
+// e o do Android `12/09/2026 09:12 - `. Sem data nenhuma, a tela diz isso: nao
+// presume que a lista e de hoje.
+function datasDaLista(txt){
+  var re=/(?:^|\n)\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4})[,\s]/g,m,min=null,max=null,n=0;
+  while((m=re.exec(txt||''))){
+    var a=+m[3];if(a<100)a+=2000;
+    var d=Date.UTC(a,+m[2]-1,+m[1]);
+    if(isNaN(d)||+m[2]>12||+m[1]>31)continue;
+    n++;if(min===null||d<min)min=d;if(max===null||d>max)max=d;
+  }
+  if(!n)return {n:0};
+  function f(d){var x=new Date(d);return ('0'+x.getUTCDate()).slice(-2)+'/'+('0'+(x.getUTCMonth()+1)).slice(-2)+'/'+x.getUTCFullYear();}
+  return {n:n,de:f(min),ate:f(max),dias:Math.round((hojeBR()-max)/86400000)};
+}
+function textoDatas(d){
+  if(!d||!d.n)return 'Não achei data nas mensagens: confira se a lista é recente antes de aprovar.';
+  return 'Mensagens de '+d.de+' a '+d.ate+' ('+pl(d.n,'mensagem','mensagens')+' com data).';
+}
+
+// ── LEITURA ────────────────────────────────────────────────────────────────
+async function carregarCatalogo(){
+  var alvos=[['modelo','calc_modelo','codigo,nome,categoria'],['cor','calc_cor','codigo,nome'],
+             ['fornecedor','calc_fornecedor','codigo,nome,praca']];
+  E.catErro=null;
+  for(var i=0;i<alvos.length;i++){
+    var r=await sb.from(alvos[i][1]).select(alvos[i][2]).order('nome');
+    if(r.error){E.catErro=(E.catErro?E.catErro+'; ':'')+alvos[i][1]+': '+r.error.message;E.cat[alvos[i][0]]=[];}
+    else E.cat[alvos[i][0]]=r.data||[];
+  }
+  // As condicoes validas para `definir` sao as ATIVAS do tenant: e o que o
+  // resolver aceita, grafia exata.
+  var c=await sb.from('calc_regra').select('valor').eq('tipo','condicao').eq('ativo',true);
+  var vistos={};E.cat.cond=[];
+  ((c&&c.data)||[]).forEach(function(x){if(x.valor&&!vistos[x.valor]){vistos[x.valor]=1;E.cat.cond.push(x.valor);}});
+  E.cat.cond.sort();
+}
+async function carregarDadosAtuais(){
+  var r=await sb.from('calc_dados').select('dados,atualizado_em').maybeSingle();
+  E.dadosErro=r.error?r.error.message:null;
+  E.dados=r.data&&r.data.dados||null;E.dadosEm=r.data&&r.data.atualizado_em||null;
+}
+async function carregarPendencias(){
+  var r=await sb.from('calc_pendencia')
+    .select('id,tipo,texto,causa,exemplo,n_linhas,decisao,aponta,decidido_em,criado_em')
+    .eq('carga_id',E.carga.id).order('criado_em');
+  if(r.error){E.pendErro=r.error.message;E.pend=[];return;}
+  E.pendErro=null;
+  E.pend=(r.data||[]).slice().sort(function(a,b){
+    var ea=a.decisao==null?0:(a.decisao==='ignorar'?1:2), eb=b.decisao==null?0:(b.decisao==='ignorar'?1:2);
+    // `in`, e nao `||9`: fornecedor tem ordem 0, e `0||9` o mandava para o fim.
+    var oa=a.tipo in ORDEM_TIPO?ORDEM_TIPO[a.tipo]:9, ob=b.tipo in ORDEM_TIPO?ORDEM_TIPO[b.tipo]:9;
+    return (ea-eb)||(oa-ob)||String(a.texto).localeCompare(String(b.texto));
+  });
+}
+// D14: a resposta da lista ANTERIOR do mesmo fornecedor aparece pre-selecionada,
+// e nada entra sem o clique de confirmar.
+async function carregarSugestoes(){
+  E.sug={};
+  var r=await sb.from('calc_pendencia').select('texto,aponta,decidido_em')
+    .eq('tipo','condicao').eq('decisao','definir').neq('carga_id',E.carga.id)
+    .order('decidido_em',{ascending:false}).limit(500);
+  ((r&&r.data)||[]).forEach(function(x){if(!(x.texto in E.sug))E.sug[x.texto]={valor:x.aponta,em:x.decidido_em};});
+}
+// D19. Filtro origem = aprendizado, criado_em desc. A mesma consulta serve as
+// duas visoes: o que ESTA lista ensinou e tudo o que ja foi ensinado.
+async function carregarAprendido(){
+  var alvos=[['alias','calc_alias','tipo,texto,aponta,carga_id,criado_em'],
+             ['regra','calc_regra','tipo,motivo,escopo,ativo,carga_id,criado_em'],
+             ['modelo','calc_modelo','codigo,nome,categoria,carga_id,criado_em'],
+             ['fornecedor','calc_fornecedor','codigo,nome,praca,carga_id,criado_em'],
+             ['cor','calc_cor','codigo,nome,carga_id,criado_em']];
+  var itens=[],erros=[];
+  for(var i=0;i<alvos.length;i++){
+    var r=await sb.from(alvos[i][1]).select(alvos[i][2]).eq('origem','aprendizado')
+      .order('criado_em',{ascending:false}).limit(300);
+    if(r.error){erros.push(alvos[i][1]+': '+r.error.message);continue;}
+    (r.data||[]).forEach(function(x){itens.push({k:alvos[i][0],d:x});});
+  }
+  itens.sort(function(a,b){return String(b.d.criado_em).localeCompare(String(a.d.criado_em));});
+  E.aprendido=itens;E.aprendidoErros=erros;
+}
+async function recarregar(){
+  var r=await sb.from('calc_carga')
+    .select('id,status,criado_em,resumo,blob_proposto,n_lidas,n_casou,n_duvidoso,n_descarte,n_pendencia,texto_bruto')
+    .eq('status','rascunho').order('criado_em',{ascending:false}).limit(1);
+  if(r.error){fatal('Não foi possível ler a carga: '+r.error.message);return;}
+  E.carga=(r.data&&r.data[0])||null;
+  if(E.carga){
+    // A lista bruta so e usada aqui, para as datas, e sai da memoria em seguida.
+    E.datas=datasDaLista(E.carga.texto_bruto||'');
+    delete E.carga.texto_bruto;
+    await carregarPendencias();
+    await carregarSugestoes();
+  }else{E.pend=[];E.datas=null;E.conf={};E.form={};E.erroPend={};E.quase={};}
+  await carregarAprendido();
+  render();
+}
+function fatal(m){var f=$('aFatal');f.hidden=false;f.textContent=m;status('erro');}
+
+// ── NOMES A PARTIR DO CODIGO ───────────────────────────────────────────────
+function nomeDe(tipo,codigo){
+  var l=E.cat[tipo]||[];for(var i=0;i<l.length;i++)if(l[i].codigo===codigo)return l[i].nome;
+  return null;
+}
+function rotuloDestino(tipo,codigo){var n=nomeDe(tipo,codigo);return n?n+' ('+codigo+')':codigo;}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function render(){
+  $('s1Nova').hidden=!!E.carga;
+  $('s1Aberta').hidden=!E.carga;
+  ['s2','s3','s4'].forEach(function(s){$(s).hidden=!E.carga;});
+  if(E.carga){
+    status('lista em andamento');
+    rPasso1Aberta();rPasso2();rPasso3();rPasso4();
+  }else{
+    status(E.dadosEm?'tabela atual de '+diaBR(E.dadosEm):'sem tabela gravada');
+  }
+  rAprendido();
+  rAprovada();
+}
+
+function rPasso1Aberta(){
+  var c=E.carga,h='<div class="card"><div class="linha"><span>Lista lida em</span><span class="v">'+esc(dataBR(c.criado_em))+'</span></div>'+
+    '<div class="hint" style="margin-top:6px">A lista fica guardada só enquanto você decide, e é apagada quando você aprova ou descarta.</div>';
+  if(E.confirmar==='descartarCarga'){
+    h+='<div class="aviso">Descartar esta leitura? As respostas que você já deu ao catálogo continuam valendo; só a lista e os preços dela saem.</div>'+
+       '<div class="bts"><button class="bt pe" data-acao="descartarCargaSim">Sim, descartar a leitura</button><button class="bt" data-acao="cancelar">Voltar</button></div>';
+  }else{
+    h+='<div class="bts"><button class="bt pe" data-acao="descartarCarga">Descartar esta leitura</button></div>'+
+       '<div class="hint">Para ler outra lista, aprove ou descarte esta primeiro.</div>';
+  }
+  $('s1Aberta').innerHTML=h+'</div>';
+}
+
+function coberturaTexto(c){
+  var p=c.n_lidas?100*c.n_casou/c.n_lidas:0;
+  return 'casaram '+c.n_casou+' de '+c.n_lidas+' linhas ('+pct1(p)+'%)';
+}
+
+function rPasso2(){
+  var c=E.carga,R=c.resumo||{},h='';
+  var fora=Math.max(0,num(c.n_lidas)-num(c.n_casou));
+  h+='<div class="card"><div class="big" id="aCobertura">'+esc(coberturaTexto(c))+'</div>'+
+     '<div class="linha"><span><b>'+fora+' linhas não entraram</b></span><span class="v"><a href="#s3">estão nas pendências ↓</a></span></div>'+
+     '<div class="linha"><span>linhas descartadas</span><span class="v">'+num(c.n_descarte)+'</span></div>'+
+     '<div class="linha"><span>produtos com preço desta lista</span><span class="v">'+num(R.produtos_novos)+'</span></div>'+
+     '<div class="linha"><span>produtos mantidos de fornecedores sem lista nova</span><span class="v">'+num(R.produtos_mantidos)+'</span></div>'+
+     '<div class="hint" style="margin-top:6px">'+esc(textoDatas(E.datas))+'</div></div>';
+
+  if(E.datas&&E.datas.n&&E.datas.dias>DIAS_VELHO){
+    h+='<div class="card ye" id="aVelho"><b>Custo velho.</b> A mensagem mais recente desta lista tem '+E.datas.dias+' dias ('+esc(E.datas.ate)+'). Preço de fornecedor muda toda semana: aprovar isto grava custo de '+esc(E.datas.ate)+' como se fosse de hoje.</div>';
+  }
+
+  var D=R.descartes||[];
+  h+='<div class="card"><div class="pt" style="font-size:13px">Descartadas, por motivo</div>';
+  if(!D.length)h+='<div class="vazio">Nenhuma linha descartada nesta lista.</div>';
+  D.forEach(function(d){
+    h+='<div style="padding:6px 0;border-bottom:1px solid var(--sf2)"><div class="linha" style="border:none;padding:0"><span>'+esc(d.motivo)+'</span><span class="v">'+num(d.n_linhas)+'</span></div>'+
+       (d.exemplo?'<code class="ex">'+esc(d.exemplo)+'</code>':'')+'</div>';
+  });
+  h+='</div>';
+
+  // Os cabecalhos que o leitor reconheceu, e a quem ele deu cada bloco.
+  var CB=R.cabecalhos||[];
+  h+='<div class="card"><div class="pt" style="font-size:13px">Fornecedores que a leitura reconheceu</div>';
+  if(!CB.length)h+='<div class="vazio">Nenhum cabeçalho reconhecido ainda. Os desconhecidos estão nas pendências de fornecedor.</div>';
+  CB.forEach(function(x){
+    var nome=x.fornecedor?(nomeDe('fornecedor',x.fornecedor)||x.fornecedor):null;
+    var tag=x.papel==='forn_descartado'?'<span class="chip">descartado</span>':(x.papel==='forn_aberto'?'<span class="chip ye">pendente</span>':'');
+    h+='<div class="linha"><span><code>'+esc(x.texto)+'</code> '+tag+'</span><span class="v">'+(nome?esc(nome)+' · ':'')+num(x.n_linhas)+' linhas</span></div>';
+  });
+  h+='</div>';
+
+  // D10/D13. `suspeita_alta` e parada real, com confirmacao que trava o aprovar.
+  var FC=(R.fornecedor_conferir||[]).filter(function(f){return f.suspeita_alta||((f.ignoradas||[]).length);});
+  FC.forEach(function(f){
+    var chave=confChave(f);
+    var ign=(f.ignoradas||[]).map(function(l){return '<code class="ex">'+esc(l)+'</code>';}).join('');
+    if(f.suspeita_alta){
+      h+='<div class="card re" data-suspeita="1"><span class="chip re">pare e confira</span>'+
+        '<div style="margin-top:6px">Dentro do bloco de <b>'+esc(f.fornecedor)+'</b> (cabeçalho <code>'+esc(f.cabecalho)+'</code>) apareceram linhas que parecem <b>outro fornecedor</b>. Se forem, os preços abaixo delas estão entrando no nome de '+esc(f.fornecedor)+'.</div>'+ign+
+        '<label class="cx"><input type="checkbox" data-conf="'+esc(chave)+'"'+(E.conf[chave]?' checked':'')+'> Conferi: estas linhas não são outro fornecedor, os preços são mesmo de '+esc(f.fornecedor)+'.</label></div>';
+    }else{
+      h+='<div class="card"><div class="hint">Linhas que a leitura ignorou dentro do bloco de <b>'+esc(f.fornecedor)+'</b>:</div>'+ign+'</div>';
+    }
+  });
+
+  var prov=[['n_cond_respondida','linhas que entraram pela condição que você disse'],['n_do_cabecalho','linhas com o modelo vindo do cabeçalho do bloco'],['n_cor_vizinha','linhas com a cor vinda da linha vizinha'],['n_cond_conflito','linhas com duas condições em conflito']];
+  var pv=prov.filter(function(p){return num(R[p[0]])>0;});
+  if(pv.length){
+    h+='<details><summary>De onde a cobertura veio</summary><div class="card" style="margin-top:6px">'+
+       pv.map(function(p){return '<div class="linha"><span>'+esc(p[1])+'</span><span class="v">'+num(R[p[0]])+'</span></div>';}).join('')+'</div></details>';
+  }
+  $('s2Corpo').innerHTML=h;
+}
+function confChave(f){return 'forn|'+(f.cabecalho||'')+'|'+(f.fornecedor||'');}
+
+function contagemPend(){
+  var ab=0,ig=0,rs=0;
+  E.pend.forEach(function(p){if(p.decisao==null)ab++;else if(p.decisao==='ignorar')ig++;else rs++;});
+  return {abertas:ab,ignoradas:ig,respondidas:rs};
+}
+
+function rPasso3(){
+  var k=contagemPend(),h='';
+  $('s3Sub').textContent=k.abertas+' abertas · '+k.ignoradas+' fora desta lista · '+k.respondidas+' respondidas';
+  if(E.pendErro){$('s3Corpo').innerHTML='<div class="card re">Não foi possível ler as pendências: '+esc(E.pendErro)+'</div>';return;}
+  // A leitura atual pode ter menos pendencias do que a tabela diz abertas: uma
+  // resposta (descartar um fornecedor, por exemplo) tira do texto perguntas que
+  // continuam gravadas sem decisao. O banco guarda so a CONTAGEM viva.
+  var vivas=num(E.carga.n_pendencia);
+  if(k.abertas+k.ignoradas>vivas){
+    h+='<div class="card ye" id="aDescompasso">A leitura atual tem <b>'+vivas+'</b> pendências, mas '+(k.abertas+k.ignoradas)+' aparecem sem resposta aqui. Alguma resposta já tirou linhas da lista: responder uma pendência que saiu da leitura pode ser recusado. Nesse caso, deixe-a fora desta lista.</div>';
+  }
+  if(!E.pend.length)h+='<div class="card gr">Nenhuma pendência. Tudo o que a lista trouxe foi entendido ou descartado.</div>';
+  E.pend.forEach(function(p){h+=cardPend(p);});
+  if(E.catErro)h+='<div class="card re">O catálogo não carregou inteiro ('+esc(E.catErro)+'): a lista de destinos pode estar incompleta.</div>';
+  $('s3Corpo').innerHTML=h;
+}
+
+function estadoPend(p){
+  if(p.decisao==null)return '<span class="chip ye">aberta</span>';
+  if(p.decisao==='ignorar')return '<span class="chip">fora desta lista</span>';
+  if(p.decisao==='apontar')return '<span class="chip gr">outro nome de '+esc(rotuloDestino(p.tipo,p.aponta))+'</span>';
+  if(p.decisao==='criar')return '<span class="chip gr">criado: '+esc(rotuloDestino(p.tipo,p.aponta))+'</span>';
+  if(p.decisao==='descartar')return '<span class="chip">descartado para sempre</span>';
+  if(p.decisao==='definir')return '<span class="chip bl">condição: '+esc(p.aponta)+' (só esta lista)</span>';
+  return '<span class="chip">'+esc(p.decisao)+'</span>';
+}
+
+// Quais verbos cada tipo aceita, medido nas RPCs em 12/09/2026:
+// apontar: modelo, cor, fornecedor. criar: modelo, fornecedor. descartar: tudo
+// menos condicao (T4) e preco (T5). definir: so condicao. ignorar: todos.
+function verbos(p){
+  var fechada=p.decisao==='apontar'||p.decisao==='descartar'||p.decisao==='criar';
+  if(fechada)return [];
+  var v=[];
+  if(p.tipo==='condicao')v.push(['definir','Dizer a condição']);
+  if(p.tipo==='modelo'||p.tipo==='cor'||p.tipo==='fornecedor')v.push(['apontar','É outro nome de…']);
+  if(p.tipo==='modelo'||p.tipo==='fornecedor')v.push(['criar',p.tipo==='modelo'?'Criar modelo novo':'Criar fornecedor novo']);
+  if(p.tipo!=='condicao'&&p.tipo!=='preco')v.push(['descartar',p.tipo==='fornecedor'?'Nunca ler este fornecedor':'Nunca é preço']);
+  if(p.decisao!=='ignorar')v.push(['ignorar','Deixar fora desta lista']);
+  return v;
+}
+
+function cardPend(p){
+  var feita=p.decisao!=null&&p.decisao!=='ignorar';
+  var h='<div class="card pend'+(feita?' feita':'')+'" data-pend="'+esc(p.id)+'">'+
+    '<div class="cab"><span class="chip">'+esc(NOME_TIPO[p.tipo]||p.tipo)+'</span>'+estadoPend(p)+
+    '<span class="hint">'+num(p.n_linhas)+(num(p.n_linhas)===1?' linha':' linhas')+' na 1ª leitura</span></div>'+
+    '<div class="tx" style="margin-top:6px">'+esc(p.texto)+'</div>'+
+    '<div class="causa">'+esc(p.causa)+'</div>'+
+    (p.exemplo?'<code class="ex">'+esc(p.exemplo)+'</code>':'');
+  if(p.decisao&&p.decidido_em)h+='<div class="hint" style="margin-top:4px">respondida em '+esc(dataBR(p.decidido_em))+'</div>';
+  if(p.tipo==='preco'&&p.decisao==null)h+='<div class="hint" style="margin-top:6px">A calculadora não tem onde guardar condição de pagamento. Esta linha só pode ficar fora desta lista.</div>';
+  var vs=verbos(p);
+  if(vs.length){
+    h+='<div class="bts">'+vs.map(function(v){
+      return '<button class="bt'+(E.form[p.id]===v[0]?' on':'')+'" data-acao="verbo" data-id="'+esc(p.id)+'" data-verbo="'+v[0]+'">'+esc(v[1])+'</button>';
+    }).join('')+'</div>';
+  }
+  if(E.form[p.id])h+=formPend(p,E.form[p.id]);
+  if(E.erroPend[p.id])h+='<div class="erro">'+esc(E.erroPend[p.id])+'</div>';
+  return h+'</div>';
+}
+
+function opcoesDestino(tipo){
+  var l=E.cat[tipo]||[];
+  if(tipo==='modelo'){
+    return KCATS.map(function(c){
+      var dela=l.filter(function(m){return m.categoria===c;});
+      if(!dela.length)return '';
+      return '<optgroup label="'+esc(c)+'">'+dela.map(function(m){return '<option value="'+esc(m.codigo)+'">'+esc(m.nome)+'</option>';}).join('')+'</optgroup>';
+    }).join('');
+  }
+  return l.map(function(x){return '<option value="'+esc(x.codigo)+'">'+esc(x.nome)+(x.praca?' · '+esc(x.praca):'')+'</option>';}).join('');
+}
+
+var SEM_VOLTA='Vale para toda lista futura. Desfazer ainda não existe pela tela.';
+
+function formPend(p,v){
+  var id=esc(p.id),h='<div class="form">';
+  if(v==='apontar'){
+    h+='<label class="campo"><span>A LISTA ESCREVEU ISTO PARA</span><select id="fa-'+id+'"><option value="">escolha…</option>'+opcoesDestino(p.tipo)+'</select></label>'+
+       '<div class="aviso">'+SEM_VOLTA+' Um nome errado aqui vira preço errado todo mês, sem pendência nenhuma para avisar.</div>'+
+       '<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="apontar">Confirmar</button></div>';
+  }else if(v==='criar'&&p.tipo==='modelo'){
+    h+='<label class="campo"><span>NOME DO MODELO, COMO A CALCULADORA DEVE MOSTRAR</span><input type="text" id="fn-'+id+'" placeholder="ex.: JBL Flip 7"></label>'+
+       '<label class="campo"><span>CATEGORIA (DECIDE A MARGEM)</span><select id="fc-'+id+'"><option value="">escolha…</option>'+KCATS.map(function(c){return '<option>'+esc(c)+'</option>';}).join('')+'</select></label>'+
+       '<div class="aviso">'+SEM_VOLTA+'</div>'+
+       '<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="criar">Criar modelo</button></div>';
+  }else if(v==='criar'){
+    var q=E.quase[p.id];
+    h+='<label class="campo"><span>NOME DO FORNECEDOR</span><input type="text" id="fn-'+id+'" value="'+esc(q?q.nome:'')+'" placeholder="ex.: XPTO Cell Imports"></label>'+
+       '<label class="campo"><span>PRAÇA (DE ONDE ELE É)</span><input type="text" id="fp-'+id+'" value="'+esc(q?q.praca:'')+'" placeholder="ex.: Centro — RJ"></label>'+
+       '<div class="aviso">'+SEM_VOLTA+'</div>';
+    if(q){
+      h+='<div class="card ye" style="margin-top:8px">'+esc(q.msg)+'</div>'+
+         '<div class="bts"><button class="bt" data-acao="verbo" data-id="'+id+'" data-verbo="apontar">É a mesma pessoa: apontar</button>'+
+         '<button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="criarNovo">É outro fornecedor: criar mesmo assim</button></div>';
+    }else{
+      h+='<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="criar">Criar fornecedor</button></div>';
+    }
+  }else if(v==='descartar'){
+    if(p.tipo==='fornecedor'){
+      // D16, por extenso, e a obrigacao da grafia (v13 secao 9).
+      h+='<div class="aviso">Nunca mais ler preço deste fornecedor, em nenhuma lista.</div>'+
+         '<div class="hint" style="margin-top:4px">Vale para o cabeçalho escrito exatamente <code>'+esc(p.texto)+'</code>. Se ele aparecer escrito de outro jeito, a pendência volta. Todas as linhas abaixo deste cabeçalho saem da lista. '+SEM_VOLTA+' Para tirar só desta lista, use “Deixar fora desta lista”.</div>';
+    }else{
+      h+='<div class="aviso">Esta linha nunca é preço, nem nesta lista nem nas próximas.</div>'+
+         '<div class="hint" style="margin-top:4px">'+SEM_VOLTA+' Para tirar só desta lista, use “Deixar fora desta lista”.</div>';
+    }
+    h+='<div class="bts"><button class="bt pe" data-acao="confirmar" data-id="'+id+'" data-verbo="descartar">Confirmar descarte</button></div>';
+  }else if(v==='definir'){
+    var s=E.sug[p.texto],sel=E.form[p.id+'|cond']||(s&&s.valor)||'';
+    h+='<div class="hint">Vale só para esta lista. A próxima lista deste fornecedor pergunta de novo.</div><div class="bts">'+
+       E.cat.cond.map(function(c){return '<button class="bt'+(sel===c?' on':'')+'" data-acao="cond" data-id="'+id+'" data-valor="'+esc(c)+'">'+esc(c)+'</button>';}).join('')+'</div>';
+    if(s)h+='<div class="hint" style="margin-top:4px">Sugestão: na última lista você disse <b>'+esc(s.valor)+'</b> ('+esc(diaBR(s.em))+'). Confirme ou troque.</div>';
+    if(!E.cat.cond.length)h+='<div class="erro">Nenhuma condição ativa no catálogo: não há o que dizer aqui.</div>';
+    h+='<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="definir"'+(sel?'':' disabled')+'>Confirmar condição</button></div>';
+  }else if(v==='ignorar'){
+    h+='<div class="hint">As linhas desta pendência ficam fora só desta lista. Nada é ensinado: na próxima lista a pendência volta.</div>'+
+       '<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="ignorar">Deixar fora desta lista</button></div>';
+  }
+  return h+'</div>';
+}
+
+// ── O QUE APRENDEU (D19) ───────────────────────────────────────────────────
+function itemAprendido(it){
+  var d=it.d,t;
+  if(it.k==='alias')t='“'+esc(d.texto)+'” passou a ser lido como <b>'+esc(rotuloDestino(d.tipo,d.aponta))+'</b> <span class="chip">'+esc(NOME_TIPO[d.tipo]||d.tipo)+'</span>';
+  // Regra pelo MOTIVO, nunca pelo padrao: `^fabrica zeta$` e ilegivel para quem ensinou.
+  else if(it.k==='regra')t=esc(d.motivo||'regra de '+d.tipo)+(d.ativo?'':' <span class="chip">desligada</span>');
+  else if(it.k==='modelo')t='Modelo novo: <b>'+esc(d.nome)+'</b> · '+esc(d.categoria);
+  else if(it.k==='fornecedor')t='Fornecedor novo: <b>'+esc(d.nome)+'</b> · '+esc(d.praca);
+  else t='Cor nova: <b>'+esc(d.nome)+'</b>';
+  var desta=E.carga&&d.carga_id===E.carga.id;
+  return '<div class="apr"><span class="q">'+esc(diaBR(d.criado_em))+'</span><span>'+t+(desta?' <span class="chip bl">desta lista</span>':'')+'</span></div>';
+}
+function rAprendido(){
+  var h='',temCarga=!!E.carga;
+  if(!temCarga&&E.visao==='lista')E.visao='tudo';
+  if(temCarga){
+    h+='<div class="bts" style="margin-top:0;margin-bottom:8px"><button class="bt'+(E.visao==='lista'?' on':'')+'" data-acao="visao" data-valor="lista">Desta lista</button>'+
+       '<button class="bt'+(E.visao==='tudo'?' on':'')+'" data-acao="visao" data-valor="tudo">Tudo</button></div>';
+  }
+  var l=E.aprendido.filter(function(it){return E.visao==='tudo'||(temCarga&&it.d.carga_id===E.carga.id);});
+  h+='<div class="card" id="aAprendido">';
+  if(E.aprendidoErros.length)h+='<div class="erro">Parte do que foi aprendido não carregou: '+esc(E.aprendidoErros.join('; '))+'</div>';
+  if(!l.length){
+    h+='<div class="vazio">'+(E.visao==='lista'
+      ?'Esta lista ainda não ensinou nada. Cada resposta que muda o catálogo aparece aqui na hora.'
+      :'Nada foi ensinado ainda. Quando você responder uma pendência que muda o catálogo, ela aparece aqui, com a data.')+'</div>';
+  }else{
+    h+=l.map(itemAprendido).join('');
+  }
+  h+='<div class="hint" style="margin-top:8px">'+l.length+' '+(l.length===1?'item':'itens')+'. Desfazer ainda não existe pela tela: se algo aqui estiver errado, não aprove a lista.</div></div>';
+  $('sACorpo').innerHTML=h;
+}
+
+// ── DIFF (passo 4) ─────────────────────────────────────────────────────────
+function menorCusto(p){
+  if(p.cs&&p.cs.length){var m=Infinity;p.cs.forEach(function(c){if(num(c.v)<m)m=num(c.v);});return m;}
+  return num(p.v);
+}
+function indice(lista){
+  var ix={};
+  (lista||[]).forEach(function(p){
+    var k=p.f+'|'+p.n+'|'+p.t,v=menorCusto(p);
+    if(!(k in ix)||v<ix[k].v)ix[k]={v:v,p:p};
+  });
+  return ix;
+}
+function calcularDiff(velho,novo){
+  var A=indice(velho),B=indice(novo),r={novos:[],sumiram:[],subiram:[],cairam:[],iguais:0,grandes:[]};
+  Object.keys(B).forEach(function(k){
+    if(!(k in A)){r.novos.push(B[k].p);return;}
+    var a=A[k].v,b=B[k].v;
+    if(a===b){r.iguais++;return;}
+    var it={p:B[k].p,antes:a,depois:b,pct:a?(b-a)/a:null};
+    (b>a?r.subiram:r.cairam).push(it);
+    if(it.pct===null||Math.abs(it.pct)>VARIACAO)r.grandes.push(it);
+  });
+  Object.keys(A).forEach(function(k){if(!(k in B))r.sumiram.push(A[k].p);});
+  r.grandes.sort(function(x,y){return Math.abs(y.pct||9)-Math.abs(x.pct||9);});
+  return r;
+}
+function semListaNova(velho,lidos){
+  var set={},cont={};(lidos||[]).forEach(function(n){set[n]=1;});
+  (velho||[]).forEach(function(p){if(!set[p.f])cont[p.f]=(cont[p.f]||0)+1;});
+  return Object.keys(cont).sort().map(function(f){return {f:f,n:cont[f]};});
+}
+function tabelaVar(l){
+  return '<div class="rola"><table class="tab"><thead><tr><th>produto</th><th>fornecedor</th><th>condição</th><th class="n">antes</th><th class="n">agora</th><th class="n">variação</th></tr></thead><tbody>'+
+    l.map(function(it){
+      return '<tr><td>'+esc(it.p.n)+'</td><td>'+esc(it.p.f)+'</td><td>'+esc(it.p.t)+'</td><td class="n">'+reais(it.antes)+'</td><td class="n">'+reais(it.depois)+'</td><td class="n"><b>'+(it.pct===null?'—':(it.pct>0?'+':'')+pct1(100*it.pct)+'%')+'</b></td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+function tabelaProd(l){
+  return '<div class="rola"><table class="tab"><thead><tr><th>produto</th><th>fornecedor</th><th>condição</th><th class="n">custo</th></tr></thead><tbody>'+
+    l.map(function(p){return '<tr><td>'+esc(p.n)+'</td><td>'+esc(p.f)+'</td><td>'+esc(p.t)+'</td><td class="n">'+reais(menorCusto(p))+'</td></tr>';}).join('')+'</tbody></table></div>';
+}
+
+// As tres travas do aprovar. O banco aceita carga com pendencia aberta e com
+// fornecedor suspeito: se a trava nao morar aqui, ela nao mora em lugar nenhum.
+function travas(){
+  var c=E.carga,R=c.resumo||{},k=contagemPend(),t=[];
+  var sus=(R.fornecedor_conferir||[]).filter(function(f){return f.suspeita_alta;});
+  sus.forEach(function(f){if(!E.conf[confChave(f)])t.push('conferir o bloco suspeito de '+f.fornecedor+' (passo 2)');});
+  if(k.abertas>0&&!E.conf['abertas'])t.push('aceitar as '+k.abertas+' pendências abertas');
+  var d=calcularDiff(E.dados&&E.dados.produtos,c.blob_proposto&&c.blob_proposto.produtos);
+  if(d.grandes.length&&!E.conf['grandes'])t.push('conferir as '+d.grandes.length+' variações acima de 15%');
+  if(!num(R.produtos_novos))t.push('ter pelo menos um preço desta lista');
+  return {faltam:t,diff:d,abertas:k.abertas};
+}
+
+function rPasso4(){
+  var c=E.carga,R=c.resumo||{},T=travas(),d=T.diff,h='';
+  var velho=E.dados&&E.dados.produtos;
+  if(E.dadosErro)h+='<div class="card re">Não foi possível ler a tabela atual ('+esc(E.dadosErro)+'). Sem ela não dá para comparar: não aprove.</div>';
+  else if(!velho)h+='<div class="card ye">A calculadora ainda não tem tabela gravada: tudo o que esta lista trouxe entra como novo.</div>';
+  else h+='<div class="hint" style="margin-bottom:6px">Comparando com a tabela gravada em '+esc(dataBR(E.dadosEm))+', pelo menor custo de cada produto, fornecedor e condição.</div>';
+
+  h+='<div class="card"><div class="linha"><span>novos</span><span class="v">'+d.novos.length+'</span></div>'+
+     '<div class="linha"><span>subiram</span><span class="v">'+d.subiram.length+'</span></div>'+
+     '<div class="linha"><span>caíram</span><span class="v">'+d.cairam.length+'</span></div>'+
+     '<div class="linha"><span>sumiram (fornecedor mandou lista e o produto não veio)</span><span class="v">'+d.sumiram.length+'</span></div>'+
+     '<div class="linha"><span>iguais</span><span class="v">'+d.iguais+'</span></div></div>';
+
+  h+='<div class="card'+(d.grandes.length?' ye':'')+'" id="aGrandes"><div class="pt" style="font-size:13px">Variação acima de 15%, item a item</div>';
+  if(!d.grandes.length)h+='<div class="vazio">Nenhum preço mudou mais de 15%.</div>';
+  else h+=tabelaVar(d.grandes)+'<label class="cx"><input type="checkbox" data-conf="grandes"'+(E.conf['grandes']?' checked':'')+'> Conferi '+(d.grandes.length===1?'a variação':'as '+d.grandes.length+' variações')+' acima de 15%.</label>';
+  h+='</div>';
+
+  var sln=semListaNova(velho,R.fornecedores_lidos);
+  h+='<div class="card"><div class="pt" style="font-size:13px">Fornecedores sem lista nova</div>';
+  if(!sln.length)h+='<div class="vazio">Todo fornecedor da tabela atual mandou lista nesta leitura.</div>';
+  else h+='<div class="hint">Continuam na tabela com o custo antigo'+(E.dadosEm?' (gravado em '+esc(diaBR(E.dadosEm))+')':'')+':</div>'+
+          sln.map(function(x){return '<div class="linha"><span>'+esc(x.f)+'</span><span class="v">'+pl(x.n,'produto','produtos')+'</span></div>';}).join('');
+  h+='</div>';
+
+  function ver(n,um,varios){return '<summary>Ver '+(n===1?um:'os '+n+' '+varios)+'</summary>';}
+  if(d.novos.length)h+='<details>'+ver(d.novos.length,'o novo','novos')+tabelaProd(d.novos)+'</details>';
+  if(d.subiram.length)h+='<details>'+ver(d.subiram.length,'o que subiu','que subiram')+tabelaVar(d.subiram)+'</details>';
+  if(d.cairam.length)h+='<details>'+ver(d.cairam.length,'o que caiu','que caíram')+tabelaVar(d.cairam)+'</details>';
+  if(d.sumiram.length)h+='<details>'+ver(d.sumiram.length,'o que sumiu','que sumiram')+tabelaProd(d.sumiram)+'</details>';
+
+  h+='<div class="card" style="margin-top:12px" id="aTravas">';
+  if(T.abertas>0)h+='<label class="cx"><input type="checkbox" data-conf="abertas"'+(E.conf['abertas']?' checked':'')+'> Aprovar com '+T.abertas+' pendências abertas: as linhas delas ficam fora da tabela.</label>';
+  if(E.datas&&E.datas.n&&E.datas.dias>DIAS_VELHO)h+='<div class="aviso">Lembrete: esta lista tem '+E.datas.dias+' dias.</div>';
+  if(T.faltam.length)h+='<div class="hint" style="margin-top:6px">Antes de aprovar, falta: '+esc(T.faltam.join('; '))+'.</div>';
+  if(E.confirmar==='aprovar'){
+    h+='<div class="aviso">Isto substitui a tabela da calculadora pelos '+num(c.blob_proposto&&c.blob_proposto.produtos&&c.blob_proposto.produtos.length)+' produtos acima. Confirmar?</div>'+
+       '<div class="bts"><button class="bt pri big2" data-acao="aprovarSim">Sim, gravar os preços</button><button class="bt" data-acao="cancelar">Voltar</button></div>';
+  }else{
+    h+='<div class="bts"><button class="bt pri big2" id="aAprovar" data-acao="aprovar"'+(T.faltam.length?' disabled':'')+'>Aprovar e gravar os preços</button></div>';
+  }
+  if(E.erroAprovar)h+='<div class="erro">'+esc(E.erroAprovar)+'</div>';
+  $('s4Corpo').innerHTML=h+'</div>';
+}
+
+function rAprovada(){
+  var a=E.aprovada;
+  $('aAprovada').innerHTML=a?'<div class="card gr passo" id="aOk"><b>Tabela gravada.</b> '+num(a.produtos)+' produtos, '+num(a.precos)+' preços'+
+    (num(a.pendencias_abertas)?', com '+num(a.pendencias_abertas)+' pendências que ficaram de fora':'')+'. <a href="/calc/">Abrir a calculadora</a></div>':'';
+}
+
+// ── ACOES ──────────────────────────────────────────────────────────────────
+async function lerLista(){
+  var t=$('aTexto').value,er=$('aErro1');er.hidden=true;
+  if(!t.trim()){er.hidden=false;er.textContent='Cole a lista ou escolha o arquivo antes.';return;}
+  ocupado(true,'lendo a lista...');
+  var r=await sb.rpc('calc_carga_abrir',{p_texto:t});
+  ocupado(false);
+  if(r.error){er.hidden=false;er.textContent=semPrefixo(r.error.message);return;}
+  $('aTexto').value='';E.aprovada=null;E.conf={};E.form={};E.erroPend={};E.quase={};E.visao='lista';
+  await recarregar();
+  toast('Lista lida: '+coberturaTexto(E.carga||{n_casou:0,n_lidas:0}));
+}
+
+async function responder(id,verbo){
+  var p=E.pend.filter(function(x){return x.id===id;})[0];if(!p)return;
+  var antes=num(E.carga.n_casou),r,args;
+  delete E.erroPend[id];
+  if(verbo==='criar'||verbo==='criarNovo'){
+    var nome=($('fn-'+id)||{}).value||'';
+    var extra={};
+    if(p.tipo==='modelo')extra.categoria=($('fc-'+id)||{}).value||'';
+    else extra.praca=($('fp-'+id)||{}).value||'';
+    if(verbo==='criarNovo')extra.confirmar_novo='sim';
+    ocupado(true,'criando...');
+    r=await sb.rpc('calc_catalogo_criar',{p_pendencia:id,p_nome:nome,p_extra:extra});
+    ocupado(false);
+    if(r.error&&/confirmar_novo/.test(r.error.message)){
+      // 2.4a ter: nao cria e nao une. A pergunta volta com as duas grafias.
+      E.quase[id]={nome:nome,praca:extra.praca||'',msg:semPrefixo(r.error.message).replace(/\s*Se for outro fornecedor mesmo, repita com \{[^}]*\}\.?/,' Se for outro fornecedor, crie mesmo assim.')};
+      render();return;
+    }
+  }else{
+    var valor=null;
+    if(verbo==='apontar'){valor=($('fa-'+id)||{}).value||'';if(!valor){E.erroPend[id]='Escolha para quem a lista escreveu isto.';render();return;}}
+    if(verbo==='definir')valor=E.form[id+'|cond']||(E.sug[p.texto]&&E.sug[p.texto].valor)||'';
+    ocupado(true,'gravando a resposta...');
+    r=await sb.rpc('calc_pendencia_resolver',{p_pendencia:id,p_decisao:verbo,p_aponta:valor});
+    ocupado(false);
+  }
+  if(r.error){E.erroPend[id]=semPrefixo(r.error.message);render();return;}
+  delete E.form[id];delete E.form[id+'|cond'];delete E.quase[id];
+  if(verbo==='criar'||verbo==='criarNovo')await carregarCatalogo();
+  await recarregar();
+  var depois=E.carga?num(E.carga.n_casou):antes;
+  toast('Resposta gravada. Casaram '+antes+' → '+depois+'.');
+}
+
+async function aprovar(){
+  E.erroAprovar=null;
+  if(travas().faltam.length){E.confirmar=null;render();return;}
+  ocupado(true,'gravando os preços...');
+  var r=await sb.rpc('calc_carga_aprovar',{p_carga:E.carga.id});
+  ocupado(false);E.confirmar=null;
+  if(r.error){E.erroAprovar='Nada foi gravado: '+semPrefixo(r.error.message);render();return;}
+  E.aprovada=r.data||{};E.conf={};
+  await carregarDadosAtuais();
+  await recarregar();
+  toast('Tabela gravada.');
+}
+
+async function descartarCarga(){
+  ocupado(true,'descartando...');
+  var r=await sb.rpc('calc_carga_descartar',{p_carga:E.carga.id});
+  ocupado(false);E.confirmar=null;
+  if(r.error){fatal('Não foi possível descartar: '+semPrefixo(r.error.message));return;}
+  await recarregar();toast('Leitura descartada.');
+}
+
+async function entrar(){
+  var er=$('aLoginErro');er.hidden=true;
+  var e1=($('aEmail').value||'').trim(),p1=$('aSenha').value||'';
+  if(!e1||!p1){er.hidden=false;er.textContent='Preencha e-mail e senha.';return;}
+  var res=await sb.auth.signInWithPassword({email:e1,password:p1});
+  if(res.error){er.hidden=false;er.textContent='Não foi possível entrar: '+res.error.message;return;}
+  $('aLogin').hidden=true;
+  await porPapel();
+}
+
+document.addEventListener('click',function(ev){
+  var b=ev.target.closest('[data-acao]');if(!b||b.disabled)return;
+  var a=b.getAttribute('data-acao'),id=b.getAttribute('data-id');
+  if(a==='entrar')return entrar();
+  if(a==='ler')return lerLista();
+  if(a==='verbo'){var v=b.getAttribute('data-verbo');E.form[id]=E.form[id]===v?null:v;if(v!=='criar')delete E.quase[id];delete E.erroPend[id];return render();}
+  if(a==='cond'){E.form[id+'|cond']=b.getAttribute('data-valor');return render();}
+  if(a==='confirmar')return responder(id,b.getAttribute('data-verbo'));
+  if(a==='visao'){E.visao=b.getAttribute('data-valor');return rAprendido();}
+  if(a==='descartarCarga'){E.confirmar='descartarCarga';return render();}
+  if(a==='descartarCargaSim')return descartarCarga();
+  if(a==='aprovar'){E.confirmar='aprovar';return render();}
+  if(a==='aprovarSim')return aprovar();
+  if(a==='cancelar'){E.confirmar=null;return render();}
+});
+document.addEventListener('change',function(ev){
+  var c=ev.target;
+  if(c.hasAttribute&&c.hasAttribute('data-conf')){E.conf[c.getAttribute('data-conf')]=c.checked;if(E.carga)rPasso4();return;}
+  if(c.id==='aArq'&&c.files&&c.files[0]){
+    var fr=new FileReader();
+    fr.onload=function(){$('aTexto').value=String(fr.result||'');$('aDatas').textContent=textoDatas(datasDaLista($('aTexto').value));};
+    fr.readAsText(c.files[0]);
+  }
+});
+document.addEventListener('input',function(ev){
+  if(ev.target.id==='aTexto'){var t=ev.target.value;$('aDatas').textContent=t.trim()?textoDatas(datasDaLista(t)):'Nenhuma lista colada ainda.';}
+});
+
+async function porPapel(){
+  var papel=null;
+  try{
+    var u=(await sb.auth.getUser()).data.user;
+    if(u){var pr=await sb.from('app_usuario').select('papel').eq('id',u.id).maybeSingle();papel=pr.data&&pr.data.papel;}
+  }catch(e){papel=null;}
+  if(papel!=='dono'){$('aNaoDono').hidden=false;status('sem acesso');return;}
+  $('aApp').hidden=false;
+  await carregarCatalogo();
+  await carregarDadosAtuais();
+  await recarregar();
+}
+
+async function iniciar(){
+  if(!window.supabase||!window.supabase.createClient){fatal('supabase-js não carregou. Confira a conexão e atualize.');return;}
+  sb=window.supabase.createClient(SB_URL,SB_ANON,{auth:{storageKey:'sb-calc-auth',persistSession:true,autoRefreshToken:true}});
+  var sess=null;
+  try{sess=(await sb.auth.getSession()).data.session;}catch(e){sess=null;}
+  if(!sess){$('aLogin').hidden=false;status('entrar');return;}
+  await porPapel();
+}
+iniciar().catch(function(e){fatal('Erro ao iniciar: '+(e&&e.message||e));});
+</script>
+</body>
+</html>

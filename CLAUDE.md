@@ -12,7 +12,7 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v14.md` (o produto novo: Blocos 0 e 1 fechados, o
+   `handoff_calculadora_pitwall_v15.md` (o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
    dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
    resposta que nao ensina, o fornecedor desconhecido chega a pendencia, a condicao
@@ -21,9 +21,10 @@ aponte para arquivo inexistente.
    nascem num clique, com guarda de quase-igual e origem do que se aprende (D17).
    E a noite fechou a **D18**: o `descartar` de fornecedor, que nao descartava e
    entregava o bloco ao fornecedor de cima, com preco e tudo. Em 12/09 o **v14**
-   partiu a prova de banco em tres arquivos gerados por script (soma 113). **A
-   proxima sessao e a tela `Alimentar`**, que por decisao do dono (D19) ja nasce
-   mostrando o que o laco aprendeu; prompt na secao 7 do v14.
+   partiu a prova de banco em tres arquivos gerados por script (soma 113). E na mesma noite
+   o **v15** construiu a tela `Alimentar` (`/calc/alimentar/`), com o "ver o que
+   aprendeu" dentro (D19). **O portao do Bloco 2 agora e do dono:** rodar a carga
+   real do mes pela tela, sozinho; ver a secao 7 do v15.
    **Tres regras que sairam da D18 e valem para o projeto todo:** padrao gravado
    tem que estar na MESMA normalizacao do texto contra o qual ele casa (`lower()`
    contra `privado.calc_norm()` falha calado, mesma familia do `\b` e do `calc()`
@@ -200,6 +201,9 @@ Reforcos anotados na v33 (nao sao numero novo, so alcance dos existentes):
       consultor/     A calc do VENDEDOR: preco de venda e comissao, sem custo.
         index.html   Hoje le `dados.js`, ARQUIVO ESTATICO do repo, e por isso e
         dados.js     single-tenant: sai do repo no Bloco 3 do plano da calculadora.
+      alimentar/     A tela ALIMENTAR (Bloco 2.3): colar lista, responder pendencia,
+        index.html   ver o que aprendeu, conferir o diff e aprovar. So papel `dono`,
+                     mesma sessao da calc, escreve SO por RPC.
   supabase/
     functions/
       sincronizar-conteudo/index.ts   <- Edge Function (Fase 6). Notion -> conteudo.
@@ -323,7 +327,8 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   causa raiz de corrupcao no historico do projeto.
 - Frontend: a suite de validacao e PYTHON e NODE, da raiz do repo (nao acorn nem jsdom,
   que a v32 afirmava por engano e nao existem aqui). Ate a v55 este bloco listava TRES
-  provas, e ate 07/09/2026 listava SETE comandos. Sao **ONZE**, e os que foram
+  provas, e ate 07/09/2026 listava SETE comandos. Sao **DOZE** (a `prova_alimentar.py`
+  entrou em 12/09/2026, a unica que CLICA a calc), e os que foram
   acrescentados sao justamente os que pegaram regressao real (o `diag_mobile` achou o
   botao fora da tela em 360px, o `prova_grafico` achou os dois degraus
   indistinguiveis, o `diag_largo` achou 608px de tela vazia a 1920px, o `diag_calc`
@@ -339,6 +344,7 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   node ferramentas/prova_cpo.js          # CPO: comissao de lacrado, 1 ano, chip proprio
   node ferramentas/prova_sem_margem.js   # as classes de custo puro nao ganham margem
   node ferramentas/prova_catalogo.js     # o painel Catalogo da calc do dono
+  python ferramentas/prova_alimentar.py  # a tela Alimentar, clicada no Chrome contra stub (12/09/2026)
   for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py $w; done
   for w in 1500 1920 2560; do python ferramentas/diag_largo.py $w; done
   for w in 360 390 414;      do python ferramentas/diag_calc.py $w;   done

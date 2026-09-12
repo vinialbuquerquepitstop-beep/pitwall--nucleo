@@ -183,8 +183,14 @@ Toda mudanca na calc roda tambem:
 
 ```
 node ferramentas/prova_catalogo.js
+python ferramentas/prova_alimentar.py
 for w in 360 390 414; do python ferramentas/diag_calc.py $w; done
 ```
+
+Prova de tela nova passou de primeira? **Estragar uma copia e ver ela reprovar.**
+A `prova_alimentar.py` aceita `PROVA_ALIMENTAR_ALVO=<copia>` para isso: em
+12/09/2026 foram oito mutacoes (tirar a trava do aprovar, mostrar o padrao em vez
+do motivo, voltar o `0||9` da ordem...), e as oito reprovaram.
 
 ### 5.1 A prova nova acompanha a construcao
 
