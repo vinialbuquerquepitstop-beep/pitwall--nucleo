@@ -15,8 +15,10 @@ Valores reais do sistema aparecem com os caracteres exatos.
    (era sete, sao NOVE) e a secao **5.4**, nova, com as duas regras que esta fatia
    comprovou.
 3. `docs/superpowers/specs/2026-09-10-aprendizado-de-fornecedor.md`, secao 4.1.
-4. O plano, decisao **D18** (fechada aqui) e a secao 7 do v12.
-5. Este arquivo.
+4. O plano, decisoes **D18** (fechada aqui) e **D19** (o "ver o que aprendeu" na
+   tela).
+5. Este arquivo. **A proxima sessao comeca pela secao 10**, que traz a fatia
+   "partir a prova" medida, com o corte, o criterio de aceite e o prompt pronto.
 
 ---
 
@@ -164,7 +166,7 @@ migration sem o cabecalho e sem o `commit;`
 Tudo volta, e a mensagem diz se o conserto conserta. Duas coisas que o tamanho
 cobra: o payload tem que caber em UMA chamada (quebrar em duas aplica a primeira
 metade e mata o rollback), e para caber vale tirar comentario **fora de string**
-por script (`enxuga_sql.py`, no scratchpad), nunca a mao.
+por script (`ferramentas/enxuga_sql.py`), nunca a mao.
 
 **Nota de padrao, medida pelo `base`:** os arquivos desta linha abrem com `begin;`
 e fecham com `commit;` para poderem ser colados no SQL Editor, mas o
@@ -240,7 +242,7 @@ a G6 (a secao 3 acima).
 ### 7.2 A prova chegou no limite do transporte, e isso e divida
 
 `ferramentas/prova_calc_parse.sql` tem **136889 bytes**, e **78356** depois de
-tirar comentario fora de string (`enxuga_prova.py`). Esse payload de 78 KB **passou
+tirar comentario fora de string (`ferramentas/enxuga_sql.py`). Esse payload de 78 KB **passou
 uma vez e travou outra** na mesma sessao. Nao e o banco: o `statement_timeout` e
 120000 ms, entao statement pendurado por 926s nao esta no Postgres, e os
 componentes medidos somam ~30s. E o transporte do MCP.
@@ -304,7 +306,161 @@ sozinho, sem Claude Code** (D7).
 
 ---
 
-## 10. O que continua verdade
+## 10. A PROXIMA SESSAO, PRONTA: partir a prova
+
+Preparada em 12/09/2026 a pedido do dono, que abre a sessao seguinte por aqui.
+**Tudo abaixo foi medido**, nao estimado. Remedir o tamanho antes de cortar
+(PROCESSO 2: plano e hipotese datada), porque a prova so cresce.
+
+### 10.1 Por que vem antes da tela
+
+A tela `Alimentar` mexe no mesmo laco de aprendizado que a prova cobre. A prova ja
+travou uma vez por transporte. Se ela deixar de rodar no meio da tela, a regressao
+volta calada, e a tela e a fatia com mais chance de causar uma.
+
+### 10.2 O estado de partida, medido
+
+`ferramentas/enxuga_sql.py` (no repo desde 12/09) contra a prova de hoje:
+
+```
+python ferramentas/enxuga_sql.py ferramentas/prova_calc_parse.sql /tmp/x.sql
+bytes: 136889 -> 78356
+md5: ad4f9b6d7b171dfd4b8007508f31a453
+AVISO: 78356 bytes passa do limite seguro de 66560 ...
+EXIT=2
+```
+
+**Esse EXIT 2 e o criterio de aceite ao contrario:** a fatia acaba quando cada
+arquivo gerado sair com EXIT 0.
+
+Tamanho de cada secao, enxuta, e as dependencias da tabela seguinte saem de UM
+comando, que acha as secoes pelos marcadores e nao por numero de linha:
+
+```
+python ferramentas/mede_corte_prova.py
+```
+
+| Secao | Linhas | Enxuto |
+|---|---|---|
+| `declare` | 1-159 | 1141 |
+| fixtures A a F | 160-357 | 4897 |
+| preambulo (`v_b`, `v_b1`, `v_cc`, `v_dd`) | 358-366 | 188 |
+| H helpers | 367-435 | 2333 |
+| A fixture A | 436-697 | 6793 |
+| B fixture B | 698-927 | 6971 |
+| E escopo | 928-1021 | 2329 |
+| F conservacao | 1022-1054 | 1246 |
+| G resolver | 1055-1287 | 7493 |
+| Z `2.4a zero` | 1288-1413 | 5828 |
+| R condicao | 1414-1748 | 12896 |
+| **K `criar`** | 1749-2274 | **17788** |
+| L D18 | 2275-2468 | 5796 |
+| relatorio final | 2469-2516 | 2630 |
+
+**Dependencias ENTRE secoes** (variavel lida numa, atribuida primeiro em outra),
+medidas por script. Sao elas que decidem o corte, nao o tamanho:
+
+| Secao | Le de | Variavel |
+|---|---|---|
+| F | A | `v_r` |
+| Z | G | `v_aceitas` |
+| R | G | `v_cargas`, `v_cond` |
+| **L** | **G** | **`v_cargas`** (so a L19) |
+| relatorio | A, G, R, K | `v_r`, `v_n_aceitas`, `v_n_recusas`, `v_rc`, `v_rd`, `v_ee`, `v_k13` |
+
+E as variaveis do preambulo (`v_b`, `v_b1`, `v_cc`, `v_dd`) sao lidas por B, F, Z,
+R e pelo relatorio.
+
+### 10.3 O corte proposto: TRES arquivos, nao dois
+
+Dois arquivos daria um de ~57 KB, perto demais da zona instavel para uma prova que
+cresce a cada fatia. Tres, pelas dependencias:
+
+| Arquivo | Secoes | Fixtures | Enxuto estimado |
+|---|---|---|---|
+| `prova_calc_leitor.sql` | H, A, B, E, F | A, B, C, D | ~25 KB |
+| `prova_calc_laco.sql` | G, Z, R | A, B, C, D | ~32 KB |
+| `prova_calc_catalogo.sql` | K, L | E, F | ~27 KB |
+
+Cada um com folga de ~2x ate o limite seguro.
+
+**Uma mudanca de codigo e necessaria, e so uma:** a L19 le `v_cargas` da secao G, e
+isso amarra o arquivo do catalogo ao do laco. A L19 tem que abrir a PROPRIA carga,
+com uma lista de duas linhas que gera pergunta de `preco`. Essa lista ja foi medida
+em 12/09 e gera a pergunta (`preco com condicao pendurada: a calc nao tem onde
+guardar condicao`):
+
+```
+[11/09/2026, 14:00:00] Vini: Junior recreio
+iPhone 16 128GB Preto Lacrado - 4.100 a vista
+```
+
+Tirar esse acoplamento e melhor em si: assercao que depende do estado deixado por
+outra secao quebra quando a outra muda.
+
+### 10.4 O gerador: UMA fonte, tres saidas
+
+As fixtures A a D sao usadas por DOIS arquivos. Copia-las a mao e o erro que ja
+aconteceu neste projeto (duas copias divergiram e a prova reprovou por defeito
+dela, nao do motor). Entao:
+
+- **`ferramentas/prova_calc_parse.sql` continua a FONTE**, e ganha marcadores de
+  comentario (`-- @@secao G`, `-- @@fixture C`, `-- @@relatorio laco`), que o
+  enxugador ja tira;
+- **`ferramentas/gera_provas_calc.py`** (no REPO, porque roda de novo toda vez que a
+  prova muda: PROCESSO 3.1) le a fonte e escreve os tres arquivos, cada um com o
+  `declare`, as fixtures que as secoes dele leem, o preambulo, as secoes e o
+  pedaco dele do relatorio;
+- **o gerador recusa** se um arquivo gerado ler variavel que ele nao atribui (a
+  mesma medida da tabela 10.2, agora como guarda), e se o enxuto de qualquer um
+  passar de 65 KB (roda o `enxuga_sql.py` e cobra EXIT 0);
+- a fonte ganha no topo a frase "NAO RODAR POR MCP: rodar os tres gerados".
+
+### 10.5 Criterio de aceite, com numero
+
+1. Os tres arquivos saem do gerador, e o `enxuga_sql.py` sai com **EXIT 0** em cada.
+2. As tres rodadas devolvem `PASSOU`, e **a soma das assercoes e 113**, com 0 falhas.
+   Numero diferente de 113 e reprovacao: alguma assercao se perdeu ou duplicou no
+   corte.
+3. As linhas de sumario dos tres relatorios, juntas, dizem o mesmo que o relatorio
+   de hoje (secao 7 acima), numero por numero.
+4. Producao intacta depois de CADA rodada: 0 cargas, 0 pendencias, 0 linhas com
+   `origem = 'aprendizado'`.
+5. Rodar o gerador duas vezes seguidas nao muda nenhum md5 (deterministico).
+
+### 10.6 O que NAO fazer
+
+- Nao quebrar uma chamada de `execute_sql` em duas. Partir o ARQUIVO, nunca a
+  chamada.
+- Nao mudar assercao nenhuma alem da L19. Esta fatia e so corte: se um numero
+  mudar, o corte esta errado.
+- Nao apagar a fonte monolitica. Ela e a fonte.
+- Nao aplicar migration nenhuma: esta fatia nao toca o banco.
+
+### 10.7 O que atualizar no fechamento
+
+- `CLAUDE.md`, bloco "Provas de BANCO": hoje lista quatro arquivos, entre eles
+  `prova_calc_parse.sql`. Passa a listar os tres gerados e dizer que a fonte nao
+  roda por MCP.
+- memoria `limite-payload-execute-sql`: acrescentar o gerador.
+- handoff v14 e o indice.
+
+### 10.8 Prompt para abrir a sessao (copiar e colar)
+
+```
+Comecar a fatia "partir a prova", secao 10 do
+docs/handoffs/handoff_calculadora_pitwall_v13.md. Seguir o
+docs/calculadora/PROCESSO.md. Antes de cortar, remedir com
+python ferramentas/mede_corte_prova.py
+e comparar com as duas tabelas da 10.2, porque a prova pode ter crescido.
+Corte em tres arquivos gerados por ferramentas/gera_provas_calc.py a partir da
+fonte unica. Criterio de aceite: a 10.5, soma de 113 assercoes.
+Nao tocar o banco.
+```
+
+---
+
+## 11. O que continua verdade
 
 - Invariante 17; restricao 8 (fixtures sinteticas, precos inventados).
 - As funcoes de `privado` sem grant e DESENHO.

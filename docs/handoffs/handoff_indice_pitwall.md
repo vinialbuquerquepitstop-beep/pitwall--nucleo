@@ -529,8 +529,19 @@ nenhuma das duas batia com o repo.
      fornecedores que nao vieram na lista, e um deles tinha o mesmo preco.
 
   **Divida aberta na secao 7.2, e ela vence rapido:** a prova tem 78 KB depois de
-  enxugada, passou uma vez e TRAVOU outra no transporte do MCP. Precisa virar dois
-  arquivos gerados por script a partir de UMA fonte, senao vira arquivo morto.
+  enxugada, passou duas vezes e TRAVOU uma no transporte do MCP. Precisa ser
+  partida por script a partir de UMA fonte, senao vira arquivo morto.
+
+  **A PROXIMA SESSAO COMECA PELA SECAO 10 DO v13**, preparada em 12/09/2026: o
+  corte medido (TRES arquivos, nao dois, pelas dependencias entre secoes), a unica
+  mudanca de assercao necessaria (a L19 deixa de ler a carga da secao G), o
+  criterio de aceite (soma de 113 assercoes) e o prompt pronto. As duas
+  ferramentas que ela precisa ja estao no repo: `ferramentas/enxuga_sql.py` (sai
+  com EXIT 2 na prova de hoje, e e esse o criterio ao contrario) e
+  `ferramentas/mede_corte_prova.py`.
+
+  **D19, decidida pelo dono em 12/09/2026:** o "ver o que aprendeu" entra na tela
+  `Alimentar`, e nao depois. Custo de banco zero, medido.
 
 - anterior: `handoff_calculadora_pitwall_v12.md` (11/09/2026, **o verbo `criar`, e o
   `descartar` achado quebrado**). O `2.4a` com o `ter` e o `quater`, na mesma sessao

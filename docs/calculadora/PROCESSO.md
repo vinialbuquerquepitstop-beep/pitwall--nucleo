@@ -85,6 +85,13 @@ que so aparece no portao, quando ja custou a sessao inteira.
 
 O script vira o registro de como o dado foi montado, e regerar e barato.
 
+**Onde o script mora depende de quantas vezes ele roda.** O scratchpad morre com a
+sessao. Script de uso UNICO (o `gera_d18.py` que montou uma migration) pode ficar
+nele: o artefato duravel e a migration, e o cabecalho dela cita o md5 de onde
+partiu. **Script que roda de novo vai para `ferramentas/`.** Medido em 12/09/2026:
+o enxugador da prova so existia no scratchpad, e o handoff da D18 apontava para
+ele. A sessao seguinte abriria o documento e acharia o nada.
+
 ### 3.2 PRE-CHECAR antes de gravar
 
 Antes de escrever qualquer coisa, rodar uma consulta que compara o artefato com o

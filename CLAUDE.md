@@ -20,10 +20,11 @@ aponte para arquivo inexistente.
    `definir`. Em 11/09 a tarde entrou o verbo `criar`: fornecedor e modelo novos
    nascem num clique, com guarda de quase-igual e origem do que se aprende (D17).
    E a noite fechou a **D18**: o `descartar` de fornecedor, que nao descartava e
-   entregava o bloco ao fornecedor de cima, com preco e tudo. **A tela e a proxima
-   fatia**, junto de uma divida pequena e urgente: a prova de banco tem 78 KB
-   enxugada, ja passou uma vez e TRAVOU outra no transporte do MCP, e precisa virar
-   dois arquivos gerados por script (secao 7.2 do v13).
+   entregava o bloco ao fornecedor de cima, com preco e tudo. **A proxima sessao
+   comeca pela SECAO 10 do v13**, ja preparada e medida: partir a prova de banco
+   (78 KB enxugada, travou uma vez no transporte do MCP) em tres arquivos gerados
+   por script, com o prompt pronto. **Depois vem a tela `Alimentar`**, que por
+   decisao do dono (D19) ja nasce mostrando o que o laco aprendeu.
    **Tres regras que sairam da D18 e valem para o projeto todo:** padrao gravado
    tem que estar na MESMA normalizacao do texto contra o qual ele casa (`lower()`
    contra `privado.calc_norm()` falha calado, mesma familia do `\b` e do `calc()`
