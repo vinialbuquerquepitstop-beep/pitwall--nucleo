@@ -137,7 +137,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600}
       <div id="s1Nova">
         <div class="card">
           <textarea id="aTexto" placeholder="[12/09/2026, 09:12:03] Fornecedor: TABELA&#10;iPhone 16 128GB Preto Lacrado - 4.299"></textarea>
-          <div class="campo"><span>OU ESCOLHA O ARQUIVO</span><input type="file" id="aArq" accept=".txt,text/plain"></div>
+          <div class="campo"><span>OU ESCOLHA O ARQUIVO (o .zip do export ou o _chat.txt)</span><input type="file" id="aArq" accept=".zip,.txt,text/plain,application/zip"></div>
           <div class="hint" id="aDatas">Nenhuma lista colada ainda.</div>
           <div class="bts"><button class="bt pri big2" data-acao="ler">Ler a lista</button></div>
           <div class="erro" id="aErro1" hidden></div>
@@ -230,6 +230,63 @@ function datasDaLista(txt){
 function textoDatas(d){
   if(!d||!d.n)return 'Não achei data nas mensagens: confira se a lista é recente antes de aprovar.';
   return 'Mensagens de '+d.de+' a '+d.ate+' ('+pl(d.n,'mensagem','mensagens')+' com data).';
+}
+
+// ── O ARQUIVO ──────────────────────────────────────────────────────────────
+// Medido em 12/09/2026, no primeiro uso real: o export do WhatsApp vem em .zip,
+// a tela lia o zip como texto, os bytes binarios viravam o caractere nulo, e o banco
+// devolvia `unsupported Unicode escape sequence` (400, nada gravado). Duas
+// defesas: o zip e aberto aqui (extrai o _chat.txt), e texto com caractere
+// binario e recusado ANTES de ir para o banco, com a palavra certa.
+function problemaTexto(t){
+  if(String(t).indexOf('\u0000')>=0)return 'Este arquivo não é texto: ele tem caracteres binários. Escolha o .zip do export do WhatsApp ou o _chat.txt de dentro dele.';
+  var rep=(String(t).match(/\uFFFD/g)||[]).length;
+  if(t.length&&rep>20&&rep/t.length>0.01)return 'Este arquivo não parece texto (muitos caracteres ilegíveis). Escolha o .zip do export do WhatsApp ou o _chat.txt de dentro dele.';
+  return null;
+}
+function decodificar(b){
+  var t;
+  if(b.length>=2&&b[0]===0xFF&&b[1]===0xFE)t=new TextDecoder('utf-16le').decode(b.subarray(2));
+  else if(b.length>=2&&b[0]===0xFE&&b[1]===0xFF)t=new TextDecoder('utf-16be').decode(b.subarray(2));
+  else t=new TextDecoder('utf-8').decode(b.length>=3&&b[0]===0xEF&&b[1]===0xBB&&b[2]===0xBF?b.subarray(3):b);
+  var ruim=problemaTexto(t);
+  return ruim?{erro:ruim}:{texto:t};
+}
+// Leitor de .zip minimo: diretorio central, entrada `stored` (0) ou `deflate` (8).
+// Prefere `_chat.txt`; sem ele, o maior .txt. Ignora a pasta __MACOSX.
+async function textoDoZip(b){
+  var dv=new DataView(b.buffer,b.byteOffset,b.byteLength),fim=-1,i;
+  for(i=b.length-22;i>=Math.max(0,b.length-22-65535);i--){if(dv.getUint32(i,true)===0x06054b50){fim=i;break;}}
+  if(fim<0)return {erro:'Não consegui abrir este .zip (arquivo incompleto ou corrompido). Descompacte e escolha o _chat.txt.'};
+  var n=dv.getUint16(fim+10,true),off=dv.getUint32(fim+16,true),ents=[];
+  for(i=0;i<n;i++){
+    if(off+46>b.length||dv.getUint32(off,true)!==0x02014b50)return {erro:'Não consegui ler o índice deste .zip. Descompacte e escolha o _chat.txt.'};
+    var nl=dv.getUint16(off+28,true),el=dv.getUint16(off+30,true),cl=dv.getUint16(off+32,true);
+    ents.push({flags:dv.getUint16(off+8,true),met:dv.getUint16(off+10,true),csz:dv.getUint32(off+20,true),usz:dv.getUint32(off+24,true),loc:dv.getUint32(off+42,true),
+               nome:new TextDecoder('utf-8').decode(b.subarray(off+46,off+46+nl))});
+    off+=46+nl+el+cl;
+  }
+  var txts=ents.filter(function(e){return /\.txt$/i.test(e.nome)&&!/(^|\/)__MACOSX\//.test(e.nome);});
+  if(!txts.length)return {erro:'Este .zip não tem nenhum .txt dentro. O export do WhatsApp traz o _chat.txt: confira se exportou a conversa certa.'};
+  var e=txts.filter(function(x){return /(^|\/)_chat\.txt$/i.test(x.nome);})[0]||txts.sort(function(a,c){return c.usz-a.usz;})[0];
+  if(e.flags&1)return {erro:'Este .zip tem senha. Exporte a conversa de novo, sem senha.'};
+  var ini=e.loc+30+dv.getUint16(e.loc+26,true)+dv.getUint16(e.loc+28,true);
+  var dados=b.subarray(ini,ini+e.csz),r;
+  if(e.met===0)r=decodificar(dados);
+  else if(e.met===8){
+    if(typeof DecompressionStream==='undefined')return {erro:'Este navegador não abre .zip. Descompacte o arquivo e escolha o _chat.txt.'};
+    var s=new Blob([dados]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    r=decodificar(new Uint8Array(await new Response(s).arrayBuffer()));
+  }else return {erro:'Este .zip usa uma compressão que a tela não lê. Descompacte e escolha o _chat.txt.'};
+  if(r.texto!=null)r.origem=e.nome;
+  return r;
+}
+async function textoDoArquivo(file){
+  var b=new Uint8Array(await file.arrayBuffer());
+  if(b.length>=4&&b[0]===0x50&&b[1]===0x4B&&b[2]===3&&b[3]===4){
+    try{return await textoDoZip(b);}catch(err){return {erro:'Não consegui abrir este .zip ('+(err&&err.message||err)+'). Descompacte e escolha o _chat.txt.'};}
+  }
+  return decodificar(b);
 }
 
 // ── LEITURA ────────────────────────────────────────────────────────────────
@@ -684,6 +741,8 @@ function rAprovada(){
 async function lerLista(){
   var t=$('aTexto').value,er=$('aErro1');er.hidden=true;
   if(!t.trim()){er.hidden=false;er.textContent='Cole a lista ou escolha o arquivo antes.';return;}
+  var ruim=problemaTexto(t);
+  if(ruim){er.hidden=false;er.textContent=ruim;return;}
   ocupado(true,'lendo a lista...');
   var r=await sb.rpc('calc_carga_abrir',{p_texto:t});
   ocupado(false);
@@ -777,9 +836,12 @@ document.addEventListener('change',function(ev){
   var c=ev.target;
   if(c.hasAttribute&&c.hasAttribute('data-conf')){E.conf[c.getAttribute('data-conf')]=c.checked;if(E.carga)rPasso4();return;}
   if(c.id==='aArq'&&c.files&&c.files[0]){
-    var fr=new FileReader();
-    fr.onload=function(){$('aTexto').value=String(fr.result||'');$('aDatas').textContent=textoDatas(datasDaLista($('aTexto').value));};
-    fr.readAsText(c.files[0]);
+    var er=$('aErro1');er.hidden=true;$('aDatas').textContent='abrindo o arquivo...';
+    textoDoArquivo(c.files[0]).then(function(r){
+      if(r.erro){$('aTexto').value='';er.hidden=false;er.textContent=r.erro;$('aDatas').textContent='Nenhuma lista colada ainda.';c.value='';return;}
+      $('aTexto').value=r.texto;
+      $('aDatas').textContent=(r.origem?'Lido de '+r.origem+' dentro do .zip. ':'')+textoDatas(datasDaLista(r.texto));
+    });
   }
 });
 document.addEventListener('input',function(ev){

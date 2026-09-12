@@ -73,6 +73,8 @@ ok('nao chama alert/confirm/prompt (bloqueiam a tela)',
    not re.search(r'\b(alert|confirm|prompt)\(', script))
 ok('a regra aprendida nao le a coluna padrao', 'padrao' not in
    re.search(r"\['regra','calc_regra','([^']*)'\]", script).group(1))
+ok('o arquivo da tela nao tem caractere nulo nem U+FFFD literal', '\x00' not in html and '\ufffd' not in html)
+ok('o input aceita .zip (o export do WhatsApp vem zipado)', '.zip' in re.search(r'id="aArq" accept="([^"]*)"', html).group(1))
 ok('a calc do dono tem o link para a tela',
    'href="/calc/alimentar/"' in (RAIZ / 'public' / 'calc' / 'index.html').read_text(encoding='utf-8'))
 
@@ -126,7 +128,7 @@ STUB = r"""
       {id:'p9',carga_id:OUTRA,tipo:'condicao',texto:'loja_alfa',causa:'x',exemplo:'x',n_linhas:1,decisao:'definir',aponta:'Lacrado',decidido_em:'2026-09-05T10:00:00Z',criado_em:'2026-09-05T09:00:00Z'}
     ]
   };
-  if (CEN==='S1') { T.calc_regra = T.calc_regra.filter(function(r){return r.tipo==='condicao';}); T.calc_alias=[]; T.calc_modelo.pop(); T.calc_fornecedor.pop(); T.calc_pendencia=[]; }
+  if (CEN==='S1') { T.calc_carga=[]; T.calc_regra = T.calc_regra.filter(function(r){return r.tipo==='condicao';}); T.calc_alias=[]; T.calc_modelo.pop(); T.calc_fornecedor.pop(); T.calc_pendencia=[]; }
   function filtra(q){
     var rows = (T[q.table]||[]).filter(function(r){
       return q.f.every(function(f){ return f[0]==='eq' ? r[f[1]]===f[2] : r[f[1]]!==f[2]; });
@@ -200,6 +202,7 @@ TESTE = r"""
   function clica(D, sel){ var e=D.querySelector(sel); if(e) e.click(); return !!e; }
   function rpcs(W, nome){ return W.__LOG.filter(function(x){return x.t==='rpc' && (!nome||x.nome===nome);}); }
 
+  if (SO !== 'arquivo') {
   // ── S2: carga aberta ──────────────────────────────────────────────────────
   try {
   var s = F('S2'), W=s.W, D=s.D, o={};
@@ -306,6 +309,10 @@ TESTE = r"""
   clica(D1, '[data-acao=ler]'); await sl(60);
   p.vazioErro = txt(D1.getElementById('aErro1'));
   p.vazioSemRpc = rpcs(W1,'calc_carga_abrir').length===0;
+  D1.getElementById('aTexto').value = 'Loja Alfa\u0000lixo';
+  clica(D1, '[data-acao=ler]'); await sl(60);
+  p.nuloErro = txt(D1.getElementById('aErro1'));
+  p.nuloSemRpc = rpcs(W1,'calc_carga_abrir').length===0;
   var ta = D1.getElementById('aTexto'); ta.value='[01/09/2026, 10:00:00] Vini: Loja Alfa\niPhone 16 128GB - 4.000\n[03/09/2026, 11:00:00] Vini: x\n';
   ta.dispatchEvent(new W1.Event('input',{bubbles:true})); await sl(30);
   p.datas = txt(D1.getElementById('aDatas'));
@@ -317,6 +324,8 @@ TESTE = r"""
   R.S1 = p;
   } catch(e) { R.S1 = {erro: String(e && e.stack || e)}; }
 
+  }
+  if (SO !== 'arquivo') {
   // ── S3: papel que nao e dono ──────────────────────────────────────────────
   try {
   var s3=F('S3'), W3=s3.W, D3=s3.D, q={};
@@ -335,30 +344,113 @@ TESTE = r"""
   R.S4 = t;
   } catch(e) { R.S4 = {erro: String(e)}; }
 
+  }
   document.getElementById('saida').textContent = '@@' + JSON.stringify(R) + '@@';
 })();
 """
 
-PAGINA = ('<!doctype html><meta charset="utf-8"><style>html,body{margin:0}iframe{border:0;display:block}</style>'
-          + frame('S2', 360) + frame('S1', 390) + frame('S3', 390) + frame('S4', 390)
-          + '<pre id="saida"></pre><script>window.addEventListener("load",function(){setTimeout(function(){'
-          + TESTE + '},300);});</script>')
+# Os arquivos do S5, montados aqui e nao guardados no repo. O .zip imita o export
+# do WhatsApp: _chat.txt comprimido, uma foto junto e a pasta __MACOSX que o Mac
+# acrescenta (e que tem um `._chat.txt` binario que NAO pode ser escolhido).
+import base64, io, zipfile
+CHAT = '[01/09/2026, 10:00:00] Vini: Loja Alfa\niPhone 16 128GB Preto Lacrado - 4.000\n[02/09/2026, 11:00:00] Vini: fim\n'
+def zipa(entradas, metodo):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', metodo) as zf:
+        for nome, dado in entradas:
+            zf.writestr(nome, dado)
+    return buf.getvalue()
+PNG = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR' + bytes(range(256)) * 4
+ARQ = {
+    # `leia-me.txt` MAIOR que o _chat.txt: sem a preferencia pelo nome, a tela
+    # escolheria o maior e leria o arquivo errado.
+    'deflate.zip': zipa([('__MACOSX/._chat.txt', b'\x00\x05\x16\x07' + bytes(60)), ('IMG-0001.jpg', PNG),
+                         ('leia-me.txt', ('nada de preco aqui\n' * 200).encode('utf-8')),
+                         ('_chat.txt', CHAT.encode('utf-8'))], zipfile.ZIP_DEFLATED),
+    # Sem _chat.txt, e com o AppleDouble do __MACOSX MAIOR que a conversa: sem o
+    # filtro, a tela escolheria o binario.
+    'mac.zip':     zipa([('Conversa.txt', CHAT.encode('utf-8')),
+                         ('__MACOSX/._Conversa.txt', b'\x00\x05\x16\x07' + bytes(4000))], zipfile.ZIP_DEFLATED),
+    'stored.zip':  zipa([('_chat.txt', CHAT.encode('utf-8'))], zipfile.ZIP_STORED),
+    'semtxt.zip':  zipa([('IMG-0001.jpg', PNG)], zipfile.ZIP_DEFLATED),
+    'utf16.txt':   '\ufeff'.encode('utf-16le') + CHAT.encode('utf-16le'),
+    'foto.png':    PNG,
+    'chat.txt':    b'\xef\xbb\xbf' + CHAT.encode('utf-8'),
+}
+ARQ_JS = ('var ARQ=' + json.dumps({k: base64.b64encode(v).decode() for k, v in ARQ.items()}) + ';'
+          + 'var CHAT=' + json.dumps(CHAT) + ';')
 
+def pagina(so, frames):
+    return ('<!doctype html><meta charset="utf-8"><style>html,body{margin:0}iframe{border:0;display:block}</style>'
+            + ''.join(frames)
+            + '<pre id="saida"></pre><script>var SO=' + json.dumps(so) + ';' + ARQ_JS
+            + 'window.addEventListener("load",function(){setTimeout(function(){' + TESTE + '},300);});</script>')
+
+# DUAS rodadas de Chrome, e o motivo foi medido em 12/09/2026: com
+# `--virtual-time-budget`, ler arquivo (`file.arrayBuffer()`, E/S real) nao
+# resolvia a tempo, porque o relogio virtual corre na frente da leitura. Ate um
+# .txt de 100 bytes "travava", em 4 de 4 rodadas, com a tela certa. Navegador de
+# verdade nao tem tempo virtual: e artefato da ferramenta. Por isso o cenario de
+# ARQUIVO roda em tempo real (`--timeout`), e os de tela seguem no tempo virtual,
+# que e o que os deixa rapidos e deterministicos.
+def rodar(so, frames, tempo):
+    with tempfile.TemporaryDirectory() as td:
+        pag = pathlib.Path(td) / 'p.html'
+        pag.write_text(pagina(so, frames), encoding='utf-8')
+        cmd = [CHROME, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+               '--allow-file-access-from-files', '--window-size=900,1000',
+               '--user-data-dir=' + str(pathlib.Path(td) / 'perfil')] + tempo + ['--dump-dom', pag.as_uri()]
+        dom = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8',
+                             errors='replace', timeout=180).stdout
+    # So dentro do <pre>: o proprio codigo do roteiro, que tambem vai no dump, tem
+    # `@@`, e contar arrobas no dump inteiro passava roteiro inacabado como medida.
+    m = re.search(r'<pre id="saida">@@(.*?)@@</pre>', dom, re.S)
+    if not m:
+        print('REPROVOU: a rodada "%s" nao produziu medida (Chrome nao terminou o roteiro)' % so)
+        sys.exit(1)
+    import html as _h
+    return json.loads(_h.unescape(m.group(1)))
+
+R = rodar('base', [frame('S2', 360), frame('S1', 390), frame('S3', 390), frame('S4', 390)],
+          ['--virtual-time-budget=60000'])
+
+# O ARQUIVO roda no NODE, com as funcoes extraidas do HTML real e executadas (nao
+# copiadas). Medido em 12/09/2026: no Chrome com `--virtual-time-budget`, ate um
+# .txt de 100 bytes "travava" em `file.arrayBuffer()` (4 de 4 rodadas, com a tela
+# certa), porque o relogio virtual corre na frente da E/S real; e `--timeout` nao
+# segura o dump. Node 24 tem TextDecoder, Blob, Response e DecompressionStream.
+ini_a = html.index('// ── O ARQUIVO')
+fim_a = html.index('// ── LEITURA')
+FUNCOES = html[ini_a:fim_a]
+NODE = FUNCOES + r'''
+const ARQ = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+(async () => {
+  const CHAT = ARQ.__CHAT; const out = {};
+  for (const nome of Object.keys(ARQ)) {
+    if (nome === '__CHAT') continue;
+    const b = Buffer.from(ARQ[nome], 'base64');
+    const f = { name: nome, arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) };
+    const r = await textoDoArquivo(f);
+    out[nome] = { igual: r.texto === CHAT, temTexto: r.texto != null, origem: r.origem || null, erro: String(r.erro || '') };
+  }
+  out.__nuloDireto = problemaTexto('Loja Alfa\u0000lixo');
+  process.stdout.write(JSON.stringify(out));
+})().catch(e => { process.stdout.write(JSON.stringify({__erro: String(e && e.stack || e)})); });
+'''
+entrada = dict({k: base64.b64encode(v).decode() for k, v in ARQ.items()}, __CHAT=CHAT)
 with tempfile.TemporaryDirectory() as td:
-    pag = pathlib.Path(td) / 'p.html'
-    pag.write_text(PAGINA, encoding='utf-8')
-    cmd = [CHROME, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-           '--allow-file-access-from-files', '--window-size=900,1000',
-           '--user-data-dir=' + str(pathlib.Path(td) / 'perfil'),
-           '--virtual-time-budget=60000', '--dump-dom', pag.as_uri()]
-    dom = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8',
-                         errors='replace', timeout=180).stdout
-
-if dom.count('@@') < 2:
-    print('REPROVOU: a pagina nao produziu medida (Chrome nao terminou o roteiro)')
+    js = pathlib.Path(td) / 'arquivo.js'
+    js.write_text(NODE, encoding='utf-8')
+    rn = subprocess.run(['node', str(js)], input=json.dumps(entrada), capture_output=True, text=True,
+                        encoding='utf-8', errors='replace', timeout=60)
+try:
+    A = json.loads(rn.stdout)
+except Exception:
+    print('REPROVOU: o teste de arquivo no node nao devolveu medida: ' + (rn.stderr or rn.stdout)[:400])
     sys.exit(1)
-import html as _h
-R = json.loads(_h.unescape(dom.split('@@')[1]))
+if A.get('__erro'):
+    print('REPROVOU: erro no teste de arquivo: ' + A['__erro'][:400])
+    sys.exit(1)
 
 for cen in ('S1', 'S2', 'S3', 'S4'):
     if R.get(cen, {}).get('erro'):
@@ -446,9 +538,32 @@ ok('aprendido vazio aparece com frase, nao some  [%s]' % p['apr'][:40], 'Nada fo
 ok('sem carga, nao ha botao de visao "desta lista"', p['semBotaoVisao'])
 ok('o status declara a data da tabela atual  [%s]' % p['status'], p['status'] == 'tabela atual de 17/08/2026')
 ok('ler vazio: erro na tela e nenhuma RPC', 'Cole a lista' in p['vazioErro'] and p['vazioSemRpc'])
+ok('colado com caractere nulo: recusado na tela  [%s]' % p['nuloErro'][:40], 'não é texto' in p['nuloErro'])
+ok('e nao chega ao banco (nenhuma RPC)', p['nuloSemRpc'])
 ok('as datas da lista aparecem ao colar  [%s]' % p['datas'], p['datas'] == 'Mensagens de 01/09/2026 a 03/09/2026 (2 mensagens com data).')
 ok('ler manda o texto colado inteiro', (p['abrir'] or {}).get('p_texto', '').startswith('[01/09/2026, 10:00:00] Vini: Loja Alfa'))
 ok('depois de ler, o passo 2 aparece e a caixa esvazia', p['s2visivel'] and p['textoLimpo'])
+
+print('— o arquivo (o defeito do primeiro uso real), no node —')
+ok('.zip comprimido: extrai o _chat.txt, nao o leia-me.txt maior nem o ._chat.txt do __MACOSX  %s' % A['deflate.zip'],
+   A['deflate.zip']['igual'] and A['deflate.zip']['origem'] == '_chat.txt')
+ok('.zip sem compressao tambem abre', A['stored.zip']['igual'])
+ok('sem _chat.txt, pega a conversa e nao o binario maior do __MACOSX  %s' % A['mac.zip'],
+   A['mac.zip']['igual'] and A['mac.zip']['origem'] == 'Conversa.txt')
+ok('.zip sem .txt: erro que diz o que fazer  [%s]' % A['semtxt.zip']['erro'][:50],
+   'não tem nenhum .txt' in A['semtxt.zip']['erro'] and not A['semtxt.zip']['temTexto'])
+ok('texto UTF-16 com BOM vira texto certo', A['utf16.txt']['igual'])
+ok('texto UTF-8 com BOM perde o BOM', A['chat.txt']['igual'])
+ok('imagem e recusada como nao texto  [%s]' % A['foto.png']['erro'][:40],
+   'não é texto' in A['foto.png']['erro'] and not A['foto.png']['temTexto'])
+ok('texto com caractere nulo e recusado pela funcao', 'não é texto' in (A['__nuloDireto'] or ''))
+# o caminho do input nao roda aqui (DataTransfer so existe no navegador, e no
+# Chrome da prova ler arquivo trava): cobra-se que ele USA a funcao provada acima
+# e que o erro dela vai para a tela e esvazia a caixa.
+chg = html[html.index("if(c.id==='aArq'"):html.index("document.addEventListener('input'")]
+ok('o input de arquivo passa por textoDoArquivo', 'textoDoArquivo(c.files[0])' in chg)
+ok('erro do arquivo: caixa vazia e mensagem na tela', "$('aTexto').value=''" in chg and 'er.textContent=r.erro' in chg)
+ok('o input diz de onde leu dentro do .zip', 'dentro do .zip' in chg)
 
 q = R['S3']
 print('— S3: papel que nao e dono —')
