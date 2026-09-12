@@ -278,11 +278,19 @@ corrigiu para a geometria da calc.
 
 | # | Item | Trava | Peso |
 |---|---|---|---|
-| 1 | A tela `Alimentar` (com as QUATRO obrigacoes: as tres da secao 6 do v12 e a da grafia, abaixo) | o portao do Bloco 2 | grande |
-| 2 | **Partir a prova em dois arquivos gerados por script** (secao 7.2) | a prova ja falha por transporte | pequeno |
+| 1 | **Partir a prova em dois arquivos gerados por script** (secao 7.2) | a prova ja falha por transporte, e a tela mexe no mesmo laco | pequeno |
+| 2 | A tela `Alimentar`, **com o "ver o que aprendeu" DENTRO dela (D19)** e as quatro obrigacoes: as tres da secao 6 do v12 e a da grafia, abaixo | o portao do Bloco 2 | grande |
 | 3 | Isolamento vendedor/tenant na secao G | passe de seguranca | pequeno |
-| 4 | `2.4b` dialeto do fornecedor, `2.4c` a aba do que aprendeu | | media |
+| 4 | `2.4b` dialeto do fornecedor; `2.4c` agora so o `desfazer` e a curva | | media |
 | 5 | Derrubar o v1 | o portao do Bloco 2 | pequeno |
+
+**D19, decidida pelo dono em 12/09/2026:** o "ver o que aprendeu" entra na tela
+`Alimentar`, e nao depois. O laco aprende errado com a mesma facilidade com que
+aprende certo, e a tela torna ensinar facil. **Custo de banco: zero**, medido: a
+tela so le (`SELECT` nas seis tabelas, sem `UPDATE` nem `DELETE`), e as colunas de
+origem ja existem. As cinco regras que a tela tem que respeitar estao na D19 do
+plano; a que mais engana e mostrar regra de descarte pelo `motivo`, nunca pelo
+`padrao` (`^fabrica zeta$` e ilegivel para quem ensinou).
 
 **A tela ganhou uma obrigacao nova, alem das tres do v12:** o botao de descartar
 fornecedor amarra o descarte a GRAFIA daquele cabecalho. O texto tem que dizer

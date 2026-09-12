@@ -1314,6 +1314,45 @@ fatias eram uma so o tempo todo.
 - [ ] **2.4c — O palpavel: a aba mostra o que aprendeu.** Secao nova no painel
   `Catalogo`, newest-first (invariante 6), com `desfazer` por linha, e a curva por
   fornecedor (`MP Imports · 3 listas · 61% -> 88% -> 97%`).
+  **PARTIDA em 12/09/2026 pela D19:** o VER sai daqui e entra na tela `Alimentar`.
+  Fica na 2.4c so o `desfazer` e a curva por fornecedor.
+
+- [x] **D19 — DECIDIDA pelo dono em 12/09/2026: o "ver o que aprendeu" entra NA
+  tela `Alimentar`, e nao depois dela.**
+  Recomendacao da Torre, aceita. O motivo e o risco que a tela cria: ela torna
+  ensinar facil, e **o laco aprende errado com a mesma facilidade com que aprende
+  certo**. Um `apontar` errado vira preco errado TODO mes, sem a cobertura cair e
+  sem pergunta nenhuma aparecer. Ensinar facil sem ver o que foi ensinado e juntar
+  preco errado mais rapido. O `desfazer` pode vir depois; o VER, nao.
+
+  **Custo de banco: zero, medido em 12/09/2026.** `authenticated` tem `SELECT` e
+  NAO tem `UPDATE` nem `DELETE` nas seis tabelas (`calc_alias`, `calc_regra`,
+  `calc_modelo`, `calc_cor`, `calc_fornecedor`, `calc_carga`), e as cinco do
+  catalogo ja tem `origem`, `carga_id`, `criado_por` e `criado_em` desde a
+  `2.4a quater`. A tela le direto, a RLS filtra o tenant, nao ha RPC a escrever.
+  Desfazer e escrita, e escrita e RPC: por isso ele fica na 2.4c.
+
+  **O que a tela tem que respeitar, e cada item e medido, nao gosto:**
+  1. **Filtro `origem = 'aprendizado'`, ordem `criado_em desc`** (invariante 6).
+     Semente nao entra: nao foi o dono que ensinou.
+  2. **Regra de descarte se mostra pelo `motivo`, NUNCA pelo `padrao`.** O padrao
+     agora e `^fabrica zeta$` ou `\yverde menta\y`, ilegivel para quem ensinou. O
+     `motivo` ja traz o texto original desde a D18
+     (`fornecedor descartado pelo dono em 11/09/2026: Fábrica Zeta`).
+  3. **A data vem do `criado_em` da linha, nao da carga.** `carga_id` NAO tem FK de
+     proposito (proveniencia nao some quando a carga some), entao a carga de origem
+     pode nao existir mais. Link para ela, so quando ela existir.
+  4. **Hoje a lista e VAZIA** (zero linhas `aprendizado`, medido pela `bandeira` em
+     12/09). O vazio aparece como frase, nao some (memoria
+     `campo-vazio-tem-que-aparecer`): some a secao e o dono nao sabe que ela existe.
+  5. **Duas visoes, e as duas usam a mesma consulta:** o que ESTA lista ensinou
+     (`carga_id` da carga aberta), logo depois de cada resposta, e tudo o que ja foi
+     ensinado, newest-first.
+
+  **O que esta decisao NAO resolve, e fica declarado:** ver sem desfazer ainda deixa
+  o erro no ar ate a 2.4c. E `calc_alias` **nao tem coluna `ativo`** (medido), entao
+  o desfazer de apelido vai exigir escolher entre apagar a linha e criar o
+  interruptor. Essa escolha e da 2.4c, nao desta.
 
 **Portao do 2.4:** a MESMA lista de um fornecedor novo passa duas vezes, e a segunda
 abre **estritamente menos pendencias** que a primeira. Sem essa medicao a promessa do
