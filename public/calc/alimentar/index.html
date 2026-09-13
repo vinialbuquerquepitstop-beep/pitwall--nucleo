@@ -523,16 +523,20 @@ function estadoPend(p){
   if(p.decisao==='criar')return '<span class="chip gr">criado: '+esc(rotuloDestino(p.tipo,p.aponta))+'</span>';
   if(p.decisao==='descartar')return '<span class="chip">descartado para sempre</span>';
   if(p.decisao==='definir')return '<span class="chip bl">condição: '+esc(p.aponta)+' (só esta lista)</span>';
+  if(p.decisao==='confirmar')return '<span class="chip gr">preço confirmado (só esta lista)</span>';
   return '<span class="chip">'+esc(p.decisao)+'</span>';
 }
 
 // Quais verbos cada tipo aceita, medido nas RPCs em 12/09/2026:
 // apontar: modelo, cor, fornecedor. criar: modelo, fornecedor. descartar: tudo
 // menos condicao (T4) e preco (T5). definir: so condicao. ignorar: todos.
+// confirmar (D20): so a pergunta de preco ABAIXO DA TABELA, e vale so para esta lista.
+function abaixoDaTabela(p){return p.tipo==='preco'&&String(p.texto||'').indexOf('abaixo da tabela:')===0;}
 function verbos(p){
   var fechada=p.decisao==='apontar'||p.decisao==='descartar'||p.decisao==='criar';
   if(fechada)return [];
   var v=[];
+  if(abaixoDaTabela(p)&&p.decisao!=='confirmar')v.push(['confirmar','O preço está certo']);
   if(p.tipo==='condicao')v.push(['definir','Dizer a condição']);
   if(p.tipo==='modelo'||p.tipo==='cor'||p.tipo==='fornecedor')v.push(['apontar','É outro nome de…']);
   if(p.tipo==='modelo'||p.tipo==='fornecedor')v.push(['criar',p.tipo==='modelo'?'Criar modelo novo':'Criar fornecedor novo']);
@@ -550,7 +554,8 @@ function cardPend(p){
     '<div class="causa">'+esc(p.causa)+'</div>'+
     (p.exemplo?'<code class="ex">'+esc(p.exemplo)+'</code>':'');
   if(p.decisao&&p.decidido_em)h+='<div class="hint" style="margin-top:4px">respondida em '+esc(dataBR(p.decidido_em))+'</div>';
-  if(p.tipo==='preco'&&p.decisao==null)h+='<div class="hint" style="margin-top:6px">A calculadora não tem onde guardar condição de pagamento. Esta linha só pode ficar fora desta lista.</div>';
+  if(abaixoDaTabela(p)&&p.decisao==null)h+='<div class="aviso" id="aAbaixo-'+esc(p.id)+'">Este preço está muito abaixo do menor da tabela atual. Quase sempre é a leitura pegando o número errado da linha. Confira na lista do fornecedor antes de responder.</div>';
+  else if(p.tipo==='preco'&&p.decisao==null)h+='<div class="hint" style="margin-top:6px">A calculadora não tem onde guardar condição de pagamento. Esta linha só pode ficar fora desta lista.</div>';
   var vs=verbos(p);
   if(vs.length){
     h+='<div class="bts">'+vs.map(function(v){
@@ -616,6 +621,9 @@ function formPend(p,v){
     if(s)h+='<div class="hint" style="margin-top:4px">Sugestão: na última lista você disse <b>'+esc(s.valor)+'</b> ('+esc(diaBR(s.em))+'). Confirme ou troque.</div>';
     if(!E.cat.cond.length)h+='<div class="erro">Nenhuma condição ativa no catálogo: não há o que dizer aqui.</div>';
     h+='<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="definir"'+(sel?'':' disabled')+'>Confirmar condição</button></div>';
+  }else if(v==='confirmar'){
+    h+='<div class="hint">Vale só para esta lista: o preço entra na tabela como está. A próxima lista pergunta de novo. Se foi engano, “Deixar fora desta lista” desfaz.</div>'+
+       '<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="confirmar">Confirmar: o preço está certo</button></div>';
   }else if(v==='ignorar'){
     h+='<div class="hint">As linhas desta pendência ficam fora só desta lista. Nada é ensinado: na próxima lista a pendência volta.</div>'+
        '<div class="bts"><button class="bt pri" data-acao="confirmar" data-id="'+id+'" data-verbo="ignorar">Deixar fora desta lista</button></div>';

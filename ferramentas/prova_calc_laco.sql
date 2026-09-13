@@ -1,5 +1,5 @@
 -- prova_calc_laco.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 a5e5f3f1e851e68d8d696e77cba1b851).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 59374c620bbba1c78a742f0b12ec4eaa).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: G, Z, R. Fixtures: A, B, C, D.
@@ -84,6 +84,14 @@ declare
   -- secao P (a bateria da primeira lista real, 12/09/2026)
   v_txg    text;   -- fixture G, o formato da MP: bateria e preco em linhas proprias
   v_gg     jsonb;  -- resultado da fixture G pelo v2
+  -- secao Q (D20: o preco muito abaixo da tabela vira pergunta)
+  v_txh    text;   -- fixture H: um preco errado de R$ 300 e o certo de R$ 4.100
+  v_hh     jsonb;  -- leitura sem confirmacao
+  v_hh2    jsonb;  -- leitura com o preco baixo confirmado
+  v_hk     text;   -- a chave da pergunta `abaixo da tabela: ...`
+  v_kf2    uuid;   -- a carga da lista com condicao pendurada
+  v_qr     jsonb := '{}';  -- o que a secao Q mediu dentro da subtransacao
+  v_qlog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -889,7 +897,8 @@ begin
      or not exists (
        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'privado' and p.proname = 'calc_parse_v2'
-          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb, p_forn_abertos text[]'
+          -- D20 (12/09/2026): o argumento `p_precos_ok` entrou, por DROP + CREATE.
+          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb, p_forn_abertos text[], p_precos_ok text[]'
           and p.proacl::text = '{postgres=X/postgres}') then
     v_falhas := v_falhas + 1;
     v_log := v_log || E'\n  FALHA  [ACL] privado.calc_parse_v2: sobrecarga, assinatura errada ou grant alem do dono: '

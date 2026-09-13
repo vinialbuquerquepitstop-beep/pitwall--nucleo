@@ -176,6 +176,14 @@ declare
   -- secao P (a bateria da primeira lista real, 12/09/2026)
   v_txg    text;   -- fixture G, o formato da MP: bateria e preco em linhas proprias
   v_gg     jsonb;  -- resultado da fixture G pelo v2
+  -- secao Q (D20: o preco muito abaixo da tabela vira pergunta)
+  v_txh    text;   -- fixture H: um preco errado de R$ 300 e o certo de R$ 4.100
+  v_hh     jsonb;  -- leitura sem confirmacao
+  v_hh2    jsonb;  -- leitura com o preco baixo confirmado
+  v_hk     text;   -- a chave da pergunta `abaixo da tabela: ...`
+  v_kf2    uuid;   -- a carga da lista com condicao pendurada
+  v_qr     jsonb := '{}';  -- o que a secao Q mediu dentro da subtransacao
+  v_qlog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -407,6 +415,18 @@ begin
   || E'🔋88% à 100%\n'
   || E'R$2.222,22\n'
   || E'⚫️preto\n';
+
+  -- @@fixture H
+  -- ══ FIXTURE H — o preco baixo que expulsava o certo (D20, 12/09/2026) ═══════
+  -- Na primeira lista real um numero errado (a bateria, R$ 100) virou o menor da
+  -- combinacao e o outlier expulsou os precos verdadeiros. Aqui o errado e R$ 300 e
+  -- o certo R$ 4.100, no mesmo modelo e condicao. A secao Q troca a tabela gravada
+  -- por uma SINTETICA (R$ 4.000) dentro de uma subtransacao, entao a assercao nao
+  -- depende do preco real do dia. Precos inventados (restricao global 8).
+  v_txh :=
+     E'[12/09/2026, 10:00:00] Vini: Junior recreio\n'
+  || E'iPhone 16 128GB Preto Lacrado - 300\n'
+  || E'iPhone 16 128GB Azul Lacrado - 4.100\n';
 
   -- @@preambulo
   -- O gerador leva cada linha daqui SO para o arquivo que le a variavel dela.
@@ -1836,7 +1856,8 @@ begin
      or not exists (
        select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'privado' and p.proname = 'calc_parse_v2'
-          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb, p_forn_abertos text[]'
+          -- D20 (12/09/2026): o argumento `p_precos_ok` entrou, por DROP + CREATE.
+          and pg_get_function_identity_arguments(p.oid) = 'p_tenant uuid, p_texto text, p_condicoes jsonb, p_forn_abertos text[], p_precos_ok text[]'
           and p.proacl::text = '{postgres=X/postgres}') then
     v_falhas := v_falhas + 1;
     v_log := v_log || E'\n  FALHA  [ACL] privado.calc_parse_v2: sobrecarga, assinatura errada ou grant alem do dono: '
@@ -2615,6 +2636,140 @@ begin
              || coalesce(v_msg, '(nenhuma mensagem)');
   end if;
 
+  -- @@secao Q
+  -- ══ Q. D20 — O PRECO MUITO ABAIXO DA TABELA VIRA PERGUNTA (12/09/2026) ═══════
+  -- Decisao do dono: "sim, o preco muito abaixo vira pergunta". Preco que casou e
+  -- ficou abaixo do menor da tabela gravada / fator do outlier vira pergunta de
+  -- `preco` (`abaixo da tabela: ...`) e SAI do calculo do outlier. A resposta
+  -- `confirmar` vale so para esta lista (como o `definir` da D14), e `ignorar`
+  -- desfaz. Migration: supabase/migrations/20260912_calc_d20_preco_abaixo_da_tabela.sql.
+  --
+  -- Tudo numa subtransacao: a tabela gravada vira SINTETICA (iPhone 16 128GB
+  -- Lacrado a R$ 4.000) so aqui dentro, e o `raise` desfaz. As medidas saem em
+  -- `v_qr` e as assercoes rodam depois, fora dela.
+  v_qlog := null;
+  begin
+    update public.calc_dados set dados = jsonb_set(dados, '{produtos}',
+      '[{"n":"iPhone 16 128GB","c":"iPhone","t":"Lacrado","f":"Loja Prova","l":"x","v":4000}]'::jsonb)
+     where tenant_id = v_tenant;
+    v_hh := privado.calc_parse_v2(v_tenant, v_txh);
+    select q->>'texto' into v_hk from jsonb_array_elements(v_hh->'pendencias') q
+     where q->>'texto' like 'abaixo da tabela:%';
+    v_hh2 := privado.calc_parse_v2(v_tenant, v_txh, '{}'::jsonb, '{}'::text[], array[v_hk]);
+
+    execute 'set local role authenticated';
+    v_kf := public.calc_carga_abrir(v_txh);
+    execute 'reset role';
+    select id into v_preco from public.calc_pendencia
+     where carga_id = v_kf and texto like 'abaixo da tabela:%';
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_preco, 'confirmar', null);
+    execute 'reset role';
+    select v_qr || jsonb_build_object(
+             'conf_casou', k.n_casou,
+             'conf_n', (k.resumo->>'n_preco_confirmado')::int,
+             'conf_300', exists (select 1 from jsonb_array_elements(k.blob_proposto->'produtos') px,
+                                               jsonb_array_elements(coalesce(px->'cs','[]'::jsonb)) cx
+                                  where px->>'f' like 'J%' and (cx->>'v')::numeric = 300))
+      into v_qr from public.calc_carga k where k.id = v_kf;
+
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_resolver(v_preco, 'ignorar', null);
+    execute 'reset role';
+    select v_qr || jsonb_build_object(
+             'ign_n', (k.resumo->>'n_preco_confirmado')::int,
+             'ign_4100', exists (select 1 from jsonb_array_elements(k.blob_proposto->'produtos') px,
+                                               jsonb_array_elements(coalesce(px->'cs','[]'::jsonb)) cx
+                                  where px->>'f' like 'J%' and (cx->>'v')::numeric = 4100))
+      into v_qr from public.calc_carga k where k.id = v_kf;
+
+    begin
+      execute 'set local role authenticated';
+      perform public.calc_pendencia_resolver(v_preco, 'descartar', null);
+      v_qr := v_qr || jsonb_build_object('descartar', 'ACEITOU descartar a pergunta abaixo da tabela');
+    exception when others then
+      v_qr := v_qr || jsonb_build_object('descartar', sqlerrm);
+    end;
+    execute 'reset role';
+
+    execute 'set local role authenticated';
+    v_kf2 := public.calc_carga_abrir(
+         E'[12/09/2026, 10:00:00] Vini: Junior recreio\n'
+      || E'iPhone 16 128GB Preto Lacrado - 4.100 a vista\n');
+    execute 'reset role';
+    begin
+      execute 'set local role authenticated';
+      perform public.calc_pendencia_resolver(
+        (select id from public.calc_pendencia where carga_id = v_kf2 and tipo = 'preco' limit 1),
+        'confirmar', null);
+      v_qr := v_qr || jsonb_build_object('outra', 'ACEITOU confirmar a condicao pendurada');
+    exception when others then
+      v_qr := v_qr || jsonb_build_object('outra', sqlerrm);
+    end;
+    execute 'reset role';
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_qlog := sqlerrm; end if;
+  end;
+  execute 'reset role';
+
+  -- Q1. Sem confirmacao: o R$ 300 vira pergunta e o R$ 4.100 ENTRA. Antes da D20 o
+  --     300 era o menor e o 4.100 saia como outlier, o estrago da primeira lista real.
+  v_total := v_total + 1;
+  if v_qlog is not null
+     or (v_hh->>'n_lidas')::int <> 2 or (v_hh->>'n_casou')::int <> 1 or (v_hh->>'n_duvidoso')::int <> 1
+     or v_hk is null
+     or not exists (select 1 from jsonb_array_elements(v_hh->'produtos') p, jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c
+                     where p->>'n' = 'iPhone 16 128GB' and (c->>'v')::numeric = 4100)
+     or exists (select 1 from jsonb_array_elements(v_hh->'produtos') p
+                  left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                 where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 300) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [Q1] D20: o preco abaixo da tabela nao virou pergunta, ou expulsou o preco certo. Leitura: lidas '
+             || coalesce(v_hh->>'n_lidas','?') || ' casou ' || coalesce(v_hh->>'n_casou','?')
+             || ' duvidoso ' || coalesce(v_hh->>'n_duvidoso','?') || ' chave ' || coalesce(v_hk,'(nenhuma)')
+             || ' produtos ' || coalesce((v_hh->'produtos')::text,'?') || ' erro ' || coalesce(v_qlog,'(nenhum)');
+  end if;
+
+  -- Q2. Confirmado no leitor (`p_precos_ok`): o preco entra e o contador diz de onde.
+  v_total := v_total + 1;
+  if coalesce((v_hh2->>'n_preco_confirmado')::int, 0) <> 1
+     or not exists (select 1 from jsonb_array_elements(v_hh2->'produtos') p
+                      left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+                     where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 300) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [Q2] D20: o preco confirmado nao entrou pelo leitor, ou n_preco_confirmado nao contou. Obtido: '
+             || coalesce(v_hh2::text, '(nada)');
+  end if;
+
+  -- Q3. Pela RPC, com a identidade do dono: `confirmar` poe a linha e a releitura
+  --     guarda a resposta.
+  v_total := v_total + 1;
+  if v_qlog is not null or coalesce((v_qr->>'conf_n')::int, 0) <> 1
+     or not coalesce((v_qr->>'conf_300')::boolean, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [Q3] D20: confirmar pela RPC nao pos o preco na tabela desta lista. Medido: '
+             || v_qr::text || ' erro ' || coalesce(v_qlog,'(nenhum)');
+  end if;
+
+  -- Q4. `ignorar` depois de `confirmar` desfaz: o contador volta a 0 e o preco certo
+  --     volta a ser o da tabela.
+  v_total := v_total + 1;
+  if coalesce((v_qr->>'ign_n')::int, -1) <> 0 or not coalesce((v_qr->>'ign_4100')::boolean, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [Q4] D20: ignorar depois de confirmar nao desfez. Medido: ' || v_qr::text;
+  end if;
+
+  -- Q5. As travas: a pergunta abaixo da tabela nao se DESCARTA (T5 segue valendo), e
+  --     `confirmar` nao vale para outra pergunta de preco (a de condicao pendurada).
+  v_total := v_total + 1;
+  if coalesce(v_qr->>'descartar','') not like '%nao se descarta%'
+     or coalesce(v_qr->>'outra','') not like '%confirmar so vale para pergunta de preco abaixo da tabela%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [Q5] D20: descartar a pergunta abaixo da tabela, ou confirmar outra pergunta de preco, nao foi recusado. Medido: '
+             || v_qr::text;
+  end if;
+
   -- @@relatorio
   -- Cada linha de sumario pertence a UM arquivo gerado, pelo marcador acima
   -- dela. Juntas, as tres dizem o que este relatorio diz.
@@ -2669,6 +2824,8 @@ begin
               || ' (acento, asterisco e espaco duplo, formato bloco, ASCII em linha),'
               || ' e o padrao ancorado nao come mais a linha `- 5.400 PROMO` do fornecedor de cima;'
               || ' as 5 regras de semente com acento foram regravadas na normalizacao do leitor'
+              || E'\n  D20: R$ 300 contra a tabela de R$ 4.000 vira pergunta e o R$ 4.100 entra (antes era expulso);'
+              || ' confirmado entra so nesta lista; ignorar desfaz'
   -- @@relatorio fim
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam' || v_log
     end;

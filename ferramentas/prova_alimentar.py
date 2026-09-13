@@ -127,6 +127,7 @@ STUB = r"""
       pend('p3','modelo','poco f8 pro <img src=x onerror="window.__XSS=1">'),
       pend('p4','cor','verde menta','ignorar',null,2),
       pend('p5','preco','preco com condicao pendurada: a calc nao tem onde guardar condicao'),
+      pend('p7','preco','abaixo da tabela: Loja Alfa · iPhone 16 128GB · Lacrado · Preto · R$ 300,00'),
       pend('p6','modelo','iphone 13 128 gb','apontar','iphone_13_128gb',3),
       {id:'p9',carga_id:OUTRA,tipo:'condicao',texto:'loja_alfa',causa:'x',exemplo:'x',n_linhas:1,decisao:'definir',aponta:'Lacrado',decidido_em:'2026-09-05T10:00:00Z',criado_em:'2026-09-05T09:00:00Z'}
     ]
@@ -218,7 +219,18 @@ TESTE = r"""
   o.sub = txt(D.getElementById('s3Sub'));
   o.descompasso = txt(D.getElementById('aDescompasso'));
   function botoes(id){ return Array.prototype.map.call(D.querySelectorAll('[data-pend="'+id+'"] .bts .bt'), txt); }
-  o.b = {p1:botoes('p1'),p2:botoes('p2'),p3:botoes('p3'),p4:botoes('p4'),p5:botoes('p5'),p6:botoes('p6')};
+  o.b = {p1:botoes('p1'),p2:botoes('p2'),p3:botoes('p3'),p4:botoes('p4'),p5:botoes('p5'),p6:botoes('p6'),p7:botoes('p7')};
+  o.p7aviso = txt(D.getElementById('aAbaixo-p7'));
+  o.p5temAviso = !!D.getElementById('aAbaixo-p5');
+  // D20: confirmar o preco abaixo da tabela manda o verbo certo, sem destino
+  clica(D, '[data-pend="p7"] [data-verbo=confirmar]'); await sl(50);
+  o.p7form = txt(D.querySelector('[data-pend="p7"] .form'));
+  clica(D, '[data-pend="p7"] [data-acao=confirmar][data-verbo=confirmar]');
+  await ate(W, function(){ return rpcs(W,'calc_pendencia_resolver').some(function(x){return x.args.p_decisao==='confirmar';}); });
+  o.p7rpc = (rpcs(W,'calc_pendencia_resolver').filter(function(x){return x.args.p_decisao==='confirmar';})[0]||{}).args;
+  await ate(W, function(){ return txt(D.querySelector('[data-pend="p7"]')).indexOf('preço confirmado')>=0; });
+  o.p7depois = txt(D.querySelector('[data-pend="p7"]'));
+  o.p7botoesDepois = botoes('p7');
   o.p6 = txt(D.querySelector('[data-pend="p6"]'));
   o.p4 = txt(D.querySelector('[data-pend="p4"]'));
   o.xssImg = D.querySelectorAll('#s3Corpo img').length;
@@ -488,9 +500,9 @@ ok('o descarte aparece contado, com o motivo', 'caixa aberta, decisao do dono' i
 ok('lista de 20 dias acende o aviso de custo velho  [%s]' % o['velho'][:60], 'Custo velho' in o['velho'] and '20 dias' in o['velho'])
 ok('com carga aberta, a caixa de colar some (uma lista por vez)', not o['s1novaVisivel'])
 ok('suspeita_alta vira card com confirmacao', o['suspeita'])
-ok('contagem das pendencias pela decisao GRAVADA  [%s]' % o['sub'], o['sub'] == '4 abertas · 1 fora desta lista · 1 respondidas')
+ok('contagem das pendencias pela decisao GRAVADA  [%s]' % o['sub'], o['sub'] == '5 abertas · 1 fora desta lista · 1 respondidas')
 ok('descompasso entre a tabela e a leitura viva e declarado  [%s]' % o['descompasso'][:60],
-   'A leitura atual tem 3 pendências, mas 5 aparecem sem resposta' in o['descompasso'])
+   'A leitura atual tem 3 pendências, mas 6 aparecem sem resposta' in o['descompasso'])
 B = o['b']
 ok('fornecedor: apontar, criar, nunca ler, deixar fora  %s' % B['p1'],
    B['p1'] == ['É outro nome de…', 'Criar fornecedor novo', 'Nunca ler este fornecedor', 'Deixar fora desta lista'])
@@ -499,10 +511,18 @@ ok('modelo: apontar, criar, nunca e preco, deixar fora  %s' % B['p3'],
    B['p3'] == ['É outro nome de…', 'Criar modelo novo', 'Nunca é preço', 'Deixar fora desta lista'])
 ok('cor ignorada segue respondivel, sem criar e sem repetir o ignorar  %s' % B['p4'], B['p4'] == ['É outro nome de…', 'Nunca é preço'])
 ok('preco: so deixar fora (T5)  %s' % B['p5'], B['p5'] == ['Deixar fora desta lista'])
+ok('D20: preco abaixo da tabela ganha "o preco esta certo" e deixar fora  %s' % B['p7'],
+   B['p7'] == ['O preço está certo', 'Deixar fora desta lista'])
+ok('D20: o card avisa que quase sempre e leitura errada, e so nele', 'muito abaixo do menor da tabela' in o['p7aviso'] and not o['p5temAviso'])
+ok('D20: o form diz que vale so para esta lista e como desfazer', 'Vale só para esta lista' in o['p7form'] and 'desfaz' in o['p7form'])
+ok('D20: confirmar manda o verbo confirmar sem destino  %s' % o['p7rpc'],
+   o['p7rpc'] == {'p_pendencia': 'p7', 'p_decisao': 'confirmar', 'p_aponta': None})
+ok('D20: depois, o card mostra a decisao gravada e so o desfazer  %s' % o['p7botoesDepois'],
+   'preço confirmado (só esta lista)' in o['p7depois'] and o['p7botoesDepois'] == ['Deixar fora desta lista'])
 ok('pendencia ja apontada nao tem botao (T2)  %s' % B['p6'], B['p6'] == [])
 ok('a apontada mostra o destino pelo nome e pelo codigo', 'outro nome de iPhone 13 128GB (iphone_13_128gb)' in o['p6'])
 ok('n_linhas e o da 1a leitura, e diz isso', '2 linhas na 1ª leitura' in o['p4'])
-ok('ordem: abertas antes, fornecedor primeiro, respondidas no fim  %s' % o['ordem'], o['ordem'] == ['p1', 'p2', 'p3', 'p5', 'p4', 'p6'])
+ok('ordem: abertas antes, fornecedor primeiro, respondidas no fim  %s' % o['ordem'], o['ordem'] == ['p1', 'p2', 'p3', 'p5', 'p4', 'p6', 'p7'])
 ok('texto da lista e escapado: nenhum <img> injetado', o['xssImg'] == 0 and not o['xss'] and '<img' in o['xssTexto'])
 
 print('— D19: o que aprendeu —')

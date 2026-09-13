@@ -498,7 +498,14 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v16.md` (12/09/2026, noite, **a primeira lista
+- topo: `handoff_calculadora_pitwall_v17.md` (12/09/2026, noite, **D20 no ar e a primeira
+  medida do portao**). O preco muito abaixo da tabela vira pergunta, com `confirmar` so
+  para a lista (migration gerada no banco a partir do corpo vivo, pelo `base`). Provas de
+  banco **125**, tela **107**. **Portao D7 na lista da MP:** tela 40/40/0, skill 40/40/0,
+  e os 35 modelos com cor e preco identicos. Falta a carga do mes inteira (outros
+  fornecedores). Carga da MP em rascunho, conferida, esperando o dono aprovar.
+
+- anterior: `handoff_calculadora_pitwall_v16.md` (12/09/2026, noite, **a primeira lista
   real**). Achou tres defeitos. O caro: `calc_preco` lia `🔋94% à 100%` como R$ 100, e o
   outlier expulsou os precos certos (35 de 35 produtos errados; o dono viu no passo 4 e
   nao aprovou). Migration `20260912_calc_preco_nao_le_porcentagem.sql` pelo `base`; lista

@@ -1,5 +1,5 @@
 -- prova_calc_leitor.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 a5e5f3f1e851e68d8d696e77cba1b851).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 59374c620bbba1c78a742f0b12ec4eaa).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: H, A, B, E, F, P. Fixtures: A, B, C, G.
@@ -84,6 +84,14 @@ declare
   -- secao P (a bateria da primeira lista real, 12/09/2026)
   v_txg    text;   -- fixture G, o formato da MP: bateria e preco em linhas proprias
   v_gg     jsonb;  -- resultado da fixture G pelo v2
+  -- secao Q (D20: o preco muito abaixo da tabela vira pergunta)
+  v_txh    text;   -- fixture H: um preco errado de R$ 300 e o certo de R$ 4.100
+  v_hh     jsonb;  -- leitura sem confirmacao
+  v_hh2    jsonb;  -- leitura com o preco baixo confirmado
+  v_hk     text;   -- a chave da pergunta `abaixo da tabela: ...`
+  v_kf2    uuid;   -- a carga da lista com condicao pendurada
+  v_qr     jsonb := '{}';  -- o que a secao Q mediu dentro da subtransacao
+  v_qlog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════

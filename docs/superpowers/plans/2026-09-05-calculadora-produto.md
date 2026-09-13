@@ -853,6 +853,23 @@ tela, sozinho) NAO foi medido: e dele.**
 2. **O export em .zip** era lido como texto e o banco devolvia 400. A tela abre o zip.
 3. **O export em ingles** escreve mes/dia; a tela lia 9/12 como dezembro.
 
+- [x] **D20 — DECIDIDA pelo dono em 12/09/2026: "sim, o preco muito abaixo vira pergunta".
+  CONSTRUIDA no mesmo dia** (handoff v17). Preco que casou e ficou abaixo do menor da
+  tabela gravada (mesmo modelo e condicao, qualquer fornecedor) dividido pelo fator do
+  outlier vira pergunta `abaixo da tabela: ...` e SAI do calculo do outlier. A resposta
+  `confirmar` vale so para esta lista (como o `definir` da D14), `ignorar` desfaz.
+  Migration `20260912_calc_d20_preco_abaixo_da_tabela.sql`, gerada no banco a partir do
+  corpo vivo (trocas exatas com guarda de md5), pre-provada em bloco revertido e aplicada
+  pelo `base`. Provas de banco **125**, secao Q. **Limite declarado:** preco baixo
+  confirmado entra no calculo do outlier como qualquer outro.
+
+**PORTAO D7, primeira medida (12/09/2026, noite), numa lista de UM fornecedor:** a lista
+da MP Imports (carga `ea8cebc4`) pela tela: **40 lidas, 40 casaram, 0 descartadas**.
+A mesma lista pelas regras da skill, lida a mao produto a produto: **40 / 40 / 0**, e os
+35 modelos com cada cor e cada preco IGUAIS aos da tela. A tela nao cobre menos que a
+skill nessa entrada. **O portao do plano fala na carga do mes INTEIRA:** falta medir as
+listas dos outros fornecedores, e em formatos diferentes do da MP.
+
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 
 Commit `77f954c`. **A tela (2.3) NAO entra**, entao o bloco NAO esta fechado e o
