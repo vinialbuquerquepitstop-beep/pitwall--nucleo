@@ -870,6 +870,21 @@ A mesma lista pelas regras da skill, lida a mao produto a produto: **40 / 40 / 0
 skill nessa entrada. **O portao do plano fala na carga do mes INTEIRA:** falta medir as
 listas dos outros fornecedores, e em formatos diferentes do da MP.
 
+**A LISTA COMPLETA NAO CABIA NO TEMPO (12/09/2026, noite, handoff v18).** O dono leu pela
+tela um export de grupo de 375 KB e o banco devolveu `canceling statement due to statement
+timeout` (57014): o papel `authenticated` para em 8s. Medido: o leitor gastava ~10 ms por
+linha, linear (547 linhas, 5,2 s). Dois consertos, e o da tela e o que resolve:
+- **D21 — DECIDIDA pelo dono em 12/09/2026: a tela manda so as mensagens dos ultimos 7
+  dias**, com a janela trocavel antes de ler (15, 30, todas) e a contagem do que fica de
+  fora declarada. Motivo alem do tempo: mensagem antiga poe preco velho na conta do menor
+  preco. Tempo esgotado vira frase que diz o que fazer.
+- **Leitor mais rapido, mesma saida:** migration `20260912_calc_leitor_rapido.sql`
+  calcula o catalogo derivado (tokens, capacidade e polegada dos modelos; regex das cores)
+  UMA vez por leitura. Saida identica nas 8 fixtures e num texto de 697 linhas; 6,97 s ->
+  3,93 s. **Nao e 20x:** o perfil depois (`track_functions`) mostra ~6 ms por linha
+  espalhados: `calc_norm` chamado 60 vezes por linha (847 ms em 826 linhas), `calc_limpar`
+  e `calc_preco` ~0,7 ms cada. 375 KB nao cabem em 8s so acelerando o banco.
+
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 
 Commit `77f954c`. **A tela (2.3) NAO entra**, entao o bloco NAO esta fechado e o

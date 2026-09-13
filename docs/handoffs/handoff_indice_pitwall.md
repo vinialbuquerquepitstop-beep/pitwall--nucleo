@@ -498,7 +498,14 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v17.md` (12/09/2026, noite, **D20 no ar e a primeira
+- topo: `handoff_calculadora_pitwall_v18.md` (12/09/2026, noite, **a lista completa nao
+  cabia no tempo**). 375 KB estouraram o `statement_timeout` de 8s. **D21:** a tela manda
+  so os ultimos 7 dias (janela trocavel), e o tempo esgotado vira frase; `prova_alimentar`
+  **119**. Migration `20260912_calc_leitor_rapido.sql` (saida identica, 6,97 s -> 3,93 s
+  em 697 linhas) pelo `base`. O perfil mostra ~6 ms por linha espalhados: acelerar o
+  banco sozinho nao faria 375 KB caberem.
+
+- anterior: `handoff_calculadora_pitwall_v17.md` (12/09/2026, noite, **D20 no ar e a primeira
   medida do portao**). O preco muito abaixo da tabela vira pergunta, com `confirmar` so
   para a lista (migration gerada no banco a partir do corpo vivo, pelo `base`). Provas de
   banco **125**, tela **107**. **Portao D7 na lista da MP:** tela 40/40/0, skill 40/40/0,

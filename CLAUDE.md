@@ -12,7 +12,7 @@ aponte para arquivo inexistente.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
    nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v17.md` (o produto novo: Blocos 0 e 1 fechados, o
+   `handoff_calculadora_pitwall_v18.md` (o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
    dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
    resposta que nao ensina, o fornecedor desconhecido chega a pendencia, a condicao
