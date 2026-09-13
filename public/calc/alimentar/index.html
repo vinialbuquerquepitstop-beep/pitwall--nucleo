@@ -138,6 +138,7 @@ summary{cursor:pointer;font-size:13px;font-weight:600}
         <div class="card">
           <textarea id="aTexto" placeholder="[12/09/2026, 09:12:03] Fornecedor: TABELA&#10;iPhone 16 128GB Preto Lacrado - 4.299"></textarea>
           <div class="campo"><span>OU ESCOLHA O ARQUIVO (o .zip do export ou o _chat.txt)</span><input type="file" id="aArq" accept=".zip,.txt,text/plain,application/zip"></div>
+          <div class="campo"><span>QUAIS MENSAGENS ENTRAM</span><select id="aJanela"><option value="7" selected>Só as dos últimos 7 dias</option><option value="15">As dos últimos 15 dias</option><option value="30">As dos últimos 30 dias</option><option value="0">Todas (lista grande pode passar do tempo do banco)</option></select></div>
           <div class="hint" id="aDatas">Nenhuma lista colada ainda.</div>
           <div class="bts"><button class="bt pri big2" data-acao="ler">Ler a lista</button></div>
           <div class="erro" id="aErro1" hidden></div>
@@ -257,6 +258,40 @@ function textoDatas(d){
   if(!d||!d.n)return 'Não achei data nas mensagens: confira se a lista é recente antes de aprovar.';
   return 'Mensagens de '+d.de+' a '+d.ate+' ('+pl(d.n,'mensagem','mensagens')+' com data).';
 }
+// O CORTE POR DATA. Decisao do dono em 12/09/2026: "so os ultimos 7 dias", com a
+// janela trocavel antes de ler. Medido no mesmo dia: a primeira lista COMPLETA
+// (375 KB, meses de grupo) parou no limite de 8s do banco (`statement timeout`),
+// e o leitor gasta ~6 ms por linha. Mensagem antiga nao so pesa: o preco velho
+// dela entra na conta do menor preco e pode vencer o de hoje.
+// Linha sem carimbo segue a mensagem de cima; o que vem antes do 1o carimbo
+// entra. Lista sem data nenhuma (ou com data que nao faz sentido) nao se corta.
+function recortarLista(txt,dias,hoje){
+  var d=datasDaLista(txt);
+  if(!dias||!d.n||d.invalida)return {texto:txt,entram:d.n||0,fora:0,desde:null};
+  var dm=d.formato!=='mes/dia',desde=(hoje==null?hojeBR():hoje)-dias*86400000;
+  var re=/^\[?(\d{1,2})\/(\d{1,2})\/(\d{2,4}),?\s+\d{1,2}:\d{2}/;
+  var ls=String(txt).split('\n'),out=[],dentro=true,entram=0,fora=0;
+  for(var i=0;i<ls.length;i++){
+    var m=re.exec(ls[i]);
+    if(m){
+      var a=+m[3];if(a<100)a+=2000;
+      dentro=Date.UTC(a,(dm?+m[2]:+m[1])-1,dm?+m[1]:+m[2])>=desde;
+      if(dentro)entram++;else fora++;
+    }
+    if(dentro)out.push(ls[i]);
+  }
+  return {texto:out.join('\n'),entram:entram,fora:fora,desde:desde};
+}
+function diaUTC(d){var y=new Date(d);return ('0'+y.getUTCDate()).slice(-2)+'/'+('0'+(y.getUTCMonth()+1)).slice(-2)+'/'+y.getUTCFullYear();}
+function janela(){var s=$('aJanela');return s?(+s.value||0):7;}
+function textoJanela(txt){
+  var base=textoDatas(datasDaLista(txt)),r=recortarLista(txt,janela());
+  if(!r.desde)return base;
+  if(!r.entram)return base+' Nenhuma é de '+diaUTC(r.desde)+' para cá: aumente a janela.';
+  if(!r.fora)return base+' Todas entram.';
+  return base+' Entram '+pl(r.entram,'mensagem','mensagens')+' de '+diaUTC(r.desde)+' para cá; '+(r.fora===1?'1 mais antiga fica':r.fora+' mais antigas ficam')+' de fora.';
+}
+function tempoEsgotado(e){return !!e&&(e.code==='57014'||/statement timeout/i.test(e.message||''));}
 
 // ── O ARQUIVO ──────────────────────────────────────────────────────────────
 // Medido em 12/09/2026, no primeiro uso real: o export do WhatsApp vem em .zip,
@@ -787,9 +822,13 @@ async function lerLista(){
   if(!t.trim()){er.hidden=false;er.textContent='Cole a lista ou escolha o arquivo antes.';return;}
   var ruim=problemaTexto(t);
   if(ruim){er.hidden=false;er.textContent=ruim;return;}
-  ocupado(true,'lendo a lista...');
-  var r=await sb.rpc('calc_carga_abrir',{p_texto:t});
+  var rc=recortarLista(t,janela());
+  if(rc.desde&&!rc.entram){er.hidden=false;er.textContent='Nenhuma mensagem de '+diaUTC(rc.desde)+' para cá. Aumente a janela de dias.';return;}
+  var nl=rc.texto.split('\n').length;
+  ocupado(true,'lendo '+pl(nl,'linha','linhas')+'...');
+  var r=await sb.rpc('calc_carga_abrir',{p_texto:rc.texto});
   ocupado(false);
+  if(r.error&&tempoEsgotado(r.error)){er.hidden=false;er.textContent='A lista é grande demais para ler de uma vez ('+pl(nl,'linha','linhas')+'): o banco para em 8 segundos. Diminua a janela de dias ou corte a lista. Nada foi gravado.';return;}
   if(r.error){er.hidden=false;er.textContent=semPrefixo(r.error.message);return;}
   $('aTexto').value='';E.aprovada=null;E.conf={};E.form={};E.erroPend={};E.quase={};E.visao='lista';
   await recarregar();
@@ -878,18 +917,19 @@ document.addEventListener('click',function(ev){
 });
 document.addEventListener('change',function(ev){
   var c=ev.target;
+  if(c.id==='aJanela'){var tj=$('aTexto').value;$('aDatas').textContent=tj.trim()?textoJanela(tj):'Nenhuma lista colada ainda.';return;}
   if(c.hasAttribute&&c.hasAttribute('data-conf')){E.conf[c.getAttribute('data-conf')]=c.checked;if(E.carga)rPasso4();return;}
   if(c.id==='aArq'&&c.files&&c.files[0]){
     var er=$('aErro1');er.hidden=true;$('aDatas').textContent='abrindo o arquivo...';
     textoDoArquivo(c.files[0]).then(function(r){
       if(r.erro){$('aTexto').value='';er.hidden=false;er.textContent=r.erro;$('aDatas').textContent='Nenhuma lista colada ainda.';c.value='';return;}
       $('aTexto').value=r.texto;
-      $('aDatas').textContent=(r.origem?'Lido de '+r.origem+' dentro do .zip. ':'')+textoDatas(datasDaLista(r.texto));
+      $('aDatas').textContent=(r.origem?'Lido de '+r.origem+' dentro do .zip. ':'')+textoJanela(r.texto);
     });
   }
 });
 document.addEventListener('input',function(ev){
-  if(ev.target.id==='aTexto'){var t=ev.target.value;$('aDatas').textContent=t.trim()?textoDatas(datasDaLista(t)):'Nenhuma lista colada ainda.';}
+  if(ev.target.id==='aTexto'){var t=ev.target.value;$('aDatas').textContent=t.trim()?textoJanela(t):'Nenhuma lista colada ainda.';}
 });
 
 async function porPapel(){

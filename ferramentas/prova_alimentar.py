@@ -157,7 +157,11 @@ STUB = r"""
   function rpc(nome,args){
     LOG.push({t:'rpc',nome:nome,args:args});
     var r = {data:null,error:null};
-    if (nome==='calc_carga_abrir') { T.calc_carga=[cargaRow]; r.data=CARGA; }
+    if (nome==='calc_carga_abrir') {
+      // o que o banco devolveu na primeira lista completa (375 KB, 12/09/2026)
+      if (String(args.p_texto).indexOf('LENTA')>=0) r.error={code:'57014',message:'canceling statement due to statement timeout'};
+      else { T.calc_carga=[cargaRow]; r.data=CARGA; }
+    }
     if (nome==='calc_catalogo_criar') {
       if (!(args.p_extra&&args.p_extra.confirmar_novo)) r.error={message:'calc_catalogo_criar: voce ja tem Loja Alfa (codigo loja_alfa) e a lista traz "Loja Alfa Distribuidora". Se for a mesma pessoa, use apontar para o codigo dela. Se for outro fornecedor mesmo, repita com {"confirmar_novo":"sim"}. Nada foi gravado.'};
       else r.data={codigo:'loja_alfa_distribuidora',grafias:1};
@@ -333,12 +337,31 @@ TESTE = r"""
   clica(D1, '[data-acao=ler]'); await sl(60);
   p.nuloErro = txt(D1.getElementById('aErro1'));
   p.nuloSemRpc = rpcs(W1,'calc_carga_abrir').length===0;
-  var ta = D1.getElementById('aTexto'); ta.value='[01/09/2026, 10:00:00] Vini: Loja Alfa\niPhone 16 128GB - 4.000\n[03/09/2026, 11:00:00] Vini: x\n';
+  // datas RELATIVAS a hoje em Sao Paulo: o corte de 7 dias depende do dia em que a prova roda
+  function dRel(n){ var hp=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-'); var d=new Date(Date.UTC(+hp[0],+hp[1]-1,+hp[2])-n*86400000); return ('0'+d.getUTCDate()).slice(-2)+'/'+('0'+(d.getUTCMonth()+1)).slice(-2)+'/'+d.getUTCFullYear(); }
+  p.d20=dRel(20); p.d7=dRel(7); p.d2=dRel(2); p.d0=dRel(0);
+  var LISTA = '['+p.d20+', 10:00:00] Vini: Loja Velha\niPhone 16 128GB - 3.000\n['+p.d2+', 10:00:00] Vini: Loja Alfa\niPhone 16 128GB - 4.000\n['+p.d0+', 11:00:00] Vini: x\n';
+  var ta = D1.getElementById('aTexto');
+  p.janelaPadrao = D1.getElementById('aJanela').value;
+  // o tempo do banco esgotado: mensagem que diz o que fazer, e a lista fica na caixa
+  ta.value = LISTA + 'LENTA\n';
+  clica(D1, '[data-acao=ler]');
+  await ate(W1, function(){ return txt(D1.getElementById('aErro1')).indexOf('grande demais')>=0; });
+  p.lentaErro = txt(D1.getElementById('aErro1'));
+  p.lentaFicou = ta.value.indexOf('LENTA')>=0;
+  ta.value = LISTA;
   ta.dispatchEvent(new W1.Event('input',{bubbles:true})); await sl(30);
   p.datas = txt(D1.getElementById('aDatas'));
+  var sel = D1.getElementById('aJanela');
+  sel.value='0'; sel.dispatchEvent(new W1.Event('change',{bubbles:true})); await sl(30);
+  p.datasTudo = txt(D1.getElementById('aDatas'));
+  sel.value='7'; sel.dispatchEvent(new W1.Event('change',{bubbles:true})); await sl(30);
   clica(D1, '[data-acao=ler]');
   await ate(W1, function(){ return vis(D1.getElementById('s2')); });
-  p.abrir = (rpcs(W1,'calc_carga_abrir')[0]||{}).args;
+  var abs = rpcs(W1,'calc_carga_abrir');
+  p.nAbrir = abs.length;
+  p.abrir = (abs[abs.length-1]||{}).args;
+  p.lentaArgs = (abs[0]||{}).args;
   p.s2visivel = vis(D1.getElementById('s2'));
   p.textoLimpo = D1.getElementById('aTexto').value==='';
   R.S1 = p;
@@ -445,6 +468,7 @@ FUNCOES = html[ini_a:fim_a]
 # as datas tambem: hojeBR e datasDaLista, do arquivo real
 FUNCOES += html[html.index('function hojeBR()'):html.index('\n', html.index('function hojeBR()'))] + '\n'
 FUNCOES += html[html.index('function datasDaLista(txt)'):html.index('function textoDatas(d)')]
+FUNCOES += html[html.index('function recortarLista('):html.index('function janela()')]
 NODE = FUNCOES + r'''
 const ARQ = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 (async () => {
@@ -466,6 +490,17 @@ const ARQ = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     ambiguoAmpm:  datasDaLista('[3/4/26, 1:00 PM] Vini: x\n'),
     ambiguo24h:   datasDaLista('[3/4/26, 13:00] Vini: x\n'),
     nada:    datasDaLista('iPhone 16 128GB - 4.299\n')
+  };
+  // o corte com HOJE fixo em 12/09/2026: a borda (05/09, hoje menos 7) entra
+  const H = Date.UTC(2026, 8, 12);
+  const BR = '[01/09/2026, 10:00:00] Vini: Velha\niPhone 16 - 3.000\n[05/09/2026, 08:00:00] Vini: Borda\niPhone 15 - 2.500\n[06/09/2026, 10:00:00] Vini: Alfa\niPhone 16 - 4.000\ncontinua\n[12/09/2026, 09:00:00] Vini: hoje\n';
+  const rb = recortarLista(BR, 7, H);
+  out.__recorte = {
+    br: rb, desdeBr: diaUTC(rb.desde),
+    us: recortarLista('[9/1/26, 7:00:00 PM] Vini: velha\nx - 1\n[9/10/26, 7:00:00 PM] Vini: nova\ny - 2\n', 7, H),
+    tudoIgual: recortarLista(BR, 0, H).texto === BR,
+    semDataIgual: recortarLista('iPhone 16 128GB - 4.299\n', 7, H).texto === 'iPhone 16 128GB - 4.299\n',
+    antes: recortarLista('cabecalho solto\n[01/09/2026, 10:00:00] Vini: Velha\nz - 1\n', 7, H)
   };
   process.stdout.write(JSON.stringify(out));
 })().catch(e => { process.stdout.write(JSON.stringify({__erro: String(e && e.stack || e)})); });
@@ -585,8 +620,20 @@ ok('o status declara a data da tabela atual  [%s]' % p['status'], p['status'] ==
 ok('ler vazio: erro na tela e nenhuma RPC', 'Cole a lista' in p['vazioErro'] and p['vazioSemRpc'])
 ok('colado com caractere nulo: recusado na tela  [%s]' % p['nuloErro'][:40], 'não é texto' in p['nuloErro'])
 ok('e nao chega ao banco (nenhuma RPC)', p['nuloSemRpc'])
-ok('as datas da lista aparecem ao colar  [%s]' % p['datas'], p['datas'] == 'Mensagens de 01/09/2026 a 03/09/2026 (2 mensagens com data).')
-ok('ler manda o texto colado inteiro', (p['abrir'] or {}).get('p_texto', '').startswith('[01/09/2026, 10:00:00] Vini: Loja Alfa'))
+base_datas = 'Mensagens de %s a %s (3 mensagens com data).' % (p['d20'], p['d0'])
+ok('as datas aparecem ao colar, com o corte declarado  [%s]' % p['datas'],
+   p['datas'] == base_datas + ' Entram 2 mensagens de %s para cá; 1 mais antiga fica de fora.' % p['d7'])
+ok('a janela nasce em 7 dias (decisao do dono, 12/09/2026)', p['janelaPadrao'] == '7')
+ok('janela "todas": a frase do corte some  [%s]' % p['datasTudo'], p['datasTudo'] == base_datas)
+enviado = (p['abrir'] or {}).get('p_texto', '')
+ok('ler manda SO a janela: a mensagem de 20 dias nao chega ao banco  [%s]' % enviado[:40],
+   enviado.startswith('[%s, 10:00:00] Vini: Loja Alfa' % p['d2']) and 'Loja Velha' not in enviado
+   and 'iPhone 16 128GB - 4.000' in enviado)
+ok('tempo do banco esgotado (57014): a tela diz o que fazer  [%s]' % p['lentaErro'][:60],
+   'grande demais' in p['lentaErro'] and 'Diminua a janela' in p['lentaErro'] and 'Nada foi gravado' in p['lentaErro']
+   and 'statement timeout' not in p['lentaErro'])
+ok('e a lista fica na caixa para tentar de novo', p['lentaFicou'] and p['nAbrir'] == 2)
+ok('a leitura que estourou tambem foi mandada ja cortada', 'Loja Velha' not in (p['lentaArgs'] or {}).get('p_texto', 'Loja Velha'))
 ok('depois de ler, o passo 2 aparece e a caixa esvazia', p['s2visivel'] and p['textoLimpo'])
 
 print('— o arquivo (o defeito do primeiro uso real), no node —')
@@ -615,6 +662,20 @@ ok('as duas leituras validas e com AM/PM: vale o mes/dia  %s' % DT['ambiguoAmpm'
 ok('as duas leituras validas e sem AM/PM: vale o dia/mes brasileiro  %s' % DT['ambiguo24h'],
    DT['ambiguo24h'].get('de') == '03/04/2026' and DT['ambiguo24h'].get('formato') == 'dia/mes')
 ok('lista sem carimbo nao inventa data', DT['nada'].get('n') == 0 and not DT['nada'].get('invalida'))
+RC = A['__recorte']
+print('— o corte por data (decisao do dono, 12/09/2026: so os ultimos 7 dias) —')
+rb = RC['br']
+ok('7 dias: a mensagem de 11 dias sai, e o preco dela junto  %s' % {k: rb[k] for k in ('entram', 'fora')},
+   rb['entram'] == 3 and rb['fora'] == 1 and 'Velha' not in rb['texto'] and '3.000' not in rb['texto'])
+ok('a borda (hoje menos 7 dias) entra  [%s]' % RC['desdeBr'],
+   RC['desdeBr'] == '05/09/2026' and '[05/09/2026, 08:00:00] Vini: Borda' in rb['texto'])
+ok('linha sem carimbo segue a mensagem de cima', 'continua' in rb['texto'])
+ok('export em ingles tambem se corta, lido como mes/dia  %s' % {k: RC['us'][k] for k in ('entram', 'fora')},
+   RC['us']['entram'] == 1 and RC['us']['fora'] == 1 and 'nova' in RC['us']['texto'] and 'velha' not in RC['us']['texto'])
+ok('janela "todas": o texto vai inteiro', RC['tudoIgual'])
+ok('lista sem data nao se corta', RC['semDataIgual'])
+ok('o que vem antes do 1o carimbo fica, e a tela sabe que nenhuma mensagem entrou',
+   RC['antes']['texto'] == 'cabecalho solto' and RC['antes']['entram'] == 0 and RC['antes']['fora'] == 1)
 # o caminho do input nao roda aqui (DataTransfer so existe no navegador, e no
 # Chrome da prova ler arquivo trava): cobra-se que ele USA a funcao provada acima
 # e que o erro dela vai para a tela e esvazia a caixa.
