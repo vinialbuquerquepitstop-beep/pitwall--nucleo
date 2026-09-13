@@ -503,7 +503,9 @@ nenhuma das duas batia com o repo.
   so os ultimos 7 dias (janela trocavel), e o tempo esgotado vira frase; `prova_alimentar`
   **119**. Migration `20260912_calc_leitor_rapido.sql` (saida identica, 6,97 s -> 3,93 s
   em 697 linhas) pelo `base`. O perfil mostra ~6 ms por linha espalhados: acelerar o
-  banco sozinho nao faria 375 KB caberem.
+  banco sozinho nao faria 375 KB caberem. **D22 (13/09):** com o corte, a lista ainda
+  tinha 85.613 bytes e parou em 8s; o `statement_timeout` do papel `authenticated` subiu
+  para 30s, custo aceito pelo dono (vale para toda chamada logada).
 
 - anterior: `handoff_calculadora_pitwall_v17.md` (12/09/2026, noite, **D20 no ar e a primeira
   medida do portao**). O preco muito abaixo da tabela vira pergunta, com `confirmar` so

@@ -69,6 +69,30 @@ chamadas (60 por linha, 847 ms), `calc_limpar` 587 ms, `calc_preco` 504 ms,
 unico: **375 KB nao cabem em 8s so acelerando o banco.** O proximo candidato, se precisar,
 e achar quem chama `calc_norm` 60 vezes por linha.
 
+## 3b. D22: o limite do papel sobe de 8s para 30s
+
+Decisao do dono, 13/09/2026: *"banco cortou em 8 segundos com a lista completa. aumente"*.
+
+**Medido antes:** a tela ja cortou para 7 dias (envio de 374.950 para **85.613 bytes**, log
+de 02:40:50 UTC) e `calc_carga_abrir` ainda parou (57014, origem 9.202 ms).
+`calc_carga_abrir` inteira gasta o mesmo que o leitor: 826 linhas em 5.082 ms (6,15 ms por
+linha), bloco revertido. Estimativa para 86 KB: ~15 s. 30s e o dobro.
+
+Migration `supabase/migrations/20260913_calc_timeout_authenticated_30s.sql`:
+`alter role authenticated set statement_timeout = '30s'` e `notify pgrst, 'reload config'`.
+Aplicada pelo `base` (version `20260913024456`): authenticated `statement_timeout=30s`, anon
+(3s) e authenticator (8s, lock 8s) iguais, reload na mesma migration, advisors 9. A frase de tempo esgotado na tela diz 30 segundos;
+`prova_alimentar` 119, EXIT 0.
+
+**Custo declarado ao dono:** o limite e do PAPEL, nao da funcao. Vale para toda chamada de
+todo usuario logado (dono e vendedor), em todas as telas; uma consulta presa segura a
+conexao ate 30s. `anon` segue em 3s. **Por que nao na funcao:** o relogio do
+`statement_timeout` e armado quando o statement de fora comeca, e o PostgREST aplica o valor
+do papel antes da chamada. **Desfazer:** `alter role authenticated set statement_timeout =
+'8s'; notify pgrst, 'reload config';`.
+
+**Ainda nao provado:** a lista do dono dentro de 30s. So ele tem o arquivo.
+
 ## 4. Estado ao fechar
 
 - Commits locais, sem push: `7732718` (D20 na tela), `d61d34f` (corte de 7 dias).

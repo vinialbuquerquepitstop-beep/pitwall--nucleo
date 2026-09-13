@@ -884,6 +884,11 @@ linha, linear (547 linhas, 5,2 s). Dois consertos, e o da tela e o que resolve:
   3,93 s. **Nao e 20x:** o perfil depois (`track_functions`) mostra ~6 ms por linha
   espalhados: `calc_norm` chamado 60 vezes por linha (847 ms em 826 linhas), `calc_limpar`
   e `calc_preco` ~0,7 ms cada. 375 KB nao cabem em 8s so acelerando o banco.
+- **D22 — DECIDIDA pelo dono em 13/09/2026: o `statement_timeout` do papel `authenticated`
+  sobe de 8s para 30s.** Com o corte de 7 dias a lista ainda tinha 85.613 bytes e parou em
+  8s (~15 s estimados a 6,15 ms por linha). Custo aceito: o limite vale para toda chamada
+  de todo usuario logado, nao so para a leitura. Migration
+  `20260913_calc_timeout_authenticated_30s.sql`, pelo `base`.
 
 ### BLOCO 2, FATIA 1 (2.1 e 2.2) ENTREGUE em 09/09/2026 — o bloco segue ABERTO
 

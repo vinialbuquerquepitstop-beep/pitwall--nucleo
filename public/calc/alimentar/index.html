@@ -828,7 +828,7 @@ async function lerLista(){
   ocupado(true,'lendo '+pl(nl,'linha','linhas')+'...');
   var r=await sb.rpc('calc_carga_abrir',{p_texto:rc.texto});
   ocupado(false);
-  if(r.error&&tempoEsgotado(r.error)){er.hidden=false;er.textContent='A lista é grande demais para ler de uma vez ('+pl(nl,'linha','linhas')+'): o banco para em 8 segundos. Diminua a janela de dias ou corte a lista. Nada foi gravado.';return;}
+  if(r.error&&tempoEsgotado(r.error)){er.hidden=false;er.textContent='A lista é grande demais para ler de uma vez ('+pl(nl,'linha','linhas')+'): o banco para em 30 segundos. Diminua a janela de dias ou corte a lista. Nada foi gravado.';return;}
   if(r.error){er.hidden=false;er.textContent=semPrefixo(r.error.message);return;}
   $('aTexto').value='';E.aprovada=null;E.conf={};E.form={};E.erroPend={};E.quase={};E.visao='lista';
   await recarregar();
