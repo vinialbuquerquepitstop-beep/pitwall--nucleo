@@ -184,6 +184,9 @@ declare
   v_kf2    uuid;   -- a carga da lista com condicao pendurada
   v_qr     jsonb := '{}';  -- o que a secao Q mediu dentro da subtransacao
   v_qlog   text;   -- erro inesperado dentro dela
+  v_txi    text;   -- fixture I: a orfa sem cor (13/09/2026)
+  v_ii     jsonb;  -- a leitura dela
+  v_ki     uuid;   -- a carga aberta com ela (secao O, revertida)
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -427,6 +430,18 @@ begin
      E'[12/09/2026, 10:00:00] Vini: Junior recreio\n'
   || E'iPhone 16 128GB Preto Lacrado - 300\n'
   || E'iPhone 16 128GB Azul Lacrado - 4.100\n';
+
+  -- @@fixture I
+  -- ══ FIXTURE I — a orfa sem cor que sumia da conta (13/09/2026) ══════════════
+  -- Reproduz em duas linhas o que a lista de 17/08 fez em cinco: a segunda casa
+  -- modelo, condicao e fornecedor, mas `Blush` nao e cor do catalogo, e o grupo tem
+  -- cor (Preto). Ela vira a pergunta `sem cor num grupo que tem cor` e sai do
+  -- produto. Medido antes do conserto: lidas 2, casou 1, duvidoso 0 (uma linha fora
+  -- de toda conta), e a G2 recusava a lista. Precos inventados (restricao global 8).
+  v_txi :=
+     E'[13/09/2026, 10:00:00] Vini: Junior recreio\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.100\n'
+  || E'iPhone 16 128GB Blush Lacrado - 4.200\n';
 
   -- @@preambulo
   -- O gerador leva cada linha daqui SO para o arquivo que le a variavel dela.
@@ -1207,6 +1222,59 @@ begin
     v_falhas := v_falhas + 1;
     v_log := v_log || E'\n  FALHA  [P5] fixture G nao deu 16 128GB Preto/Branco 3111.11 e 15 128GB Preto 2222.22: '
              || (v_gg->'produtos')::text;
+  end if;
+
+  -- @@secao O
+  -- ══ O. A LINHA ORFA SEM COR ENTRA NA CONTA (13/09/2026) ═════════════════════
+  -- A lista de 17/08 (3.473 linhas) foi recusada pela G2: lidas 812, casou 308,
+  -- duvidoso 168, nao reconhecido 331. As 5 que faltavam eram `orfas_sem_cor`:
+  -- casaram, vieram sem cor reconhecida num grupo que tem cor, viraram pergunta e nao
+  -- entravam em contador nenhum. Migration:
+  -- supabase/migrations/20260913_calc_orfa_sem_cor_conta.sql.
+  v_ii := privado.calc_parse_v2(v_tenant, v_txi);
+
+  -- O1. A conta fecha, e a orfa esta nos duvidosos, com a pergunta dela.
+  v_total := v_total + 1;
+  if (v_ii->>'n_lidas')::int <> 2 or (v_ii->>'n_casou')::int <> 1
+     or (v_ii->>'n_duvidoso')::int <> 1 or (v_ii->>'n_nao_reconhecido')::int <> 0
+     or not exists (select 1 from jsonb_array_elements(v_ii->'pendencias') q
+                     where q->>'tipo' = 'cor' and q->>'texto' = 'sem cor num grupo que tem cor') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [O1] fixture I: a orfa sem cor saiu da conta (esperado lidas 2, casou 1, duvidoso 1, nao reconhecido 0, e a pergunta de cor). Obtido: lidas '
+             || coalesce(v_ii->>'n_lidas','?') || ' casou ' || coalesce(v_ii->>'n_casou','?')
+             || ' duvidoso ' || coalesce(v_ii->>'n_duvidoso','?') || ' nao_reconhecido ' || coalesce(v_ii->>'n_nao_reconhecido','?');
+  end if;
+
+  -- O2. O conserto e so do contador: o preco da orfa segue FORA do produto, e o
+  --     Preto continua. Guarda nova se mede contra o que ja funcionava.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_ii->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 4200)
+     or not exists (select 1 from jsonb_array_elements(v_ii->'produtos') p, jsonb_array_elements(p->'cs') c
+                     where p->>'n' = 'iPhone 16 128GB' and c->>'n' = 'Preto' and (c->>'v')::numeric = 4100) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [O2] fixture I: o preco da orfa entrou no produto, ou o Preto 4100 sumiu: '
+             || (v_ii->'produtos')::text;
+  end if;
+
+  -- O3. A guarda G2 do calc_carga_abrir aceita a lista: era a recusa real.
+  v_total := v_total + 1;
+  v_msg := null; v_ok := null;
+  begin
+    execute 'set local role authenticated';
+    v_ki := public.calc_carga_abrir(v_txi);
+    execute 'reset role';
+    select c.n_lidas = 2 and c.n_duvidoso = 1 into v_ok from public.calc_carga c where c.id = v_ki;
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_msg := sqlerrm; end if;
+  end;
+  execute 'reset role';
+  if not coalesce(v_ok, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [O3] calc_carga_abrir recusou ou gravou errado a fixture I. Obtido: '
+             || coalesce(v_msg, '(sem erro, contagem errada)');
   end if;
 
   -- @@secao G
@@ -2799,6 +2867,9 @@ begin
               || ' menor preco=' || coalesce((select min(coalesce((c->>'v')::numeric, (p->>'v')::numeric))::text
                                                 from jsonb_array_elements(v_gg->'produtos') p
                                                 left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true), '?')
+              || E'\n  fixture I (orfa sem cor), v2: lidas=' || (v_ii->>'n_lidas')
+              || ' casou=' || (v_ii->>'n_casou')
+              || ' duvidoso=' || (v_ii->>'n_duvidoso')
   -- @@relatorio laco
               || E'\n  fixture D (condicao), v2: lidas=' || (v_dd->>'n_lidas')
               || ' casou=' || (v_dd->>'n_casou')

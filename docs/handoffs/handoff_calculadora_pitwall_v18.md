@@ -93,6 +93,43 @@ do papel antes da chamada. **Desfazer:** `alter role authenticated set statement
 
 **Ainda nao provado:** a lista do dono dentro de 30s. So ele tem o arquivo.
 
+## 3c. A linha orfa sem cor sumia da conta (13/09/2026)
+
+**O que o dono viu:** com 30s, a lista de 17/08 (`Downloads\17_08 fornecedores .zip`, 3.473
+linhas, 68.798 bytes, 21 mensagens todas de 17/08; a janela de 7 dias nao pegava nada) terminou
+em 30.786 ms e a G2 recusou: *"o leitor perdeu linhas desta lista (lidas 812, casou 308, duvidoso
+168, nao reconhecido 331). Nada foi gravado."* 812 - 807 = 5.
+
+**Como se achou:** a lista partida por mensagem em tres blocos revertidos (cada um abaixo de
+30 KB), o leitor por mensagem: perdiam a 9 (ATACADO BR10) e a 16 (Cristiano). Uma copia do leitor
+que devolve as linhas perdidas, criada e desfeita no mesmo bloco, mostrou as duas em
+`orfas_sem_cor`: `🌸 Blush - 💵 *R$ 4.700,00*` no MacBook NEO do BR10 (blush nao e cor do
+catalogo, o Silver do lado e) e `R$ 8200` sob `⚫️Midinight` no MacBook Air M5 do Cristiano.
+
+**Causa:** a orfa CASOU (modelo, condicao e fornecedor), veio sem cor reconhecida num grupo com
+cor, virou a pergunta `cor: sem cor num grupo que tem cor` e saiu do produto de proposito. Mas
+`n_casou` conta `bons` (que a exclui) e `n_duvidoso` conta so pilha duvidoso, outlier e abaixo. Ela
+nao entrava em contador nenhum. Reproduzido em duas linhas: `iPhone 16 128GB Preto Lacrado - 4.100`
+e `iPhone 16 128GB Blush Lacrado - 4.200` davam lidas 2, casou 1, duvidoso 0.
+
+**Conserto:** `supabase/migrations/20260913_calc_orfa_sem_cor_conta.sql`, 1 troca exata com
+guarda de md5: a orfa conta como DUVIDOSA. Produto e pendencias nao mudam. Pre-prova revertida:
+fixtures A a H identicas; fixture I com `n_duvidoso` 0 -> 1 e a conta fechando; G2 passou de
+recusar para aceitar. Aplicada pelo `base`: version `20260913150226`, md5 `1baff6f9...` ->
+`36f1319e016154cd27d916aea44c620a`, ACL igual, sem sobrecarga, advisors 9.
+
+**Prova:** fixture I e secao O (O1 conta, O2 o preco da orfa segue fora do produto, O3 a G2 aceita)
+em `prova_calc_parse.sql`; o gerador pos O no arquivo do leitor. Rodadas VERBATIM depois da migration:
+leitor **65**, laco **34**, catalogo **29** = **128, 0 falhas** (eram 125).
+
+**Limite declarado, que o dono precisa saber:** a pergunta `sem cor num grupo que tem cor` e uma
+sentinela (o texto nao e grafia da lista). Ela nao ensina nada; hoje so da para deixar fora. A cor
+que faltou (`Blush`, `Cítrus`, `Índigo`, `Midinight` escrito errado) nao vira pergunta propria.
+
+**Tempo:** a leitura que passou levou 30,8 s, colada no limite. Medido nas mensagens 1 a 8 (761
+linhas): 3.725 ms separadas, 3.960 ms juntas, entao linear nesse trecho (~5 ms por linha). A lista
+de 17/08 inteira nao cabe numa chamada do MCP (68,8 KB), entao o resto nao foi medido junto.
+
 ## 4. Estado ao fechar
 
 - Commits locais, sem push: `7732718` (D20 na tela), `d61d34f` (corte de 7 dias).

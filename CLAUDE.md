@@ -416,9 +416,10 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 - **Provas de BANCO (`ferramentas/prova_*.sql`) sao suite tambem, e ate 09/09/2026
   nao estavam listadas em lugar nenhum.** Sao seis: `prova_entrega.sql`,
   `prova_escopo.sql`, `prova_molde.sql` e as TRES da calculadora,
-  `prova_calc_leitor.sql` (62), `prova_calc_laco.sql` (34) e
-  `prova_calc_catalogo.sql` (29), que somam 125 em 12/09/2026 (113 antes da
-  secao P, a da bateria lida como preco, e da Q, a D20 do preco abaixo da tabela). As tres sao GERADAS
+  `prova_calc_leitor.sql` (65), `prova_calc_laco.sql` (34) e
+  `prova_calc_catalogo.sql` (29), que somam 128 em 13/09/2026 (113 antes da
+  secao P, a da bateria lida como preco, da Q, a D20 do preco abaixo da tabela, e da
+  O, a linha orfa sem cor que sumia da conta). As tres sao GERADAS
   por `python ferramentas/gera_provas_calc.py` a partir de `prova_calc_parse.sql`,
   que e a FONTE e **nao roda por MCP** (enxuta tem 78 KB, e o transporte trava).
   Assercao se muda na fonte e se regera; gerado nunca se edita a mao. Por MCP,

@@ -505,7 +505,10 @@ nenhuma das duas batia com o repo.
   em 697 linhas) pelo `base`. O perfil mostra ~6 ms por linha espalhados: acelerar o
   banco sozinho nao faria 375 KB caberem. **D22 (13/09):** com o corte, a lista ainda
   tinha 85.613 bytes e parou em 8s; o `statement_timeout` do papel `authenticated` subiu
-  para 30s, custo aceito pelo dono (vale para toda chamada logada).
+  para 30s, custo aceito pelo dono (vale para toda chamada logada). **Orfa sem cor (13/09):**
+  com 30s a lista de 17/08 terminou em 30,8 s e a G2 recusou (lidas 812, soma 807); as 5 eram
+  linhas que casavam sem cor num grupo com cor e nao entravam em contador nenhum. Migration
+  `20260913_calc_orfa_sem_cor_conta.sql` (contam como duvidosas), secao O, provas **128**.
 
 - anterior: `handoff_calculadora_pitwall_v17.md` (12/09/2026, noite, **D20 no ar e a primeira
   medida do portao**). O preco muito abaixo da tabela vira pergunta, com `confirmar` so

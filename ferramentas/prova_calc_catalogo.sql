@@ -1,5 +1,5 @@
 -- prova_calc_catalogo.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 59374c620bbba1c78a742f0b12ec4eaa).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 f92a93e6086f6dbb5ecb56654f3158f5).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: K, L, Q. Fixtures: C, E, F, H.
@@ -92,6 +92,9 @@ declare
   v_kf2    uuid;   -- a carga da lista com condicao pendurada
   v_qr     jsonb := '{}';  -- o que a secao Q mediu dentro da subtransacao
   v_qlog   text;   -- erro inesperado dentro dela
+  v_txi    text;   -- fixture I: a orfa sem cor (13/09/2026)
+  v_ii     jsonb;  -- a leitura dela
+  v_ki     uuid;   -- a carga aberta com ela (secao O, revertida)
 begin
   -- @@fixture C
   -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════
