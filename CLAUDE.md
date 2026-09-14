@@ -11,8 +11,10 @@ aponte para arquivo inexistente.
 1. Ler o handoff de MAIOR versao em `docs/handoffs/`.
    **O indice `handoff_indice_pitwall.md` aponta o topo de CADA linha de dominio,
    e e por ele que se comeca**, nao pelo maior numero da pasta: a linha `migracao`
-   nao e mais o fio unico. Em 11/09/2026 os topos vivos sao
-   `handoff_calculadora_pitwall_v19.md` (em 13/09: responder em lote, a linha da
+   nao e mais o fio unico. Em 14/09/2026 os topos vivos sao
+   `handoff_calculadora_pitwall_v20.md` (em 14/09: capacidade sem GB e o preco que
+   vem na linha de baixo, migration `20260914040902`, provas 77/39/29 = 145 verdes
+   em execucao; o v19, de 13/09, trouxe: responder em lote, a linha da
    mensagem na pergunta, e a D10 revista para "outro horario nao herda"; o produto novo: Blocos 0 e 1 fechados, o
    2 com a fatia 1 entregue, o parser v2 vivo nos DOIS chamadores, a margem virou
    dado, a 2.4a bis, o `2.4a zero` e o `2.4a zero bis` fechados: o laco recusa
@@ -32,9 +34,10 @@ aponte para arquivo inexistente.
    colado); guarda nova se mede contra o que JA FUNCIONAVA, nao so contra o defeito
    que ela fecha; e assercao que casa por VALOR solto num blob prova o catalogo,
    nao a fixture),
-   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v70.md`
-   (13/09, CRM: Fila Operacional v2, escrito pelo ChatGPT; o v69 abaixo dele e
-   so uma PONTE curta, com a escrita em producao de 13/09 relatada no rodape).
+   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v71.md`
+   (14/09, CRM: Fatia 1 da Fila Operacional v2 validada e publicada, escrito pelo
+   ChatGPT; o v70 de 13/09 abriu a fila, e o v69 abaixo dele e so uma PONTE curta,
+   com a escrita em producao de 13/09 relatada no rodape).
    Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no
    **v8**: QUATRO versoes em um dia. A linha `calculadora` anda RAPIDO, entao
    conferir a pasta aqui vale mais do que nas outras.
@@ -425,11 +428,13 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
 - **Provas de BANCO (`ferramentas/prova_*.sql`) sao suite tambem, e ate 09/09/2026
   nao estavam listadas em lugar nenhum.** Sao seis: `prova_entrega.sql`,
   `prova_escopo.sql`, `prova_molde.sql` e as TRES da calculadora,
-  `prova_calc_leitor.sql` (73), `prova_calc_laco.sql` (39) e
-  `prova_calc_catalogo.sql` (29), que somam 141 na noite de 13/09/2026 (113 antes da
+  `prova_calc_leitor.sql` (77), `prova_calc_laco.sql` (39) e
+  `prova_calc_catalogo.sql` (29), que somam **145 em execucao** em 14/09/2026
+  (142 escritas: o catalogo executa 29 contra 26 escritas por causa do laco L).
+  Eram 141 na noite de 13/09, e 113 antes da
   secao P, a da bateria lida como preco, da Q, a D20 do preco abaixo da tabela, da
   O, a linha orfa sem cor que sumia da conta, da S, as regras do leitor da lista de
-  17/08, e da U, o responder em lote). As tres sao GERADAS
+  17/08 (S9 a S12 em 14/09: capacidade sem GB), e da U, o responder em lote). As tres sao GERADAS
   por `python ferramentas/gera_provas_calc.py` a partir de `prova_calc_parse.sql`,
   que e a FONTE e **nao roda por MCP** (enxuta tem 78 KB, e o transporte trava).
   Assercao se muda na fonte e se regera; gerado nunca se edita a mao. Por MCP,
