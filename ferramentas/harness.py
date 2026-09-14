@@ -4703,6 +4703,18 @@ async function rodar() {
   // sao sobre CONTAGEM DE REDE e IDENTIDADE DE NO DO DOM, que e o unico jeito de
   // provar que uma tela NAO foi remontada: comparar HTML nao distingue "igual"
   // de "recriado igual".
+  // A classificacao da Fatia 1 remove o LEAD-9001 sem consentimento. A prova
+  // cirurgica ainda precisa de dois nos EXECUTAVEIS para tocar um sem remontar
+  // o vizinho, entao esta fixture nasce aqui e nao contamina os blocos antigos.
+  var baseV51 = JSON.parse(JSON.stringify(LEADS[0]));
+  baseV51.id = '9051aaaa-0000-4000-8000-000000009051';
+  baseV51.lead_code = 'LEAD-9051'; baseV51.nome = 'Fixture executavel v51';
+  baseV51.status = 'pendente'; baseV51.arquivado_em = null;
+  baseV51.whatsapp_digitos = '5521999999051'; baseV51.consentimento = true;
+  baseV51.veredito = 'mande'; baseV51.veredito_ordem = 3;
+  baseV51.proximo_contato = window.PitWall.hojeLocalISO();
+  baseV51.ultimo_toque_em = null;
+  LEADS.push(baseV51); window.PitWall._setLeads(LEADS);
   document.getElementById('abaFila').click();
   await espera(320);
   var cds = document.querySelectorAll('#lista .card');
@@ -4789,29 +4801,22 @@ async function rodar() {
      window.__rpcChamadas.map(function (r) { return r.nome; }).join(','));
   }
 
-  // ---- LGPD no caminho novo (invariante 16). O repintar cirurgico usa o mesmo
-  // x() da lista, mas isso precisa ser PROVADO no caminho novo, nao deduzido:
-  // lead sem consentimento nao ganha link nem sugestao ao ser repintado.
-  var semC = [].filter.call(document.querySelectorAll('#lista .card[data-prova]'),
-    function (el) { return !el.querySelector('[data-wa-lead]'); })[0];
-  ok('ha um card SEM consentimento na fila para a prova de LGPD', !!semC);
-  if (semC) {
-  semC.querySelector('[data-acao="leque"]').click();
-  await espera(120);
-  window.__rpcChamadas.length = 0;
-  semC.querySelector('[data-acao="respondeu"]').click();
-  await espera(520);
-  var semCodigo = semC.getAttribute('data-lead');
-  var repintado = [].filter.call(document.querySelectorAll('#lista .card'),
-    function (el) { return el.getAttribute('data-lead') === semCodigo; })[0];
-  ok('o card sem consentimento foi repintado', !!repintado && !repintado.getAttribute('data-prova'));
-  ok('e continua SEM link de WhatsApp depois da troca cirurgica (invariante 16)',
-     !!repintado && !repintado.querySelector('[data-wa-lead]')
-     && repintado.textContent.indexOf('Sem consentimento') >= 0);
-  ok('e nenhuma sugestao foi pedida para lead sem consentimento',
-     window.__rpcChamadas.filter(function (r) { return r.nome === 'sugerir_mensagem'; }).length === 0,
-     window.__rpcChamadas.map(function (r) { return r.nome; }).join(','));
-  }
+  // ---- LGPD no contrato novo (invariante 16). O bloqueio agora acontece na
+  // classificacao: o lead nao entra como trabalho executavel. As guardas do
+  // card e do link seguem provadas como defesa em profundidade.
+  var semC = LEADS.filter(function (x) { return x.lead_code === 'LEAD-9001'; })[0];
+  ok('LGPD: lead sem consentimento NAO aparece na Fila executavel',
+     !!semC && !document.querySelector('#lista .card[data-lead="LEAD-9001"]'));
+  ok('LGPD: waHrefFila recusa lead sem consentimento (invariante 16)',
+     !!semC && window.PitWall.waHrefFila(semC) === null);
+  var htmlSemC = semC ? window.PitWall.cardHTML(semC, 'fila', window.PitWall.hojeLocalISO()) : '';
+  ok('LGPD: card defensivo nao oferece WhatsApp, sugestao nem toque',
+     htmlSemC.indexOf('data-wa-lead') < 0 && htmlSemC.indexOf('data-acao="sugerir"') < 0
+     && htmlSemC.indexOf('data-acao="toque"') < 0);
+  ok('LGPD: nenhuma sugestao foi pedida para o lead sem consentimento',
+     !!semC && !window.__rpcChamadas.some(function (r) {
+       return r.nome === 'sugerir_mensagem' && r.args && r.args.p_lead_id === semC.id;
+     }));
 
   // ---- aba que nao e de lead nao pode baixar a base de leads ----
   document.getElementById('abaEscopo').click();
@@ -5075,6 +5080,14 @@ async function rodar() {
      filaOp.slice(0, 4).map(function (x) { return x.lead_code; }).join(' | '));
   ok('pos-venda: a Fila nao recria um bloco que quebraria a ordem global',
      !document.querySelector('#lista .pos-cab'));
+  var recorteP = document.querySelector('#lista .fila-recorte');
+  ok('pos-venda: a Fila unificada declara sua composicao',
+     !!recorteP && recorteP.querySelector('.fila-recorte-cont').textContent.indexOf('de pós-venda') >= 0,
+     recorteP ? recorteP.textContent : 'sem recorte');
+  var diaRecorteP = String(hjP).slice(8, 10) + '/' + String(hjP).slice(5, 7);
+  ok('pos-venda: a janela do recorte continua declarada sem separar os cards',
+     !!recorteP && recorteP.querySelector('.fila-recorte-jan').textContent.indexOf(diaRecorteP) >= 0,
+     recorteP ? recorteP.textContent : 'sem recorte');
   var cardP = null, cardsP = document.querySelectorAll('#lista .card');
   for (var iP = 0; iP < cardsP.length; iP++) {
     if (cardsP[iP].getAttribute('data-lead') === 'LEAD-9100') cardP = cardsP[iP];

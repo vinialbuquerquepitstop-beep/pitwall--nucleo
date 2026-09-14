@@ -72,9 +72,13 @@ ok('pos-venda sem consentimento nao entra',
 
 ok('a fila operacional unificada existe', typeof api.montarFilaOperacional === 'function');
 ok('a aba Fila usa a classificacao unificada',
-  source.indexOf('N(e,vOperacional(o,a),"fila"') >= 0);
+  source.indexOf('filaOp=vOperacional(o,a)') >= 0 && source.indexOf('N(e,filaOp,"fila"') >= 0);
 ok('a aba Hoje usa a mesma classificacao unificada',
   source.indexOf('fila=vOperacional(ativos,l())') >= 0);
+ok('a Fila declara a composicao comercial e pos-venda sem separar a ordem',
+  source.indexOf('class="fila-recorte"') >= 0 && source.indexOf('filaRecorte(filaOp,a)') >= 0);
+ok('a Hoje reaproveita o mesmo recorte da fila unificada',
+  source.indexOf('filaRecorte(fila,l())') >= 0);
 if (typeof api.montarFilaOperacional === 'function') {
   const comercial = lead({
     id: 'comercial-agora',

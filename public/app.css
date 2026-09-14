@@ -2698,20 +2698,21 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 }
 
 /* ==========================================================================
-   POS-VENDA DENTRO DA ABA FILA
-   A fila de venda filtra por status === 'pendente'. Quem compra vira
-   'convertido' e sai dela, mas a cadencia do perfil `comprou` continua viva:
-   6 passos (P1 D1 ate P6 D365) e 18 scripts no banco. Ate 14/08/2026 esse
-   fluxo nao tinha superficie nenhuma: o botao "Toque enviado" existe uma vez
-   so no app e so dentro do card em modo fila. Cinco clientes estavam com o
-   passo vencido, o mais antigo ha 28 dias, sem onde clicar.
-   Bloco separado, e nao um afrouxamento do filtro da fila, por um motivo
-   concreto: em modo fila o card ESCONDE o chip de status, entao um cliente
-   jogado na fila de venda apareceria identico a um lead novo.
-   Nenhum token de cor novo entra aqui. O azul da marca aparece so no
-   contador, que e um dos quatro usos permitidos pela referencia visual v3
-   (item ativo, contador da fila, acao primaria, chip de indicacao).
+   FILA UNIFICADA E POS-VENDA
+   Comercial e pos-venda seguem uma unica prioridade. O resumo declara a
+   composicao e a janela sem criar um bloco que empurre pos-venda para baixo.
+   O cabecalho .pos-cab abaixo permanece vivo na aba Pitscare.
    ========================================================================== */
+.fila-recorte{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:0 0 9px;border-bottom:1px solid var(--line);color:var(--dim)
+}
+.fila-recorte-tit{font-family:var(--display);font-size:13px;font-weight:600;color:var(--text)}
+.fila-recorte-cont{
+  font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;
+  color:var(--text);background:var(--surface);border:1px solid var(--line-forte)
+}
+.fila-recorte-jan{font-size:11.5px;min-width:0}
 .pos-cab{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   margin:20px 0 -2px;padding-top:15px;border-top:1px solid var(--line);
