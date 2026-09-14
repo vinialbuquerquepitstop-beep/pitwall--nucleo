@@ -1991,9 +1991,13 @@ async function rodar() {
   ok('prefetch chamou sugerir_mensagem pros leads da previa (invariante 13)',
      window.__rpcChamadas.some(function (c) { return c.nome === 'sugerir_mensagem'; }));
   var semConsent = document.querySelector('#lista .fila-lin[data-lead="LEAD-9001"]');
-  ok('linha do lead sem consentimento renderizou na Fila', !!semConsent);
-  ok('trava LGPD: lead sem consentimento NAO tem Enviar (invariante 16)',
-     !!semConsent && !semConsent.querySelector('a.fila-wa'));
+  ok('classificacao: lead sem consentimento nao aparece como trabalho executavel',
+     !semConsent);
+  ok('trava LGPD: lead sem consentimento nao teve mensagem pre-carregada',
+     !window.__rpcChamadas.some(function (c) {
+       return c.nome === 'sugerir_mensagem' &&
+         c.args.p_lead_id === '9001aaaa-0000-4000-8000-000000009001';
+     }));
 
 
   // marcar risca e persiste
@@ -5019,7 +5023,10 @@ async function rodar() {
     if (mut) mut(b);
     return b;
   }
-  var pvOk = clonePos(function (b) { b.nome = 'Cliente Pos-venda'; b.lead_code = 'LEAD-9100'; });
+  var pvOk = clonePos(function (b) {
+    b.nome = 'Cliente Pos-venda'; b.lead_code = 'LEAD-9100';
+    b.veredito = 'prioridade'; b.veredito_ordem = 1;
+  });
 
   ok('pos-venda: cliente com passo vencido ENTRA no bloco',
      window.PitWall.entraNoPosVenda(pvOk, hjP) === true);
@@ -5059,23 +5066,15 @@ async function rodar() {
   document.getElementById('abaFila').click();
   await espera(300);
 
-  var cabP = document.querySelector('#lista .pos-cab');
-  ok('pos-venda: o bloco aparece na aba Fila', !!cabP);
-  if (cabP) {
-    ok('pos-venda: a secao tem icone, nunca so a palavra', !!cabP.querySelector('svg.pos-ico'));
-    ok('pos-venda: a secao tem contador',
-       (cabP.querySelector('.pos-cont') || {}).textContent === '2',
-       'contador=' + ((cabP.querySelector('.pos-cont') || {}).textContent));
-    // v33: tela que omite recorte mente. O bloco mostra 2 de N clientes, entao
-    // ele PRECISA declarar qual e o recorte.
-    ok('pos-venda: a janela do recorte esta declarada',
-       ((cabP.querySelector('.pos-jan') || {}).textContent || '').indexOf('vencendo') >= 0,
-       (cabP.querySelector('.pos-jan') || {}).textContent);
-    // O CSS tem que estar VIVO, nao so escrito. O defeito de 06 a 08/08/2026
-    // foram 16 regras penduradas num seletor que nunca casava.
-    ok('pos-venda: o filete que separa da fila de venda existe de fato',
-       getComputedStyle(cabP).borderTopWidth === '1px', getComputedStyle(cabP).borderTopWidth);
-  }
+  var filaOp = window.PitWall.montarFilaOperacional(LEADS, hjP);
+  ok('pos-venda: comercial e cliente vencido entram no mesmo conjunto operacional',
+     filaOp.some(function (x) { return x.lead_code === 'LEAD-9100'; }) &&
+     filaOp.some(function (x) { return x.status === 'pendente'; }));
+  ok('pos-venda: prioridade e global, nao fica presa depois do bloco comercial',
+     filaOp[0] && filaOp[0].lead_code === 'LEAD-9100',
+     filaOp.slice(0, 4).map(function (x) { return x.lead_code; }).join(' | '));
+  ok('pos-venda: a Fila nao recria um bloco que quebraria a ordem global',
+     !document.querySelector('#lista .pos-cab'));
   var cardP = null, cardsP = document.querySelectorAll('#lista .card');
   for (var iP = 0; iP < cardsP.length; iP++) {
     if (cardsP[iP].getAttribute('data-lead') === 'LEAD-9100') cardP = cardsP[iP];
@@ -5097,6 +5096,19 @@ async function rodar() {
     ok('pos-venda: o botao Toque enviado existe no card do cliente',
        !!cardP.querySelector('[data-acao="toque"]'));
   }
+
+  // A mesma funcao alimenta Fila e Hoje. O pos-venda de prioridade precisa
+  // aparecer entre os cinco visiveis e encabecar a previa.
+  document.getElementById('abaHoje').click();
+  await espera(400);
+  var primeiraHoje = document.querySelector('#lista .fila-lin');
+  ok('pos-venda: nao some da Fila de hoje',
+     !!document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"]'));
+  ok('pos-venda: a mesma prioridade global encabeca a Hoje',
+     !!primeiraHoje && primeiraHoje.getAttribute('data-lead') === 'LEAD-9100',
+     primeiraHoje ? primeiraHoje.getAttribute('data-lead') : 'sem linha');
+  ok('prazo: item devido hoje diz vence hoje, sem parecer atrasado',
+     !!document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"] .fila-prazo-hoje'));
 
   // ---- PITSCARE: A ABA DO CUIDADO POS-VENDA (18/08/2026) -------------------
   // Por que a aba existe se o bloco acima ja mostra pos-venda: o bloco so mostra

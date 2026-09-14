@@ -978,6 +978,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-nivel.n-frio{color:var(--frio-fg)}
 .fila-cad{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fila-atraso{font-family:var(--mono);font-size:10.5px;color:var(--quente-fg);background:var(--quente-bg);border:1px solid var(--quente-linha);border-radius:999px;padding:1px 7px}
+.fila-prazo-hoje{font-family:var(--mono);font-size:10.5px;color:var(--dim);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 7px}
 /* .btn-acao nasce com flex:1. Na coluna estreita isso nunca apareceu, mas com
    a Fila em largura total (19/08/2026) o Sugerir esticou por 600px: botao
    largo demais deixa de parecer botao e a linha perde o ritmo. */

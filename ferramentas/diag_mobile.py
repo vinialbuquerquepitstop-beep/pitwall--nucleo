@@ -298,12 +298,11 @@ async function rodar(){
         window.__saida.erros.push('detalhe do faturamento nao entrou na medicao: '
           + 'nenhuma .vg-det-lin na aba Vendas, entao o bloco novo NAO foi medido');
     }
-    // Injecao que nao rende elemento na tela e pior do que injecao nenhuma: o
-    // diagnostico passaria verde jurando ter medido o bloco novo. Se o
-    // cabecalho nao esta no DOM na hora da medida, isto REPROVA.
-    if (abasIds[k] === 'abaFila' && !D.querySelector('#lista .pos-cab'))
-      window.__saida.erros.push('pos-venda nao entrou na medicao: #lista .pos-cab '
-        + 'ausente na Fila, entao a secao nova NAO foi medida nesta largura');
+    // A Fatia 1 unificou comercial e pos-venda para a prioridade ser global.
+    // O card convertido precisa entrar na medida, sem depender de cabecalho.
+    if (abasIds[k] === 'abaFila' && !D.querySelector('#lista .card .chip.st-convertido'))
+      window.__saida.erros.push('pos-venda nao entrou na medicao: nenhum card '
+        + 'convertido na Fila operacional nesta largura');
     // A aba Financeiro tem TRES sub-views por chip, e a que aperta o layout NAO
     // e a que abre por padrao: a Visao e leitura, e a linha densa (checkbox +
     // descricao + valor + DOIS seletores) mora em Movimentos. Medir so a Visao

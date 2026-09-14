@@ -82,8 +82,8 @@ t('sem_contato ganha o ponto colorido como os outros niveis',
 
 console.log('\n--- costura: a aba Hoje mostra a regua ---');
 eq('renderHoje pinta a linha da regua', conta('reguaLinha(d.regua)'), 1);
-t('a linha entra depois do placar e antes da fila',
-  SRC.indexOf('hojePlacar(d)+reguaLinha(d.regua)+hojeFila(d)') >= 0);
+t('a linha entra no rodape da Hoje, depois do conteudo operacional',
+  SRC.indexOf('\'<div class="hj-rodape">\'+reguaLinha(d.regua)') >= 0);
 eq('reguaLinha esta definida uma vez so', conta('function reguaLinha(r){'), 1);
 
 console.log(`\n=== ${ok + falhas} assercoes, ${falhas} falhas ===`);
