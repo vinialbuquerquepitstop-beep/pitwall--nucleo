@@ -1414,6 +1414,77 @@ begin
              || ' + duvidoso ' || (v_jj->>'n_duvidoso') || ' + nao reconhecido ' || (v_jj->>'n_nao_reconhecido');
   end if;
 
+  -- S9. Capacidade sem GB logo depois do modelo (14/09/2026, a lista de 17/08 pela tela):
+  --     e capacidade, e nao e preco. O que ja funcionava segue igual.
+  --     Migration: supabase/migrations/20260914_calc_capacidade_sem_gb.sql.
+  v_total := v_total + 1;
+  if privado.calc_capacidade('📱*13 128 eSIM+chip físico lacrado importado caixa normal*') is distinct from '|128'
+     or privado.calc_capacidade('📲IPHONE 16 PRO MAX 512🩶') is distinct from '|512'
+     or privado.calc_preco('📲IPHONE 16 PRO MAX 512🩶') is not null
+     or privado.calc_preco('📱*13 128 eSIM+chip físico lacrado importado caixa normal*') is not null
+     or privado.calc_preco('iPhone 13 128 - 2.500') is distinct from 2500
+     or privado.calc_capacidade('AirPods Pro 2 - 1.299') <> ''
+     or privado.calc_preco('AirPods Pro 2 - 1.299') is distinct from 1299 then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S9] capacidade sem GB: `13 128` / `PRO MAX 512` nao viraram capacidade, ou viraram preco, ou o AirPods Pro 2 mudou';
+  end if;
+
+  -- S10. O cabecalho sem GB com o preco na linha de baixo entra na tabela.
+  v_total := v_total + 1;
+  v_jj := privado.calc_parse_v2(v_tenant,
+            E'[14/09/2026, 10:00:00] Vini: Junior recreio\n'
+         || E'📱*13 128 eSIM+chip físico lacrado importado caixa normal*\n'
+         || E'💰3.199,00\n');
+  if (v_jj->>'n_casou')::int <> 1
+     or not exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+                     where p->>'n' = 'iPhone 13 128GB' and p->>'t' = 'Lacrado'
+                       and (p->>'v')::numeric = 3199) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S10] `📱*13 128 ... lacrado` com `💰3.199,00` embaixo nao virou iPhone 13 128GB Lacrado 3199: '
+             || v_jj::text;
+  end if;
+
+  -- S11. O relogio escrito sem `mm` embaixo de um iPad sem GB nao herda o iPad: a linha
+  --      que nomeia uma familia abre bloco de modelo (achado pela pre-prova, Cristiano).
+  v_total := v_total + 1;
+  v_jj := privado.calc_parse_v2(v_tenant,
+            E'[14/09/2026, 10:00:00] Vini: Junior recreio\n'
+         || E'📱iPad 11 128 (A16) lacrado importado\n'
+         || E'R$2700\n'
+         || E'⌚️Apple Watch s11 46 lacrado importado\n'
+         || E'R$2400\n');
+  if exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 2400)
+     or not exists (select 1 from jsonb_array_elements(v_jj->'pendencias') q
+                     where q->>'tipo' = 'modelo' and q->>'texto' ilike '%watch s11 46%') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S11] o R$ 2400 do Apple Watch sem mm entrou como iPad, ou o relogio nao virou pergunta de modelo: '
+             || v_jj::text;
+  end if;
+
+  -- S12. Tamanho de relogio sem `mm` nao e preco, e a cor entre dois precos com a cor
+  --      ANTES do preco pega o de baixo (Silver 2750, e nao 2700).
+  v_total := v_total + 1;
+  v_jj := privado.calc_parse_v2(v_tenant,
+            E'[14/09/2026, 10:00:00] Vini: Junior recreio\n'
+         || E'📱iPad 11 128 (A16) lacrado importado\n'
+         || E'💗rosa\n'
+         || E'💙azul\n'
+         || E'R$2700\n'
+         || E'🩶Silver\n'
+         || E'R$2750\n');
+  if privado.calc_preco('⌚️Apple Watch s11 46 lacrado importado') is not null
+     or privado.calc_preco('*⌚️ RELÓGIO GARMIN FORERUNNER 55*') is not null
+     or privado.calc_preco('Garmin Forerunner 165 - 1.699') is distinct from 1699
+     or privado.calc_preco('Apple Watch SE 44 - 1.900') is distinct from 1900
+     or not exists (select 1 from jsonb_array_elements(v_jj->'produtos') p, jsonb_array_elements(p->'cs') c
+                     where p->>'n' = 'iPad 11 128GB' and c->>'n' = 'Silver' and (c->>'v')::numeric = 2750) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S12] o 46 do relogio virou preco, ou o Silver nao pegou o 2750 de baixo: '
+             || v_jj::text;
+  end if;
+
   -- @@secao G
   -- ══ G. O RESOLVER, CHAMADO DE VERDADE ══════════════════════════════════════
   -- A regra desta secao, e ela e a frase da spec de 10/09 em forma de teste:

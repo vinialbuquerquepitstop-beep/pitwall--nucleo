@@ -526,7 +526,13 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v19.md` (13/09/2026, noite, **responder em lote, a linha
+- topo: `handoff_calculadora_pitwall_v20.md` (14/09/2026, madrugada, **sessao interrompida**:
+  capacidade sem GB e o preco na linha de baixo; na lista de 17/08 casou 395 -> 474 na pre-prova).
+  Migration `20260914_calc_capacidade_sem_gb.sql` aplicada pelo `base` (version `20260914040902`,
+  fumacas certas, advisors 11). **Provas regeradas (142 escritas) e NAO rodadas: primeira coisa da
+  proxima sessao.** O dono rele a carga `6c4d3491` na tela para ver o efeito.
+
+- anterior: `handoff_calculadora_pitwall_v19.md` (13/09/2026, noite, **responder em lote, a linha
   da mensagem e o leitor da lista de 17/08**). A primeira resposta pela tela morreu em 30,3 s
   (toda resposta relia a lista). **D23:** a resposta e ANOTADA (`calc_pendencia_anotar`, travas
   na hora) e o lote aplica numa releitura (`calc_carga_reler`, tudo ou nada); limite do papel

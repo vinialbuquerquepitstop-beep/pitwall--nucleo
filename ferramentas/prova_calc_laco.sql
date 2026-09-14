@@ -1,5 +1,5 @@
 -- prova_calc_laco.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 bfcd798e1b31c88368179de4c391db57).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 a315c8f06b76ad88b3c102a94978fc69).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: G, Z, R, U. Fixtures: A, B, C, D.
