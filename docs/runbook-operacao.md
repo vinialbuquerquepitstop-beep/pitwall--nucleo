@@ -74,6 +74,64 @@ ou seja, uma sessao do condutor do Financeiro.
 **Higiene:** feche o que nao esta em uso. Sessao ociosa ha dias e risco puro sem
 valor nenhum.
 
+### Outro agente: o ChatGPT (Codex)
+
+Desde 13/09/2026 um segundo agente trabalha no MESMO repo e no MESMO banco, de
+outra maquina, e nenhum dos dois le a conversa do outro. Na primeira noite ele fez
+4 commits direto no `main`, acrescentou 72 linhas ao v69 ja commitado e escreveu em
+producao sem migration e sem autor (14 cadencias trazidas para 13/09 e 3 encerradas
+a mao, carimbo `2026-09-14 00:33:59.9034+00` na `auditoria`). O conteudo estava
+certo. O que falhou foi a coordenacao. O protocolo abaixo foi proposto pelo Claude e
+aceito por ele na mesma noite.
+
+| Tema | Regra |
+|---|---|
+| Arranque | `git fetch`, commits que nao sao seus, `CLAUDE.md`, indice de handoffs, este runbook |
+| Handoff | Commitado nao se edita. Versao nova + indice no mesmo commit |
+| Schema | So por arquivo em `supabase/migrations/` aplicado como migration |
+| Dado | RPC quando existir. SQL direto so com OK do dono ANTES, trazendo a lista, o efeito na regua e o rollback |
+| Git | `git add <caminho>`, sem force push, sem rebase de commit publicado |
+| Autoria | Commit dele termina com `Agente: ChatGPT`. Excecao anterior a regra: `2d44815` e `c36a578` |
+| Branch | Fatia dele vai numa branch `codex/...`. Chega ao `main` so depois da prova e do OK do dono |
+| Divisao | CRM e Fila dele. Calculadora do Claude. Financeiro de ninguem sem pedido do dono |
+| Prova | Ele roda Python e Node. Sem Chrome, `harness.py` e `diag_mobile.py` saem `NAO PROVADO` la e rodam aqui |
+
+**No arranque, ver o que ele fez:**
+
+```
+git fetch github --prune
+git log HEAD..github/main --format='%h %an %s'
+git for-each-ref refs/remotes/github/codex --format='%(refname:short) %(committerdate:iso)'
+```
+
+**Escrita em producao sem autor.** O cron tambem grava sem usuario, mas so entre
+08:00 e 08:31 UTC (`regua_pitwall_diaria`, `rotina-semear`, `conteudo-sync`). Fora
+dessa faixa, `usuario_id` nulo e escrita manual:
+
+```
+select tabela, acao, count(*), min(criado_em), max(criado_em)
+from public.auditoria
+where usuario_id is null and criado_em > now() - interval '7 days'
+  and (criado_em at time zone 'UTC')::time not between '08:00' and '08:31'
+group by 1, 2;
+```
+
+**Provar branch dele sem mexer na pasta.** Outras sessoes do Claude usam esta mesma
+working tree: trocar de branch aqui muda o arquivo debaixo delas. Rodar a suite do
+`CLAUDE.md` dentro de um worktree:
+
+```
+git worktree add "$TEMP/pitwall-codex" github/codex/<branch>
+# rodar a suite de dentro de "$TEMP/pitwall-codex", conferindo o EXIT de cada comando
+git worktree remove "$TEMP/pitwall-codex"
+```
+
+**Armadilha medida na Fatia 1 dele:** `git diff --stat` mostrou `public/app.js | 6
++++---`, ou seja 3 linhas. Eram ~16 mil caracteres, porque o nucleo e o roteador
+sao minificados numa linha so (linha 1: 12,5 mil chars a partir de `p()`; linha 9:
+`filaEnviarHTML()`; linha 5333: `pb()`). O tamanho de mudanca em `app.js` se mede
+em caracteres, nunca pelo `--stat`.
+
 ---
 
 ## 2. Git: o remote e as armadilhas de Windows
