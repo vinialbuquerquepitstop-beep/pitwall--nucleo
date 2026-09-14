@@ -5301,6 +5301,12 @@ async function rodar() {
   // 30.6h: acima de 24h (entao a pendencia da Hoje tem que sair como URGENTE) e
   // abaixo de 48h (entao o formatador tem que dizer "31h", nao "1d").
   lm.horas_esperando_1o_toque = 30.6;
+  // O pos-venda LEAD-9100 ganhou veredito 'prioridade' na cena da ordem global
+  // (Fila Operacional v2). Se ficar com ele aqui, disputa o topo com o LEAD-9200
+  // e esta cena deixa de medir o lead novo. Tira o veredito so dele, antes do push.
+  LEADS.forEach(function (x) {
+    if (x.lead_code === 'LEAD-9100') { x.veredito = null; x.veredito_ordem = null; }
+  });
   LEADS.push(lm);
   window.PitWall._setLeads(LEADS);
   document.getElementById('abaFila').click();
