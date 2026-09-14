@@ -7,7 +7,18 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v70.md` (13/09/2026, **CRM: Fila Operacional v2, Fatia 0
+- topo: `handoff_migracao_pitwall_v71.md` (14/09/2026, **CRM: Fila Operacional v2, Fatia 1
+  validada e publicada**). Construida pelo ChatGPT, validada pelo Claude no Chrome, publicada
+  por fast-forward: `github/main` `7782a1a` -> `2e37b23`, o hash exato que a suite mediu
+  (harness 1117/0, 1122 declaradas, 5 de ramo alternativo; EXIT 0 nos 24 comandos). Deploy
+  conferido por md5 no Worker. A Fila mostra so trabalho executavel (`pare` e sem consentimento
+  saem), comercial e pos-venda numa lista de prioridade global, a mesma regra na Hoje. Decisoes
+  do dono: a proxima fatia mostra quantos ficaram fora e por que; o vao de ~220px do cabecalho
+  mobile com Fila curta e defeito antigo do `.app` e vira correcao separada. **O `cc2d538` da
+  calculadora NAO subiu junto** e segue so no `main` local. Regra nova: publicar pelo hash
+  validado, nunca empurrar o `main` local com commit de outra linha.
+
+- anterior: `handoff_migracao_pitwall_v70.md` (13/09/2026, **CRM: Fila Operacional v2, Fatia 0
   fechada, escrito pelo ChatGPT**). Primeiro handoff desta linha feito fora do Claude: 4
   commits (`c1e6184` a `e5e948f`) pela conta do dono, direto no GitHub. Mapeia a fila
   atual (Fila = comercial + pos-venda; Hoje = so comercial) e define a Fatia 1,
