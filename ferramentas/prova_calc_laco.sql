@@ -1,9 +1,9 @@
 -- prova_calc_laco.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 f92a93e6086f6dbb5ecb56654f3158f5).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 bfcd798e1b31c88368179de4c391db57).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
--- Secoes: G, Z, R. Fixtures: A, B, C, D.
--- Assercoes escritas: 34 (um laco pode executar mais de uma vez; o numero
+-- Secoes: G, Z, R, U. Fixtures: A, B, C, D.
+-- Assercoes escritas: 39 (um laco pode executar mais de uma vez; o numero
 -- que conta e o da mensagem, e a soma dos tres gerados e o total da fonte).
 --
 -- COMO RODAR por MCP: enxugar e colar a saida numa chamada SO de execute_sql.
@@ -95,6 +95,18 @@ declare
   v_txi    text;   -- fixture I: a orfa sem cor (13/09/2026)
   v_ii     jsonb;  -- a leitura dela
   v_ki     uuid;   -- a carga aberta com ela (secao O, revertida)
+  -- secao S (13/09/2026: bandeira, iPhone sem nome, ciclo, cerca, com Apple, linha)
+  v_txj    text;   -- fixture J
+  v_jj     jsonb;  -- a leitura dela
+  v_jnm    text;   -- o nome do fornecedor `junior`, como sai na coluna `f`
+  -- secao U (13/09/2026: responder em lote)
+  v_ku     uuid;   -- a carga da fixture A, aberta so dentro da secao
+  v_pu1    uuid;   -- pergunta de fornecedor `TABELA XPTO IMPORTS`
+  v_pu2    uuid;   -- pergunta de modelo do Poco
+  v_pu3    uuid;   -- pergunta de cor `verde menta`
+  v_un     int;    -- casou ao abrir
+  v_ur     jsonb := '{}';  -- o que a secao U mediu dentro da subtransacao
+  v_ulog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -950,6 +962,131 @@ begin
              || coalesce(v_msg, 'lidas ' || coalesce(v_depois->>'n_lidas','?') || ', descarte ' || coalesce(v_depois->>'n_descarte','?'));
   end if;
 
+  -- @@secao U
+  -- ══ U. RESPONDER EM LOTE (13/09/2026) ═══════════════════════════════════════
+  -- Migration: supabase/migrations/20260913_calc_responder_em_lote.sql. A lista de
+  -- 17/08 levava 30 s por releitura, cada resposta relia tudo, e a primeira morreu
+  -- no limite do banco. Agora a resposta e ANOTADA (conferida pelas travas de sempre,
+  -- nao aplicada) e o lote aplica numa releitura so, tudo ou nada. Fixture A, com a
+  -- carga aberta DENTRO de uma subtransacao desfeita no fim.
+  begin
+    execute 'set local role authenticated';
+    v_ku := public.calc_carga_abrir(v_txt);
+    execute 'reset role';
+    select id into v_pu1 from public.calc_pendencia
+     where carga_id = v_ku and tipo = 'fornecedor' and texto = 'TABELA XPTO IMPORTS';
+    select id into v_pu2 from public.calc_pendencia
+     where carga_id = v_ku and tipo = 'modelo' and texto like 'poco f8%';
+    select id into v_pu3 from public.calc_pendencia
+     where carga_id = v_ku and tipo = 'cor' and texto = 'verde menta';
+    select n_casou into v_un from public.calc_carga where id = v_ku;
+
+    -- (1) anotar confere e guarda, sem escrever no catalogo
+    execute 'set local role authenticated';
+    v_res := public.calc_pendencia_anotar(v_pu1, 'apontar', 'five_cell', null);
+    execute 'reset role';
+    v_ur := v_ur || jsonb_build_object('u1', v_res,
+      'u1_alias', (select count(*) from public.calc_alias
+                    where tenant_id = v_tenant and tipo = 'fornecedor' and texto = 'TABELA XPTO IMPORTS'),
+      'u1_dec', (select decisao from public.calc_pendencia where id = v_pu1),
+      'u1_rasc', (select rascunho->>'decisao' from public.calc_pendencia where id = v_pu1));
+
+    -- (2) a trava de sempre recusa NA HORA
+    begin
+      execute 'set local role authenticated';
+      perform public.calc_pendencia_anotar(v_pu2, 'apontar', 'nao_existe_prova', null);
+      execute 'reset role';
+      v_ur := v_ur || jsonb_build_object('u2', 'aceitou');
+    exception when others then
+      v_ur := v_ur || jsonb_build_object('u2', sqlerrm);
+    end;
+    execute 'reset role';
+
+    -- (3) ignorar em pergunta aberta vale na hora, sem releitura
+    execute 'set local role authenticated';
+    v_res := public.calc_pendencia_anotar(v_pu3, 'ignorar', null, null);
+    execute 'reset role';
+    v_ur := v_ur || jsonb_build_object('u3', v_res,
+      'u3_dec', (select decisao from public.calc_pendencia where id = v_pu3),
+      'u3_casou', (select n_casou from public.calc_carga where id = v_ku));
+
+    -- (4) uma culpada no lote (plantada direto: `confirmar` numa pergunta de modelo)
+    update public.calc_pendencia set rascunho = '{"decisao":"confirmar"}'::jsonb where id = v_pu2;
+    execute 'set local role authenticated';
+    v_res := public.calc_carga_reler(v_ku);
+    execute 'reset role';
+    v_ur := v_ur || jsonb_build_object('u4_ok', v_res->'ok',
+      'u4_alias', (select count(*) from public.calc_alias
+                    where tenant_id = v_tenant and tipo = 'fornecedor' and texto = 'TABELA XPTO IMPORTS'),
+      'u4_erro', (select rascunho_erro from public.calc_pendencia where id = v_pu2),
+      'u4_rasc1', (select rascunho is not null from public.calc_pendencia where id = v_pu1));
+
+    -- (5) sem a culpada, o lote aplica numa releitura
+    execute 'set local role authenticated';
+    perform public.calc_pendencia_anotar(v_pu2, null, null, null);
+    v_res := public.calc_carga_reler(v_ku);
+    execute 'reset role';
+    v_ur := v_ur || jsonb_build_object('u5_ok', v_res->'ok', 'u5_aplicadas', v_res->'aplicadas',
+      'u5_pend', v_res ? 'pendencias',
+      'u5_alias', (select count(*) from public.calc_alias
+                    where tenant_id = v_tenant and tipo = 'fornecedor' and texto = 'TABELA XPTO IMPORTS'),
+      'u5_dec', (select decisao from public.calc_pendencia where id = v_pu1),
+      'u5_rasc', (select rascunho is null from public.calc_pendencia where id = v_pu1),
+      'u5_casou', (select n_casou from public.calc_carga where id = v_ku));
+    raise exception 'prova_rollback';
+  exception when others then
+    if sqlerrm <> 'prova_rollback' then v_ulog := sqlerrm; end if;
+  end;
+  execute 'reset role';
+
+  -- U1. Anotar guarda a resposta e nao escreve no catalogo.
+  v_total := v_total + 1;
+  if v_ulog is not null or not coalesce((v_ur->'u1'->>'anotada')::boolean, false)
+     or coalesce((v_ur->>'u1_alias')::int, -1) <> 0 or v_ur->>'u1_dec' is not null
+     or coalesce(v_ur->>'u1_rasc', '') <> 'apontar' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [U1] lote: anotar escreveu no catalogo ou nao guardou a resposta. Medido: '
+             || v_ur::text || ' erro ' || coalesce(v_ulog, '(nenhum)');
+  end if;
+
+  -- U2. Anotar recusa na hora com a trava do resolver.
+  v_total := v_total + 1;
+  if coalesce(v_ur->>'u2', '') not like '%nao existe no catalogo%' then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [U2] lote: anotar apontar para codigo inexistente nao foi recusado na hora. Obtido: '
+             || coalesce(v_ur->>'u2', '(nada)');
+  end if;
+
+  -- U3. Ignorar em pergunta aberta vale na hora e nao muda a leitura.
+  v_total := v_total + 1;
+  if not coalesce((v_ur->'u3'->>'aplicada')::boolean, false) or coalesce(v_ur->>'u3_dec', '') <> 'ignorar'
+     or (v_ur->>'u3_casou')::int is distinct from v_un then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [U3] lote: ignorar nao valeu na hora, ou mudou o casou. Medido: ' || v_ur::text;
+  end if;
+
+  -- U4. Uma culpada volta o lote inteiro: nada grava e ela fica marcada.
+  v_total := v_total + 1;
+  if coalesce(v_ur->>'u4_ok', '') <> 'false' or coalesce((v_ur->>'u4_alias')::int, -1) <> 0
+     or coalesce(v_ur->>'u4_erro', '') not like '%confirmar so vale%'
+     or not coalesce((v_ur->>'u4_rasc1')::boolean, false) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [U4] lote: com uma resposta recusada, algo gravou ou a culpada nao ficou marcada. Medido: '
+             || v_ur::text;
+  end if;
+
+  -- U5. O lote bom aplica numa releitura, limpa a anotada e ensina (as 2 linhas do XPTO casam).
+  v_total := v_total + 1;
+  if coalesce(v_ur->>'u5_ok', '') <> 'true' or coalesce((v_ur->>'u5_aplicadas')::int, 0) <> 1
+     or coalesce((v_ur->>'u5_alias')::int, 0) <> 1 or coalesce(v_ur->>'u5_dec', '') <> 'apontar'
+     or not coalesce((v_ur->>'u5_rasc')::boolean, false)
+     or (v_ur->>'u5_casou')::int is distinct from v_un + 2
+     or coalesce((v_ur->>'u5_pend')::boolean, true) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [U5] lote: a releitura em lote nao aplicou a resposta boa (esperado ok, 1 aplicada, apelido gravado, casou +2). Medido: '
+             || v_ur::text || ' casou ao abrir ' || coalesce(v_un::text, '?');
+  end if;
+
   -- @@relatorio
   -- Cada linha de sumario pertence a UM arquivo gerado, pelo marcador acima
   -- dela. Juntas, as tres dizem o que este relatorio diz.
@@ -966,6 +1103,9 @@ begin
               || E'\n  respostas de condicao (D14): fixture C casou 0 -> ' || coalesce(v_rc::text,'?')
               || ' com "junior" = Lacrado; fixture D 11 -> ' || coalesce(v_rd::text,'?')
               || ' de 16 com as 5 respondidas'
+              || E'\n  lote (U): anotar confere sem gravar, ignorar vale na hora, uma culpada volta o lote inteiro,'
+              || ' e o lote bom aplica numa releitura so (casou ' || coalesce(v_un::text,'?') || ' -> '
+              || coalesce(v_ur->>'u5_casou','?') || ')'
   -- @@relatorio fim
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam (prova_calc_laco)' || v_log
     end;

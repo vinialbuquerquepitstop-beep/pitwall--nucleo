@@ -10,8 +10,16 @@
 # nao tem rede. Prova que copia a logica prova a si mesma; esta executa a tela.
 #
 # O stub nao usa valor real (PROCESSO 5.1): fornecedores `Loja Alfa`, `Loja Beta`,
-# precos inventados. Ele filtra linha por `eq`/`neq` de verdade, entao a tela
-# ve so o que a consulta dela pede.
+# precos inventados. Ele filtra linha por `eq`/`neq` de verdade e PROJETA as
+# colunas do `select`, entao a tela ve so o que a consulta dela pede: coluna
+# esquecida no select vira funcionalidade ausente na prova, como no banco.
+#
+# 13/09/2026, RESPONDER EM LOTE: a resposta passou a ser ANOTADA
+# (`calc_pendencia_anotar`) e o lote aplicado numa releitura so
+# (`calc_carga_reler`). O stub segue o contrato: `ignorar` sobre pergunta aberta
+# vale na hora; o reler recusa o `apontar` do p3 (a pergunta continua na leitura),
+# e com `window.__RELER_LENTA` devolve 57014. E o card mostra o CONTEXTO da
+# pendencia no bruto (a linha que abre a mensagem e a linha alvo).
 #
 # O que ela cobra, e cada grupo e uma trava do plano ou uma obrigacao dos
 # handoffs v12, v13 e v14:
@@ -21,8 +29,10 @@
 #   - D16 por extenso e a grafia; D14 com a sugestao pre-selecionada;
 #   - a guarda de quase-igual (2.4a ter) virando pergunta, e nao erro cru;
 #   - a decisao GRAVADA manda (ignorada segue respondivel, apontada nao);
+#   - resposta anotada nao aplica, trava o aprovar, e o reler e tudo ou nada;
+#   - o contexto da pendencia, escapado;
 #   - D19: aprendido pelo MOTIVO, nunca pelo padrao; duas visoes; vazio com frase;
-#   - o aprovar so acende com as tres travas conferidas;
+#   - o aprovar so acende com as travas conferidas;
 #   - nada de tenant_id no cliente, nada de escrita fora de RPC, texto escapado;
 #   - geometria em 360px: sem estouro horizontal.
 import json
@@ -64,16 +74,16 @@ script = html[html.index("<script>\n'use strict'"):]
 ok('nenhuma escrita direta em tabela (.insert/.update/.upsert/.delete)',
    not re.search(r'\.(insert|update|upsert|delete)\(', script))
 ok('nenhum tenant_id no cliente', 'tenant_id' not in script)
-ok('as cinco RPCs sao as unicas escritas',
-   set(re.findall(r"sb\.rpc\('([a-z_]+)'", script)) ==
-   {'calc_carga_abrir', 'calc_pendencia_resolver', 'calc_catalogo_criar',
-    'calc_carga_aprovar', 'calc_carga_descartar'})
+RPCS = {'calc_carga_abrir', 'calc_pendencia_anotar', 'calc_carga_reler', 'calc_carga_aprovar', 'calc_carga_descartar'}
+ok('as cinco RPCs sao as unicas escritas (anotar e reler; resolver e criar sairam da tela)  %s'
+   % sorted(set(re.findall(r"sb\.rpc\('([a-z_]+)'", script))),
+   set(re.findall(r"sb\.rpc\('([a-z_]+)'", script)) == RPCS)
 ok('usa a MESMA sessao da calc (storageKey sb-calc-auth)', "storageKey:'sb-calc-auth'" in script)
 ok('nao chama alert/confirm/prompt (bloqueiam a tela)',
    not re.search(r'\b(alert|confirm|prompt)\(', script))
 ok('a regra aprendida nao le a coluna padrao', 'padrao' not in
    re.search(r"\['regra','calc_regra','([^']*)'\]", script).group(1))
-ok('o arquivo da tela nao tem caractere nulo nem U+FFFD literal', '\x00' not in html and '\ufffd' not in html)
+ok('o arquivo da tela nao tem caractere nulo nem U+FFFD literal', '\x00' not in html and '�' not in html)
 ok('o input aceita .zip (o export do WhatsApp vem zipado)', '.zip' in re.search(r'id="aArq" accept="([^"]*)"', html).group(1))
 ok('a calc do dono tem o link para a tela',
    'href="/calc/alimentar/"' in (RAIZ / 'public' / 'calc' / 'index.html').read_text(encoding='utf-8'))
@@ -97,8 +107,26 @@ STUB = r"""
   var hp = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date()).split('-');
   var d20 = new Date(Date.UTC(+hp[0],+hp[1]-1,+hp[2]) - 20*86400000);
   var dStr = ('0'+d20.getUTCDate()).slice(-2)+'/'+('0'+(d20.getUTCMonth()+1)).slice(-2)+'/'+d20.getUTCFullYear();
+  // A lista bruta, com CRLF (o leitor quebra por \r?\n, e a tela tem que quebrar igual).
+  // Linha 7 e hostil de proposito: o contexto tem que sair escapado.
+  var BRUTO = [
+    '['+dStr+', 09:00:00] Vini: Loja Alfa',                   // 1
+    'TABELA DE HOJE',                                          // 2
+    'iPhone 16 128GB Preto Lacrado - 4.100',                   // 3
+    'iPhone 15 128GB Lacrado - 3.600',                         // 4
+    'iPhone 14 128GB Seminovo 95% - 95',                       // 5
+    'verde menta 128GB - 1.700',                               // 6
+    'poco f8 pro <img src=x onerror="window.__XSS2=1"> - 1.900', // 7
+    'iPhone 13 128 gb - 1.500',                                // 8
+    'linha nove','linha dez','linha onze','linha doze','linha treze','linha catorze', // 9-14
+    'iPhone 16 128GB Preto Lacrado - 300',                     // 15
+    '',                                                        // 16
+    '['+dStr+', 10:00:00] Vini: TABELA XPTO IMPORTS',          // 17
+    '12x no cartao sem juros',                                 // 18
+    'iPhone 17 256GB Lacrado - 7.000'                          // 19
+  ].join('\r\n');
   var cargaRow = {id:CARGA,status:'rascunho',criado_em:'2026-09-12T12:00:00Z',
-    texto_bruto:'['+dStr+', 09:00:00] Vini: Loja Alfa\niPhone 16 128GB Preto Lacrado - 4.100\n',
+    texto_bruto:BRUTO,
     // n_pendencia 3 contra 5 sem resposta na tabela: e o descompasso que a tela declara.
     n_lidas:16,n_casou:11,n_duvidoso:4,n_descarte:2,n_pendencia:3,
     blob_proposto:{config:{},bateria:[],tela:[],produtos:novo},
@@ -107,7 +135,11 @@ STUB = r"""
       cabecalhos:[{papel:'forn',texto:'LOJA ALFA',fornecedor:'loja_alfa',n_linhas:9}],
       fornecedor_conferir:[{cabecalho:'LOJA ALFA',fornecedor:'Loja Alfa',n_linhas:9,suspeita_alta:true,ignoradas:['TABELA XPTO IMPORTS']}],
       n_cond_respondida:0,n_do_cabecalho:2,n_cor_vizinha:0,n_cond_conflito:0}};
-  function pend(id,tipo,texto,dec,aponta,n){ return {id:id,carga_id:CARGA,tipo:tipo,texto:texto,causa:'causa de '+tipo,exemplo:'exemplo '+texto,n_linhas:n||1,decisao:dec||null,aponta:aponta||null,decidido_em:dec?'2026-09-12T12:30:00Z':null,criado_em:'2026-09-12T12:00:0'+id.slice(-1)+'Z'}; }
+  function pend(id,tipo,texto,dec,aponta,n,x){
+    return Object.assign({id:id,carga_id:CARGA,tipo:tipo,texto:texto,causa:'causa de '+tipo,exemplo:'exemplo '+texto,n_linhas:n||1,
+      decisao:dec||null,aponta:aponta||null,decidido_em:dec?'2026-09-12T12:30:00Z':null,criado_em:'2026-09-12T12:00:0'+id.slice(-1)+'Z',
+      linha:null,rascunho:null,rascunho_erro:null}, x||{});
+  }
   var T = {
     app_usuario: [{id:'u1', papel: CEN==='S3' ? 'vendedor' : 'dono'}],
     calc_modelo: [{codigo:'iphone_13_128gb',nome:'iPhone 13 128GB',categoria:'iPhone',origem:'semente',carga_id:null,criado_em:'2026-09-01T00:00:00Z'},
@@ -122,14 +154,16 @@ STUB = r"""
     calc_dados: [{dados:{produtos:velho},atualizado_em:'2026-08-17T23:20:02Z'}],
     calc_carga: (CEN==='S1') ? [] : [cargaRow],
     calc_pendencia: [
-      pend('p1','fornecedor','TABELA XPTO IMPORTS'),
+      pend('p1','fornecedor','TABELA XPTO IMPORTS',null,null,1,{linha:17}),
+      // sem `linha` e com um exemplo que nao esta no bruto: fica o <code class="ex">
       pend('p2','condicao','loja_alfa'),
-      pend('p3','modelo','poco f8 pro <img src=x onerror="window.__XSS=1">'),
-      pend('p4','cor','verde menta','ignorar',null,2),
-      pend('p5','preco','preco com condicao pendurada: a calc nao tem onde guardar condicao'),
-      pend('p7','preco','abaixo da tabela: Loja Alfa · iPhone 16 128GB · Lacrado · Preto · R$ 300,00'),
-      pend('p6','modelo','iphone 13 128 gb','apontar','iphone_13_128gb',3),
-      {id:'p9',carga_id:OUTRA,tipo:'condicao',texto:'loja_alfa',causa:'x',exemplo:'x',n_linhas:1,decisao:'definir',aponta:'Lacrado',decidido_em:'2026-09-05T10:00:00Z',criado_em:'2026-09-05T09:00:00Z'}
+      // sem `linha` (carga antiga): o contexto sai pela 1a linha que contem o exemplo
+      pend('p3','modelo','poco f8 pro <img src=x onerror="window.__XSS=1">',null,null,1,{exemplo:'  poco f8 pro <img src=x onerror="window.__XSS2=1"> - 1.900 '}),
+      pend('p4','cor','verde menta','ignorar',null,2,{linha:6}),
+      pend('p5','preco','preco com condicao pendurada: a calc nao tem onde guardar condicao',null,null,1,{linha:18}),
+      pend('p7','preco','abaixo da tabela: Loja Alfa · iPhone 16 128GB · Lacrado · Preto · R$ 300,00',null,null,1,{linha:15}),
+      pend('p6','modelo','iphone 13 128 gb','apontar','iphone_13_128gb',3,{linha:8}),
+      {id:'p9',carga_id:OUTRA,tipo:'condicao',texto:'loja_alfa',causa:'x',exemplo:'x',n_linhas:1,decisao:'definir',aponta:'Lacrado',decidido_em:'2026-09-05T10:00:00Z',criado_em:'2026-09-05T09:00:00Z',linha:null,rascunho:null,rascunho_erro:null}
     ]
   };
   if (CEN==='S1') { T.calc_carga=[]; T.calc_regra = T.calc_regra.filter(function(r){return r.tipo==='condicao';}); T.calc_alias=[]; T.calc_modelo.pop(); T.calc_fornecedor.pop(); T.calc_pendencia=[]; }
@@ -140,8 +174,13 @@ STUB = r"""
     if (q.ord) { var c=q.ord[0], asc=!(q.ord[1]&&q.ord[1].ascending===false);
       rows = rows.slice().sort(function(a,b){ var x=String(a[c]), y=String(b[c]); return asc ? x.localeCompare(y) : y.localeCompare(x); }); }
     if (q.lim) rows = rows.slice(0,q.lim);
-    // copia rasa: a tela apaga texto_bruto da carga que recebe, e o stub nao pode perder a fonte
-    rows = rows.map(function(r){ return Object.assign({}, r); });
+    // PROJECAO pelo select, como o PostgREST: a tela recebe so as colunas que pediu.
+    // E copia: a tela apaga texto_bruto da carga que recebe, e o stub nao pode perder a fonte.
+    var cols = (q.sel && q.sel!=='*') ? q.sel.split(',').map(function(s){return s.trim();}) : null;
+    rows = rows.map(function(r){
+      if (!cols) return Object.assign({}, r);
+      var o={}; cols.forEach(function(k){ if (k in r) o[k]=r[k]; }); return o;
+    });
     return q.single ? {data: rows[0]||null, error:null} : {data: rows, error:null};
   }
   function from(table){
@@ -154,22 +193,59 @@ STUB = r"""
     };
     return api;
   }
+  function daPend(id){ return T.calc_pendencia.filter(function(x){return x.id===id;})[0]; }
   function rpc(nome,args){
-    LOG.push({t:'rpc',nome:nome,args:args});
+    LOG.push({t:'rpc',nome:nome,args:JSON.parse(JSON.stringify(args))});
     var r = {data:null,error:null};
     if (nome==='calc_carga_abrir') {
       // o que o banco devolveu na primeira lista completa (375 KB, 12/09/2026)
       if (String(args.p_texto).indexOf('LENTA')>=0) r.error={code:'57014',message:'canceling statement due to statement timeout'};
       else { T.calc_carga=[cargaRow]; r.data=CARGA; }
     }
-    if (nome==='calc_catalogo_criar') {
-      if (!(args.p_extra&&args.p_extra.confirmar_novo)) r.error={message:'calc_catalogo_criar: voce ja tem Loja Alfa (codigo loja_alfa) e a lista traz "Loja Alfa Distribuidora". Se for a mesma pessoa, use apontar para o codigo dela. Se for outro fornecedor mesmo, repita com {"confirmar_novo":"sim"}. Nada foi gravado.'};
-      else r.data={codigo:'loja_alfa_distribuidora',grafias:1};
+    if (nome==='calc_pendencia_anotar') {
+      var p = daPend(args.p_pendencia);
+      if (!p) r.error={message:'calc_pendencia_anotar: pendencia nao encontrada neste tenant'};
+      else if (args.p_decisao==null) { p.rascunho=null; p.rascunho_erro=null; r.data={anotada:false,aplicada:false}; }
+      // as recusas do ENSAIO chegam na hora, com o prefixo da RPC que recusou
+      else if (args.p_decisao==='descartar' && p.id==='p3') r.error={message:'calc_pendencia_resolver: "poco" nao aparece em nenhuma linha desta lista, entao a regra de descarte nunca casaria nada. Nada foi gravado.'};
+      else if (args.p_decisao==='criar' && p.tipo==='fornecedor' && !(args.p_extra&&args.p_extra.confirmar_novo))
+        r.error={message:'calc_catalogo_criar: voce ja tem Loja Alfa (codigo loja_alfa) e a lista traz "Loja Alfa Distribuidora". Se for a mesma pessoa, use apontar para o codigo dela. Se for outro fornecedor mesmo, repita com {"confirmar_novo":"sim"}. Nada foi gravado.'};
+      else if (args.p_decisao==='ignorar' && (p.decisao==null || p.decisao==='ignorar')) {
+        p.decisao='ignorar'; p.aponta=null; p.decidido_em='2026-09-13T12:50:00Z'; p.rascunho=null; p.rascunho_erro=null;
+        r.data={anotada:false,aplicada:true};
+      } else {
+        p.rascunho={decisao:args.p_decisao,aponta:args.p_aponta,extra:args.p_extra||{},em:'2026-09-13T12:55:00Z'}; p.rascunho_erro=null;
+        r.data={anotada:true,aplicada:false};
+      }
     }
-    if (nome==='calc_pendencia_resolver') {
-      if (args.p_decisao==='descartar' && args.p_pendencia==='p3') r.error={message:'calc_pendencia_resolver: "poco" nao aparece em nenhuma linha desta lista, entao a regra de descarte nunca casaria nada. Nada foi gravado.'};
-      else { T.calc_pendencia.forEach(function(p){ if(p.id===args.p_pendencia){ p.decisao=args.p_decisao; p.aponta=args.p_aponta; p.decidido_em='2026-09-12T13:00:00Z'; }});
-             cargaRow.n_casou = cargaRow.n_casou + 1; r.data={reprocessou:true}; }
+    if (nome==='calc_carga_reler') {
+      if (window.__RELER_LENTA) r.error={code:'57014',message:'canceling statement due to statement timeout'};
+      else {
+        var an = T.calc_pendencia.filter(function(x){ return x.carga_id===args.p_carga && x.rascunho!=null; })
+                  .sort(function(a,b){ return String(a.criado_em).localeCompare(String(b.criado_em)); });
+        // G3: apontar "poco f8 pro" para um iPhone nao tira a pergunta da leitura.
+        var fal = an.filter(function(x){ return x.id==='p3' && x.rascunho.decisao==='apontar'; }).map(function(x){
+          return {id:x.id, erro:'esta resposta nao ensina nada ao leitor: "'+x.texto+'" continua pendente depois de reler a lista. Deixe fora desta lista, ou tire a resposta.'}; });
+        an.forEach(function(x){ x.rascunho_erro=null; });
+        if (fal.length) {
+          fal.forEach(function(f){ daPend(f.id).rascunho_erro=f.erro; });
+          r.data={ok:false,aplicadas:0,falhas:fal};
+        } else {
+          var antes = cargaRow.n_casou;
+          an.forEach(function(x){
+            var d=x.rascunho; x.decisao=d.decisao; x.decidido_em='2026-09-13T13:05:00Z';
+            if (d.decisao==='criar') {
+              var cod=String(d.aponta).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+              x.aponta=cod;
+              if (x.tipo==='fornecedor') T.calc_fornecedor.push({codigo:cod,nome:d.aponta,praca:(d.extra||{}).praca||'',origem:'aprendizado',carga_id:CARGA,criado_em:'2026-09-13T13:05:00Z'});
+              else T.calc_modelo.push({codigo:cod,nome:d.aponta,categoria:(d.extra||{}).categoria||'',origem:'aprendizado',carga_id:CARGA,criado_em:'2026-09-13T13:05:00Z'});
+            } else x.aponta=d.aponta;
+            x.rascunho=null;
+            if (d.decisao!=='ignorar') cargaRow.n_casou++;
+          });
+          r.data={ok:true,aplicadas:an.length,n_casou_antes:antes,n_casou:cargaRow.n_casou,n_lidas:cargaRow.n_lidas,reprocessou:true};
+        }
+      }
     }
     if (nome==='calc_carga_aprovar') { cargaRow.status='aprovada'; T.calc_carga=[]; r.data={carga:CARGA,produtos:4,precos:4,soma:16200,pendencias_abertas:3}; }
     if (nome==='calc_carga_descartar') { T.calc_carga=[]; }
@@ -209,6 +285,7 @@ TESTE = r"""
   function vis(el){ return !!el && !el.closest('[hidden]'); }
   function clica(D, sel){ var e=D.querySelector(sel); if(e) e.click(); return !!e; }
   function rpcs(W, nome){ return W.__LOG.filter(function(x){return x.t==='rpc' && (!nome||x.nome===nome);}); }
+  function anot(W, pred){ return (rpcs(W,'calc_pendencia_anotar').filter(function(x){return pred(x.args);})[0]||{}).args; }
 
   if (SO !== 'arquivo') {
   // ── S2: carga aberta ──────────────────────────────────────────────────────
@@ -222,21 +299,48 @@ TESTE = r"""
   o.suspeita = !!D.querySelector('[data-suspeita] input[type=checkbox]');
   o.sub = txt(D.getElementById('s3Sub'));
   o.descompasso = txt(D.getElementById('aDescompasso'));
+  o.loteOculto0 = !vis(D.getElementById('aLote'));
   function botoes(id){ return Array.prototype.map.call(D.querySelectorAll('[data-pend="'+id+'"] .bts .bt'), txt); }
+  function card(id){ return txt(D.querySelector('[data-pend="'+id+'"]')); }
+  function cab(id){ return txt(D.querySelector('[data-pend="'+id+'"] .cab')); }
   o.b = {p1:botoes('p1'),p2:botoes('p2'),p3:botoes('p3'),p4:botoes('p4'),p5:botoes('p5'),p6:botoes('p6'),p7:botoes('p7')};
   o.p7aviso = txt(D.getElementById('aAbaixo-p7'));
   o.p5temAviso = !!D.getElementById('aAbaixo-p5');
-  // D20: confirmar o preco abaixo da tabela manda o verbo certo, sem destino
+
+  // O CONTEXTO: linha a linha (textContent cru, para ver o CR que sobraria)
+  function linhasCtx(id){ return Array.prototype.map.call(D.querySelectorAll('[data-pend="'+id+'"] .ctx .cl'), function(e){ return e.textContent.trim(); }); }
+  function alvosCtx(id){ return Array.prototype.map.call(D.querySelectorAll('[data-pend="'+id+'"] .ctx .alvo'), function(e){ return e.textContent.trim(); }); }
+  var alvo7 = D.querySelector('[data-pend="p7"] .ctx .alvo');
+  o.ctx = {p1:linhasCtx('p1'), p3:linhasCtx('p3'), p7:linhasCtx('p7'),
+    p1alvo:alvosCtx('p1'), p3alvo:alvosCtx('p3'), p7alvo:alvosCtx('p7'),
+    p1ab: !!D.querySelector('[data-pend="p1"] .ctx .ab.alvo'),
+    p7ab: (D.querySelector('[data-pend="p7"] .ctx .ab')||{}).textContent||'',
+    p7h: txt(D.querySelector('[data-pend="p7"] .ctxh')),
+    p3h: txt(D.querySelector('[data-pend="p3"] .ctxh')),
+    p2temCtx: !!D.querySelector('[data-pend="p2"] .ctx'), p2ex: txt(D.querySelector('[data-pend="p2"] code.ex')),
+    p3temEx: !!D.querySelector('[data-pend="p3"] code.ex'), p7temEx: !!D.querySelector('[data-pend="p7"] code.ex'),
+    cr: Array.prototype.some.call(D.querySelectorAll('.ctx'), function(e){ return e.textContent.indexOf('\r')>=0; }),
+    peso: alvo7 ? W.getComputedStyle(alvo7).fontWeight : '',
+    fundoAlvo: alvo7 ? W.getComputedStyle(alvo7).backgroundColor : '',
+    ws: alvo7 ? W.getComputedStyle(alvo7.parentNode).whiteSpace : ''};
+
+  // D20: confirmar o preco abaixo da tabela ANOTA o verbo certo, sem destino, e nao rele
   clica(D, '[data-pend="p7"] [data-verbo=confirmar]'); await sl(50);
   o.p7form = txt(D.querySelector('[data-pend="p7"] .form'));
   clica(D, '[data-pend="p7"] [data-acao=confirmar][data-verbo=confirmar]');
-  await ate(W, function(){ return rpcs(W,'calc_pendencia_resolver').some(function(x){return x.args.p_decisao==='confirmar';}); });
-  o.p7rpc = (rpcs(W,'calc_pendencia_resolver').filter(function(x){return x.args.p_decisao==='confirmar';})[0]||{}).args;
-  await ate(W, function(){ return txt(D.querySelector('[data-pend="p7"]')).indexOf('preço confirmado')>=0; });
-  o.p7depois = txt(D.querySelector('[data-pend="p7"]'));
-  o.p7botoesDepois = botoes('p7');
-  o.p6 = txt(D.querySelector('[data-pend="p6"]'));
-  o.p4 = txt(D.querySelector('[data-pend="p4"]'));
+  await ate(W, function(){ return card('p7').indexOf('anotada:')>=0; });
+  o.p7rpc = anot(W, function(a){ return a.p_pendencia==='p7'; });
+  o.p7toast = txt(D.getElementById('toast'));
+  o.p7anotado = card('p7');
+  o.p7cab = cab('p7');
+  o.p7botoesAnotado = botoes('p7');
+  o.relerAposResponder = rpcs(W,'calc_carga_reler').length;
+  o.resolverOuCriar = rpcs(W).some(function(x){ return x.nome==='calc_pendencia_resolver' || x.nome==='calc_catalogo_criar'; });
+  o.loteUm = txt(D.getElementById('aLote'));
+  o.subUm = txt(D.getElementById('s3Sub'));
+
+  o.p6 = card('p6');
+  o.p4 = card('p4');
   o.xssImg = D.querySelectorAll('#s3Corpo img').length;
   o.xssTexto = txt(D.querySelector('[data-pend="p3"] .tx'));
   o.ordem = Array.prototype.map.call(D.querySelectorAll('[data-pend]'), function(e){return e.getAttribute('data-pend');});
@@ -266,11 +370,12 @@ TESTE = r"""
   o.apontarVazioSemRpc = rpcs(W).length === n0;
   o.optgroup = D.querySelectorAll('[data-pend="p3"] optgroup').length;
 
-  // recusa do banco aparece no card, sem o prefixo da funcao
+  // recusa do ENSAIO aparece no card na hora, sem o prefixo da funcao
   clica(D, '[data-pend="p3"] [data-verbo=descartar]'); await sl(50);
   clica(D, '[data-pend="p3"] [data-acao=confirmar]');
   await ate(W, function(){ return txt(D.querySelector('[data-pend="p3"] .erro')).indexOf('nao aparece')>=0; });
   o.recusa = txt(D.querySelector('[data-pend="p3"] .erro'));
+  o.recusaSemAnotada = card('p3').indexOf('anotada:')<0;
 
   // 2.4a ter: quase-igual vira pergunta, e "criar mesmo assim" manda confirmar_novo
   clica(D, '[data-pend="p1"] [data-verbo=criar]'); await sl(50);
@@ -280,22 +385,52 @@ TESTE = r"""
   o.quase = txt(D.querySelector('[data-pend="p1"] .form'));
   o.quaseNomeMantido = D.getElementById('fn-p1').value;
   clica(D, '[data-pend="p1"] [data-verbo=criarNovo]');
-  await ate(W, function(){ return rpcs(W,'calc_catalogo_criar').length>=2; });
-  var cr = rpcs(W,'calc_catalogo_criar');
+  await ate(W, function(){ return card('p1').indexOf('anotada:')>=0; });
+  var cr = rpcs(W,'calc_pendencia_anotar').filter(function(x){ return x.args.p_decisao==='criar'; });
   o.criar1 = cr[0] && cr[0].args; o.criar2 = cr[1] && cr[1].args;
+  o.p1anotado = card('p1');
 
-  // D14: sugestao pre-selecionada, e o confirmar manda definir com ela
+  // D14: sugestao pre-selecionada, e o confirmar anota definir com ela
   clica(D, '[data-pend="p2"] [data-verbo=definir]'); await sl(60);
   o.condOn = txt(D.querySelector('[data-pend="p2"] .bt.on[data-acao=cond]'));
   o.condBotoes = Array.prototype.map.call(D.querySelectorAll('[data-pend="p2"] [data-acao=cond]'), txt);
   o.condSug = txt(D.querySelector('[data-pend="p2"] .form'));
   clica(D, '[data-pend="p2"] [data-acao=confirmar]');
-  await ate(W, function(){ return rpcs(W,'calc_pendencia_resolver').some(function(x){return x.args.p_decisao==='definir';}); });
-  o.definir = (rpcs(W,'calc_pendencia_resolver').filter(function(x){return x.args.p_decisao==='definir';})[0]||{}).args;
-  await ate(W, function(){ return txt(D.querySelector('[data-pend="p2"]')).indexOf('só esta lista')>=0; });
-  o.p2depois = txt(D.querySelector('[data-pend="p2"]'));
+  await ate(W, function(){ return card('p2').indexOf('anotada:')>=0; });
+  o.definir = anot(W, function(a){ return a.p_decisao==='definir'; });
+  o.p2anotado = card('p2');
+  o.p2cab = cab('p2');
 
-  // as tres travas do aprovar
+  // apontar de verdade: o codigo escolhido vai em p_aponta
+  clica(D, '[data-pend="p3"] [data-verbo=apontar]'); await sl(50);
+  D.getElementById('fa-p3').value = 'iphone_13_128gb';
+  clica(D, '[data-pend="p3"] [data-acao=confirmar][data-verbo=apontar]');
+  await ate(W, function(){ return card('p3').indexOf('anotada:')>=0; });
+  o.apontar = anot(W, function(a){ return a.p_decisao==='apontar'; });
+  o.p3anotado = card('p3');
+
+  // ignorar sobre pergunta ABERTA vale na hora, sem reler
+  var nR = rpcs(W,'calc_carga_reler').length;
+  clica(D, '[data-pend="p5"] [data-verbo=ignorar]'); await sl(50);
+  clica(D, '[data-pend="p5"] [data-acao=confirmar][data-verbo=ignorar]');
+  await ate(W, function(){ return cab('p5').indexOf('fora desta lista')>=0; });
+  o.ignorar = anot(W, function(a){ return a.p_decisao==='ignorar'; });
+  o.p5cab = cab('p5');
+  o.p5anotada = card('p5').indexOf('anotada:')>=0;
+  o.ignorarToast = txt(D.getElementById('toast'));
+  o.ignorarSemReler = rpcs(W,'calc_carga_reler').length === nR;
+
+  // a barra do lote, com 4 anotadas (p7, p1, p2, p3)
+  o.sub4 = txt(D.getElementById('s3Sub'));
+  o.lote4 = txt(D.getElementById('aLote'));
+  o.loteVisivel = vis(D.getElementById('aLote'));
+  o.relerBotao = txt(D.getElementById('aReler'));
+  o.lotePos = W.getComputedStyle(D.getElementById('aLote')).position;
+  o.relerNenhum = rpcs(W,'calc_carga_reler').length;
+  o.chipsAnotada = Array.prototype.map.call(D.querySelectorAll('#s3Corpo .chip.anot'), txt);
+  var dd = D.documentElement; o.estouroAnotadas = dd.scrollWidth - dd.clientWidth;
+
+  // as travas do aprovar, com as anotadas ainda la
   var cxs = function(){ return D.querySelectorAll('input[data-conf]'); };
   o.nConf = cxs().length;
   var marca = function(k){ var e=D.querySelector('input[data-conf="'+k+'"]'); if(e){ e.checked=true; e.dispatchEvent(new W.Event('change',{bubbles:true})); } return !!e; };
@@ -306,6 +441,50 @@ TESTE = r"""
   o.aprovarDesligadoSemSuspeita = D.getElementById('aAprovar').disabled;
   o.faltaSuspeita = txt(D.getElementById('aTravas'));
   marca('forn|LOJA ALFA|Loja Alfa'); await sl(30);
+  o.aprovarDesligadoComAnotadas = D.getElementById('aAprovar').disabled;
+  o.faltaAnotadas = txt(D.getElementById('aTravas'));
+
+  // reler com o tempo esgotado: nada gravado, as anotadas ficam
+  W.__RELER_LENTA = true;
+  clica(D, '#aReler');
+  await ate(W, function(){ return txt(D.getElementById('aErroLote')).length>0; });
+  W.__RELER_LENTA = false;
+  o.lentaLote = txt(D.getElementById('aErroLote'));
+  o.lentaBarra = txt(D.getElementById('aLote'));
+  o.lentaP7 = card('p7');
+
+  // reler recusado: o p3 nao ensina nada, e NENHUMA grava
+  clica(D, '#aReler');
+  await ate(W, function(){ return txt(D.querySelector('[data-pend="p3"] [data-rascunho-erro]')).length>0; });
+  o.recLote = txt(D.getElementById('aErroLote'));
+  o.recCard = txt(D.querySelector('[data-pend="p3"] [data-rascunho-erro]'));
+  o.recOutros = D.querySelectorAll('[data-rascunho-erro]').length;
+  o.recP7 = card('p7'); o.recP7cab = cab('p7');
+  o.recP2 = card('p2');
+  o.recSub = txt(D.getElementById('s3Sub'));
+  o.recAprovarDesligado = D.getElementById('aAprovar').disabled;
+
+  // tirar a resposta culpada
+  clica(D, '[data-pend="p3"] [data-acao=desanotar]');
+  await ate(W, function(){ return card('p3').indexOf('anotada:')<0; });
+  o.desanotar = anot(W, function(a){ return a.p_pendencia==='p3' && a.p_decisao===null; });
+  o.tiradaBarra = txt(D.getElementById('aLote'));
+  o.tiradaSemErro = !D.querySelector('[data-pend="p3"] [data-rascunho-erro]');
+
+  // reler de novo: aplica as tres
+  var catAntes = W.__LOG.filter(function(x){ return x.t==='from' && x.table==='calc_fornecedor' && x.sel==='codigo,nome,praca'; }).length;
+  clica(D, '#aReler');
+  await ate(W, function(){ return card('p7').indexOf('preço confirmado')>=0; });
+  o.okToast = txt(D.getElementById('toast'));
+  o.okP7 = card('p7'); o.okP7botoes = botoes('p7');
+  o.okP2 = card('p2'); o.okP1 = card('p1');
+  o.okLoteOculto = !vis(D.getElementById('aLote'));
+  o.okSub = txt(D.getElementById('s3Sub'));
+  o.okCatalogo = W.__LOG.filter(function(x){ return x.t==='from' && x.table==='calc_fornecedor' && x.sel==='codigo,nome,praca'; }).length > catAntes;
+  o.okAnotadas = D.querySelectorAll('#s3Corpo .chip.anot').length;
+  o.nReler = rpcs(W,'calc_carga_reler').length;
+  o.relerArgs = (rpcs(W,'calc_carga_reler')[0]||{}).args;
+  await sl(30);
   o.aprovarLigado = !D.getElementById('aAprovar').disabled;
   clica(D, '#aAprovar'); await sl(50);
   o.confirmaTexto = txt(D.getElementById('aTravas'));
@@ -316,8 +495,9 @@ TESTE = r"""
   o.ok = txt(D.getElementById('aOk'));
   o.depoisS1 = vis(D.getElementById('s1Nova'));
 
+  o.rpcNomes = rpcs(W).map(function(x){ return x.nome; }).filter(function(n,i,a){ return a.indexOf(n)===i; }).sort();
   o.tenantEmConsulta = W.__LOG.some(function(x){ return JSON.stringify(x).indexOf('tenant_id')>=0; });
-  o.xss = !!W.__XSS;
+  o.xss = !!W.__XSS; o.xss2 = !!W.__XSS2;
   var d = D.documentElement; o.estouro = d.scrollWidth - d.clientWidth;
   R.S2 = o;
   } catch(e) { R.S2 = {erro: String(e && e.stack || e)}; }
@@ -416,7 +596,7 @@ ARQ = {
                          ('__MACOSX/._Conversa.txt', b'\x00\x05\x16\x07' + bytes(4000))], zipfile.ZIP_DEFLATED),
     'stored.zip':  zipa([('_chat.txt', CHAT.encode('utf-8'))], zipfile.ZIP_STORED),
     'semtxt.zip':  zipa([('IMG-0001.jpg', PNG)], zipfile.ZIP_DEFLATED),
-    'utf16.txt':   '\ufeff'.encode('utf-16le') + CHAT.encode('utf-16le'),
+    'utf16.txt':   '﻿'.encode('utf-16le') + CHAT.encode('utf-16le'),
     'foto.png':    PNG,
     'chat.txt':    b'\xef\xbb\xbf' + CHAT.encode('utf-8'),
 }
@@ -455,7 +635,7 @@ def rodar(so, frames, tempo):
     return json.loads(_h.unescape(m.group(1)))
 
 R = rodar('base', [frame('S2', 360), frame('S1', 390), frame('S3', 390), frame('S4', 390)],
-          ['--virtual-time-budget=60000'])
+          ['--virtual-time-budget=90000'])
 
 # O ARQUIVO roda no NODE, com as funcoes extraidas do HTML real e executadas (nao
 # copiadas). Medido em 12/09/2026: no Chrome com `--virtual-time-budget`, ate um
@@ -535,9 +715,11 @@ ok('o descarte aparece contado, com o motivo', 'caixa aberta, decisao do dono' i
 ok('lista de 20 dias acende o aviso de custo velho  [%s]' % o['velho'][:60], 'Custo velho' in o['velho'] and '20 dias' in o['velho'])
 ok('com carga aberta, a caixa de colar some (uma lista por vez)', not o['s1novaVisivel'])
 ok('suspeita_alta vira card com confirmacao', o['suspeita'])
-ok('contagem das pendencias pela decisao GRAVADA  [%s]' % o['sub'], o['sub'] == '5 abertas · 1 fora desta lista · 1 respondidas')
+ok('contagem das pendencias pela decisao GRAVADA, sem "anotadas" com zero  [%s]' % o['sub'],
+   o['sub'] == '5 abertas · 1 fora desta lista · 1 respondidas')
 ok('descompasso entre a tabela e a leitura viva e declarado  [%s]' % o['descompasso'][:60],
    'A leitura atual tem 3 pendências, mas 6 aparecem sem resposta' in o['descompasso'])
+ok('sem resposta anotada, a barra do lote fica escondida', o['loteOculto0'])
 B = o['b']
 ok('fornecedor: apontar, criar, nunca ler, deixar fora  %s' % B['p1'],
    B['p1'] == ['É outro nome de…', 'Criar fornecedor novo', 'Nunca ler este fornecedor', 'Deixar fora desta lista'])
@@ -550,15 +732,51 @@ ok('D20: preco abaixo da tabela ganha "o preco esta certo" e deixar fora  %s' % 
    B['p7'] == ['O preço está certo', 'Deixar fora desta lista'])
 ok('D20: o card avisa que quase sempre e leitura errada, e so nele', 'muito abaixo do menor da tabela' in o['p7aviso'] and not o['p5temAviso'])
 ok('D20: o form diz que vale so para esta lista e como desfazer', 'Vale só para esta lista' in o['p7form'] and 'desfaz' in o['p7form'])
-ok('D20: confirmar manda o verbo confirmar sem destino  %s' % o['p7rpc'],
-   o['p7rpc'] == {'p_pendencia': 'p7', 'p_decisao': 'confirmar', 'p_aponta': None})
-ok('D20: depois, o card mostra a decisao gravada e so o desfazer  %s' % o['p7botoesDepois'],
-   'preço confirmado (só esta lista)' in o['p7depois'] and o['p7botoesDepois'] == ['Deixar fora desta lista'])
 ok('pendencia ja apontada nao tem botao (T2)  %s' % B['p6'], B['p6'] == [])
 ok('a apontada mostra o destino pelo nome e pelo codigo', 'outro nome de iPhone 13 128GB (iphone_13_128gb)' in o['p6'])
 ok('n_linhas e o da 1a leitura, e diz isso', '2 linhas na 1ª leitura' in o['p4'])
-ok('ordem: abertas antes, fornecedor primeiro, respondidas no fim  %s' % o['ordem'], o['ordem'] == ['p1', 'p2', 'p3', 'p5', 'p4', 'p6', 'p7'])
+ok('ordem pela decisao GRAVADA (a anotada p7 segue aberta): abertas, fornecedor primeiro, respondidas no fim  %s' % o['ordem'],
+   o['ordem'] == ['p1', 'p2', 'p3', 'p7', 'p5', 'p4', 'p6'])
 ok('texto da lista e escapado: nenhum <img> injetado', o['xssImg'] == 0 and not o['xss'] and '<img' in o['xssTexto'])
+
+print('— o contexto da pendencia (pedido do dono, 13/09/2026) —')
+C = o['ctx']
+ok('por `linha`: a linha que ABRE a mensagem vem no topo (o fornecedor)  [%s]' % C['p7ab'],
+   re.match(r'^\[\d\d/\d\d/\d{4}, 09:00:00\] Vini: Loja Alfa$', C['p7ab'] or '') is not None
+   and (C['p7'] or [''])[0] == C['p7ab'])
+ok('por `linha`: salto marcado com … e as 6 linhas antes da alvo ate 2 depois  %s' % C['p7'][1:],
+   C['p7'][1:] == ['…', 'linha nove', 'linha dez', 'linha onze', 'linha doze', 'linha treze', 'linha catorze',
+                   'iPhone 16 128GB Preto Lacrado - 300', '', C['p7'][-1]]
+   and C['p7'][-1].endswith('Vini: TABELA XPTO IMPORTS'))
+ok('a linha alvo e UMA e e a do preco  %s' % C['p7alvo'], C['p7alvo'] == ['iPhone 16 128GB Preto Lacrado - 300'])
+ok('a alvo se destaca por peso e fundo, nao so por cor de texto  [%s %s]' % (C['peso'], C['fundoAlvo']),
+   C['peso'] in ('700', 'bold') and C['fundoAlvo'] not in ('', 'rgba(0, 0, 0, 0)', 'transparent'))
+ok('o trecho diz de que linha e  [%s]' % C['p7h'], C['p7h'].startswith('linha 15 da lista'))
+ok('o trecho quebra linha (pre-wrap): 360px nao estoura  [%s]' % C['ws'], C['ws'] == 'pre-wrap')
+ok('a alvo que e o proprio carimbo aparece uma vez so, e segue ate 2 depois  %s' % C['p1'],
+   len(C['p1']) == 3 and C['p1'][0].endswith('Vini: TABELA XPTO IMPORTS') and C['p1'][1:] == ['12x no cartao sem juros', 'iPhone 17 256GB Lacrado - 7.000']
+   and C['p1alvo'] == [C['p1'][0]] and C['p1ab'])
+ok('sem `linha` (carga antiga): cai na 1a linha que contem o exemplo, sem salto  %s' % C['p3alvo'],
+   C['p3alvo'] == ['poco f8 pro <img src=x onerror="window.__XSS2=1"> - 1.900'] and len(C['p3']) == 9
+   and '…' not in C['p3'] and C['p3'][0].endswith('Vini: Loja Alfa') and C['p3h'].startswith('linha 7 da lista'))
+ok('com contexto, o <code class="ex"> sai', not C['p3temEx'] and not C['p7temEx'])
+ok('sem `linha` e sem o exemplo no bruto: fica o <code class="ex"> de hoje  [%s]' % C['p2ex'],
+   not C['p2temCtx'] and C['p2ex'] == 'exemplo loja_alfa')
+ok('o bruto em CRLF quebra como o leitor (\\r?\\n): nenhum CR sobra no trecho', not C['cr'])
+ok('texto hostil do bruto sai escapado: nenhum <img> e nenhum onerror disparado', o['xssImg'] == 0 and not o['xss2'])
+
+print('— responder em lote: a resposta e ANOTADA —')
+ok('D20: confirmar anota o verbo certo, sem destino  %s' % o['p7rpc'],
+   o['p7rpc'] == {'p_pendencia': 'p7', 'p_decisao': 'confirmar', 'p_aponta': None, 'p_extra': None})
+ok('responder NAO rele a lista', o['relerAposResponder'] == 0)
+ok('responder nao chama resolver nem criar', not o['resolverOuCriar'])
+ok('a decisao gravada nao muda: o card segue aberto  [%s]' % o['p7cab'][:40],
+   'aberta' in o['p7cab'] and 'preço confirmado' not in o['p7anotado'])
+ok('o card mostra a resposta anotada e "Tirar a resposta"  %s' % o['p7botoesAnotado'],
+   'anotada: o preço está certo' in o['p7anotado'] and o['p7botoesAnotado'] == ['Tirar a resposta', 'O preço está certo', 'Deixar fora desta lista'])
+ok('o toast diz que falta reler  [%s]' % o['p7toast'], o['p7toast'] == 'Resposta anotada. Falta reler a lista.')
+ok('com 1 anotada, a barra aparece  [%s]' % o['loteUm'][:60], o['loteUm'].startswith('1 resposta anotada. Nada muda na tabela até reler.'))
+ok('o subtitulo conta a anotada  [%s]' % o['subUm'], o['subUm'] == '5 abertas · 1 fora desta lista · 1 respondidas · 1 anotadas')
 
 print('— D19: o que aprendeu —')
 ok('visao "desta lista" so traz o que esta carga ensinou', 'Fábrica Zeta' in o['aprLista'] and 'Loja Beta' not in o['aprLista'] and 'JBL Flip 7' not in o['aprLista'])
@@ -574,39 +792,93 @@ ok('D16 amarra a GRAFIA do cabecalho', 'escrito exatamente TABELA XPTO IMPORTS' 
 ok('apontar sem destino: erro na tela  [%s]' % o['apontarVazioErro'], 'Escolha para quem' in o['apontarVazioErro'])
 ok('apontar sem destino: nenhuma RPC', o['apontarVazioSemRpc'])
 ok('destinos de modelo agrupados por categoria', o['optgroup'] >= 1)
-ok('recusa do banco no card, sem o prefixo da funcao  [%s]' % o['recusa'][:50],
+ok('recusa do banco chega NA HORA no card, sem o prefixo da funcao  [%s]' % o['recusa'][:50],
    o['recusa'].startswith('"poco" nao aparece') and 'calc_pendencia_resolver' not in o['recusa'])
+ok('a resposta recusada nao fica anotada', o['recusaSemAnotada'])
 ok('2.4a ter: o quase-igual vira pergunta com as duas grafias', 'Loja Alfa (codigo loja_alfa)' in o['quase'] and 'criar mesmo assim' in o['quase'])
 ok('2.4a ter: a mensagem nao manda o dono digitar JSON', 'confirmar_novo' not in o['quase'])
 ok('2.4a ter: o nome digitado sobrevive a pergunta', o['quaseNomeMantido'] == 'Loja Alfa Distribuidora')
-ok('criar manda nome e praca, sem confirmar_novo na 1a vez  %s' % o['criar1'],
-   o['criar1'] == {'p_pendencia': 'p1', 'p_nome': 'Loja Alfa Distribuidora', 'p_extra': {'praca': 'Oeste — RJ'}})
-ok('"criar mesmo assim" manda confirmar_novo sim  %s' % o['criar2'],
-   (o['criar2'] or {}).get('p_extra') == {'praca': 'Oeste — RJ', 'confirmar_novo': 'sim'})
+ok('criar anota nome em p_aponta e praca em p_extra, sem confirmar_novo na 1a vez  %s' % o['criar1'],
+   o['criar1'] == {'p_pendencia': 'p1', 'p_decisao': 'criar', 'p_aponta': 'Loja Alfa Distribuidora', 'p_extra': {'praca': 'Oeste — RJ'}})
+ok('"criar mesmo assim" anota com confirmar_novo sim  %s' % o['criar2'],
+   o['criar2'] == {'p_pendencia': 'p1', 'p_decisao': 'criar', 'p_aponta': 'Loja Alfa Distribuidora', 'p_extra': {'praca': 'Oeste — RJ', 'confirmar_novo': 'sim'}})
+ok('o criar anotado diz o nome  [%s]' % o['p1anotado'][:80], 'anotada: criar Loja Alfa Distribuidora' in o['p1anotado'])
 ok('D14: a sugestao da lista anterior vem pre-selecionada  [%s]' % o['condOn'], o['condOn'] == 'Lacrado')
 ok('D14: so condicoes ATIVAS viram botao  %s' % o['condBotoes'], o['condBotoes'] == ['CPO', 'Lacrado', 'Seminovo'])
 ok('D14: diz que vale so para esta lista', 'Vale só para esta lista' in o['condSug'])
-ok('definir manda a condicao escolhida  %s' % o['definir'],
-   o['definir'] == {'p_pendencia': 'p2', 'p_decisao': 'definir', 'p_aponta': 'Lacrado'})
-ok('depois de responder, o card mostra a decisao gravada', 'condição: Lacrado (só esta lista)' in o['p2depois'])
+ok('definir anota a condicao escolhida  %s' % o['definir'],
+   o['definir'] == {'p_pendencia': 'p2', 'p_decisao': 'definir', 'p_aponta': 'Lacrado', 'p_extra': None})
+ok('o definir anotado aparece, e a decisao gravada segue aberta', 'anotada: condição Lacrado' in o['p2anotado'] and 'aberta' in o['p2cab'])
+ok('apontar anota o codigo escolhido  %s' % o['apontar'],
+   o['apontar'] == {'p_pendencia': 'p3', 'p_decisao': 'apontar', 'p_aponta': 'iphone_13_128gb', 'p_extra': None})
+ok('o apontar anotado mostra o destino pelo nome e pelo codigo',
+   'anotada: outro nome de iPhone 13 128GB (iphone_13_128gb)' in o['p3anotado'])
+ok('ignorar em pergunta ABERTA anota o verbo sem destino  %s' % o['ignorar'],
+   o['ignorar'] == {'p_pendencia': 'p5', 'p_decisao': 'ignorar', 'p_aponta': None, 'p_extra': None})
+ok('e vale na hora: o card vira "fora desta lista", sem anotada  [%s]' % o['p5cab'][:40],
+   'fora desta lista' in o['p5cab'] and not o['p5anotada'])
+ok('e sem reler  [toast: %s]' % o['ignorarToast'], o['ignorarSemReler'] and o['ignorarToast'] == 'Fica fora desta lista.')
 
-print('— passo 4 e as travas do aprovar —')
+print('— a barra do lote e as travas —')
+ok('o subtitulo conta as 4 anotadas  [%s]' % o['sub4'], o['sub4'] == '4 abertas · 2 fora desta lista · 1 respondidas · 4 anotadas')
+ok('a barra conta as anotadas e diz que nada muda  [%s]' % o['lote4'][:70],
+   o['loteVisivel'] and o['lote4'].startswith('4 respostas anotadas. Nada muda na tabela até reler.')
+   and 'Leva até 1 minuto. Se uma resposta não ensinar nada, nenhuma é gravada e ela fica marcada.' in o['lote4'])
+ok('o botao diz quantas vai reler  [%s]' % o['relerBotao'], o['relerBotao'] == 'Reler a lista com 4 respostas')
+ok('a barra gruda no rodape (sticky)  [%s]' % o['lotePos'], o['lotePos'] == 'sticky')
+ok('quatro respostas e nenhuma releitura', o['relerNenhum'] == 0)
+ok('360px com as anotadas: sem estouro horizontal  [+%dpx]' % o['estouroAnotadas'], o['estouroAnotadas'] <= 0)
 ok('o diff conta novos, subiram, cairam e iguais', 'novos 1' in o['s4'] and 'subiram 2' in o['s4'] and 'caíram 1' in o['s4'] and 'iguais 1' in o['s4'])
 ok('variacao acima de 15%% listada item a item (so a de 20%%, sem a queda forte)  [%d linha]' % o['grandesLinhas'], o['grandesLinhas'] == 1)
 ok('queda de mais da metade tem card proprio, com a linha dela  [%d]' % o['quedasLinhas'],
    o['quedasLinhas'] == 1 and '1 preço caiu mais da metade' in o['quedasTxt'] and 'iPhone 14 128GB' in o['quedasTxt'])
 ok('com variacao e abertas conferidas, a queda forte ainda trava o aprovar', o['aprovarDesligadoSemQueda'])
 ok('e a tela diz que falta a queda', 'conferir o preço que caiu mais da metade' in o['faltaQueda'])
+ok('a trava das anotadas vem PRIMEIRO na lista do que falta  [%s]' % o['faltaQueda'][:80],
+   'Antes de aprovar, falta: reler a lista com as 4 respostas anotadas;' in o['faltaQueda'])
 ok('fornecedor sem lista nova aparece com o custo antigo', 'Loja Gama 1 produto' in o['s4'] and '1 produtos' not in o['s4'] and '17/08/2026' in o['s4'])
 ok('o aprovar nasce desligado', o['aprovarDesligado0'])
 ok('as quatro confirmacoes existem (suspeita, queda forte, abertas, variacao)  [%d]' % o['nConf'], o['nConf'] == 4)
 ok('sem conferir o suspeito, o aprovar segue desligado', o['aprovarDesligadoSemSuspeita'])
 ok('e a tela diz o que falta', 'conferir o bloco suspeito de Loja Alfa' in o['faltaSuspeita'])
-ok('com as quatro, o aprovar acende', o['aprovarLigado'])
+ok('com as quatro conferidas e respostas anotadas, o aprovar SEGUE desligado', o['aprovarDesligadoComAnotadas'])
+ok('e o que falta e so reler  [%s]' % o['faltaAnotadas'][:90],
+   'Antes de aprovar, falta: reler a lista com as 4 respostas anotadas.' in o['faltaAnotadas'])
+
+print('— reler: tempo esgotado, recusa e sucesso —')
+ok('tempo esgotado: a frase de 1 minuto  [%s]' % o['lentaLote'],
+   o['lentaLote'] == 'A releitura passou de 1 minuto e o banco parou. Nada foi gravado: as respostas continuam anotadas.')
+ok('e as anotadas continuam', o['lentaBarra'].startswith('4 respostas anotadas') and 'anotada: o preço está certo' in o['lentaP7'])
+ok('recusa: "Nenhuma resposta foi gravada", no singular  [%s]' % o['recLote'],
+   o['recLote'] == 'Nenhuma resposta foi gravada: 1 não ensina nada ao leitor (marcada abaixo). Tire a resposta ou deixe fora desta lista.')
+ok('recusa: a culpada mostra o porque, e so ela  [%s]' % o['recCard'][:60],
+   o['recCard'].startswith('esta resposta nao ensina nada ao leitor') and o['recOutros'] == 1)
+ok('recusa: nada aplicado (p7 e p2 seguem abertos e anotados)',
+   'aberta' in o['recP7cab'] and 'preço confirmado' not in o['recP7'] and 'anotada: o preço está certo' in o['recP7']
+   and 'condição: Lacrado (só esta lista)' not in o['recP2'] and 'anotada: condição Lacrado' in o['recP2'])
+ok('recusa: as 4 seguem anotadas e o aprovar desligado  [%s]' % o['recSub'],
+   o['recSub'].endswith('· 4 anotadas') and o['recAprovarDesligado'])
+ok('tirar a resposta anota decisao nula  %s' % o['desanotar'],
+   o['desanotar'] == {'p_pendencia': 'p3', 'p_decisao': None, 'p_aponta': None, 'p_extra': None})
+ok('tirada: a barra cai para 3 e a marca de erro some  [%s]' % o['tiradaBarra'][:40],
+   o['tiradaBarra'].startswith('3 respostas anotadas') and o['tiradaSemErro'])
+ok('reler de novo aplica o resto: preço confirmado (só esta lista)', 'preço confirmado (só esta lista)' in o['okP7'])
+ok('e condição: Lacrado (só esta lista)', 'condição: Lacrado (só esta lista)' in o['okP2'])
+ok('o criar aplicado aparece pelo nome e codigo (o catalogo foi relido)  [%s]' % o['okP1'][:80],
+   'criado: Loja Alfa Distribuidora (loja_alfa_distribuidora)' in o['okP1'] and o['okCatalogo'])
+ok('o toast conta as respostas e a cobertura antes e depois  [%s]' % o['okToast'],
+   o['okToast'] == 'Lista relida com 3 respostas. Casaram 11 → 14.')
+ok('depois de reler: nenhuma anotada, barra escondida  [%s]' % o['okSub'],
+   o['okLoteOculto'] and o['okAnotadas'] == 0 and o['okSub'] == '1 abertas · 2 fora desta lista · 4 respondidas')
+ok('D20 depois de aplicado: so o desfazer  %s' % o['okP7botoes'], o['okP7botoes'] == ['Deixar fora desta lista'])
+ok('tres releituras (lenta, recusada, aceita), sempre da carga certa  [%d %s]' % (o['nReler'], o['relerArgs']),
+   o['nReler'] == 3 and o['relerArgs'] == {'p_carga': 'c-0001'})
+ok('com as travas conferidas e nada anotado, o aprovar acende', o['aprovarLigado'])
 ok('o primeiro clique so pede confirmacao, sem RPC', o['semRpcAntesDoSim'] and 'Confirmar?' in o['confirmaTexto'])
 ok('o "sim" aprova a carga certa  %s' % o['aprovar'], o['aprovar'] == {'p_carga': 'c-0001'})
 ok('o resultado diz produtos, precos e pendencias que ficaram de fora', '4 produtos, 4 preços, com 3 pendências' in o['ok'])
 ok('depois de aprovar, a caixa de colar volta', o['depoisS1'])
+ok('as RPCs chamadas de fato estao entre as cinco  %s' % o['rpcNomes'], set(o['rpcNomes']) <= RPCS)
 ok('nenhuma consulta nem RPC levou tenant_id', not o['tenantEmConsulta'])
 ok('360px: sem estouro horizontal  [+%dpx]' % o['estouro'], o['estouro'] <= 0)
 
@@ -629,8 +901,9 @@ enviado = (p['abrir'] or {}).get('p_texto', '')
 ok('ler manda SO a janela: a mensagem de 20 dias nao chega ao banco  [%s]' % enviado[:40],
    enviado.startswith('[%s, 10:00:00] Vini: Loja Alfa' % p['d2']) and 'Loja Velha' not in enviado
    and 'iPhone 16 128GB - 4.000' in enviado)
-ok('tempo do banco esgotado (57014): a tela diz o que fazer  [%s]' % p['lentaErro'][:60],
+ok('tempo do banco esgotado (57014): a tela diz o que fazer, com o limite de 1 minuto  [%s]' % p['lentaErro'][:60],
    'grande demais' in p['lentaErro'] and 'Diminua a janela' in p['lentaErro'] and 'Nada foi gravado' in p['lentaErro']
+   and 'o banco para em 1 minuto' in p['lentaErro'] and '30 segundos' not in p['lentaErro']
    and 'statement timeout' not in p['lentaErro'])
 ok('e a lista fica na caixa para tentar de novo', p['lentaFicou'] and p['nAbrir'] == 2)
 ok('a leitura que estourou tambem foi mandada ja cortada', 'Loja Velha' not in (p['lentaArgs'] or {}).get('p_texto', 'Loja Velha'))

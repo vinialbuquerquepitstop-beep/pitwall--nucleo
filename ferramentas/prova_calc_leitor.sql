@@ -1,9 +1,9 @@
 -- prova_calc_leitor.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 f92a93e6086f6dbb5ecb56654f3158f5).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 bfcd798e1b31c88368179de4c391db57).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
--- Secoes: H, A, B, E, F, P, O. Fixtures: A, B, C, G, I.
--- Assercoes escritas: 65 (um laco pode executar mais de uma vez; o numero
+-- Secoes: H, A, B, E, F, P, O, S. Fixtures: A, B, C, G, I, J.
+-- Assercoes escritas: 73 (um laco pode executar mais de uma vez; o numero
 -- que conta e o da mensagem, e a soma dos tres gerados e o total da fonte).
 --
 -- COMO RODAR por MCP: enxugar e colar a saida numa chamada SO de execute_sql.
@@ -95,6 +95,18 @@ declare
   v_txi    text;   -- fixture I: a orfa sem cor (13/09/2026)
   v_ii     jsonb;  -- a leitura dela
   v_ki     uuid;   -- a carga aberta com ela (secao O, revertida)
+  -- secao S (13/09/2026: bandeira, iPhone sem nome, ciclo, cerca, com Apple, linha)
+  v_txj    text;   -- fixture J
+  v_jj     jsonb;  -- a leitura dela
+  v_jnm    text;   -- o nome do fornecedor `junior`, como sai na coluna `f`
+  -- secao U (13/09/2026: responder em lote)
+  v_ku     uuid;   -- a carga da fixture A, aberta so dentro da secao
+  v_pu1    uuid;   -- pergunta de fornecedor `TABELA XPTO IMPORTS`
+  v_pu2    uuid;   -- pergunta de modelo do Poco
+  v_pu3    uuid;   -- pergunta de cor `verde menta`
+  v_un     int;    -- casou ao abrir
+  v_ur     jsonb := '{}';  -- o que a secao U mediu dentro da subtransacao
+  v_ulog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture A
   -- ══ FIXTURE A — formato linha ═══════════════════════════════════════════════
@@ -233,6 +245,34 @@ begin
   || E'iPhone 16 128GB Preto Lacrado - 4.100\n'
   || E'iPhone 16 128GB Blush Lacrado - 4.200\n';
 
+  -- @@fixture J
+  -- ══ FIXTURE J — as regras de 13/09/2026 ═════════════════════════════════════
+  -- Cada bloco e um defeito ou uma decisao medidos na lista real de 17/08, aqui
+  -- sintetica e com precos inventados:
+  --   Junior: `📲 15 128GB 🇺🇸 A+` (sem a palavra iPhone; a bandeira e Seminovo), o
+  --     ciclo de bateria numa linha propria (era lido como R$ 1.281) e
+  --     `⬇️ LACRADOS 🇺🇸 🇺🇸` (bandeira em linha que diz lacrado nao e seminovo);
+  --   `Loja Sem Cadastro Zeta` as 10:05 e a continuacao no MESMO segundo: a cerca
+  --     do horario, uma pergunta so, nada no nome do Junior;
+  --   MELHOR DE CAXIAS (Five Cell) com `direto com Apple` no meio (nao e o
+  --     fornecedor M Apple) e um Redmi com 13 e capacidade (nao e iPhone).
+  v_txj :=
+     E'[13/09/2026, 10:00:00] Vini: Junior recreio\n'
+  || E'📲 15 128GB 🇺🇸 A+\n'
+  || E'🔋85% (1281ciclos)\n'
+  || E'💰 2.650\n'
+  || E'⬇️ LACRADOS 🇺🇸 🇺🇸\n'
+  || E'📲 iPhone 16 128GB\n'
+  || E'💰 4.300\n\n'
+  || E'[13/09/2026, 10:05:00] Vini: Loja Sem Cadastro Zeta\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.050\n\n'
+  || E'[13/09/2026, 10:05:00] Vini: continua\n'
+  || E'iPhone 14 128GB Preto Lacrado - 2.900\n\n'
+  || E'[13/09/2026, 10:10:00] Vini: MELHOR DE CAXIAS\n'
+  || E'Garantia de 1 ano direto com Apple\n'
+  || E'Redmi Note 13 256GB - 1.200\n'
+  || E'iPhone 16 128GB Preto Lacrado - 4.100\n';
+
   -- @@preambulo
   -- O gerador leva cada linha daqui SO para o arquivo que le a variavel dela.
   v_b  := privado.calc_parse_v2(v_tenant, v_txb);
@@ -328,7 +368,7 @@ begin
   execute format('select privado.%I($1,$2)', v_ver) into v_r using v_tenant, v_txt;
   v_p   := E'\n  FALHA  [' || v_ver || '] ';
   -- teto atingivel da fixture A, por versao. Ver A20.
-  v_esp := 13;
+  v_esp := 11;  -- 13/09/2026: eram 13; as 2 linhas do XPTO (outro horario) viraram pergunta
 
   -- A1. O carimbo do WhatsApp nao vira cabecalho de fornecedor.
   --     Se `Vini` (o remetente) virasse fornecedor, todo preco seria dele.
@@ -537,36 +577,37 @@ begin
   -- cabecalho de fornecedor RECONHECIDO. A trava nao sumiu, MUDOU DE LUGAR:
   -- vai para `fornecedor_conferir`, que a tela tem que por na frente do dono
   -- antes do botao de aprovar.
-  -- v2: o cabecalho desconhecido NAO derruba o bloco...
-  v_total := v_total + 1;
-  if not exists (
-    select 1 from jsonb_array_elements(v_r->'produtos') p
-     where p->>'n' = 'iPhone 17 256GB' and p->>'f' = 'Five Cell') then
-    v_falhas := v_falhas + 1;
-    v_log := v_log || v_p || 'o cabecalho desconhecido voltou a derrubar o bloco (o domino do D10)';
-  end if;
-
-  -- ...e por isso ele NAO e mais pendencia de fornecedor...
+  -- 13/09/2026, D10 REVISTA pelo dono ("outro horario nao herda"). A lista real
+  -- de 17/08 mostrou o custo da regra acima: `JT Telles` (+35 precos) entrava no
+  -- nome do All imports e `Raphael Barra` (+40) no da Quality. Agora a mensagem de
+  -- HORARIO DIFERENTE, sem fornecedor reconhecido, e uma cerca: o de cima nao
+  -- atravessa. `TABELA XPTO IMPORTS` (11:30) nao e mais Five Cell (10:04)...
   v_total := v_total + 1;
   if exists (
-    select 1 from jsonb_array_elements(v_r->'pendencias') p
-     where p->>'tipo' = 'fornecedor') then
+    select 1 from jsonb_array_elements(v_r->'produtos') p
+     where p->>'n' in ('iPhone 17 256GB','iPhone 17 512GB')) then
     v_falhas := v_falhas + 1;
-    v_log := v_log || v_p || 'cabecalho desconhecido ainda vira pendencia de fornecedor no v2';
+    v_log := v_log || v_p || 'a mensagem de outro horario herdou o fornecedor de cima (a D10 antiga voltou)';
   end if;
 
-  -- ...mas a trava TEM que aparecer em `fornecedor_conferir`, nomeando a linha
-  -- ignorada, e com `suspeita_alta` ACESO: `XPTO IMPORTS` carrega `imports`,
-  -- palavra que aparece em nome de fornecedor ja cadastrado. Sem isto a defesa
-  -- que saiu do parser nao existe em lugar nenhum.
+  -- ...e volta a ser pergunta de fornecedor, pelo nome da propria mensagem, com as 2 linhas...
   v_total := v_total + 1;
   if not exists (
+    select 1 from jsonb_array_elements(v_r->'pendencias') p
+     where p->>'tipo' = 'fornecedor' and p->>'texto' = 'TABELA XPTO IMPORTS'
+       and (p->>'n_linhas')::int = 2) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || v_p || 'a mensagem cortada pela cerca nao virou a pergunta TABELA XPTO IMPORTS com 2 linhas';
+  end if;
+
+  -- ...e por isso nao e mais "linha ignorada dentro do bloco" da Five Cell.
+  v_total := v_total + 1;
+  if exists (
     select 1 from jsonb_array_elements(v_r->'fornecedor_conferir') f
      where f->>'cabecalho' = 'MELHOR DE CAXIAS'
-       and (f->>'suspeita_alta')::boolean
        and (f->'ignoradas')::text ilike '%XPTO%') then
     v_falhas := v_falhas + 1;
-    v_log := v_log || v_p || 'o cabecalho ignorado nao aparece em fornecedor_conferir com suspeita_alta';
+    v_log := v_log || v_p || 'o XPTO ainda aparece como linha ignorada dentro do bloco da Five Cell';
   end if;
 
   -- A20. O TETO DA FIXTURE A. Esta lista e um circuito de armadilhas, nao uma
@@ -1066,6 +1107,102 @@ begin
              || coalesce(v_msg, '(sem erro, contagem errada)');
   end if;
 
+  -- @@secao S
+  -- ══ S. AS REGRAS DE 13/09/2026, medidas na lista real de 17/08 ═══════════════
+  -- Migration: supabase/migrations/20260913_calc_leitor_bandeira_iphone_linha.sql.
+  -- Na lista real: casou 309 -> 566, perguntas 125 -> 75, e nenhum preco novo abaixo
+  -- de 70% do menor de outro fornecedor. Fixture J.
+  v_jj := privado.calc_parse_v2(v_tenant, v_txj);
+  select nome into v_jnm from public.calc_fornecedor where tenant_id = v_tenant and codigo = 'junior';
+
+  -- S1. A bandeira e Seminovo, e `📲 15 128GB` sem a palavra iPhone e iPhone 15 128GB.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+                  where p->>'n' = 'iPhone 15 128GB' and p->>'t' = 'Seminovo' and p->>'f' = v_jnm
+                    and (p->>'v')::numeric = 2650) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S1] fixture J: `📲 15 128GB 🇺🇸 A+` nao virou iPhone 15 128GB Seminovo 2650 do Junior. Produtos: '
+             || (v_jj->'produtos')::text;
+  end if;
+
+  -- S2. Ciclo de bateria nao e preco: `🔋85% (1281ciclos)` era o R$ 1.281 do Fabio Souza.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 1281) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S2] fixture J: o ciclo de bateria (1281) virou preco';
+  end if;
+
+  -- S3. `⬇️ LACRADOS 🇺🇸 🇺🇸`: a bandeira numa linha que diz lacrado nao e seminovo, nem pergunta.
+  v_total := v_total + 1;
+  if not exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+                  where p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Lacrado' and p->>'f' = v_jnm
+                    and (p->>'v')::numeric = 4300)
+     or exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+                 where p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Seminovo') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S3] fixture J: o bloco LACRADOS 🇺🇸 nao deu iPhone 16 128GB Lacrado 4300 do Junior. Produtos: '
+             || (v_jj->'produtos')::text;
+  end if;
+
+  -- S4. Redmi com 13 e capacidade nao vira iPhone 13.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) = 1200)
+     or not exists (select 1 from jsonb_array_elements(v_jj->'pendencias') q
+                     where q->>'tipo' = 'modelo' and q->>'exemplo' ilike '%Redmi%') then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S4] fixture J: o Redmi Note 13 virou preco, ou nao virou pergunta de modelo';
+  end if;
+
+  -- S5. A cerca do horario: a mensagem desconhecida das 10:05 e a continuacao do mesmo
+  --     segundo nao entram no nome do Junior e viram UMA pergunta, pelo nome da mensagem.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_jj->'produtos') p
+               left join lateral jsonb_array_elements(coalesce(p->'cs','[]'::jsonb)) c on true
+              where coalesce((c->>'v')::numeric, (p->>'v')::numeric) in (4050, 2900))
+     or (select count(*) from jsonb_array_elements(v_jj->'pendencias') q where q->>'tipo' = 'fornecedor') <> 1
+     or not exists (select 1 from jsonb_array_elements(v_jj->'pendencias') q
+                     where q->>'tipo' = 'fornecedor' and q->>'texto' = 'Loja Sem Cadastro Zeta'
+                       and (q->>'n_linhas')::int = 2) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S5] fixture J: a cerca do horario nao segurou a mensagem das 10:05 (esperado 1 pergunta `Loja Sem Cadastro Zeta` com 2 linhas, e 4050/2900 fora). Pendencias: '
+             || (v_jj->'pendencias')::text;
+  end if;
+
+  -- S6. `direto com Apple` nao e o fornecedor M Apple: fornecedor se reconhece por palavra inteira.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_jj->'produtos') p where p->>'f' = 'M Apple')
+     or not exists (select 1 from jsonb_array_elements(v_jj->'produtos') p, jsonb_array_elements(p->'cs') c
+                     where p->>'n' = 'iPhone 16 128GB' and p->>'t' = 'Lacrado' and p->>'f' = 'Five Cell'
+                       and (c->>'v')::numeric = 4100) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S6] fixture J: `direto com Apple` virou o fornecedor M Apple, ou a Five Cell perdeu o 4100. Produtos: '
+             || (v_jj->'produtos')::text;
+  end if;
+
+  -- S7. Toda pergunta diz a sua linha, e a linha e a do exemplo.
+  v_total := v_total + 1;
+  if exists (select 1 from jsonb_array_elements(v_jj->'pendencias') q
+              where q->>'linha' is null
+                 or btrim(privado.calc_limpar((regexp_split_to_array(v_txj, E'\r?\n'))[(q->>'linha')::int]))
+                    is distinct from btrim(q->>'exemplo')) then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S7] fixture J: pergunta sem linha, ou linha que nao e a do exemplo: '
+             || (v_jj->'pendencias')::text;
+  end if;
+
+  -- S8. Conservacao na fixture J.
+  v_total := v_total + 1;
+  if (v_jj->>'n_lidas')::int is distinct from
+     (v_jj->>'n_casou')::int + (v_jj->>'n_duvidoso')::int + (v_jj->>'n_nao_reconhecido')::int then
+    v_falhas := v_falhas + 1;
+    v_log := v_log || E'\n  FALHA  [S8] fixture J: lidas ' || (v_jj->>'n_lidas') || ' <> casou ' || (v_jj->>'n_casou')
+             || ' + duvidoso ' || (v_jj->>'n_duvidoso') || ' + nao reconhecido ' || (v_jj->>'n_nao_reconhecido');
+  end if;
+
   -- @@relatorio
   -- Cada linha de sumario pertence a UM arquivo gerado, pelo marcador acima
   -- dela. Juntas, as tres dizem o que este relatorio diz.
@@ -1098,6 +1235,9 @@ begin
               || E'\n  fixture I (orfa sem cor), v2: lidas=' || (v_ii->>'n_lidas')
               || ' casou=' || (v_ii->>'n_casou')
               || ' duvidoso=' || (v_ii->>'n_duvidoso')
+              || E'\n  fixture J (regras de 13/09), v2: lidas=' || (v_jj->>'n_lidas')
+              || ' casou=' || (v_jj->>'n_casou')
+              || ' perguntas=' || (v_jj->>'n_pendencia')
   -- @@relatorio fim
          else 'REPROVOU: ' || v_falhas || ' de ' || v_total || ' assercoes falharam (prova_calc_leitor)' || v_log
     end;

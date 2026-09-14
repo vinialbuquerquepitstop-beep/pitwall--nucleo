@@ -14,8 +14,12 @@
 
   O que ela NAO faz, de proposito:
   - nao escreve em tabela nenhuma. Toda escrita e RPC (calc_carga_abrir,
-    calc_pendencia_resolver, calc_catalogo_criar, calc_carga_aprovar,
+    calc_pendencia_anotar, calc_carga_reler, calc_carga_aprovar,
     calc_carga_descartar), e a barreira de papel mora no corpo delas;
+  - nao rele a lista a cada resposta (13/09/2026: a lista de 17/08, 812 linhas,
+    levava ~30 s por releitura e o banco cortava). A resposta e ANOTADA
+    (calc_pendencia_anotar confere e guarda, sem aplicar) e o lote inteiro e
+    aplicado numa releitura so (calc_carga_reler), tudo ou nada;
   - nao passa tenant_id: a RLS filtra sozinha;
   - nao guarda a lista colada: ela vai para o banco, que a apaga na aprovacao ou
     no descarte (D6).
@@ -26,6 +30,8 @@
   - regra de descarte se mostra pelo MOTIVO, nunca pelo padrao (D19).
   - a decisao que vale e a GRAVADA em calc_pendencia (obrigacao 2 do v12), e o
     n_linhas e o da primeira leitura (obrigacao 3).
+  - resposta anotada e nao aplicada trava o aprovar: aprovar com ela sumiria com
+    a resposta sem aviso.
 -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -62,6 +68,17 @@ a{color:var(--bl)}
 .linha .v{font-weight:600;text-align:right}
 code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-word}
 .ex{display:block;background:var(--sf2);border-radius:8px;padding:6px 8px;margin-top:6px}
+/* O trecho da mensagem em volta da pendencia: a linha que abre a mensagem (o
+   fornecedor), o salto, as vizinhas e a linha alvo destacada (cor + peso + barra). */
+.ctx{display:block;background:var(--sf2);border-radius:8px;padding:6px 0;margin-top:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.ctx .cl{padding:0 8px;min-height:1.45em}
+.ctx .ab{color:var(--mu);font-weight:600}
+.ctx .sal{color:var(--mu)}
+.ctx .alvo{background:var(--ye-bg);box-shadow:inset 3px 0 0 var(--ye);font-weight:700;color:var(--tx)}
+.ctxh{font-size:11px;color:var(--mu);margin-top:6px}
+.chip.anot{white-space:normal;text-align:left;text-transform:none;letter-spacing:0;font-size:11px}
+.lote{position:sticky;bottom:0;z-index:5;background:var(--sf);border:1px solid var(--bl-bd);box-shadow:inset 3px 0 0 var(--bl),0 -4px 14px rgba(10,22,51,.08);border-radius:var(--r);padding:12px 14px;margin-top:6px}
+.lote .lt{font-size:13px;font-weight:700}
 textarea{width:100%;min-height:180px;border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--tx);background:var(--sf);resize:vertical}
 input[type=text],input[type=password],select{width:100%;border:1px solid var(--bd);border-radius:var(--rs);padding:10px 12px;font:inherit;font-size:14px;color:var(--tx);background:var(--sf)}
 label.cx{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:8px 0;cursor:pointer}
@@ -157,6 +174,8 @@ summary{cursor:pointer;font-size:13px;font-weight:600}
     <section class="passo" id="s3" hidden>
       <div class="ph"><span class="pn">3</span><div><div class="pt">Pendências</div><div class="ps" id="s3Sub"></div></div></div>
       <div id="s3Corpo"></div>
+      <!-- A barra do lote: aparece so com resposta anotada, grudada no rodape da secao -->
+      <div class="lote" id="aLote" hidden></div>
     </section>
 
     <!-- O QUE O SISTEMA APRENDEU (D19): sempre visivel para o dono -->
@@ -200,7 +219,7 @@ var DIAS_VELHO=7;    // plano 2.3: lista com mais de 7 dias entra com aviso
 var E={carga:null,pend:[],cat:{modelo:[],cor:[],fornecedor:[],cond:[]},catErro:null,
        sug:{},aprendido:[],aprendidoErros:[],dados:null,dadosEm:null,dadosErro:null,
        datas:null,visao:'lista',form:{},erroPend:{},quase:{},conf:{},confirmar:null,
-       aprovada:null};
+       aprovada:null,bruto:null,erroLote:null};
 
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -374,7 +393,7 @@ async function carregarDadosAtuais(){
 }
 async function carregarPendencias(){
   var r=await sb.from('calc_pendencia')
-    .select('id,tipo,texto,causa,exemplo,n_linhas,decisao,aponta,decidido_em,criado_em')
+    .select('id,tipo,texto,causa,exemplo,n_linhas,decisao,aponta,decidido_em,criado_em,linha,rascunho,rascunho_erro')
     .eq('carga_id',E.carga.id).order('criado_em');
   if(r.error){E.pendErro=r.error.message;E.pend=[];return;}
   E.pendErro=null;
@@ -419,12 +438,16 @@ async function recarregar(){
   if(r.error){fatal('Não foi possível ler a carga: '+r.error.message);return;}
   E.carga=(r.data&&r.data[0])||null;
   if(E.carga){
-    // A lista bruta so e usada aqui, para as datas, e sai da memoria em seguida.
-    E.datas=datasDaLista(E.carga.texto_bruto||'');
+    // A lista bruta serve as datas e o CONTEXTO de cada pendencia (as linhas em
+    // volta de `linha`). Fica so em E.bruto, quebrada como o leitor quebra
+    // (`\r?\n`), e sai da memoria quando a carga fecha.
+    var bruto=E.carga.texto_bruto||'';
+    E.datas=datasDaLista(bruto);
+    E.bruto=bruto?bruto.split(/\r?\n/):null;
     delete E.carga.texto_bruto;
     await carregarPendencias();
     await carregarSugestoes();
-  }else{E.pend=[];E.datas=null;E.conf={};E.form={};E.erroPend={};E.quase={};}
+  }else{E.pend=[];E.datas=null;E.bruto=null;E.erroLote=null;E.conf={};E.form={};E.erroPend={};E.quase={};}
   await carregarAprendido();
   render();
 }
@@ -534,9 +557,22 @@ function contagemPend(){
   return {abertas:ab,ignoradas:ig,respondidas:rs};
 }
 
+function nAnotadas(){return E.pend.filter(function(p){return p.rascunho!=null;}).length;}
+
+function rLote(){
+  var n=nAnotadas(),el=$('aLote');
+  el.hidden=!n;
+  if(!n){el.innerHTML='';return;}
+  el.innerHTML='<div class="lt">'+pl(n,'resposta anotada','respostas anotadas')+'. Nada muda na tabela até reler.</div>'+
+    '<div class="bts"><button class="bt pri big2" id="aReler" data-acao="reler">Reler a lista com '+pl(n,'resposta','respostas')+'</button></div>'+
+    '<div class="hint" style="margin-top:6px">Leva até 1 minuto. Se uma resposta não ensinar nada, nenhuma é gravada e ela fica marcada.</div>'+
+    (E.erroLote?'<div class="erro" id="aErroLote">'+esc(E.erroLote)+'</div>':'');
+}
+
 function rPasso3(){
-  var k=contagemPend(),h='';
-  $('s3Sub').textContent=k.abertas+' abertas · '+k.ignoradas+' fora desta lista · '+k.respondidas+' respondidas';
+  var k=contagemPend(),h='',na=nAnotadas();
+  $('s3Sub').textContent=k.abertas+' abertas · '+k.ignoradas+' fora desta lista · '+k.respondidas+' respondidas'+(na>0?' · '+na+' anotadas':'');
+  rLote();
   if(E.pendErro){$('s3Corpo').innerHTML='<div class="card re">Não foi possível ler as pendências: '+esc(E.pendErro)+'</div>';return;}
   // A leitura atual pode ter menos pendencias do que a tabela diz abertas: uma
   // resposta (descartar um fornecedor, por exemplo) tira do texto perguntas que
@@ -560,6 +596,46 @@ function estadoPend(p){
   if(p.decisao==='definir')return '<span class="chip bl">condição: '+esc(p.aponta)+' (só esta lista)</span>';
   if(p.decisao==='confirmar')return '<span class="chip gr">preço confirmado (só esta lista)</span>';
   return '<span class="chip">'+esc(p.decisao)+'</span>';
+}
+
+// A resposta ANOTADA (rascunho), que ainda nao mudou nada: diz o que vai acontecer
+// quando a lista for relida, nas palavras dos botoes.
+function textoAnotada(p){
+  var r=p.rascunho||{},d=r.decisao;
+  if(d==='apontar')return 'outro nome de '+rotuloDestino(p.tipo,r.aponta);
+  if(d==='definir')return 'condição '+(r.aponta||'');
+  if(d==='criar')return 'criar '+(r.aponta||'');
+  if(d==='descartar')return p.tipo==='fornecedor'?'nunca ler este fornecedor':'nunca é preço';
+  if(d==='confirmar')return 'o preço está certo';
+  if(d==='ignorar')return 'deixar fora desta lista';
+  return String(d||'');
+}
+
+// O CONTEXTO da pendencia (pedido do dono, 13/09/2026: "mostre a linha da mensagem
+// para checar o contexto"). A linha alvo e `linha` (1-based em texto_bruto); carga
+// antiga sem `linha` cai na 1a linha que contem o exemplo. A linha que ABRE a
+// mensagem (carimbo do WhatsApp) aparece sempre no topo: e ela que diz o fornecedor.
+var CARIMBO=/^\s*\[?\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}/;
+function alvoDaPendencia(p){
+  var L=E.bruto;if(!L||!L.length)return -1;
+  var n=p.linha==null?null:Number(p.linha);
+  if(n!=null&&n>=1&&n<=L.length)return n-1;
+  var ex=String(p.exemplo||'').trim();
+  if(!ex)return -1;
+  for(var i=0;i<L.length;i++)if(L[i].indexOf(ex)>=0)return i;
+  return -1;
+}
+function contexto(p){
+  var L=E.bruto,a=alvoDaPendencia(p);
+  if(a<0)return p.exemplo?'<code class="ex">'+esc(p.exemplo)+'</code>':'';
+  var ab=-1;
+  for(var i=a;i>=0;i--){if(CARIMBO.test(L[i])){ab=i;break;}}
+  var ini=Math.max(ab+1,a-6),fim=Math.min(L.length-1,a+2),h='';
+  function cl(j,cls){return '<div class="cl'+(cls?' '+cls:'')+'"'+(j===a?' data-alvo="1"':'')+'>'+(L[j]===''?' ':esc(L[j]))+'</div>';}
+  if(ab>=0)h+=cl(ab,ab===a?'ab alvo':'ab');
+  if(ab>=0&&ini>ab+1)h+='<div class="cl sal">…</div>';
+  for(var j=ini;j<=fim;j++)h+=cl(j,j===a?'alvo':'');
+  return '<div class="ctxh">linha '+(a+1)+' da lista, na mensagem de onde veio</div><div class="ctx" data-ctx="1">'+h+'</div>';
 }
 
 // Quais verbos cada tipo aceita, medido nas RPCs em 12/09/2026:
@@ -587,8 +663,13 @@ function cardPend(p){
     '<span class="hint">'+num(p.n_linhas)+(num(p.n_linhas)===1?' linha':' linhas')+' na 1ª leitura</span></div>'+
     '<div class="tx" style="margin-top:6px">'+esc(p.texto)+'</div>'+
     '<div class="causa">'+esc(p.causa)+'</div>'+
-    (p.exemplo?'<code class="ex">'+esc(p.exemplo)+'</code>':'');
+    contexto(p);
   if(p.decisao&&p.decidido_em)h+='<div class="hint" style="margin-top:4px">respondida em '+esc(dataBR(p.decidido_em))+'</div>';
+  if(p.rascunho!=null){
+    h+='<div class="bts" data-anotada="1"><span class="chip bl anot">anotada: '+esc(textoAnotada(p))+'</span></div>'+
+       '<div class="bts"><button class="bt" data-acao="desanotar" data-id="'+esc(p.id)+'">Tirar a resposta</button></div>';
+  }
+  if(p.rascunho_erro)h+='<div class="erro" data-rascunho-erro="1">'+esc(semPrefixo(p.rascunho_erro))+'</div>';
   if(abaixoDaTabela(p)&&p.decisao==null)h+='<div class="aviso" id="aAbaixo-'+esc(p.id)+'">Este preço está muito abaixo do menor da tabela atual. Quase sempre é a leitura pegando o número errado da linha. Confira na lista do fornecedor antes de responder.</div>';
   else if(p.tipo==='preco'&&p.decisao==null)h+='<div class="hint" style="margin-top:6px">A calculadora não tem onde guardar condição de pagamento. Esta linha só pode ficar fora desta lista.</div>';
   var vs=verbos(p);
@@ -748,7 +829,9 @@ function tabelaProd(l){
 // As tres travas do aprovar. O banco aceita carga com pendencia aberta e com
 // fornecedor suspeito: se a trava nao morar aqui, ela nao mora em lugar nenhum.
 function travas(){
-  var c=E.carga,R=c.resumo||{},k=contagemPend(),t=[];
+  var c=E.carga,R=c.resumo||{},k=contagemPend(),t=[],na=nAnotadas();
+  // PRIMEIRO: resposta anotada e nao aplicada sumiria calada num aprovar.
+  if(na>0)t.push(na===1?'reler a lista com a resposta anotada':'reler a lista com as '+na+' respostas anotadas');
   var sus=(R.fornecedor_conferir||[]).filter(function(f){return f.suspeita_alta;});
   sus.forEach(function(f){if(!E.conf[confChave(f)])t.push('conferir o bloco suspeito de '+f.fornecedor+' (passo 2)');});
   if(k.abertas>0&&!E.conf['abertas'])t.push('aceitar as '+k.abertas+' pendências abertas');
@@ -828,45 +911,84 @@ async function lerLista(){
   ocupado(true,'lendo '+pl(nl,'linha','linhas')+'...');
   var r=await sb.rpc('calc_carga_abrir',{p_texto:rc.texto});
   ocupado(false);
-  if(r.error&&tempoEsgotado(r.error)){er.hidden=false;er.textContent='A lista é grande demais para ler de uma vez ('+pl(nl,'linha','linhas')+'): o banco para em 30 segundos. Diminua a janela de dias ou corte a lista. Nada foi gravado.';return;}
+  if(r.error&&tempoEsgotado(r.error)){er.hidden=false;er.textContent='A lista é grande demais para ler de uma vez ('+pl(nl,'linha','linhas')+'): o banco para em 1 minuto. Diminua a janela de dias ou corte a lista. Nada foi gravado.';return;}
   if(r.error){er.hidden=false;er.textContent=semPrefixo(r.error.message);return;}
-  $('aTexto').value='';E.aprovada=null;E.conf={};E.form={};E.erroPend={};E.quase={};E.visao='lista';
+  $('aTexto').value='';E.aprovada=null;E.conf={};E.form={};E.erroPend={};E.quase={};E.erroLote=null;E.visao='lista';
   await recarregar();
   toast('Lista lida: '+coberturaTexto(E.carga||{n_casou:0,n_lidas:0}));
 }
 
+// A resposta e ANOTADA, nao aplicada. O banco confere com as mesmas travas de
+// sempre e recusa na hora; so `ignorar` sobre pergunta aberta vale na hora.
+// Argumentos por verbo: apontar -> codigo; definir -> condicao; criar -> o nome
+// digitado em p_aponta e {categoria} ou {praca} em p_extra; o resto, nulos.
 async function responder(id,verbo){
   var p=E.pend.filter(function(x){return x.id===id;})[0];if(!p)return;
-  var antes=num(E.carga.n_casou),r,args;
+  var r,dec=verbo,aponta=null,extra=null,criando=verbo==='criar'||verbo==='criarNovo';
   delete E.erroPend[id];
-  if(verbo==='criar'||verbo==='criarNovo'){
-    var nome=($('fn-'+id)||{}).value||'';
-    var extra={};
+  if(criando){
+    dec='criar';
+    aponta=($('fn-'+id)||{}).value||'';
+    extra={};
     if(p.tipo==='modelo')extra.categoria=($('fc-'+id)||{}).value||'';
     else extra.praca=($('fp-'+id)||{}).value||'';
     if(verbo==='criarNovo')extra.confirmar_novo='sim';
-    ocupado(true,'criando...');
-    r=await sb.rpc('calc_catalogo_criar',{p_pendencia:id,p_nome:nome,p_extra:extra});
-    ocupado(false);
-    if(r.error&&/confirmar_novo/.test(r.error.message)){
-      // 2.4a ter: nao cria e nao une. A pergunta volta com as duas grafias.
-      E.quase[id]={nome:nome,praca:extra.praca||'',msg:semPrefixo(r.error.message).replace(/\s*Se for outro fornecedor mesmo, repita com \{[^}]*\}\.?/,' Se for outro fornecedor, crie mesmo assim.')};
-      render();return;
-    }
   }else{
-    var valor=null;
-    if(verbo==='apontar'){valor=($('fa-'+id)||{}).value||'';if(!valor){E.erroPend[id]='Escolha para quem a lista escreveu isto.';render();return;}}
-    if(verbo==='definir')valor=E.form[id+'|cond']||(E.sug[p.texto]&&E.sug[p.texto].valor)||'';
-    ocupado(true,'gravando a resposta...');
-    r=await sb.rpc('calc_pendencia_resolver',{p_pendencia:id,p_decisao:verbo,p_aponta:valor});
-    ocupado(false);
+    if(verbo==='apontar'){aponta=($('fa-'+id)||{}).value||'';if(!aponta){E.erroPend[id]='Escolha para quem a lista escreveu isto.';render();return;}}
+    if(verbo==='definir')aponta=E.form[id+'|cond']||(E.sug[p.texto]&&E.sug[p.texto].valor)||'';
+  }
+  ocupado(true,'conferindo a resposta...');
+  r=await sb.rpc('calc_pendencia_anotar',{p_pendencia:id,p_decisao:dec,p_aponta:aponta,p_extra:extra});
+  ocupado(false);
+  if(r.error&&criando&&/confirmar_novo/.test(r.error.message||'')){
+    // 2.4a ter: nao cria e nao une. A pergunta volta com as duas grafias.
+    E.quase[id]={nome:aponta,praca:extra.praca||'',msg:semPrefixo(r.error.message).replace(/\s*Se for outro fornecedor mesmo, repita com \{[^}]*\}\.?/,' Se for outro fornecedor, crie mesmo assim.')};
+    render();return;
   }
   if(r.error){E.erroPend[id]=semPrefixo(r.error.message);render();return;}
   delete E.form[id];delete E.form[id+'|cond'];delete E.quase[id];
-  if(verbo==='criar'||verbo==='criarNovo')await carregarCatalogo();
+  E.erroLote=null;
   await recarregar();
-  var depois=E.carga?num(E.carga.n_casou):antes;
-  toast('Resposta gravada. Casaram '+antes+' → '+depois+'.');
+  toast(r.data&&r.data.aplicada?'Fica fora desta lista.':'Resposta anotada. Falta reler a lista.');
+}
+
+async function desanotar(id){
+  delete E.erroPend[id];
+  ocupado(true,'tirando a resposta...');
+  var r=await sb.rpc('calc_pendencia_anotar',{p_pendencia:id,p_decisao:null,p_aponta:null,p_extra:null});
+  ocupado(false);
+  if(r.error){E.erroPend[id]=semPrefixo(r.error.message);render();return;}
+  E.erroLote=null;
+  await recarregar();
+  toast('Resposta tirada.');
+}
+
+// Aplica TODAS as anotadas e rele a lista uma vez. Tudo ou nada: com uma recusa,
+// nenhuma grava, as anotadas ficam, e cada culpada volta com `rascunho_erro`.
+async function relerLote(){
+  var n=nAnotadas();if(!n||!E.carga)return;
+  var antes=num(E.carga.n_casou);
+  E.erroLote=null;
+  ocupado(true,'relendo a lista com '+pl(n,'resposta','respostas')+' (até 1 minuto)...');
+  var r=await sb.rpc('calc_carga_reler',{p_carga:E.carga.id});
+  ocupado(false);
+  if(r.error){
+    E.erroLote=tempoEsgotado(r.error)
+      ?'A releitura passou de 1 minuto e o banco parou. Nada foi gravado: as respostas continuam anotadas.'
+      :'Nada foi gravado: '+semPrefixo(r.error.message);
+    render();return;
+  }
+  var d=r.data||{};
+  if(d.ok===false){
+    var f=(d.falhas||[]).length;
+    E.erroLote='Nenhuma resposta foi gravada: '+(f===1?'1 não ensina nada ao leitor (marcada abaixo)':f+' não ensinam nada ao leitor (marcadas abaixo)')+'. Tire a resposta ou deixe fora desta lista.';
+    await recarregar();return;
+  }
+  await carregarCatalogo();
+  await recarregar();
+  var a=d.n_casou_antes!=null?num(d.n_casou_antes):antes;
+  var b=d.n_casou!=null?num(d.n_casou):(E.carga?num(E.carga.n_casou):antes);
+  toast('Lista relida com '+pl(num(d.aplicadas),'resposta','respostas')+'. Casaram '+a+' → '+b+'.');
 }
 
 async function aprovar(){
@@ -908,6 +1030,8 @@ document.addEventListener('click',function(ev){
   if(a==='verbo'){var v=b.getAttribute('data-verbo');E.form[id]=E.form[id]===v?null:v;if(v!=='criar')delete E.quase[id];delete E.erroPend[id];return render();}
   if(a==='cond'){E.form[id+'|cond']=b.getAttribute('data-valor');return render();}
   if(a==='confirmar')return responder(id,b.getAttribute('data-verbo'));
+  if(a==='desanotar')return desanotar(id);
+  if(a==='reler')return relerLote();
   if(a==='visao'){E.visao=b.getAttribute('data-valor');return rAprendido();}
   if(a==='descartarCarga'){E.confirmar='descartarCarga';return render();}
   if(a==='descartarCargaSim')return descartarCarga();

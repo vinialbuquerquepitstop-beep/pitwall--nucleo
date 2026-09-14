@@ -140,7 +140,9 @@ Sempre incluir no prompt:
 - o caminho do arquivo, para ele nao reconstruir o conteudo de cabeca;
 - cada verificacao com o **numero esperado**, e qual resultado e reprovacao grave;
 - a baseline de advisors, para "achado novo" ter significado. Medida em
-  **11/09/2026: NOVE achados**. SEIS sao RPCs do Bloco 2 (`calc_carga_abrir`,
+  **13/09/2026: ONZE achados** (os nove de 11/09 mais `calc_pendencia_anotar` e
+  `calc_carga_reler`, do responder em lote, na mesma forma declarada). Em
+  11/09/2026 eram NOVE. SEIS sao RPCs do Bloco 2 (`calc_carga_abrir`,
   `calc_carga_aprovar`, `calc_carga_descartar`, `calc_catalogo_criar`,
   `calc_config_margem_salvar`, `calc_pendencia_resolver`), somadas a
   `registrar_venda`, `remover_nf` e o leaked password protection.
@@ -275,7 +277,7 @@ Checklist da secao 7 do runbook, mais o que e desta linha:
 - [ ] `diag_calc.py` nas tres larguras, se tocou `public/calc/`
 - [ ] falha nova isolada contra o `HEAD` antes de culpar a propria mudanca
 - [ ] prova nova cobrindo o que foi construido, com stub que **nao** usa valor real
-- [ ] `get_advisors(security)` sem achado novo alem dos **9** de 11/09/2026 (os 6
+- [ ] `get_advisors(security)` sem achado novo alem dos **11** de 13/09/2026 (os 9 de 11/09, mais `calc_pendencia_anotar` e `calc_carga_reler`; os 6
       `calc_*` do Bloco 2, `registrar_venda`, `remover_nf`, leaked password)
 - [ ] a query da restricao global 10 devolvendo **zero** (nenhuma FK de `calc_*`
       para tabela de operacao: a calc tem que poder sair inteira depois)

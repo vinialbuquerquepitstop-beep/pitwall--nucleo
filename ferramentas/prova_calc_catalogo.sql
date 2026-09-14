@@ -1,5 +1,5 @@
 -- prova_calc_catalogo.sql — GERADO por ferramentas/gera_provas_calc.py. NAO EDITAR A MAO.
--- Fonte unica: ferramentas/prova_calc_parse.sql (md5 f92a93e6086f6dbb5ecb56654f3158f5).
+-- Fonte unica: ferramentas/prova_calc_parse.sql (md5 bfcd798e1b31c88368179de4c391db57).
 -- Mudou a fonte, rode o gerador de novo: este arquivo e sobrescrito.
 --
 -- Secoes: K, L, Q. Fixtures: C, E, F, H.
@@ -95,6 +95,18 @@ declare
   v_txi    text;   -- fixture I: a orfa sem cor (13/09/2026)
   v_ii     jsonb;  -- a leitura dela
   v_ki     uuid;   -- a carga aberta com ela (secao O, revertida)
+  -- secao S (13/09/2026: bandeira, iPhone sem nome, ciclo, cerca, com Apple, linha)
+  v_txj    text;   -- fixture J
+  v_jj     jsonb;  -- a leitura dela
+  v_jnm    text;   -- o nome do fornecedor `junior`, como sai na coluna `f`
+  -- secao U (13/09/2026: responder em lote)
+  v_ku     uuid;   -- a carga da fixture A, aberta so dentro da secao
+  v_pu1    uuid;   -- pergunta de fornecedor `TABELA XPTO IMPORTS`
+  v_pu2    uuid;   -- pergunta de modelo do Poco
+  v_pu3    uuid;   -- pergunta de cor `verde menta`
+  v_un     int;    -- casou ao abrir
+  v_ur     jsonb := '{}';  -- o que a secao U mediu dentro da subtransacao
+  v_ulog   text;   -- erro inesperado dentro dela
 begin
   -- @@fixture C
   -- ══ FIXTURE C — o dia 1 de um cliente, em miniatura ══════════════════════════

@@ -498,7 +498,18 @@ nenhuma das duas batia com o repo.
 
 ## Linha calculadora (produto)
 
-- topo: `handoff_calculadora_pitwall_v18.md` (12/09/2026, noite, **a lista completa nao
+- topo: `handoff_calculadora_pitwall_v19.md` (13/09/2026, noite, **responder em lote, a linha
+  da mensagem e o leitor da lista de 17/08**). A primeira resposta pela tela morreu em 30,3 s
+  (toda resposta relia a lista). **D23:** a resposta e ANOTADA (`calc_pendencia_anotar`, travas
+  na hora) e o lote aplica numa releitura (`calc_carga_reler`, tudo ou nada); limite do papel
+  60 s. **D24:** linha sem "iPhone" e iPhone; bandeira 🇺🇸 e Seminovo (menos em linha de
+  lacrado). **D25 (revisa D10):** mensagem de outro horario sem fornecedor reconhecido nao herda
+  o de cima. Consertos achados pela pre-prova: ciclo de bateria lido como preco e `com Apple`
+  virando o fornecedor M Apple (101 precos do BR10, ja estava no ar). Na lista de 17/08: casou
+  309 -> 395. Tela com contexto da mensagem, `prova_alimentar` **170**; provas de banco **141**
+  (73/39/29). Advisors 11. Proximo: o dono descarta a leitura antiga e le de novo no preview.
+
+- anterior: `handoff_calculadora_pitwall_v18.md` (12/09/2026, noite, **a lista completa nao
   cabia no tempo**). 375 KB estouraram o `statement_timeout` de 8s. **D21:** a tela manda
   so os ultimos 7 dias (janela trocavel), e o tempo esgotado vira frase; `prova_alimentar`
   **119**. Migration `20260912_calc_leitor_rapido.sql` (saida identica, 6,97 s -> 3,93 s
