@@ -88,3 +88,75 @@ contrapartes, o que leva a cobertura de 18,55% para ~72,4%.
   funcionou foi o SQL Editor com a helper privada
   (`select privado.fn_fin_cobertura(<tenant>, <ini>, <fim>)`), porque a RPC publica
   recusa com `Sessao invalida.` fora de uma sessao com JWT, que e o comportamento certo.
+
+---
+
+## Atualizacao operacional CRM em 13/09/2026
+
+Esta secao registra uma intervencao feita diretamente no Supabase de producao depois de
+uma auditoria da regua de CRM. **Nao houve migration, alteracao de schema, alteracao de
+funcao, alteracao de frontend ou mudanca de regra permanente.** O objetivo foi remover
+divida operacional antiga da fila sem fabricar historico de contato.
+
+### Auditoria antes da intervencao
+
+- `regua_pitwall_diaria` ativa em `0 8 * * *`, equivalente a 05:00 BRT.
+- Ultima execucao auditada em 13/09/2026: `ok=true`.
+- 0 falhas de `regua_execucao` nos 14 dias anteriores.
+- 30 leads ativos, 0 duplicatas ativas por telefone, 0 leads perfilados sem estado de
+  cadencia e 0 divergencias entre perfil do lead e perfil da cadencia.
+- A fila tinha **17 cadencias vencidas**.
+- Nos 14 dias anteriores havia apenas **1 evento `toque_enviado`**. O gargalo medido era
+  operacional, nao falha do motor.
+
+### Classificacao dos 17 vencidos
+
+- **9 pos-venda**.
+- **5 comerciais acionaveis**.
+- **2 repescagens** cujo proprio `veredito` era `pare`.
+- **1 pos-venda sem WhatsApp**, `LEAD-0032`, portanto sem canal para executar a tarefa.
+
+### O que foi alterado
+
+1. **14 cadencias validas foram trazidas para 13/09/2026** como nova baseline
+   operacional. Foram ajustados `lead.proximo_contato` e
+   `cadencia_estado.passo_vence_em`. O passo da cadencia foi preservado.
+2. **LEAD-0015 e LEAD-0016** tiveram a cadencia ativa encerrada porque o proprio
+   veredito era `pare`. O lead nao foi apagado nem convertido em contato realizado.
+3. **LEAD-0032** teve a cadencia ativa encerrada por falta de WhatsApp. A venda e o
+   cliente foram preservados. O caso deve voltar para uma cadencia de contato somente
+   quando existir canal valido e a politica de consentimento estiver correta.
+4. Foram inseridos eventos de historico descrevendo a limpeza operacional. **Nenhum
+   `toque_enviado`, resposta ou contato foi inventado.**
+
+### Estado imediatamente depois da limpeza
+
+- **0 pendencias com vencimento anterior a 13/09/2026**.
+- **14 cadencias validas vencendo em 13/09/2026**.
+- As duas repescagens `pare` ficaram fora da cadencia ativa.
+- O pos-venda sem WhatsApp ficou fora da fila acionavel.
+
+### Bugs e dividas descobertos, mas NAO corrigidos nesta intervencao
+
+1. `registrar_venda(payload jsonb)` aceita criar cliente sem WhatsApp e mesmo assim
+   inicia a cadencia `comprou`. Isso produz tarefa de contato sem canal.
+2. A mesma funcao cria lead novo com `consentimento=true` e `consentimento_em=now()`.
+   Isso precisa de revisao: consentimento de WhatsApp deve ter origem/evidencia real,
+   nao nascer automaticamente por causa de uma venda.
+3. A **Fatia 4, repescagem por evento**, continua sem evidencia de implementacao no
+   banco ou no repositorio e deve ser tratada como aberta.
+
+### Regra para a proxima sessao de CRM
+
+Nao "limpar" novos atrasos automaticamente. A data de 13/09/2026 passa a ser a
+baseline. Se a fila voltar a acumular, medir isso como problema real de execucao.
+Prioridade de produto: corrigir `sem canal`, revisar consentimento e depois construir
+repescagem por evento. O motor da regua nao deve ser reescrito sem nova evidencia de
+falha.
+
+### Deploy e repositorio
+
+A intervencao no CRM foi **somente de dados no Supabase vivo**. Nao exigiu deploy para
+entrar em vigor. Esta atualizacao de handoff e apenas documentacao. Como o repositorio
+faz build automatico a cada commit em `main`, este commit documental pode disparar um
+build do Cloudflare, mas **nao altera nenhum arquivo de aplicacao**.
