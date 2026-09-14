@@ -435,6 +435,17 @@ Ao fechar uma fatia relevante:
 - registrar pendencias descobertas;
 - registrar o proximo passo exato.
 
+Como registrar:
+
+- **criar handoff NOVO** (`handoff_migracao_pitwall_vNN.md`, versao seguinte a maior
+  da pasta), nunca acrescentar secao em handoff ja commitado;
+- atualizar `docs/handoffs/handoff_indice_pitwall.md` apontando o topo novo;
+- escrita em dado de producao entra no handoff com o carimbo de `auditoria.criado_em`,
+  para ser achada e desfeita.
+
+Regra decidida em 13/09/2026, depois de a limpeza da fila ter sido relatada no rodape
+do v69 (ver `CLAUDE.md`, secao "Handoff no fim da sessao").
+
 ---
 
 ## 10. Politica de deploy

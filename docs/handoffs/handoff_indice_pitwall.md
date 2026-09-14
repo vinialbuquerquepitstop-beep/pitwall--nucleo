@@ -7,7 +7,24 @@ nenhuma das duas batia com o repo.
 
 ## Linha migracao (fio historico principal)
 
-- topo: `handoff_migracao_pitwall_v69.md` (02/09/2026, **ponte, nao repeticao**).
+- topo: `handoff_migracao_pitwall_v70.md` (13/09/2026, **CRM: Fila Operacional v2, Fatia 0
+  fechada, escrito pelo ChatGPT**). Primeiro handoff desta linha feito fora do Claude: 4
+  commits (`c1e6184` a `e5e948f`) pela conta do dono, direto no GitHub. Mapeia a fila
+  atual (Fila = comercial + pos-venda; Hoje = so comercial) e define a Fatia 1,
+  classificacao operacional derivada na leitura. O plano mora em
+  `docs/processos/fila-operacional-v2.md`. **Antes dele, escrita no banco de producao sem
+  migration e sem autor** (`criado_por` e `auditoria.usuario_id` nulos, carimbo
+  `2026-09-14 00:33:59.9034+00`): 14 cadencias vencidas trazidas para 13/09 e 3
+  encerradas a mao (LEAD-0015 e LEAD-0016 por `pare`, LEAD-0032 sem WhatsApp). O relato
+  esta na secao acrescentada ao FIM do v69. Conferido pelo Claude em 13/09: os numeros
+  batem, mas o rebaseline zerou o relogio de abandono (LEAD-0033 seria abandonado em
+  14/09 e passou para 23/09; LEAD-0024 e LEAD-0025, de 16 e 17/09 para 04/10) e deixou
+  LEAD-0015 e LEAD-0016 em `pendente` com cadencia encerrada e sem `proximo_contato`, fora
+  da fila e fora da lista fria. **Decisao consciente do dono em 13/09: manter as duas
+  coisas.** Regra nova: handoff commitado nao se edita (CLAUDE.md, secao Handoff).
+
+- anterior: `handoff_migracao_pitwall_v69.md` (02/09/2026, **ponte, nao repeticao**; a
+  secao final, "Atualizacao operacional CRM", foi acrescentada pelo ChatGPT em 13/09).
   Arquivo curto de proposito: a linha migracao estava parada no v68, de 26/08, e quem
   abrisse sessao lendo so ele perderia SETE dias, entre eles duas fatias do Financeiro
   e o conserto da rede de backup. Ele mapeia o que aconteceu entre 26/08 e 02/09 e da o

@@ -32,8 +32,9 @@ aponte para arquivo inexistente.
    colado); guarda nova se mede contra o que JA FUNCIONAVA, nao so contra o defeito
    que ela fecha; e assercao que casa por VALOR solto num blob prova o catalogo,
    nao a fixture),
-   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v69.md`,
-   que e so uma PONTE curta.
+   `handoff_financeiro_pitwall_v21.md` e `handoff_migracao_pitwall_v70.md`
+   (13/09, CRM: Fila Operacional v2, escrito pelo ChatGPT; o v69 abaixo dele e
+   so uma PONTE curta, com a escrita em producao de 13/09 relatada no rodape).
    Em 10/09/2026 esta linha dizia `v4` de manha e `v6` a tarde, e a noite fechou no
    **v8**: QUATRO versoes em um dia. A linha `calculadora` anda RAPIDO, entao
    conferir a pasta aqui vale mais do que nas outras.
@@ -474,6 +475,13 @@ se o PATCH passar.
 
 Registrar decisoes, nao so estado. Criar `docs/handoffs/handoff_migracao_pitwall_vNN.md`
 com a versao incrementada. O novo substitui os anteriores.
+
+**Handoff commitado nao se edita, e a regra vale para qualquer agente (Claude,
+ChatGPT, Codex).** Toda atualizacao vira versao nova, e o `handoff_indice_pitwall.md`
+passa a apontar o topo. Motivo, 13/09/2026: o ChatGPT acrescentou 72 linhas ao fim do
+v69 (de 02/09) direto no GitHub, com o relato de uma escrita em producao. Quem abria o
+arranque pelo indice via o v69 como ponte do Financeiro e nao achava a escrita
+escondida no rodape. Escolha delegada pelo dono ao Claude.
 
 ---
 
