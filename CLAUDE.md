@@ -305,6 +305,13 @@ deterministico: mesma categoria, mesma cor em toda sessao), nunca o `rotulo`.
   parado.** Antes de commitar, `git log -3` e `git status`: se apareceu commit
   que voce nao fez, outra sessao esta ativa nesta pasta. Ver a memoria
   `duas-sessoes-mesma-pasta`.
+- **Outro agente escreve neste repo e no banco: o ChatGPT (Codex).** Desde
+  13/09/2026 ele commita pela conta do dono, com a linha `Agente: ChatGPT` no fim
+  da mensagem, e trabalha cada fatia numa branch `codex/...` no GitHub, que o clone
+  local so enxerga depois de `git fetch github`. Divisao aceita pelos dois: CRM e
+  Fila Operacional v2 sao dele, a calculadora e do Claude, e o Financeiro ninguem
+  toca sem pedido do dono. O ambiente dele NAO tem Chrome: a suite visual de uma
+  branch dele roda AQUI, antes do merge. Protocolo inteiro no runbook, secao 1.
 - **O detalhe operacional mora em `docs/runbook-operacao.md`**: como achar QUAL
   sessao esta colidindo, o remote real (o `origin` e proxy morto), sessao sem DNS,
   as armadilhas de Git Bash no Windows (`git show <rev>:<caminho>` mente,
