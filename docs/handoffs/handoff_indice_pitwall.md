@@ -21,12 +21,12 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Migracao / CRM / Fila Operacional
 
-- topo: `handoff_migracao_pitwall_v73.md`
-- estado: Fila Operacional v2, Fatia 3 de Execucao assistida integrada ao `main`.
-- merge da Fatia 3: `81e861f09355526529936629ed8131cd0ac2c16b`
-- handoff v73: commit `1725c341e88d05b87ca7687c8d44d348269d4df3`
-- proximo passo fechado pelo v73: **Fatia 4, Desfecho rapido**, conforme `docs/processos/fila-operacional-v2.md`.
-- defeito separado, nao misturar na Fatia 4: problema visual mobile preexistente em larguras pequenas, sem regressao causada pela Fatia 3.
+- topo: `handoff_migracao_pitwall_v74.md`
+- estado: Fila Operacional v2, Fatia 4 de Desfecho rapido integrada ao `main`.
+- merge da Fatia 4: `fd4144d933d076686d26a882e23695198235bbc6`
+- handoff v74: commit `dde74785fe2be444c8cb8a427137507c2fe8e362`
+- proximo passo fechado pelo v74: **Fatia 5, Modo Proximo**, conforme `docs/processos/fila-operacional-v2.md`.
+- defeito separado: problema visual mobile preexistente em larguras pequenas; nao misturar com a Fatia 5.
 
 ### Calculadora
 
