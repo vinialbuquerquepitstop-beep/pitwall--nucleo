@@ -18,8 +18,9 @@ function ok(nome, condicao, detalhe) {
 
 console.log('\nHoje: fila harmonica');
 
-ok('linha Hoje ancora Enviar mensagem no canto esquerdo do topo',
-  app.indexOf('<div class="fila-lin-topo"><button class="btn-acao sugerir fila-sug fila-msg"') >= 0);
+ok('linha Hoje posiciona Enviar mensagem logo abaixo do nome',
+  app.indexOf('class="fila-ident-main"') >= 0 &&
+  app.indexOf('</span><button class="btn-acao sugerir fila-sug fila-msg"') >= 0);
 
 ok('acao de contato vira um unico CTA Enviar mensagem',
   app.indexOf('class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
@@ -60,9 +61,9 @@ ok('contratos de escrita permanecem intactos',
   app.indexOf('q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"}') >= 0 &&
   app.indexOf('reagendar_proximo_contato') >= 0);
 
-ok('mobile preserva Enviar mensagem no topo esquerdo e desfechos legiveis',
+ok('mobile preserva Enviar mensagem abaixo do nome e desfechos legiveis',
   css.indexOf('.fila-fluxo{align-items:stretch;flex-direction:column}') >= 0 &&
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-lin-topo>.fila-msg{width:auto;min-width:0}') >= 0 &&
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{width:auto;min-width:0}') >= 0 &&
   css.indexOf('.fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
