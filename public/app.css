@@ -4265,7 +4265,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-registro .fila-toque:hover{background:var(--surface);color:var(--accent)}
 .fila-registro .fila-reg-btn{background:var(--bg);color:var(--dim)}
 .fila-registro .fila-reg-btn[aria-expanded="true"]{
-  background:var(--accent-tint);border-color:var(--accent-linha);color:var(--accent);
+  background:var(--accent-tint);border-color:var(--accent-linha);color:var(--text);
 }
 .fila-lin>.scripts{margin-top:8px}
 .fila-lin>.desfechos{
