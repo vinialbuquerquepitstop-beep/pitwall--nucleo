@@ -962,6 +962,14 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-lin{display:flex;flex-direction:column;gap:0;padding:8px 0;border-top:1px solid var(--line)}
 .dia-sec-cab+.fila-lin{border-top:none}
 .fila-lin-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fila-contexto{
+  display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-top:6px;
+  font-size:12px;color:var(--dim);min-width:0;
+}
+.fila-contexto>span{min-width:0;overflow-wrap:anywhere}
+.fila-contexto>span+span::before{content:"\00B7";margin-right:12px;color:var(--line-forte)}
+#lista[data-aba="hoje"] .card-operacao{margin-top:6px;padding:6px 8px}
+#lista[data-aba="hoje"] .card-motivo{padding-left:0;margin-top:7px}
 /* .fila-ident tinha `flex:1`, ou seja base ZERO: a linha nunca quebrava, ela
    espremia o bloco do nome abaixo do proprio conteudo, e ai o "Quente" saia
    pintando POR CIMA do perfil ao lado. Medido em 31/07/2026 a 360px: 265px de
@@ -986,6 +994,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-wa{flex:0 0 auto;padding:5px 12px;font-size:12px}
 .fila-vertodos{background:none;border:none;color:var(--dim);font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
 .fila-vertodos:hover{color:var(--text)}
+@media (max-width:560px){
+  .fila-contexto{display:grid;grid-template-columns:1fr;gap:2px}
+  .fila-contexto>span+span::before{display:none}
+}
 /* --- lembrete: estados vencido / agendado (Peca B) --- */
 .lemb-vencido{background:var(--quente-bg);border-radius:var(--radius-p)}
 .lemb-agendado{background:var(--surface);border-left:3px solid var(--line-forte);border-radius:var(--radius-p)}
@@ -2712,6 +2724,10 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;
   color:var(--text);background:var(--surface);border:1px solid var(--line-forte)
 }
+.fila-recorte-fora{
+  font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;
+  color:var(--dim);background:var(--bg);border:1px dashed var(--line-forte)
+}
 .fila-recorte-jan{font-size:11.5px;min-width:0}
 .pos-cab{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -3330,12 +3346,40 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    O recuo de 40px alinha o texto sob o NOME (28px de avatar + 12px de gap), nao
    sob a borda do cartao: assim ele le como continuacao da linha. */
 .card-motivo{
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:5px 9px;
   margin-top:8px;padding-left:40px;
   font-size:12.5px;line-height:1.5;color:var(--dim);
 }
+.card-motivo-rot{
+  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+}
+
+/* Fatia 2: passo, vencimento e dinheiro ficam na mesma faixa de leitura.
+   `valor em jogo` so nasce quando v_lead entrega numero positivo; zero, null e
+   texto invalido nao viram cifra decorativa. */
+.card-operacao{
+  display:flex;align-items:center;gap:7px 16px;flex-wrap:wrap;
+  margin-top:9px;padding:7px 10px;border:1px solid var(--line);
+  border-radius:var(--radius-p);background:var(--surface);min-width:0;
+}
+.card-op-item{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.card-op-rot{
+  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);white-space:nowrap;
+}
+.card-op-val{
+  font-family:var(--mono);font-size:10.5px;color:var(--text);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.card-op-valor{margin-left:auto}
+.card-operacao .card-passo{margin:0;background:var(--bg);color:var(--text)}
+.card-acao-principal{font-weight:600}
 @media (max-width:560px){
   /* a 360px o avatar ja nao segura recuo: o motivo volta pra margem do cartao */
-  .card-motivo{padding-left:0;margin-top:10px}
+  .card-motivo{grid-template-columns:1fr;padding-left:0;margin-top:10px;gap:2px}
+  .card-operacao{align-items:flex-start;gap:7px 12px}
+  .card-op-valor{width:100%;margin-left:0}
 }
 
 /* ==========================================================================
