@@ -4240,3 +4240,52 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   box-shadow:0 0 0 3px var(--accent-tint);
 }
 .card.modo-proximo:focus{outline:2px solid var(--accent);outline-offset:2px}
+
+
+/* HOJE / FILA — hierarquia de acoes.
+   A linha normal mostra uma acao de contato e dois registros compactos.
+   Os cinco desfechos so aparecem quando o operador pede para registrar o resultado. */
+#lista[data-aba="hoje"] .fila-lin{padding:11px 0}
+#lista[data-aba="hoje"] .fila-lin-topo{min-height:24px}
+#lista[data-aba="hoje"] .fila-lin-topo>.chip{margin-left:auto}
+.fila-fluxo{
+  display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--line);
+}
+.fila-fluxo .fila-msg{
+  flex:0 0 auto;min-width:142px;padding:7px 12px;font-size:12px;font-weight:600;
+}
+.fila-registro{display:flex;align-items:center;gap:5px;margin-left:auto}
+.fila-registro .btn-acao{
+  flex:0 0 auto;width:auto;padding:6px 9px;font-size:11.5px;line-height:1.2;
+}
+.fila-registro .fila-toque{
+  background:transparent;border-color:transparent;color:var(--dim);
+}
+.fila-registro .fila-toque:hover{background:var(--surface);color:var(--accent)}
+.fila-registro .fila-reg-btn{background:var(--bg);color:var(--dim)}
+.fila-registro .fila-reg-btn[aria-expanded="true"]{
+  background:var(--accent-tint);border-color:var(--accent-linha);color:var(--text);
+}
+.fila-lin>.scripts{margin-top:8px}
+.fila-lin>.desfechos{
+  display:none;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;
+  margin-top:8px;padding:10px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius-p);
+}
+.fila-lin>.desfechos.aberto{display:grid}
+.fila-lin>.desfechos .fila-desfecho-tit{
+  grid-column:1 / -1;font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:1px;
+}
+.fila-lin>.desfechos .btn-desf{background:var(--bg)}
+.fila-lin>.retomar.aberto{margin-top:7px}
+
+@media (max-width:560px){
+  .fila-fluxo{align-items:stretch;flex-direction:column}
+  .fila-fluxo .fila-msg{width:100%}
+  .fila-registro{width:100%;margin-left:0}
+  .fila-registro .btn-acao{flex:1 1 0}
+  .fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fila-lin>.desfechos .btn-desf:last-child{grid-column:1 / -1}
+}

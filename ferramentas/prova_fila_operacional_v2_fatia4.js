@@ -18,9 +18,11 @@ function ok(nome, condicao, detalhe) {
 
 console.log('\nFatia 4: desfecho rapido');
 
-ok('resultados ficam visiveis sem depender do botao Desfecho',
-  css.indexOf('.desfechos{\n  display:grid') >= 0 &&
-  css.indexOf('.card-acoes [data-acao="leque"]{display:none}') >= 0);
+ok('Fila completa mantem resultados diretos; Hoje pode recolher por contexto',
+  /\.desfechos\s*\{[^}]*display:grid/s.test(css) &&
+  css.indexOf('.card-acoes [data-acao="leque"]{display:none}') >= 0 &&
+  /\.fila-lin>\.desfechos\s*\{[^}]*display:none/s.test(css) &&
+  /\.fila-lin>\.desfechos\.aberto\s*\{\s*display:grid\s*\}/s.test(css));
 
 ok('cinco resultados continuam no contrato visual',
   app.indexOf('data-acao="respondeu"') >= 0 &&

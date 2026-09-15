@@ -1981,14 +1981,11 @@ async function rodar() {
   ok('fat3: linha da Hoje oferece Desfecho', !!lequeHoje);
   ok('Fila tem botao "ver todos"', !!document.querySelector('#lista [data-acao="hoje-verfila"]'));
 
-  // ---- Fatia 2: botao Enviar na linha da Fila (texto sugerido, LGPD-gated) ----
+  // ---- Hoje: contato sob demanda. WhatsApp so aparece depois de preparar a mensagem. ----
+  var prepararHoje = document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]');
   var envs = document.querySelectorAll('#lista .fila-lin a.fila-wa');
-  ok('Fila tem botao Enviar (wa.me) nas linhas com consentimento', envs.length > 0, 'n=' + envs.length);
-  ok('Enviar aponta pra wa.me com o texto sugerido (variante 1)',
-     envs.length > 0
-       && envs[0].getAttribute('href').indexOf('wa.me/') >= 0
-       && envs[0].getAttribute('href').indexOf('Texto%20sugerido') >= 0,
-     envs.length ? envs[0].getAttribute('href') : '(nenhum)');
+  ok('Fila oferece Preparar mensagem como CTA principal', !!prepararHoje);
+  ok('WhatsApp nao fica exposto antes de preparar a mensagem', envs.length === 0, 'n=' + envs.length);
   ok('prefetch chamou sugerir_mensagem pros leads da previa (invariante 13)',
      window.__rpcChamadas.some(function (c) { return c.nome === 'sugerir_mensagem'; }));
   var semConsent = document.querySelector('#lista .fila-lin[data-lead="LEAD-9001"]');
