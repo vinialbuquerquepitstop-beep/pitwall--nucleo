@@ -39,8 +39,8 @@ ok('cinco desfechos continuam disponiveis',
   ['respondeu','conversando','retomar','fechou','sem-interesse'].every(a => app.indexOf('data-acao="' + a + '"') >= 0));
 
 ok('desfechos da Hoje ficam fechados por padrao',
-  css.indexOf('.fila-lin>.desfechos{\n  display:none') >= 0 &&
-  css.indexOf('.fila-lin>.desfechos.aberto{display:grid}') >= 0);
+  /\.fila-lin>\.desfechos\s*\{[^}]*display:none/s.test(css) &&
+  /\.fila-lin>\.desfechos\.aberto\s*\{\s*display:grid\s*\}/s.test(css));
 
 ok('leque preserva classes e aria-expanded ao abrir',
   app.indexOf('s.classList.toggle("aberto",!aberto)') >= 0 &&
