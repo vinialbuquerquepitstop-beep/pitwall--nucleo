@@ -32,6 +32,27 @@ jobs:
           echo "$PWD" >> "$GITHUB_PATH"
           echo "Chrome shim -> $CHROME_BIN"
 
+      - name: Capture diagnostic baseline before Fatia 3
+        shell: bash
+        run: |
+          mkdir -p /tmp/fat3diag/base
+          set +e
+          for w in 360 390 414 1280 1440; do
+            python ferramentas/diag_mobile.py "$w" > "/tmp/fat3diag/base/mobile-$w.log" 2>&1
+            echo $? > "/tmp/fat3diag/base/mobile-$w.rc"
+          done
+          for w in 1500 1920 2560; do
+            python ferramentas/diag_largo.py "$w" > "/tmp/fat3diag/base/largo-$w.log" 2>&1
+            echo $? > "/tmp/fat3diag/base/largo-$w.rc"
+          done
+          for w in 360 390 414; do
+            python ferramentas/diag_calc.py "$w" > "/tmp/fat3diag/base/calc-$w.log" 2>&1
+            echo $? > "/tmp/fat3diag/base/calc-$w.rc"
+          done
+          set -e
+          echo "Baseline diagnostic return codes:"
+          for f in /tmp/fat3diag/base/*.rc; do echo "$(basename "$f" .rc)=$(cat "$f")"; done
+
       - name: Apply Fatia 3 patch
         run: node ferramentas/patch_fila_operacional_v2_execucao.js
 
@@ -95,7 +116,7 @@ jobs:
           node ferramentas/prova_fila_operacional_v2.js
           python ferramentas/validar.py
 
-      - name: Full regression suite
+      - name: Core regression suite
         shell: bash
         run: |
           python ferramentas/harness.py
@@ -107,9 +128,42 @@ jobs:
           node ferramentas/prova_sem_margem.js
           node ferramentas/prova_catalogo.js
           python ferramentas/prova_alimentar.py
-          for w in 360 390 414 1280 1440; do python ferramentas/diag_mobile.py "$w"; done
-          for w in 1500 1920 2560; do python ferramentas/diag_largo.py "$w"; done
-          for w in 360 390 414; do python ferramentas/diag_calc.py "$w"; done
+
+      - name: Diagnostics must not regress from baseline
+        shell: bash
+        run: |
+          mkdir -p /tmp/fat3diag/post
+          failed=0
+          check_one() {
+            kind="$1"; width="$2"; script="$3"
+            set +e
+            python "$script" "$width" > "/tmp/fat3diag/post/$kind-$width.log" 2>&1
+            post_rc=$?
+            set -e
+            base_rc="$(cat "/tmp/fat3diag/base/$kind-$width.rc")"
+            echo "$kind-$width base=$base_rc post=$post_rc"
+            if [ "$base_rc" = "0" ] && [ "$post_rc" != "0" ]; then
+              echo "REGRESSAO: diagnostico era verde e ficou vermelho"
+              cat "/tmp/fat3diag/post/$kind-$width.log"
+              failed=1
+              return
+            fi
+            if [ "$kind" = "mobile" ] && [ "$base_rc" != "0" ]; then
+              base_total="$(grep '^TOTAL:' "/tmp/fat3diag/base/$kind-$width.log" | tail -1 || true)"
+              post_total="$(grep '^TOTAL:' "/tmp/fat3diag/post/$kind-$width.log" | tail -1 || true)"
+              echo "  baseline: $base_total"
+              echo "  pos-fatia: $post_total"
+              if [ "$base_total" != "$post_total" ]; then
+                echo "REGRESSAO: diagnostico mobile ja vermelho mudou de assinatura"
+                cat "/tmp/fat3diag/post/$kind-$width.log"
+                failed=1
+              fi
+            fi
+          }
+          for w in 360 390 414 1280 1440; do check_one mobile "$w" ferramentas/diag_mobile.py; done
+          for w in 1500 1920 2560; do check_one largo "$w" ferramentas/diag_largo.py; done
+          for w in 360 390 414; do check_one calc "$w" ferramentas/diag_calc.py; done
+          if [ "$failed" != "0" ]; then exit 1; fi
 
       - name: Commit product and browser proof
         shell: bash
