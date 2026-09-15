@@ -50,7 +50,11 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Seguranca / backend / QA
 
-- sem handoff proprio de topo atualmente. Quando a tarefa for absorvida por outra linha, usar o topo dessa linha e registrar explicitamente a escolha no novo handoff.
+- topo: `handoff_seguranca_pitwall_v1.md`
+- fonte canonica obrigatoria: `docs/seguranca/SECURITY_HARDENING_PITWALL_V1.md`
+- estado: auditoria de 15/09/2026 convertida em programa oficial de hardening; nenhuma correcao tecnica aplicada ainda.
+- proximo passo: **SECURITY FATIA 0 — CONTENCAO**.
+- regra especial: nenhuma mudanca silenciosa; avisar antes/depois e assinar procedencia no commit + handoff.
 
 ## Regras de sincronizacao entre agentes
 
