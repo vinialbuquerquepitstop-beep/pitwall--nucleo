@@ -21,12 +21,12 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Migracao / CRM / Fila Operacional
 
-- topo: `handoff_migracao_pitwall_v72.md`
-- estado: Fila Operacional v2, Fatia 2 validada, integrada e publicada.
-- merge da Fatia 2: `4c579d6e81e6cb9daf4c61c1e5f824000e410ca4`
-- handoff v72: commit `b41e33cf33b0b6d47816a1d9a37a2d32d0c1dfbb`
-- proximo passo fechado pelo v72: **Fatia 3, Execucao assistida**, conforme `docs/processos/fila-operacional-v2.md`.
-- defeito separado, nao misturar na Fatia 3: vao de aproximadamente 220px acima do cabecalho mobile quando a Fila esta curta/vazia.
+- topo: `handoff_migracao_pitwall_v73.md`
+- estado: Fila Operacional v2, Fatia 3 de Execucao assistida integrada ao `main`.
+- merge da Fatia 3: `81e861f09355526529936629ed8131cd0ac2c16b`
+- handoff v73: commit `1725c341e88d05b87ca7687c8d44d348269d4df3`
+- proximo passo fechado pelo v73: **Fatia 4, Desfecho rapido**, conforme `docs/processos/fila-operacional-v2.md`.
+- defeito separado, nao misturar na Fatia 4: problema visual mobile preexistente em larguras pequenas, sem regressao causada pela Fatia 3.
 
 ### Calculadora
 
