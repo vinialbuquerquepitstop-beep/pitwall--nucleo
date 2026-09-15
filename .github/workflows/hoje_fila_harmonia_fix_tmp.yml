@@ -17,6 +17,8 @@ jobs:
         run: python -m pip install esprima
       - name: Apply validation fixes
         run: python ferramentas/patch_hoje_fila_harmonia_fix.py
+      - name: Update Hoje harness contract
+        run: python ferramentas/patch_harness_hoje_fila_harmonia.py
       - name: Diff check
         run: git diff --check
       - name: Validate structure
@@ -35,30 +37,31 @@ jobs:
         run: python ferramentas/diag_mobile.py 390
       - name: Desktop 1280
         run: python ferramentas/diag_mobile.py 1280
-      - name: Build harness for photo
+      - name: Full harness diagnostic
         run: python ferramentas/harness.py
         continue-on-error: true
       - name: Foto Hoje
         run: python ferramentas/foto.py hoje 1280 1600
       - uses: actions/upload-artifact@v4
         with:
-          name: hoje-fila-harmonia-fix-1280
+          name: hoje-fila-harmonia-final-1280
           path: docs/design/foto_hoje_1280.png
       - name: Clean photo
         shell: pwsh
         run: |
-          if (git ls-files --error-unmatch docs/design/foto_hoje_1280.png 2>$null) { git restore docs/design/foto_hoje_1280.png } else { Remove-Item docs/design/foto_hoje_1280.png -ErrorAction SilentlyContinue }
+          git clean -f -- docs/design/foto_hoje_1280.png
+          exit 0
       - name: Validate product scope
         shell: pwsh
         run: |
           $names = (git diff --name-only | Sort-Object) -join ' '
           Write-Output $names
-          if ($names -ne 'public/app.css public/app.js') { throw "Escopo inesperado: $names" }
-      - name: Commit product fix
+          if ($names -ne 'ferramentas/harness.py public/app.css public/app.js') { throw "Escopo inesperado: $names" }
+      - name: Commit validated changes
         shell: pwsh
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add public/app.js public/app.css
+          git add ferramentas/harness.py public/app.js public/app.css
           git commit -m "fix(frontend): fecha validacao da fila Hoje [hoje-harmonia-fix-applied]"
           git push origin HEAD:codex/hoje-fila-harmonia
