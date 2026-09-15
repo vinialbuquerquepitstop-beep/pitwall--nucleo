@@ -961,6 +961,18 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 /* --- Fila embutida no Hoje (Peca A) --- */
 .fila-lin{display:flex;flex-direction:column;gap:0;padding:8px 0;border-top:1px solid var(--line)}
 .dia-sec-cab+.fila-lin{border-top:none}
+/* Fatia 3 — polish visual: as acoes de fechamento da fila embutida no Hoje
+   ficam compactas e proporcionais ao restante da linha, sem alterar contratos. */
+.fila-lin>.card-acoes{
+  margin-top:8px;padding-top:8px;border-top:1px solid var(--line);
+}
+.fila-lin>.card-acoes .acoes-escrita{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:6px;width:min(100%,300px);
+}
+.fila-lin>.card-acoes .acoes-escrita .btn-acao{
+  min-width:0;padding:7px 10px;font-size:12px;line-height:1.2;white-space:nowrap;
+}
 .fila-lin-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .fila-contexto{
   display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-top:6px;
