@@ -22,9 +22,9 @@ ok('linha Hoje deixa o topo apenas para identidade e veredito',
   app.indexOf('fxVerChip(a,atr,!0)+\'</div><div class="fila-contexto"') >= 0 &&
   app.indexOf('fxVerChip(a,atr,!0)+\'<button class="btn-acao sugerir fila-sug"') < 0);
 
-ok('acao de contato vira um unico CTA Preparar mensagem',
+ok('acao de contato vira um unico CTA Enviar mensagem',
   app.indexOf('class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
-  app.indexOf('>Preparar mensagem</button>') >= 0);
+  app.indexOf('>Enviar mensagem</button>') >= 0);
 
 ok('Hoje nao empilha mais Sugerir e Enviar no cabecalho',
   app.indexOf('+filaEnviarHTML(a)+\'</div><div class="fila-contexto"') < 0);
@@ -61,8 +61,9 @@ ok('contratos de escrita permanecem intactos',
   app.indexOf('q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"}') >= 0 &&
   app.indexOf('reagendar_proximo_contato') >= 0);
 
-ok('mobile reduz a hierarquia sem comprimir os controles',
+ok('mobile mantem Enviar mensagem ancorado a esquerda e desfechos legiveis',
   css.indexOf('.fila-fluxo{align-items:stretch;flex-direction:column}') >= 0 &&
+  css.indexOf('.fila-fluxo .fila-msg{width:auto;align-self:flex-start}') >= 0 &&
   css.indexOf('.fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');

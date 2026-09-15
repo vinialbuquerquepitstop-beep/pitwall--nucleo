@@ -4283,7 +4283,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 
 @media (max-width:560px){
   .fila-fluxo{align-items:stretch;flex-direction:column}
-  .fila-fluxo .fila-msg{width:100%}
+  .fila-fluxo .fila-msg{width:auto;align-self:flex-start}
   .fila-registro{width:100%;margin-left:0}
   .fila-registro .btn-acao{flex:1 1 0}
   .fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}
