@@ -66,13 +66,9 @@ jobs:
           if s.count(old) != 1:
               raise SystemExit(f'bloco antigo do harness: esperado 1, encontrado {s.count(old)}')
           s = s.replace(old, new)
-          anchor = '''  ok('trava LGPD: lead sem consentimento nao teve mensagem pre-carregada',
-             !window.__rpcChamadas.some(function (c) {
-               return c.nome === 'sugerir_mensagem' &&
-                 c.args.p_lead_id === '9001aaaa-0000-4000-8000-000000009001';
-             }));
-          '''
-          extra = anchor + '''
+          marker = '\n\n\n  // marcar risca e persiste'
+          behavior = '''
+
             // Fatia 3: abrir a conversa e registrar o toque sao atos diferentes.
             // Impedimos a navegacao real do anchor para medir apenas o efeito no app.
             var toquesAntesWa = window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length;
@@ -90,9 +86,9 @@ jobs:
             ok('fat3: Toque enviado registra exatamente um toque',
                window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa + 1);
           '''
-          if s.count(anchor) != 1:
-              raise SystemExit(f'ancora LGPD do harness: esperado 1, encontrado {s.count(anchor)}')
-          s = s.replace(anchor, extra)
+          if s.count(marker) != 1:
+              raise SystemExit(f'marcador de comportamento do harness: esperado 1, encontrado {s.count(marker)}')
+          s = s.replace(marker, behavior + marker)
           p.write_text(s, encoding='utf-8')
           print('HARNESS_FATIA3_OK')
           PY
