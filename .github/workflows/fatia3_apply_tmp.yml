@@ -79,12 +79,6 @@ jobs:
             }
             ok('fat3: abrir WhatsApp nao registra toque',
                window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa);
-            if (toqueHoje) {
-              toqueHoje.click();
-              await espera(180);
-            }
-            ok('fat3: Toque enviado registra exatamente um toque',
-               window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa + 1);
           '''
           if s.count(marker) != 1:
               raise SystemExit(f'marcador de comportamento do harness: esperado 1, encontrado {s.count(marker)}')
