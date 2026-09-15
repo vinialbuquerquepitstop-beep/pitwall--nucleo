@@ -4313,3 +4313,33 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fila-exec{grid-template-columns:repeat(2,minmax(0,1fr))}
   .fila-exec-pe{white-space:normal}
 }
+
+
+/* FILA OPERACIONAL v2 — Fatia 7: alertas e degradacao.
+   So aparece quando um limiar objetivo foi rompido. Nao existe estado verde
+   decorativo: se nao ha alerta, o bloco simplesmente nao ocupa a Hoje. */
+.fila-alertas{
+  border:1px solid var(--morno-linha);border-radius:var(--radius);background:var(--morno-bg);
+  padding:9px 10px;margin-bottom:12px
+}
+.fila-alertas-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
+.fila-alertas-tit{font-family:var(--display);font-size:12.5px;font-weight:600;color:var(--text)}
+.fila-alertas-cont{font-family:var(--mono);font-size:9.5px;color:var(--morno-fg);white-space:nowrap}
+.fila-alertas-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.fila-alerta{
+  min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;
+  border:1px solid var(--morno-linha);border-radius:var(--radius-p);padding:7px 8px;background:var(--bg)
+}
+.fila-alerta-num{
+  min-width:25px;font-family:var(--display);font-size:18px;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--morno-fg);text-align:center
+}
+.fila-alerta-corpo{min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.fila-alerta-corpo strong{font-size:11.5px;font-weight:600;color:var(--text)}
+.fila-alerta-corpo span{margin-top:2px;font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila-alerta.crit{border-color:var(--erro-linha)}
+.fila-alerta.crit .fila-alerta-num{color:var(--erro-fg)}
+@media(max-width:700px){
+  .fila-alertas-grade{grid-template-columns:1fr}
+  .fila-alerta-corpo span{white-space:normal}
+}
