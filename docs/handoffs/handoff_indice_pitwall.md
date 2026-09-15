@@ -21,12 +21,13 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Migracao / CRM / Fila Operacional
 
-- topo: `handoff_migracao_pitwall_v75.md`
-- estado: Fila Operacional v2, Fatia 5 de Modo Proximo integrada ao `main`.
-- merge da Fatia 5: `99e7d68e1c2888867022162e52df279b343db7a0`
-- handoff v75: commit `e9a191df6630808d13314f9be2994ec884d92a41`
-- proximo passo fechado pelo v75: **Fatia 6, Indicadores de execucao**, conforme `docs/processos/fila-operacional-v2.md`.
-- defeito separado: problema visual mobile preexistente em larguras pequenas; nao misturar com a Fatia 6.
+- topo: `handoff_migracao_pitwall_v76.md`
+- estado: Fila Operacional v2, Fatia 6 de Indicadores de execucao integrada ao `main`.
+- merge da Fatia 6: `4280a9dc096a1d5e5f57763546885cf2beaac594`
+- handoff v76: commit `a62f92f42eacb2edde6e67676305633e96f2c380`
+- proximo passo fechado pelo v76: **Fatia 7, Alertas e degradacao**, conforme `docs/processos/fila-operacional-v2.md`.
+- divida separada: assercoes antigas do harness ainda esperam atualizacao localizada de DOM anterior ao Modo Proximo; nao alterar o comportamento aprovado apenas para satisfazer esse teste antigo.
+- defeito separado: problema visual mobile preexistente em larguras pequenas; nao misturar com a Fatia 7.
 
 ### Calculadora
 
