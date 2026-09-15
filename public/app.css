@@ -4289,3 +4289,27 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}
   .fila-lin>.desfechos .btn-desf:last-child{grid-column:1 / -1}
 }
+
+
+/* FILA OPERACIONAL v2 — Fatia 6: indicadores de execução.
+   Faixa compacta: mede ritmo e bloqueio operacional sem virar dashboard. */
+.fila-exec{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
+  margin:0 0 10px;border:1px solid var(--line);border-radius:var(--radius-p);
+  overflow:hidden;background:var(--line)
+}
+.fila-exec-cel{min-width:0;padding:8px 10px;background:var(--bg)}
+.fila-exec-rot{
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim)
+}
+.fila-exec-num{
+  margin-top:1px;font-family:var(--display);font-size:18px;font-weight:600;line-height:1.1;
+  font-variant-numeric:tabular-nums;color:var(--text)
+}
+.fila-exec-pe{margin-top:2px;font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila-exec-alerta .fila-exec-num{color:var(--quente-fg)}
+.fila-exec-canal .fila-exec-num{color:var(--erro-fg)}
+@media (max-width:560px){
+  .fila-exec{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fila-exec-pe{white-space:normal}
+}
