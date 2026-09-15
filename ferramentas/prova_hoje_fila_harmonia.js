@@ -26,6 +26,9 @@ ok('acao de contato vira um unico CTA Enviar mensagem',
   app.indexOf('class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
   app.indexOf('>Enviar mensagem</button>') >= 0);
 
+ok('CTA da Hoje neutraliza o margin-left:auto global da fila-sug',
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{margin-left:0;align-self:flex-start;') >= 0);
+
 ok('Hoje nao empilha mais Sugerir e Enviar no cabecalho',
   app.indexOf('+filaEnviarHTML(a)+\'</div><div class="fila-contexto"') < 0);
 
@@ -63,7 +66,7 @@ ok('contratos de escrita permanecem intactos',
 
 ok('mobile preserva Enviar mensagem abaixo do nome e desfechos legiveis',
   css.indexOf('.fila-fluxo{align-items:stretch;flex-direction:column}') >= 0 &&
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{width:auto;min-width:0}') >= 0 &&
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{margin-left:0;align-self:flex-start;width:auto;min-width:0}') >= 0 &&
   css.indexOf('.fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
