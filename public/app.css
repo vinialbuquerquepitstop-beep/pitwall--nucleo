@@ -3372,6 +3372,7 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   font-family:var(--mono);font-size:10.5px;color:var(--text);
   font-variant-numeric:tabular-nums;white-space:nowrap;
 }
+.card-vencimento{font-weight:600}
 .card-op-valor{margin-left:auto}
 .card-operacao .card-passo{margin:0;background:var(--bg);color:var(--text)}
 .card-acao-principal{font-weight:600}

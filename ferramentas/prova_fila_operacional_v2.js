@@ -165,6 +165,10 @@ ok('Fila e Hoje declaram os excluidos sem renderiza-los como cards',
   source.indexOf('fila-recorte-fora') >= 0 &&
   source.indexOf('e.insertAdjacentHTML("afterbegin",filaRecorte(filaOp,a))') >= 0 &&
   source.indexOf('recorte=filaRecorte(fila,l())') >= 0);
+ok('a Hoje concentra o prazo na faixa operacional sem repetir no veredito e motivo',
+  source.indexOf('fxVerChip(a,atr,!0)') >= 0 &&
+  source.indexOf('fxMotivo(a,!0)') >= 0 &&
+  source.indexOf('fxOperacao(a,hj,atr)') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
 process.exit(falhas ? 1 : 0);

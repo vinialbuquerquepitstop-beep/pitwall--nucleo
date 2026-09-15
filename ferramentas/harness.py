@@ -5135,8 +5135,11 @@ async function rodar() {
   ok('pos-venda: a mesma prioridade global encabeca a Hoje',
      !!primeiraHoje && primeiraHoje.getAttribute('data-lead') === 'LEAD-9100',
      primeiraHoje ? primeiraHoje.getAttribute('data-lead') : 'sem linha');
+  var prazoHoje = document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"] .card-vencimento');
   ok('prazo: item devido hoje diz vence hoje, sem parecer atrasado',
-     !!document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"] .fila-prazo-hoje'));
+     !!prazoHoje && prazoHoje.textContent.indexOf('hoje') >= 0 &&
+     prazoHoje.textContent.indexOf('atrasado') < 0,
+     prazoHoje ? prazoHoje.textContent : 'sem vencimento operacional');
 
   // ---- PITSCARE: A ABA DO CUIDADO POS-VENDA (18/08/2026) -------------------
   // Por que a aba existe se o bloco acima ja mostra pos-venda: o bloco so mostra
@@ -5401,6 +5404,12 @@ async function rodar() {
      !!cardHojeV2.querySelector('.card-op-valor') &&
      !!cardHojeV2.querySelector('.card-motivo'),
      cardHojeV2 ? cardHojeV2.textContent.slice(0, 240) : 'lead nao apareceu na Hoje');
+  var cardHojeAtrasado = document.querySelector('#lista .fila-lin[data-lead="LEAD-0005"]');
+  var textoHojeAtrasado = cardHojeAtrasado ? cardHojeAtrasado.textContent : '';
+  ok('fila v2 fatia 2: Hoje mostra passo e atraso uma vez cada',
+     (textoHojeAtrasado.match(/R2 · D2/g) || []).length === 1 &&
+     (textoHojeAtrasado.match(/44d/g) || []).length === 1,
+     textoHojeAtrasado.slice(0, 300));
   var pends = [].slice.call(document.querySelectorAll('#lista .pend-lin'));
   var linhaEsp = pends.filter(function (x) {
     return x.textContent.indexOf('sem 1') >= 0;
