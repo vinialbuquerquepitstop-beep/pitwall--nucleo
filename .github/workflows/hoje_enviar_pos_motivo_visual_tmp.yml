@@ -1,0 +1,22 @@
+name: hoje-enviar-pos-motivo-visual-temp
+on:
+  push:
+    branches: [codex/hoje-enviar-pos-motivo]
+jobs:
+  foto:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/hoje-enviar-pos-motivo
+      - name: Build harness
+        shell: pwsh
+        continue-on-error: true
+        run: python ferramentas/harness.py
+      - name: Foto alta Hoje
+        shell: pwsh
+        run: python ferramentas/foto.py hoje 1280 1600
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hoje-enviar-pos-motivo-1600
+          path: docs/design/foto_hoje_1280.png
