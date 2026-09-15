@@ -1,0 +1,35 @@
+name: hoje-fila-resumo-polish-temp
+on:
+  push:
+    branches: [codex/hoje-fila-resumo-polish]
+permissions:
+  contents: write
+jobs:
+  polish:
+    if: ${{ !contains(github.event.head_commit.message, '[resumo-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/hoje-fila-resumo-polish
+          fetch-depth: 0
+      - name: Apply polish
+        run: python ferramentas/patch_hoje_fila_resumo_polish.py
+      - name: Validate static
+        run: |
+          git diff --check
+          node --check public/app.js
+          python ferramentas/validar.py
+          node ferramentas/prova_fila_operacional_v2.js
+          node ferramentas/prova_fila_operacional_v2_fatia3.js
+      - name: Validate scope
+        run: |
+          git diff --name-only
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "public/app.css public/app.js "
+      - name: Commit polish
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/app.css public/app.js
+          git commit -m "style(crm): organiza resumo da fila de hoje [resumo-applied]"
+          git push origin HEAD:codex/hoje-fila-resumo-polish
