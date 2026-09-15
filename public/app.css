@@ -4247,13 +4247,11 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    Os cinco desfechos so aparecem quando o operador pede para registrar o resultado. */
 #lista[data-aba="hoje"] .fila-lin{padding:11px 0}
 #lista[data-aba="hoje"] .fila-lin-topo{min-height:24px}
+#lista[data-aba="hoje"] .fila-lin-topo>.fila-msg{flex:0 0 auto;order:-1;min-width:142px;padding:7px 12px;font-size:12px;font-weight:600}
 #lista[data-aba="hoje"] .fila-lin-topo>.chip{margin-left:auto}
 .fila-fluxo{
   display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;
   border-top:1px solid var(--line);
-}
-.fila-fluxo .fila-msg{
-  flex:0 0 auto;min-width:142px;padding:7px 12px;font-size:12px;font-weight:600;
 }
 .fila-registro{display:flex;align-items:center;gap:5px;margin-left:auto}
 .fila-registro .btn-acao{
@@ -4282,8 +4280,8 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
 .fila-lin>.retomar.aberto{margin-top:7px}
 
 @media (max-width:560px){
+  #lista[data-aba="hoje"] .fila-lin-topo>.fila-msg{width:auto;min-width:0}
   .fila-fluxo{align-items:stretch;flex-direction:column}
-  .fila-fluxo .fila-msg{width:auto;align-self:flex-start}
   .fila-registro{width:100%;margin-left:0}
   .fila-registro .btn-acao{flex:1 1 0}
   .fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}
