@@ -50,8 +50,9 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Seguranca / backend / QA
 
-- topo: `handoff_seguranca_pitwall_v2.md`
-- fonte canonica obrigatoria: `docs/seguranca/SECURITY_HARDENING_PITWALL_V1.md`
+- topo: `handoff_seguranca_pitwall_v3.md`
+- porta de entrada obrigatoria: `docs/seguranca/DOCUMENTO_MESTRE_SEGURANCA.md`
+- fonte canonica do processo: `docs/seguranca/SECURITY_HARDENING_PITWALL_V1.md`
 - estado: SECURITY FATIA 0 em andamento; caminho automatico do Claude para `apply_migration` em producao bloqueado e integrado no `main`.
 - merge da contencao do agente: `7ada26781357032da2edc571c18dc950142ecb34`
 - ainda aberto: backup continua sendo commitado no proprio repo; repo continua publico; outras operacoes mutaveis do MCP ainda precisam de revisao para fechar read-only por padrao.
