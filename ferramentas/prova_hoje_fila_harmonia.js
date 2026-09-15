@@ -18,16 +18,17 @@ function ok(nome, condicao, detalhe) {
 
 console.log('\nHoje: fila harmonica');
 
-ok('linha Hoje posiciona Enviar mensagem logo abaixo do nome',
-  app.indexOf('class="fila-ident-main"') >= 0 &&
-  app.indexOf('</span><button class="btn-acao sugerir fila-sug fila-msg"') >= 0);
+ok('linha Hoje posiciona Enviar mensagem logo abaixo de Por que agora',
+  app.indexOf('fxMotivo(a,!0)+\'<div class="fila-mensagem-linha">') >= 0 &&
+  app.indexOf('class="fila-ident-main"') < 0);
 
 ok('acao de contato vira um unico CTA Enviar mensagem',
   app.indexOf('class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
   app.indexOf('>Enviar mensagem</button>') >= 0);
 
-ok('CTA da Hoje neutraliza o margin-left:auto global da fila-sug',
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{margin-left:0;align-self:flex-start;') >= 0);
+ok('CTA da Hoje fica em linha propria abaixo do motivo e alinhado a esquerda',
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha{display:flex;justify-content:flex-start;margin-top:8px}') >= 0 &&
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha>.fila-msg{margin-left:0;') >= 0);
 
 ok('Hoje nao empilha mais Sugerir e Enviar no cabecalho',
   app.indexOf('+filaEnviarHTML(a)+\'</div><div class="fila-contexto"') < 0);
@@ -64,9 +65,9 @@ ok('contratos de escrita permanecem intactos',
   app.indexOf('q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"}') >= 0 &&
   app.indexOf('reagendar_proximo_contato') >= 0);
 
-ok('mobile preserva Enviar mensagem abaixo do nome e desfechos legiveis',
+ok('mobile preserva Enviar mensagem abaixo do motivo e desfechos legiveis',
   css.indexOf('.fila-fluxo{align-items:stretch;flex-direction:column}') >= 0 &&
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-ident>.fila-msg{margin-left:0;align-self:flex-start;width:auto;min-width:0}') >= 0 &&
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha>.fila-msg{margin-left:0;width:auto;min-width:0}') >= 0 &&
   css.indexOf('.fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
