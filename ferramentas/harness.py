@@ -1981,10 +1981,10 @@ async function rodar() {
   ok('fat3: linha da Hoje oferece Desfecho', !!lequeHoje);
   ok('Fila tem botao "ver todos"', !!document.querySelector('#lista [data-acao="hoje-verfila"]'));
 
-  // ---- Hoje: contato sob demanda. WhatsApp so aparece depois de preparar a mensagem. ----
+  // ---- Hoje: contato sob demanda. WhatsApp so aparece depois de acionar Enviar mensagem. ----
   var prepararHoje = document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]');
   var envs = document.querySelectorAll('#lista .fila-lin a.fila-wa');
-  ok('Fila oferece Preparar mensagem como CTA principal', !!prepararHoje);
+  ok('Fila oferece Enviar mensagem como CTA principal', !!prepararHoje);
   ok('WhatsApp nao fica exposto antes de preparar a mensagem', envs.length === 0, 'n=' + envs.length);
   ok('prefetch chamou sugerir_mensagem pros leads da previa (invariante 13)',
      window.__rpcChamadas.some(function (c) { return c.nome === 'sugerir_mensagem'; }));
