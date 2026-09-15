@@ -35,6 +35,68 @@ jobs:
       - name: Apply Fatia 3 patch
         run: node ferramentas/patch_fila_operacional_v2_execucao.js
 
+      - name: Update browser contract for Fatia 3
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('ferramentas/harness.py')
+          s = p.read_text(encoding='utf-8')
+          old = '''  // ---- Fila embutida no Hoje (Peca A): preview read-only, so acao Sugerir ----
+            var filaLins = document.querySelectorAll('#lista .fila-lin');
+            ok('Fila no Hoje renderiza linhas de lead', filaLins.length > 0, 'n=' + filaLins.length);
+            ok('Fila mostra no maximo 5 linhas', filaLins.length <= 5, 'n=' + filaLins.length);
+            ok('linha da Fila tem a acao Sugerir (invariante 13)',
+               !!document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]'));
+            ok('Fila NAO tem toque nem desfecho (so leitura)',
+               !document.querySelector('#lista .fila-lin [data-acao="tocar"]') &&
+               !document.querySelector('#lista .fila-lin [data-acao="fechou"]'));
+          '''
+          new = '''  // ---- Fila embutida no Hoje (Fatia 3): execucao assistida no proprio item ----
+            var filaLins = document.querySelectorAll('#lista .fila-lin');
+            ok('Fila no Hoje renderiza linhas de lead', filaLins.length > 0, 'n=' + filaLins.length);
+            ok('Fila mostra no maximo 5 linhas', filaLins.length <= 5, 'n=' + filaLins.length);
+            ok('linha da Fila tem a acao Sugerir (invariante 13)',
+               !!document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]'));
+            var toqueHoje = document.querySelector('#lista .fila-lin [data-acao="toque"]');
+            var lequeHoje = document.querySelector('#lista .fila-lin [data-acao="leque"]');
+            ok('fat3: linha da Hoje oferece Toque enviado', !!toqueHoje);
+            ok('fat3: linha da Hoje oferece Desfecho', !!lequeHoje);
+          '''
+          if s.count(old) != 1:
+              raise SystemExit(f'bloco antigo do harness: esperado 1, encontrado {s.count(old)}')
+          s = s.replace(old, new)
+          anchor = '''  ok('trava LGPD: lead sem consentimento nao teve mensagem pre-carregada',
+             !window.__rpcChamadas.some(function (c) {
+               return c.nome === 'sugerir_mensagem' &&
+                 c.args.p_lead_id === '9001aaaa-0000-4000-8000-000000009001';
+             }));
+          '''
+          extra = anchor + '''
+            // Fatia 3: abrir a conversa e registrar o toque sao atos diferentes.
+            // Impedimos a navegacao real do anchor para medir apenas o efeito no app.
+            var toquesAntesWa = window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length;
+            if (envs.length) {
+              envs[0].addEventListener('click', function (ev) { ev.preventDefault(); }, { once: true });
+              envs[0].click();
+              await espera(60);
+            }
+            ok('fat3: abrir WhatsApp nao registra toque',
+               window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa);
+            if (toqueHoje) {
+              toqueHoje.click();
+              await espera(180);
+            }
+            ok('fat3: Toque enviado registra exatamente um toque',
+               window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa + 1);
+          '''
+          if s.count(anchor) != 1:
+              raise SystemExit(f'ancora LGPD do harness: esperado 1, encontrado {s.count(anchor)}')
+          s = s.replace(anchor, extra)
+          p.write_text(s, encoding='utf-8')
+          print('HARNESS_FATIA3_OK')
+          PY
+
       - name: Static and CRM proofs
         shell: bash
         run: |
@@ -59,16 +121,14 @@ jobs:
           for w in 1500 1920 2560; do python ferramentas/diag_largo.py "$w"; done
           for w in 360 390 414; do python ferramentas/diag_calc.py "$w"; done
 
-      - name: Commit only app.js
+      - name: Commit product and browser proof
         shell: bash
         run: |
           git status --short
-          git diff -- public/app.js
+          git diff -- public/app.js ferramentas/harness.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/app.js
+          git add public/app.js ferramentas/harness.py
           git diff --cached --quiet && { echo "Nada para commitar"; exit 1; }
           git commit -m "feat(crm): aplica execucao assistida da Fatia 3 [fat3-applied]"
           git push origin HEAD:codex/fila-operacional-v2-fatia3
-
-# rerun after removing unused fila-execucao class
