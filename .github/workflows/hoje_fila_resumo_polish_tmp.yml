@@ -13,6 +13,8 @@ jobs:
         with:
           ref: codex/hoje-fila-resumo-polish
           fetch-depth: 0
+      - name: Prepare validation deps
+        run: python -m pip install esprima
       - name: Apply polish
         run: python ferramentas/patch_hoje_fila_resumo_polish.py
       - name: Validate static
