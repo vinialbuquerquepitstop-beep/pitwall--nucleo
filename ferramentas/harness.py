@@ -1993,6 +1993,12 @@ async function rodar() {
   var semConsent = document.querySelector('#lista .fila-lin[data-lead="LEAD-9001"]');
   ok('classificacao: lead sem consentimento nao aparece como trabalho executavel',
      !semConsent);
+  var foraHoje = document.querySelector('#lista .fila-recorte-fora');
+  ok('fila v2 fatia 2: Hoje declara os 2 excluidos e os motivos',
+     !!foraHoje && foraHoje.textContent.indexOf('2 fora da fila') >= 0 &&
+     foraHoje.textContent.indexOf('pare') >= 0 &&
+     foraHoje.textContent.indexOf('sem consentimento') >= 0,
+     foraHoje ? foraHoje.textContent : 'sem recorte de excluidos');
   ok('trava LGPD: lead sem consentimento nao teve mensagem pre-carregada',
      !window.__rpcChamadas.some(function (c) {
        return c.nome === 'sugerir_mensagem' &&
@@ -5088,6 +5094,15 @@ async function rodar() {
   ok('pos-venda: a janela do recorte continua declarada sem separar os cards',
      !!recorteP && recorteP.querySelector('.fila-recorte-jan').textContent.indexOf(diaRecorteP) >= 0,
      recorteP ? recorteP.textContent : 'sem recorte');
+  var foraP = recorteP && recorteP.querySelector('.fila-recorte-fora');
+  ok('fila v2 fatia 2: Fila declara 2 fora, pare e sem consentimento',
+     !!foraP && foraP.textContent.indexOf('2 fora da fila') >= 0 &&
+     foraP.textContent.indexOf('pare') >= 0 &&
+     foraP.textContent.indexOf('sem consentimento') >= 0,
+     foraP ? foraP.textContent : 'sem recorte de excluidos');
+  ok('fila v2 fatia 2: excluidos continuam fora dos cards executaveis',
+     !document.querySelector('#lista .card[data-lead="LEAD-0015"]') &&
+     !document.querySelector('#lista .card[data-lead="LEAD-9001"]'));
   var cardP = null, cardsP = document.querySelectorAll('#lista .card');
   for (var iP = 0; iP < cardsP.length; iP++) {
     if (cardsP[iP].getAttribute('data-lead') === 'LEAD-9100') cardP = cardsP[iP];
@@ -5120,8 +5135,11 @@ async function rodar() {
   ok('pos-venda: a mesma prioridade global encabeca a Hoje',
      !!primeiraHoje && primeiraHoje.getAttribute('data-lead') === 'LEAD-9100',
      primeiraHoje ? primeiraHoje.getAttribute('data-lead') : 'sem linha');
+  var prazoHoje = document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"] .card-vencimento');
   ok('prazo: item devido hoje diz vence hoje, sem parecer atrasado',
-     !!document.querySelector('#lista .fila-lin[data-lead="LEAD-9100"] .fila-prazo-hoje'));
+     !!prazoHoje && prazoHoje.textContent.indexOf('hoje') >= 0 &&
+     prazoHoje.textContent.indexOf('atrasado') < 0,
+     prazoHoje ? prazoHoje.textContent : 'sem vencimento operacional');
 
   // ---- PITSCARE: A ABA DO CUIDADO POS-VENDA (18/08/2026) -------------------
   // Por que a aba existe se o bloco acima ja mostra pos-venda: o bloco so mostra
@@ -5296,8 +5314,11 @@ async function rodar() {
   lm.status = 'pendente'; lm.arquivado_em = null; lm.consentimento = true;
   lm.proximo_contato = hjP; lm.ultimo_toque_em = null; lm.respondido_em = null;
   lm.cadencia_encerrada = false;
-  lm.veredito = 'prioridade'; lm.veredito_ordem = 1; lm.valor_em_jogo = 0;
+  lm.veredito = 'prioridade'; lm.veredito_ordem = 1; lm.valor_em_jogo = 7850;
   lm.veredito_motivo = 'Ja respondeu 2x e voltou ao silencio ha 14d. Melhor aposta da fila.';
+  lm.cadencia_passo = 3; lm.cadencia_rotulo = 'R3 · D7'; lm.cadencia_vence_em = hjP;
+  lm.produto = 'iPhone 18 Pro 256GB'; lm.condicao = 'lacrado';
+  lm.origem = 'indicacao'; lm.indicado_por = 'Camila';
   // 30.6h: acima de 24h (entao a pendencia da Hoje tem que sair como URGENTE) e
   // abaixo de 48h (entao o formatador tem que dizer "31h", nao "1d").
   lm.horas_esperando_1o_toque = 30.6;
@@ -5321,8 +5342,26 @@ async function rodar() {
     ok('veredito: o motivo aparece na linha do card, nao escondido em hover',
        !!mot && mot.textContent.indexOf('Melhor aposta') >= 0,
        mot ? mot.textContent : 'sem .card-motivo');
+    ok('fila v2 fatia 2: o motivo explica a prioridade com rotulo visivel',
+       !!mot && !!mot.querySelector('.card-motivo-rot') &&
+       mot.querySelector('.card-motivo-rot').textContent === 'Por que agora');
     ok('veredito: o chip do card e o veredito, com icone',
        !!cardV.querySelector('.chip.vrd.vrd-prioridade svg.vrd-ico'));
+    var opV = cardV.querySelector('.card-operacao');
+    ok('fila v2 fatia 2: primeiro card mostra passo e vencimento sem abrir modal',
+       !!opV && !!opV.querySelector('.card-passo') &&
+       opV.querySelector('.card-passo').textContent.indexOf('R3 · D7') >= 0 &&
+       opV.querySelector('.card-vencimento').textContent.indexOf('hoje') >= 0,
+       opV ? opV.textContent : 'sem faixa operacional');
+    ok('fila v2 fatia 2: valor com lastro aparece, formatado e rotulado',
+       !!opV && !!opV.querySelector('.card-op-valor') &&
+       opV.querySelector('.card-op-valor').textContent.indexOf('R$ 7.850,00') >= 0,
+       opV ? opV.textContent : 'sem faixa operacional');
+    ok('fila v2 fatia 2: origem por indicacao preserva quem indicou',
+       cardV.textContent.indexOf('Indicação') >= 0 && cardV.textContent.indexOf('por Camila') >= 0,
+       cardV.textContent.slice(0, 240));
+    ok('fila v2 fatia 2: WhatsApp e a acao principal inequivoca',
+       !!cardV.querySelector('a.card-acao-principal[data-wa-lead]'));
     // ESTA e a assercao que a primeira versao nao tinha, e custou uma tela em
     // branco com a suite VERDE: o prefixo escolhido era `vd`, e `.vd` ja existia
     // desde a v61 (Detalhes da venda) com display:none. As assercoes de cor
@@ -5358,6 +5397,19 @@ async function rodar() {
   // sempre e NENHUMA tela lia. Contador que nao aparece nao cobra nada.
   document.getElementById('abaHoje').click();
   await espera(400);
+  var cardHojeV2 = document.querySelector('#lista .fila-lin[data-lead="LEAD-9200"]');
+  ok('fila v2 fatia 2: Hoje repete contexto, passo, valor e motivo do primeiro card',
+     !!cardHojeV2 && !!cardHojeV2.querySelector('.fila-contexto') &&
+     !!cardHojeV2.querySelector('.card-operacao .card-passo') &&
+     !!cardHojeV2.querySelector('.card-op-valor') &&
+     !!cardHojeV2.querySelector('.card-motivo'),
+     cardHojeV2 ? cardHojeV2.textContent.slice(0, 240) : 'lead nao apareceu na Hoje');
+  var cardHojeAtrasado = document.querySelector('#lista .fila-lin[data-lead="LEAD-0005"]');
+  var textoHojeAtrasado = cardHojeAtrasado ? cardHojeAtrasado.textContent : '';
+  ok('fila v2 fatia 2: Hoje mostra passo e atraso uma vez cada',
+     (textoHojeAtrasado.match(/R2 · D2/g) || []).length === 1 &&
+     (textoHojeAtrasado.match(/44d/g) || []).length === 1,
+     textoHojeAtrasado.slice(0, 300));
   var pends = [].slice.call(document.querySelectorAll('#lista .pend-lin'));
   var linhaEsp = pends.filter(function (x) {
     return x.textContent.indexOf('sem 1') >= 0;

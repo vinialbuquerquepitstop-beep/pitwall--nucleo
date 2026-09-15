@@ -111,5 +111,64 @@ ok('devido hoje fica identificado no chip',
 ok('atrasado continua identificado em dias',
   api.vereditoChip({ veredito: 'agora' }, 3).indexOf('3d') >= 0);
 
+console.log('\nFatia 2: recorte e card operacional');
+
+const semConsentimento = lead({
+  id: 'sem-consentimento',
+  lead_code: 'LEAD-SEM-CONSENT',
+  consentimento: false,
+  veredito: 'nao_mande',
+  veredito_ordem: 6
+});
+const resumoFora = api.resumirExcluidosFila([lead(), pare, semConsentimento], hoje);
+ok('o resumo conta somente os devidos que ficaram fora da fila executavel',
+  resumoFora.total === 2, JSON.stringify(resumoFora));
+ok('o resumo separa pare de sem consentimento',
+  resumoFora.motivos.some(function (x) { return x.rotulo === 'pare' && x.total === 1; }) &&
+  resumoFora.motivos.some(function (x) { return x.rotulo === 'sem consentimento' && x.total === 1; }),
+  JSON.stringify(resumoFora));
+
+const cardOperacional = api.cardHTML(lead({
+  id: 'card-operacional',
+  lead_code: 'LEAD-CARD',
+  produto: 'iPhone 18 Pro 256GB',
+  condicao: 'lacrado',
+  origem: 'indicacao',
+  indicado_por: 'Camila',
+  cadencia_rotulo: 'R3 · D7',
+  cadencia_vence_em: hoje,
+  valor_em_jogo: 7850,
+  veredito_motivo: 'Ja respondeu e voltou ao silencio. Melhor aposta da fila.'
+}), 'fila', hoje);
+
+ok('o card mostra passo e vencimento da regua',
+  cardOperacional.indexOf('R3 · D7') >= 0 &&
+  cardOperacional.indexOf('card-vencimento') >= 0 &&
+  cardOperacional.indexOf('13/09 · hoje') >= 0);
+ok('o motivo tem rotulo visivel e vem do veredito_motivo',
+  cardOperacional.indexOf('Por que agora') >= 0 &&
+  cardOperacional.indexOf('Melhor aposta da fila') >= 0);
+ok('o contexto comercial preserva produto, condicao, origem e indicacao',
+  cardOperacional.indexOf('iPhone 18 Pro 256GB') >= 0 &&
+  cardOperacional.indexOf('Lacrado') >= 0 &&
+  cardOperacional.indexOf('Indicação') >= 0 &&
+  cardOperacional.indexOf('por Camila') >= 0);
+ok('valor em jogo com lastro aparece formatado',
+  cardOperacional.indexOf('valor em jogo') >= 0 &&
+  cardOperacional.indexOf('R$ 7.850,00') >= 0);
+ok('valor zero nao vira cifra decorativa no card',
+  api.cardHTML(lead({ valor_em_jogo: 0 }), 'fila', hoje).indexOf('card-op-valor') < 0);
+ok('a acao principal do card e inequivoca',
+  cardOperacional.indexOf('card-acao-principal') >= 0 &&
+  cardOperacional.indexOf('Chamar no WhatsApp') >= 0);
+ok('Fila e Hoje declaram os excluidos sem renderiza-los como cards',
+  source.indexOf('fila-recorte-fora') >= 0 &&
+  source.indexOf('e.insertAdjacentHTML("afterbegin",filaRecorte(filaOp,a))') >= 0 &&
+  source.indexOf('recorte=filaRecorte(fila,l())') >= 0);
+ok('a Hoje concentra o prazo na faixa operacional sem repetir no veredito e motivo',
+  source.indexOf('fxVerChip(a,atr,!0)') >= 0 &&
+  source.indexOf('fxMotivo(a,!0)') >= 0 &&
+  source.indexOf('fxOperacao(a,hj,atr)') >= 0);
+
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
 process.exit(falhas ? 1 : 0);
