@@ -1969,15 +1969,16 @@ async function rodar() {
      !document.querySelector('#lista .pend-sec input') &&
      !document.querySelector('#lista .pend-sec textarea'));
 
-  // ---- Fila embutida no Hoje (Peca A): preview read-only, so acao Sugerir ----
+  // ---- Fila embutida no Hoje (Fatia 3): execucao assistida no proprio item ----
   var filaLins = document.querySelectorAll('#lista .fila-lin');
   ok('Fila no Hoje renderiza linhas de lead', filaLins.length > 0, 'n=' + filaLins.length);
   ok('Fila mostra no maximo 5 linhas', filaLins.length <= 5, 'n=' + filaLins.length);
   ok('linha da Fila tem a acao Sugerir (invariante 13)',
      !!document.querySelector('#lista .fila-lin [data-acao="hoje-sugerir"]'));
-  ok('Fila NAO tem toque nem desfecho (so leitura)',
-     !document.querySelector('#lista .fila-lin [data-acao="tocar"]') &&
-     !document.querySelector('#lista .fila-lin [data-acao="fechou"]'));
+  var toqueHoje = document.querySelector('#lista .fila-lin [data-acao="toque"]');
+  var lequeHoje = document.querySelector('#lista .fila-lin [data-acao="leque"]');
+  ok('fat3: linha da Hoje oferece Toque enviado', !!toqueHoje);
+  ok('fat3: linha da Hoje oferece Desfecho', !!lequeHoje);
   ok('Fila tem botao "ver todos"', !!document.querySelector('#lista [data-acao="hoje-verfila"]'));
 
   // ---- Fatia 2: botao Enviar na linha da Fila (texto sugerido, LGPD-gated) ----
@@ -2004,6 +2005,18 @@ async function rodar() {
        return c.nome === 'sugerir_mensagem' &&
          c.args.p_lead_id === '9001aaaa-0000-4000-8000-000000009001';
      }));
+
+  // Fatia 3: abrir a conversa e registrar o toque sao atos diferentes.
+  // Impedimos a navegacao real do anchor para medir apenas o efeito no app.
+  var toquesAntesWa = window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length;
+  if (envs.length) {
+    envs[0].addEventListener('click', function (ev) { ev.preventDefault(); }, { once: true });
+    envs[0].click();
+    await espera(60);
+  }
+  ok('fat3: abrir WhatsApp nao registra toque',
+     window.__rpcChamadas.filter(function (r) { return r.nome === 'registrar_toque'; }).length === toquesAntesWa);
+
 
 
   // marcar risca e persiste
