@@ -2727,20 +2727,26 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
    composicao e a janela sem criar um bloco que empurre pos-venda para baixo.
    O cabecalho .pos-cab abaixo permanece vivo na aba Pitscare.
    ========================================================================== */
+.fila-hoje-cab{margin-bottom:8px;align-items:center}
+.fila-hoje-cab .fila-vertodos{margin-left:auto}
 .fila-recorte{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:0 0 9px;border-bottom:1px solid var(--line);color:var(--dim)
+  display:flex;flex-direction:column;align-items:stretch;gap:6px;
+  padding:0 0 10px;border-bottom:1px solid var(--line);color:var(--dim)
 }
-.fila-recorte-tit{font-family:var(--display);font-size:13px;font-weight:600;color:var(--text)}
-.fila-recorte-cont{
+.fila-recorte-resumo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.fila-recorte-tit{
+  font-family:var(--display);font-size:11.5px;font-weight:600;color:var(--dim);margin-right:2px
+}
+.fila-recorte-total,.fila-recorte-com,.fila-recorte-cont{
   font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;
-  color:var(--text);background:var(--surface);border:1px solid var(--line-forte)
+  color:var(--text);background:var(--surface);border:1px solid var(--line-forte);white-space:nowrap
 }
+.fila-recorte-total{font-weight:600}
 .fila-recorte-fora{
   font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;
-  color:var(--dim);background:var(--bg);border:1px dashed var(--line-forte)
+  color:var(--dim);background:var(--bg);border:1px dashed var(--line-forte);white-space:nowrap
 }
-.fila-recorte-jan{font-size:11.5px;min-width:0}
+.fila-recorte-jan{font-size:11.5px;min-width:0;color:var(--dim)}
 .pos-cab{
   display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   margin:20px 0 -2px;padding-top:15px;border-top:1px solid var(--line);
