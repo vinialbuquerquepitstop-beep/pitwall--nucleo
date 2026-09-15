@@ -40,7 +40,10 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Frontend
 
-- topo: `handoff_frontend_pitwall_v3.md`
+- topo: `handoff_frontend_pitwall_v4.md`
+- estado: fila de leads da aba Hoje remodelada com hierarquia progressiva; uma acao principal, registros secundarios e desfechos recolhidos por padrao.
+- merge da correcao: `e3865a5983730b5de97388320fcd2f90a2f08b3c`
+- handoff v4: commit `ab0e2f7615126f3b631d24b1d9000d31e24f5528`
 - referencia visual de record: `docs/design/referencia-visual-v3.html`
 
 ### Seguranca / backend / QA
