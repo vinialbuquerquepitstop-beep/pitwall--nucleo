@@ -35,7 +35,9 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Financeiro
 
-- topo: `handoff_financeiro_pitwall_v21.md`
+- topo da branch `financeiro-e2`: `handoff_financeiro_pitwall_v22.md`
+- estado integrado no `main`: `handoff_financeiro_pitwall_v21.md`
+- estado de trabalho: E2 Fase 1 conferida; nenhuma escrita de produto ou banco aplicada; Fase 2 e o proximo movimento.
 - contrato obrigatorio antes de qualquer mudanca `fin_`: `docs/financeiro/CONTRATO.md`
 
 ### Frontend
