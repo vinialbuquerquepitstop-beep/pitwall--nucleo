@@ -21,13 +21,14 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Migracao / CRM / Fila Operacional
 
-- topo: `handoff_migracao_pitwall_v76.md`
-- estado: Fila Operacional v2, Fatia 6 de Indicadores de execucao integrada ao `main`.
-- merge da Fatia 6: `4280a9dc096a1d5e5f57763546885cf2beaac594`
-- handoff v76: commit `a62f92f42eacb2edde6e67676305633e96f2c380`
-- proximo passo fechado pelo v76: **Fatia 7, Alertas e degradacao**, conforme `docs/processos/fila-operacional-v2.md`.
-- divida separada: assercoes antigas do harness ainda esperam atualizacao localizada de DOM anterior ao Modo Proximo; nao alterar o comportamento aprovado apenas para satisfazer esse teste antigo.
-- defeito separado: problema visual mobile preexistente em larguras pequenas; nao misturar com a Fatia 7.
+- topo: `handoff_migracao_pitwall_v77.md`
+- estado: Fila Operacional v2 com as Fatias 0 a 7 integradas ao `main`; Fatia 7 fecha alertas e degradacao operacional na aba Hoje.
+- merge da Fatia 7: `96b30d6da6e7e4e9573760c96c8f08a92fd723c1`
+- handoff v77: commit `e33dc6380fa28d42e8dea707ef88d27c5d1f8366`
+- proximo passo: **estabilizacao operacional da Fila v2**, observando os limiares em uso real e corrigindo separadamente a divida do harness; nao existe Fatia 8 definida no processo atual.
+- dependencia de prontidao separada: revisar o modelo de consentimento antes de declarar uso mais amplo/multioperador.
+- divida separada: o harness historico ainda contem expectativas anteriores ao Modo Proximo e apresentou interrupcao posterior em prova financeira; nao alterar o comportamento aprovado da Fila para satisfazer teste antigo.
+- defeitos/temas fora do fechamento: problema visual mobile historico, venda sem WhatsApp e repescagem por evento.
 
 ### Calculadora
 
