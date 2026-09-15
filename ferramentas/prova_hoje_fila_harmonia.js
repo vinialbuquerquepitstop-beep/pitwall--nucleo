@@ -18,22 +18,23 @@ function ok(nome, condicao, detalhe) {
 
 console.log('\nHoje: fila harmonica');
 
-ok('linha Hoje posiciona Enviar mensagem logo abaixo de Por que agora',
-  app.indexOf('fxMotivo(a,!0)+\'<div class="fila-mensagem-linha">') >= 0 &&
-  app.indexOf('class="fila-ident-main"') < 0);
+ok('linha Hoje agrupa as tres acoes logo abaixo de Por que agora',
+  app.indexOf('fxMotivo(a,!0)+\'<div class="fila-mensagem-linha"><button class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
+  app.indexOf('>Enviar mensagem</button><span class="fila-registro"><button class="btn-acao toque fila-toque"') >= 0 &&
+  app.indexOf('>Toque enviado</button><button class="btn-acao fila-reg-btn"') >= 0);
 
 ok('acao de contato vira um unico CTA Enviar mensagem',
   app.indexOf('class="btn-acao sugerir fila-sug fila-msg"') >= 0 &&
   app.indexOf('>Enviar mensagem</button>') >= 0);
 
-ok('CTA da Hoje fica em linha propria abaixo do motivo e alinhado a esquerda',
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha{display:flex;justify-content:flex-start;margin-top:8px}') >= 0 &&
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha>.fila-msg{margin-left:0;') >= 0);
+ok('acoes da Hoje usam uma unica linha no desktop',
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}') >= 0 &&
+  css.indexOf('.fila-registro{display:flex;align-items:center;gap:5px;margin-left:auto}') >= 0);
 
 ok('Hoje nao empilha mais Sugerir e Enviar no cabecalho',
   app.indexOf('+filaEnviarHTML(a)+\'</div><div class="fila-contexto"') < 0);
 
-ok('registro normal fica reduzido a toque e registrar resultado',
+ok('registro normal permanece reduzido a toque e registrar resultado na mesma faixa',
   app.indexOf('class="fila-registro"') >= 0 &&
   app.indexOf('class="btn-acao toque fila-toque"') >= 0 &&
   app.indexOf('class="btn-acao fila-reg-btn"') >= 0 &&
@@ -65,9 +66,9 @@ ok('contratos de escrita permanecem intactos',
   app.indexOf('q("registrar_desfecho",{p_lead_id:t,p_tipo:"sem_interesse"}') >= 0 &&
   app.indexOf('reagendar_proximo_contato') >= 0);
 
-ok('mobile preserva Enviar mensagem abaixo do motivo e desfechos legiveis',
-  css.indexOf('.fila-fluxo{align-items:stretch;flex-direction:column}') >= 0 &&
-  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha>.fila-msg{margin-left:0;width:auto;min-width:0}') >= 0 &&
+ok('mobile reorganiza a faixa sem comprimir os controles',
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha{align-items:stretch;flex-direction:column}') >= 0 &&
+  css.indexOf('#lista[data-aba=\"hoje\"] .fila-mensagem-linha>.fila-msg{margin-left:0;width:auto;min-width:0;align-self:flex-start}') >= 0 &&
   css.indexOf('.fila-lin>.desfechos{grid-template-columns:repeat(2,minmax(0,1fr))}') >= 0);
 
 console.log('\n=== ' + (total - falhas) + ' OK, ' + falhas + ' falhas ===');
