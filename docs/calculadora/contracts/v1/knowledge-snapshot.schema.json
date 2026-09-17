@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitwall.local/contracts/interpreter/v1/knowledge-snapshot.schema.json",
+  "title": "KnowledgeSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "snapshot_id", "version", "entities", "aliases", "semantic_rules", "supplier_profiles"],
+  "properties": {
+    "contract_version": {"const": "knowledge-snapshot/v1"},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "created_at": {"type": ["string", "null"], "format": "date-time"},
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "id", "label"],
+        "properties": {
+          "kind": {"type": "string"},
+          "id": {"type": "string"},
+          "label": {"type": "string"},
+          "attributes": {"type": "object", "additionalProperties": true}
+        },
+        "additionalProperties": true
+      }
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "text", "target_id"],
+        "properties": {
+          "kind": {"type": "string"},
+          "text": {"type": "string"},
+          "normalized": {"type": ["string", "null"]},
+          "target_id": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "semantic_rules": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "supplier_profiles": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "domain_rules": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "metadata": {"type": "object", "additionalProperties": true}
+  }
+}
