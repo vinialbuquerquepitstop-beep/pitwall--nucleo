@@ -58,6 +58,63 @@ const report = compareSemanticShadow({ legacy, coreBundle });
 const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
 const divergence = analyzeDivergences({ legacy, coreBundle });
 
+function distinctFieldValues(segment, field) {
+  return [...new Set(
+    (segment.field_candidates || [])
+      .filter(candidate => candidate.field === field)
+      .map(candidate => JSON.stringify(candidate.value))
+  )];
+}
+
+function offerExpansionDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  let directMultiColorSegments = 0;
+  let priceTriggerSegments = 0;
+  let priceWithDirectColor = 0;
+  let priceWithoutDirectColor = 0;
+  let priceWithRecentColorBefore = 0;
+  let expandedRecords = 0;
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const colors = distinctFieldValues(segment, 'color');
+    const prices = distinctFieldValues(segment, 'price');
+    if (colors.length > 1) directMultiColorSegments += 1;
+    if (prices.length !== 1) continue;
+
+    priceTriggerSegments += 1;
+    if (colors.length > 0) priceWithDirectColor += 1;
+    else priceWithoutDirectColor += 1;
+
+    if (colors.length === 0) {
+      for (let back = index - 1; back >= 0 && back >= index - 4; back -= 1) {
+        const prior = segments[back];
+        if ((prior.context_events || []).some(event => event.reason === 'timestamp_boundary')) break;
+        if (distinctFieldValues(prior, 'model').length > 0) break;
+        if (distinctFieldValues(prior, 'color').length > 0) {
+          priceWithRecentColorBefore += 1;
+          break;
+        }
+      }
+    }
+  }
+
+  for (const record of bundle.records || []) {
+    if (String(record.record_id || '').includes('-exp-')) expandedRecords += 1;
+  }
+
+  return {
+    direct_multi_color_segments: directMultiColorSegments,
+    price_trigger_segments: priceTriggerSegments,
+    price_with_direct_color: priceWithDirectColor,
+    price_without_direct_color: priceWithoutDirectColor,
+    price_with_recent_color_before: priceWithRecentColorBefore,
+    expanded_records: expandedRecords
+  };
+}
+
+const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
+
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
   mode: 'shadow_read_only',
@@ -78,7 +135,8 @@ const summary = {
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
-    report.gates.exact_multiset === true
+    report.gates.exact_multiset === true,
+  offer_expansion_diagnostic: expansionDiagnostic
 };
 
 const diagnostic = {
