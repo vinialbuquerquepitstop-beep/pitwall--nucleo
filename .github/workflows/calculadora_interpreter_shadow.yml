@@ -45,6 +45,9 @@ jobs:
       - name: Show runtime
         run: node --version
 
+      - name: Run core proof
+        run: node ferramentas/interpreter-core/v1/prova_core.js
+
       - name: Run semantic real-shadow proof
         run: node ferramentas/interpreter-core/v1/prova_real_shadow_semantic.js
 
