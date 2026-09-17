@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "generic-device-test",
-  "schema_version": "1",
+  "schema_version": "2",
   "entity_type": "offer",
   "fields": [
     {
@@ -10,6 +10,11 @@
       "required": true,
       "context_inheritable": true,
       "context_anchor": true,
+      "resolver": {
+        "kind": "entity",
+        "entity_kind": "model",
+        "match": ["alias", "label"]
+      },
       "extractors": [
         {
           "kind": "regex",
@@ -43,6 +48,7 @@
       "type": "number",
       "required": true,
       "context_inheritable": false,
+      "record_trigger": true,
       "extractors": [
         {
           "kind": "regex",
