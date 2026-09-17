@@ -138,6 +138,18 @@ check('preco com R$ pode ter texto e emoji depois sem perder o gatilho', () => {
   assert.strictEqual(result.records[0].fields.color, 'Azul');
 });
 
+check('condicao de secao sobrevive a troca de modelo declarada pelo schema', () => {
+  const result = run(
+    'apple-condition-section',
+    '🔥 IPHONES SEMINOVOS 🔥\niPhone 17 256GB\nR$ 4.900'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.condition, 'SEMINOVOS');
+  const conditionTrace = result.records[0].trace.find(t => t.field === 'condition');
+  assert.deepStrictEqual(conditionTrace.derived_from, [1]);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));

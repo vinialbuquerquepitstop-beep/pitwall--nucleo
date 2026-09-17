@@ -111,6 +111,28 @@ check('novo anchor de modelo limpa contexto dependente anterior', () => {
   assert.strictEqual(segments[4].inherited_context.capacity, undefined);
 });
 
+check('schema pode preservar campo declarado ao abrir novo anchor', () => {
+  const schema = JSON.parse(JSON.stringify(genericSchema));
+  schema.context_policy = {
+    ...(schema.context_policy || {}),
+    preserve_on_anchor: ['capacity']
+  };
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-preserve', 'DEVICE ALPHA16\n256GB\n6999\nDEVICE BETA20\n7999')),
+    schema
+  );
+  assert.strictEqual(segments[3].context_after.model.value, 'BETA20');
+  assert.strictEqual(segments[3].context_after.capacity.value, 256);
+  assert.strictEqual(segments[4].inherited_context.capacity.value, 256);
+  assert.ok(
+    segments[3].context_events.some(
+      e => e.type === 'reset' &&
+           e.reason === 'new_context_anchor' &&
+           e.preserved_fields.includes('capacity')
+    )
+  );
+});
+
 check('timestamp zera contexto para impedir vazamento entre mensagens', () => {
   const segments = buildContextTrace(segmentDocument(raw('fixture-6', 'DEVICE ALPHA16\n256GB\n[17/09/2026, 10:30] Outro bloco\n6999')), genericSchema);
   assert.deepStrictEqual(segments[2].context_after, {});

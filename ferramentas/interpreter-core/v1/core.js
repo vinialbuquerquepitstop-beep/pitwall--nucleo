@@ -227,9 +227,15 @@ function buildContextTrace(segments, schema = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const inheritable = fields.filter(f => f.context_inheritable);
   const anchors = inheritable.filter(f => f.context_anchor);
+  const preserveOnAnchor = new Set(
+    Array.isArray(schema.context_policy?.preserve_on_anchor)
+      ? schema.context_policy.preserve_on_anchor
+      : []
+  );
   const policy = {
     reset_on_timestamp: schema.context_policy?.reset_on_timestamp !== false,
-    anchor_resets_other_context: schema.context_policy?.anchor_resets_other_context !== false
+    anchor_resets_other_context: schema.context_policy?.anchor_resets_other_context !== false,
+    preserve_on_anchor: preserveOnAnchor
   };
   let context = {};
 
@@ -254,9 +260,19 @@ function buildContextTrace(segments, schema = {}) {
     }
 
     if (anchorOpened && policy.anchor_resets_other_context) {
-      const cleared = Object.keys(context);
-      context = {};
-      events.push({ type: 'reset', reason: 'new_context_anchor', fields: cleared });
+      const preserved = {};
+      const cleared = [];
+      for (const [field, value] of Object.entries(context)) {
+        if (policy.preserve_on_anchor.has(field)) preserved[field] = value;
+        else cleared.push(field);
+      }
+      context = preserved;
+      events.push({
+        type: 'reset',
+        reason: 'new_context_anchor',
+        fields: cleared,
+        preserved_fields: Object.keys(preserved)
+      });
     }
 
     for (const field of inheritable) {
