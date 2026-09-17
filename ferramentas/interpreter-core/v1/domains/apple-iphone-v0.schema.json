@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -27,11 +27,11 @@
         },
         {
           "kind": "regex",
-          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s+(?:64|128|256|512))(?=\\s+(?:Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight|Lacrado|Lacrados|Novo|Novos|CPO|Seminovo|Seminovos|Usado|Usados)\\b)",
+          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
-          "score": 0.94
+          "score": 0.95
         }
       ]
     },
@@ -49,6 +49,14 @@
           "group": 1,
           "transform": "integer",
           "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.92
         }
       ]
     },
@@ -94,6 +102,14 @@
       "context_anchor": false,
       "record_trigger": true,
       "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "R\\$\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.99
+        },
         {
           "kind": "regex",
           "pattern": "(?:R\\$\\s*)?([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)(?=\\s*(?:PROMO)?(?:[*_~ ]*)$)",
