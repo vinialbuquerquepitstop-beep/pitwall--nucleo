@@ -5,6 +5,7 @@ const path = require('path');
 const { interpretResolved } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
+const { analyzeDivergences } = require('./divergence-analyzer');
 
 function die(message, code = 1) {
   console.error(`FALHOU: ${message}`);
@@ -54,6 +55,7 @@ const coreBundle = interpretResolved({
 });
 
 const report = compareSemanticShadow({ legacy, coreBundle });
+const divergence = analyzeDivergences({ legacy, coreBundle });
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -76,15 +78,26 @@ const summary = {
     report.gates.exact_multiset === true
 };
 
+const diagnostic = {
+  contract_version: divergence.contract_version,
+  version: divergence.version,
+  categories: divergence.categories,
+  ambiguities_by_cause: divergence.ambiguities_by_cause,
+  ambiguities_by_field: divergence.ambiguities_by_field,
+  top_model_gaps: divergence.top_model_gaps
+};
+
 console.log('=== REAL SHADOW BENCHMARK — AGREGADO ===');
 console.log(JSON.stringify(summary, null, 2));
+console.log('=== DIVERGENCE ANALYZER V1 — AGREGADO ===');
+console.log(JSON.stringify(diagnostic, null, 2));
 console.log(`PROMOTION_READY=${summary.promotion_ready ? 'true' : 'false'}`);
 
 if (!summary.no_silent_wrong_price) {
-  console.log('BLOQUEIO: existe divergencia de preco para modelo suportado; detalhes nao sao impressos no log publico.');
+  console.log('BLOQUEIO: existe divergencia de preco para modelo suportado; detalhes sensiveis nao sao impressos.');
 }
 if (!summary.exact_multiset) {
-  console.log('BLOQUEIO: o multiconjunto de ofertas ainda diverge; detalhes nao sao impressos no log publico.');
+  console.log('BLOQUEIO: o multiconjunto de ofertas ainda diverge; detalhes sensiveis nao sao impressos.');
 }
 
 console.log('BENCHMARK_CONCLUIDO=1');
