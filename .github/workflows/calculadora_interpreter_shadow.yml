@@ -48,6 +48,9 @@ jobs:
       - name: Run semantic real-shadow proof
         run: node ferramentas/interpreter-core/v1/prova_real_shadow_semantic.js
 
+      - name: Run Apple domain proof
+        run: node ferramentas/interpreter-core/v1/prova_apple_domain.js
+
       - name: Run divergence analyzer proof
         run: node ferramentas/interpreter-core/v1/prova_divergence_analyzer.js
 
