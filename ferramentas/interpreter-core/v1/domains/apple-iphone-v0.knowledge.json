@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "created_at": null,
   "entities": [
     {"kind":"model","id":"iphone_13_pro_128gb","label":"iPhone 13 Pro 128GB","attributes":{"categoria":"iPhone"}},
@@ -20,8 +20,17 @@
     {"kind":"model","text":"iPhone Air 256GB","normalized":null,"target_id":"iphone_17_air_256gb"},
     {"kind":"model","text":"iPhone 13 Pro – 128GB","normalized":null,"target_id":"iphone_13_pro_128gb"},
     {"kind":"model","text":"iPhone 13 Pro - 128GB","normalized":null,"target_id":"iphone_13_pro_128gb"},
+    {"kind":"model","text":"iPhone 13 Pro 128","normalized":null,"target_id":"iphone_13_pro_128gb"},
+    {"kind":"model","text":"iPhone 15 128","normalized":null,"target_id":"iphone_15_128gb"},
     {"kind":"model","text":"iPhone 16 128","normalized":null,"target_id":"iphone_16_128gb"},
-    {"kind":"model","text":"iPhone 16 256","normalized":null,"target_id":"iphone_16_256gb"}
+    {"kind":"model","text":"iPhone 16 256","normalized":null,"target_id":"iphone_16_256gb"},
+    {"kind":"model","text":"iPhone 16 Pro 256","normalized":null,"target_id":"iphone_16_pro_256gb"},
+    {"kind":"model","text":"iPhone 16 Pro Max 256","normalized":null,"target_id":"iphone_16_pro_max_256gb"},
+    {"kind":"model","text":"iPhone 17 256","normalized":null,"target_id":"iphone_17_256gb"},
+    {"kind":"model","text":"iPhone 17 512","normalized":null,"target_id":"iphone_17_512gb"},
+    {"kind":"model","text":"iPhone 17 Air 256","normalized":null,"target_id":"iphone_17_air_256gb"},
+    {"kind":"model","text":"iPhone 16e 128","normalized":null,"target_id":"iphone_16e_128gb"},
+    {"kind":"model","text":"iPhone 17e 256","normalized":null,"target_id":"iphone_17e_256gb"}
   ],
   "semantic_rules": [],
   "supplier_profiles": [],
