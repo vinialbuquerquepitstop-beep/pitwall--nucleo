@@ -1,0 +1,123 @@
+{
+  "contract_version": "domain-schema/v1",
+  "schema_id": "apple-iphone-v0",
+  "schema_version": "0.1.0",
+  "entity_type": "offer",
+  "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
+  "fields": [
+    {
+      "name": "model",
+      "type": "string",
+      "required": true,
+      "context_inheritable": true,
+      "context_anchor": true,
+      "resolver": {
+        "kind": "entity",
+        "entity_kind": "model",
+        "match": ["alias", "label"]
+      },
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s+(?:64|128|256|512)\\s*GB|iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s+[12]\\s*TB)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.98
+        },
+        {
+          "kind": "regex",
+          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s+(?:64|128|256|512))(?=\\s+(?:Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight|Lacrado|Lacrados|Novo|Novos|CPO|Seminovo|Seminovos|Usado|Usados)\\b)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.94
+        }
+      ]
+    },
+    {
+      "name": "capacity_gb",
+      "type": "integer",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(64|128|256|512)\\s*GB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.95
+        }
+      ]
+    },
+    {
+      "name": "condition",
+      "type": "string",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Lacrado|Lacrados|Novo|Novos|CPO|Seminovo|Seminovos|Usado|Usados)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.93
+        }
+      ]
+    },
+    {
+      "name": "color",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.88
+        }
+      ]
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "record_trigger": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(?:R\\$\\s*)?([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)(?=\\s*(?:PROMO)?(?:[*_~ ]*)$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.97
+        }
+      ]
+    }
+  ],
+  "structural_roles": ["header", "product_header", "variant", "price_line", "condition", "note", "noise", "unknown"],
+  "validators": [],
+  "context_policy": {
+    "reset_on_timestamp": true,
+    "anchor_resets_other_context": true
+  },
+  "metadata": {
+    "scope": "iPhone only",
+    "mode": "shadow",
+    "source": [
+      "supabase/migrations/20260908_calc_catalogo_semente.sql",
+      "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
+      "ferramentas/prova_calc_catalogo.sql"
+    ]
+  }
+}
