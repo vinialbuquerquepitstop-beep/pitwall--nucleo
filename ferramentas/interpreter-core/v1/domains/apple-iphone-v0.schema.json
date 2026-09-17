@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -22,7 +22,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512)\\s*GB|iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*[12]\\s*TB)",
+          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512)\\s*GB|iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*[12]\\s*TB)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -30,7 +30,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
+          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -55,7 +55,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s+Max)?|Air))?|Air)\\s*[-–—:]?\\s*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "pattern": "iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "integer",
@@ -89,7 +89,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "\\b(Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight)\\b",
+          "pattern": "\\b(Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight|Lavanda|Laranja)\\b",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -107,7 +107,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "R\\$\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "pattern": "(?:R\\$|\\$)\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
           "flags": "i",
           "group": 1,
           "transform": "number",

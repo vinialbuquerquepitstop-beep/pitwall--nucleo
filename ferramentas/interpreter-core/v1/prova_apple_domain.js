@@ -150,6 +150,27 @@ check('condicao de secao sobrevive a troca de modelo declarada pelo schema', () 
   assert.deepStrictEqual(conditionTrace.derived_from, [1]);
 });
 
+check('grafia Promax sem espaco resolve por alias de dominio', () => {
+  const result = run(
+    'apple-promax',
+    'iPhone 16 Promax 256GB\nPreto $6.699,00'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.price, 6699);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+});
+
+check('cores Lavanda e Laranja entram como cores de dominio', () => {
+  const lavanda = run('apple-lavanda', 'iPhone 17 256GB\nLavanda R$5.299,00');
+  assert.strictEqual(lavanda.records.length, 1);
+  assert.strictEqual(lavanda.records[0].fields.color, 'Lavanda');
+
+  const laranja = run('apple-laranja', 'iPhone 17 256GB\nLaranja R$5.299,00');
+  assert.strictEqual(laranja.records.length, 1);
+  assert.strictEqual(laranja.records[0].fields.color, 'Laranja');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
