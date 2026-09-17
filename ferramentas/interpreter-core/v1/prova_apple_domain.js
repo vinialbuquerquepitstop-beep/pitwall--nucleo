@@ -56,12 +56,12 @@ check('segunda capacidade canonica permanece entidade distinta', () => {
   assert.strictEqual(result.records[0].fields.price, 8100);
 });
 
-check('forma sem GB resolve por alias sem inventar capacidade', () => {
+check('forma sem GB resolve por alias e extrai capacidade declarada', () => {
   const result = run('apple-3', 'iPhone 16 128 Preto Lacrado - 4.299');
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_128gb');
   assert.strictEqual(result.records[0].fields.price, 4299);
-  assert.strictEqual(result.records[0].fields.capacity_gb, undefined);
+  assert.strictEqual(result.records[0].fields.capacity_gb, 128);
   assert.strictEqual(result.records[0].state, 'inferred');
 });
 
