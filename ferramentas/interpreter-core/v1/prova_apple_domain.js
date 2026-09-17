@@ -116,8 +116,30 @@ check('cabecalho de fornecedor desconhecido nao e necessario para resolver produ
   );
 });
 
+check('cabecalho sem GB seguido de emoji resolve modelo e capacidade', () => {
+  const result = run(
+    'apple-9',
+    '📲IPHONE 16 PRO MAX 256 ⚪️ (gold) ⚫️\nR$4.999/BATERIA🔋🟰92%'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.price, 4999);
+});
+
+check('preco com R$ pode ter texto e emoji depois sem perder o gatilho', () => {
+  const result = run(
+    'apple-10',
+    'iPhone 17 256GB\nAzul R$4.900🔥🔥'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 4900);
+  assert.strictEqual(result.records[0].fields.color, 'Azul');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
-  const result = run('apple-9', 'iPhone 16 256GB Azul Lacrado - 4.900');
+  const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
   assert.ok(result.warnings.includes('no_operational_price_write'));
 });
