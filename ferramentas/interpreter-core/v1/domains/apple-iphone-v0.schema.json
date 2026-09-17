@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -93,9 +93,11 @@
           "flags": "i",
           "group": 1,
           "transform": "trim",
-          "score": 0.88
+          "score": 0.88,
+          "match_mode": "all"
         }
-      ]
+      ],
+      "expand_records": true
     },
     {
       "name": "price",
@@ -149,6 +151,14 @@
       "supabase/migrations/20260908_calc_catalogo_semente.sql",
       "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
       "ferramentas/prova_calc_catalogo.sql"
-    ]
+    ],
+    "offer_expansion": {
+      "version": "v1",
+      "fields": [
+        "color"
+      ],
+      "rule": "multiple distinct direct color candidates + one unambiguous price => one record per color",
+      "safety": "multiple prices or multiple expansion fields remain ambiguous"
+    }
   }
 }
