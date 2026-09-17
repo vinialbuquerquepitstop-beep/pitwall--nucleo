@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitwall.local/contracts/interpreter/v1/interpretation-bundle.schema.json",
+  "title": "InterpretationBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "run", "records", "ambiguities", "invalid", "learning_proposals", "metrics"],
+  "properties": {
+    "contract_version": {"const": "interpretation-bundle/v1"},
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "engine_version", "schema_id", "schema_version", "knowledge_version"],
+      "properties": {
+        "run_id": {"type": "string"},
+        "document_id": {"type": ["string", "null"]},
+        "document_hash": {"type": ["string", "null"]},
+        "engine_version": {"type": "string"},
+        "schema_id": {"type": "string"},
+        "schema_version": {"type": "string"},
+        "knowledge_version": {"type": ["string", "null"]},
+        "started_at": {"type": ["string", "null"], "format": "date-time"},
+        "finished_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "segments": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["record_id", "state", "fields", "trace"],
+        "properties": {
+          "record_id": {"type": "string"},
+          "state": {"type": "string", "enum": ["interpreted", "inferred"]},
+          "fields": {"type": "object", "additionalProperties": true},
+          "trace": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "sources"],
+              "properties": {
+                "field": {"type": "string"},
+                "chosen": {},
+                "sources": {"type": "array", "items": {"type": ["string", "integer"]}},
+                "derived_from": {"type": "array", "items": {"type": ["string", "integer"]}},
+                "rules": {"type": "array", "items": {"type": "string"}},
+                "alternatives": {"type": "array"},
+                "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ambiguity_id", "cause", "sources"],
+        "properties": {
+          "ambiguity_id": {"type": "string"},
+          "field": {"type": ["string", "null"]},
+          "cause": {"type": "string"},
+          "raw": {"type": ["string", "null"]},
+          "candidates": {"type": "array"},
+          "sources": {"type": "array", "items": {"type": ["string", "integer"]}},
+          "context": {"type": "object", "additionalProperties": true}
+        },
+        "additionalProperties": true
+      }
+    },
+    "invalid": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cause", "sources"],
+        "properties": {
+          "cause": {"type": "string"},
+          "raw": {"type": ["string", "null"]},
+          "sources": {"type": "array", "items": {"type": ["string", "integer"]}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "learning_proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["proposal_id", "kind", "evidence"],
+        "properties": {
+          "proposal_id": {"type": "string"},
+          "kind": {"type": "string", "enum": ["alias", "entity", "semantic_rule", "supplier_profile", "format_drift", "local_resolution"]},
+          "payload": {"type": "object", "additionalProperties": true},
+          "evidence": {"type": "array", "items": {"type": ["string", "integer"]}},
+          "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["n_lines", "n_records", "n_ambiguous", "n_invalid", "parse_ms"],
+      "properties": {
+        "n_lines": {"type": "integer", "minimum": 0},
+        "n_records": {"type": "integer", "minimum": 0},
+        "n_ambiguous": {"type": "integer", "minimum": 0},
+        "n_invalid": {"type": "integer", "minimum": 0},
+        "parse_ms": {"type": "number", "minimum": 0},
+        "fallback_calls": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
