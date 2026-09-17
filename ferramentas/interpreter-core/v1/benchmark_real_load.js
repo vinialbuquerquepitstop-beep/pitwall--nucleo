@@ -82,6 +82,7 @@ const diagnostic = {
   contract_version: divergence.contract_version,
   version: divergence.version,
   categories: divergence.categories,
+  mismatch_signatures: divergence.mismatch_signatures,
   ambiguities_by_cause: divergence.ambiguities_by_cause,
   ambiguities_by_field: divergence.ambiguities_by_field,
   top_model_gaps: divergence.top_model_gaps
