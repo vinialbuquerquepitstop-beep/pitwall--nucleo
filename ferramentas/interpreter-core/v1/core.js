@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.3.0-resolver-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.4.0-offer-expansion-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -167,29 +167,49 @@ function extractFieldCandidates(segment, schema = {}) {
 
       if (extractor.kind === 'regex') {
         let regex;
+        const matchMode = extractor.match_mode === 'all' ? 'all' : 'first';
+        let flags = extractor.flags || 'i';
+        if (matchMode === 'all' && !flags.includes('g')) flags += 'g';
         try {
-          regex = new RegExp(extractor.pattern, extractor.flags || 'i');
+          regex = new RegExp(extractor.pattern, flags);
         } catch (err) {
           throw new Error(`extractor regex invalido em ${field.name}: ${err.message}`);
         }
-        const match = regex.exec(segment.normalized);
-        if (!match) continue;
-        const group = extractor.group ?? 1;
-        const captured = match[group] ?? match[0];
-        const value = applyTransform(captured, extractor.transform || 'trim');
-        if (value == null || value === '') continue;
-        out.push({
-          field: field.name,
-          value,
-          score: extractor.score ?? 0.7,
-          evidence: {
-            kind: 'regex',
-            pattern: extractor.pattern,
-            segment_id: segment.segment_id,
-            line_number: segment.line_number,
-            raw: segment.raw
+
+        const matches = [];
+        if (matchMode === 'all') {
+          let match;
+          while ((match = regex.exec(segment.normalized)) !== null) {
+            matches.push(match);
+            if (match[0] === '') regex.lastIndex += 1;
           }
-        });
+        } else {
+          const match = regex.exec(segment.normalized);
+          if (match) matches.push(match);
+        }
+
+        for (let occurrence = 0; occurrence < matches.length; occurrence += 1) {
+          const match = matches[occurrence];
+          const group = extractor.group ?? 1;
+          const captured = match[group] ?? match[0];
+          const value = applyTransform(captured, extractor.transform || 'trim');
+          if (value == null || value === '') continue;
+          out.push({
+            field: field.name,
+            value,
+            score: extractor.score ?? 0.7,
+            evidence: {
+              kind: 'regex',
+              pattern: extractor.pattern,
+              match_mode: matchMode,
+              occurrence: occurrence + 1,
+              match_index: match.index,
+              segment_id: segment.segment_id,
+              line_number: segment.line_number,
+              raw: segment.raw
+            }
+          });
+        }
       }
     }
   }
@@ -209,16 +229,20 @@ function cloneContext(context) {
   return copy;
 }
 
-function selectUniqueCandidate(candidates, fieldName) {
+function uniqueFieldCandidates(candidates, fieldName) {
   const matches = candidates.filter(c => c.field === fieldName);
-  if (!matches.length) return { state: 'none', candidate: null, candidates: [] };
   const unique = new Map();
   for (const c of matches) {
     const key = JSON.stringify(c.value);
     const prior = unique.get(key);
     if (!prior || c.score > prior.score) unique.set(key, c);
   }
-  const values = [...unique.values()].sort((a, b) => b.score - a.score);
+  return [...unique.values()].sort((a, b) => b.score - a.score);
+}
+
+function selectUniqueCandidate(candidates, fieldName) {
+  const values = uniqueFieldCandidates(candidates, fieldName);
+  if (!values.length) return { state: 'none', candidate: null, candidates: [] };
   if (values.length === 1) return { state: 'unique', candidate: values[0], candidates: values };
   return { state: 'ambiguous', candidate: null, candidates: values };
 }
@@ -493,6 +517,7 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     const trace = [];
     let blocked = false;
     let inferred = false;
+    let recordExpansion = null;
 
     const directByField = new Map();
     for (const candidate of segment.field_candidates || []) {
@@ -501,6 +526,44 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     }
 
     for (const field of fields) {
+      const directCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
+
+      if (field.expand_records === true && directCandidates.length > 1) {
+        if (field.resolver?.kind === 'entity') {
+          blocked = true;
+          ambiguities.push({
+            ambiguity_id: `amb-${segment.segment_id}-${field.name}-expansion-entity`,
+            field: field.name,
+            cause: 'record_expansion_entity_not_supported_v1',
+            raw: segment.raw,
+            candidates: directCandidates,
+            sources: [segment.line_number],
+            context: segment.inherited_context || {}
+          });
+          continue;
+        }
+
+        if (recordExpansion) {
+          blocked = true;
+          ambiguities.push({
+            ambiguity_id: `amb-${segment.segment_id}-${field.name}-multiple-expansions`,
+            field: field.name,
+            cause: 'multiple_record_expansion_fields',
+            raw: segment.raw,
+            candidates: directCandidates,
+            sources: [segment.line_number],
+            context: segment.inherited_context || {}
+          });
+          continue;
+        }
+
+        recordExpansion = {
+          field,
+          candidates: directCandidates
+        };
+        continue;
+      }
+
       let selected = selectUniqueCandidate(segment.field_candidates || [], field.name);
       let sourceType = 'direct';
       let sourceCandidate = selected.candidate;
@@ -625,12 +688,41 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     }
 
     if (!blocked) {
-      records.push({
-        record_id: `record-${segment.segment_id}`,
-        state: inferred ? 'inferred' : 'interpreted',
-        fields: fieldsOut,
-        trace
-      });
+      if (recordExpansion) {
+        for (let index = 0; index < recordExpansion.candidates.length; index += 1) {
+          const candidate = recordExpansion.candidates[index];
+          const expandedFields = {
+            ...fieldsOut,
+            [recordExpansion.field.name]: candidate.value
+          };
+          const expandedTrace = [
+            ...trace,
+            {
+              field: recordExpansion.field.name,
+              chosen: candidate.value,
+              sources: [candidate.evidence?.line_number || segment.line_number],
+              derived_from: [],
+              rules: ['record_expansion:direct_extraction'],
+              alternatives: [],
+              score: candidate.score ?? null
+            }
+          ];
+
+          records.push({
+            record_id: `record-${segment.segment_id}-exp-${index + 1}`,
+            state: inferred ? 'inferred' : 'interpreted',
+            fields: expandedFields,
+            trace: expandedTrace
+          });
+        }
+      } else {
+        records.push({
+          record_id: `record-${segment.segment_id}`,
+          state: inferred ? 'inferred' : 'interpreted',
+          fields: fieldsOut,
+          trace
+        });
+      }
     }
   }
 
@@ -744,6 +836,7 @@ module.exports = {
   parseGenericNumber,
   applyTransform,
   extractFieldCandidates,
+  uniqueFieldCandidates,
   buildContextTrace,
   buildKnowledgeIndex,
   resolveEntityCandidate,
