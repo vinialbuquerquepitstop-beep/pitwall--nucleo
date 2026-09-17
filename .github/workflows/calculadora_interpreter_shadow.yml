@@ -2,6 +2,17 @@ name: Calculadora — Interpreter Shadow Proof
 
 on:
   workflow_dispatch:
+    inputs:
+      load_id:
+        description: "UUID de uma calc_carga real com texto_bruto. Somente leitura."
+        required: false
+        default: "6c4d3491-f85b-4015-8393-9798ab1ce758"
+        type: string
+      enforce_promotion:
+        description: "Falhar o job se o Core ainda nao estiver equivalente ao legado."
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - feat/calculadora-interpretador-real-shadow-v0
@@ -24,10 +35,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
 
@@ -36,3 +47,112 @@ jobs:
 
       - name: Run semantic real-shadow proof
         run: node ferramentas/interpreter-core/v1/prova_real_shadow_semantic.js
+
+  real-load-benchmark:
+    name: Benchmark real — calc_parse_v2 vs Core
+    needs: semantic-shadow-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOAD_ID: ${{ github.event.inputs.load_id || '6c4d3491-f85b-4015-8393-9798ab1ce758' }}
+      ENFORCE_PROMOTION: ${{ github.event.inputs.enforce_promotion || 'false' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Instalar cliente Postgres 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Extrair a mesma carga e o snapshot legado, sem expor conteudo
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          if ! [[ "$LOAD_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "FALHA: load_id invalido."
+            exit 1
+          fi
+
+          OWNER_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1               -c "select u.id::text
+                    from public.app_usuario u
+                    join public.calc_carga c on c.tenant_id = u.tenant_id
+                   where c.id = '$LOAD_ID'::uuid
+                     and u.ativo
+                     and u.papel = 'dono'
+                   order by u.id
+                   limit 1"
+          )"
+
+          if [ -z "$OWNER_ID" ]; then
+            echo "FALHA: nao foi encontrado dono ativo para o tenant da carga."
+            exit 1
+          fi
+
+          CLAIMS="{\"sub\":\"$OWNER_ID\"}"
+
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1             -v claims="$CLAIMS" -v load_id="$LOAD_ID" <<'SQL'
+          \o /dev/null
+          select set_config('request.jwt.claims', :'claims', false);
+
+          \o /tmp/calc_raw.b64
+          select encode(convert_to(texto_bruto, 'UTF8'), 'base64')
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o /tmp/calc_legacy.b64
+          select encode(
+                   convert_to(public.calc_bench_ler(texto_bruto)::text, 'UTF8'),
+                   'base64'
+                 )
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+          \o
+          SQL
+
+          if [ ! -s /tmp/calc_raw.b64 ] || [ ! -s /tmp/calc_legacy.b64 ]; then
+            echo "FALHA: carga inexistente, sem texto bruto ou benchmark legado vazio."
+            exit 1
+          fi
+
+          base64 --decode /tmp/calc_raw.b64 > /tmp/calc_raw.txt
+          base64 --decode /tmp/calc_legacy.b64 > /tmp/calc_legacy.json
+
+          node -e "JSON.parse(require('fs').readFileSync('/tmp/calc_legacy.json','utf8'));"
+          echo "Snapshot privado preparado com sucesso; conteudo omitido do log."
+
+      - name: Medir concordancia real
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/benchmark_real_load.js             /tmp/calc_raw.txt /tmp/calc_legacy.json | tee /tmp/calc_benchmark_summary.log
+
+          grep -q '^BENCHMARK_CONCLUIDO=1$' /tmp/calc_benchmark_summary.log
+
+          if [ "$ENFORCE_PROMOTION" = "true" ]; then
+            if ! grep -q '^PROMOTION_READY=true$' /tmp/calc_benchmark_summary.log; then
+              echo "GATE DE PROMOCAO REPROVADO."
+              exit 1
+            fi
+          fi
+
+      - name: Apagar dados temporarios
+        if: always()
+        run: |
+          rm -f /tmp/calc_raw.b64 /tmp/calc_legacy.b64                 /tmp/calc_raw.txt /tmp/calc_legacy.json                 /tmp/calc_benchmark_summary.log
