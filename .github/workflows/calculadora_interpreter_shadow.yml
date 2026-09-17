@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: calculadora-interpreter-shadow-${{ github.ref }}
+  group: calculadora-interpreter-shadow-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
