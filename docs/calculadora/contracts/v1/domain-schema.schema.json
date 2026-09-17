@@ -28,6 +28,28 @@
           "validators": {"type": "array", "items": {"type": "string"}},
           "context_inheritable": {"type": "boolean", "default": false},
           "context_anchor": {"type": "boolean", "default": false},
+          "record_trigger": {"type": "boolean", "default": false},
+          "resolver": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {"type": "string", "enum": ["entity"]},
+              "entity_kind": {"type": "string"},
+              "match": {
+                "type": "array",
+                "items": {"type": "string", "enum": ["alias", "label"]},
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"kind": {"const": "entity"}}},
+                "then": {"required": ["entity_kind", "match"]}
+              }
+            ]
+          },
           "extractors": {
             "type": "array",
             "items": {
