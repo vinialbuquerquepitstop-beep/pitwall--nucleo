@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.2.0-context-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.3.0-resolver-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -13,6 +13,15 @@ function normalizeLine(input) {
     .normalize('NFKC')
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeKey(input) {
+  return normalizeLine(input)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
 
@@ -296,6 +305,322 @@ function buildContextTrace(segments, schema = {}) {
   });
 }
 
+function buildKnowledgeIndex(knowledge = {}) {
+  const entitiesByKind = new Map();
+  const aliasesByKind = new Map();
+
+  for (const entity of knowledge.entities || []) {
+    const kind = entity.kind;
+    if (!entitiesByKind.has(kind)) entitiesByKind.set(kind, []);
+    entitiesByKind.get(kind).push({ ...entity, normalized_label: normalizeKey(entity.label) });
+  }
+
+  for (const alias of knowledge.aliases || []) {
+    const kind = alias.kind;
+    if (!aliasesByKind.has(kind)) aliasesByKind.set(kind, []);
+    aliasesByKind.get(kind).push({
+      ...alias,
+      normalized_text: normalizeKey(alias.normalized || alias.text)
+    });
+  }
+
+  return { entitiesByKind, aliasesByKind };
+}
+
+function resolveEntityCandidate(candidate, field, knowledgeIndex) {
+  const resolver = field.resolver;
+  if (!resolver || resolver.kind !== 'entity') {
+    return {
+      state: 'literal',
+      field: field.name,
+      input: candidate.value,
+      value: candidate.value,
+      score: candidate.score,
+      evidence: candidate.evidence
+    };
+  }
+
+  const key = normalizeKey(candidate.value);
+  const entityKind = resolver.entity_kind;
+  const allowed = new Set(resolver.match || []);
+  const matches = [];
+
+  if (allowed.has('alias')) {
+    for (const alias of knowledgeIndex.aliasesByKind.get(entityKind) || []) {
+      if (alias.normalized_text !== key) continue;
+      matches.push({
+        entity_id: alias.target_id,
+        via: 'alias',
+        matched: alias.text,
+        score: Math.min(1, candidate.score * 0.99)
+      });
+    }
+  }
+
+  if (allowed.has('label')) {
+    for (const entity of knowledgeIndex.entitiesByKind.get(entityKind) || []) {
+      if (entity.normalized_label !== key) continue;
+      matches.push({
+        entity_id: entity.id,
+        via: 'label',
+        matched: entity.label,
+        score: candidate.score
+      });
+    }
+  }
+
+  const grouped = new Map();
+  for (const match of matches) {
+    const prior = grouped.get(match.entity_id);
+    if (!prior || match.score > prior.score) grouped.set(match.entity_id, match);
+  }
+  const unique = [...grouped.values()].sort((a, b) => b.score - a.score);
+
+  if (!unique.length) {
+    return {
+      state: 'unresolved',
+      field: field.name,
+      input: candidate.value,
+      entity_kind: entityKind,
+      matches: [],
+      score: candidate.score,
+      evidence: candidate.evidence
+    };
+  }
+
+  if (unique.length > 1) {
+    return {
+      state: 'ambiguous',
+      field: field.name,
+      input: candidate.value,
+      entity_kind: entityKind,
+      matches: unique,
+      score: candidate.score,
+      evidence: candidate.evidence
+    };
+  }
+
+  const chosen = unique[0];
+  const entity = (knowledgeIndex.entitiesByKind.get(entityKind) || []).find(e => e.id === chosen.entity_id) || null;
+  return {
+    state: chosen.via === 'label' ? 'interpreted' : 'inferred',
+    field: field.name,
+    input: candidate.value,
+    entity_kind: entityKind,
+    entity_id: chosen.entity_id,
+    value: entity?.label ?? candidate.value,
+    attributes: entity?.attributes || {},
+    via: chosen.via,
+    score: chosen.score,
+    evidence: candidate.evidence
+  };
+}
+
+function semanticizeSegments(segments, schema = {}, knowledge = {}) {
+  const knowledgeIndex = buildKnowledgeIndex(knowledge);
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const fieldsByName = new Map(fields.map(f => [f.name, f]));
+
+  return segments.map(segment => {
+    const semanticCandidates = [];
+    for (const candidate of segment.field_candidates || []) {
+      const field = fieldsByName.get(candidate.field);
+      if (!field) continue;
+      semanticCandidates.push(resolveEntityCandidate(candidate, field, knowledgeIndex));
+    }
+    return { ...segment, semantic_candidates: semanticCandidates };
+  });
+}
+
+function resolveContextEntry(entry, field, knowledgeIndex) {
+  if (!entry) return null;
+  const candidate = {
+    field: field.name,
+    value: entry.value,
+    score: entry.score,
+    evidence: entry.evidence
+  };
+  const result = resolveEntityCandidate(candidate, field, knowledgeIndex);
+  return { ...result, source_line: entry.source_line, source_segment_id: entry.source_segment_id };
+}
+
+function composeRecords(segments, schema = {}, knowledge = {}) {
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const fieldsByName = new Map(fields.map(f => [f.name, f]));
+  const triggers = fields.filter(f => f.record_trigger);
+  const knowledgeIndex = buildKnowledgeIndex(knowledge);
+  const records = [];
+  const ambiguities = [];
+  const learningProposals = [];
+
+  for (const segment of segments) {
+    const triggerCandidates = [];
+    for (const trigger of triggers) {
+      const selected = selectUniqueCandidate(segment.field_candidates || [], trigger.name);
+      if (selected.state === 'unique') triggerCandidates.push({ field: trigger, candidate: selected.candidate });
+      if (selected.state === 'ambiguous') {
+        ambiguities.push({
+          ambiguity_id: `amb-${segment.segment_id}-${trigger.name}`,
+          field: trigger.name,
+          cause: 'multiple_trigger_candidates',
+          raw: segment.raw,
+          candidates: selected.candidates,
+          sources: [segment.line_number],
+          context: segment.inherited_context || {}
+        });
+      }
+    }
+
+    if (!triggerCandidates.length) continue;
+
+    const fieldsOut = {};
+    const trace = [];
+    let blocked = false;
+    let inferred = false;
+
+    const directByField = new Map();
+    for (const candidate of segment.field_candidates || []) {
+      if (!directByField.has(candidate.field)) directByField.set(candidate.field, []);
+      directByField.get(candidate.field).push(candidate);
+    }
+
+    for (const field of fields) {
+      let selected = selectUniqueCandidate(segment.field_candidates || [], field.name);
+      let sourceType = 'direct';
+      let sourceCandidate = selected.candidate;
+
+      if (selected.state === 'none' && segment.inherited_context?.[field.name]) {
+        const entry = segment.inherited_context[field.name];
+        sourceType = 'context';
+        sourceCandidate = {
+          field: field.name,
+          value: entry.value,
+          score: entry.score,
+          evidence: entry.evidence
+        };
+      }
+
+      if (selected.state === 'ambiguous') {
+        blocked = true;
+        ambiguities.push({
+          ambiguity_id: `amb-${segment.segment_id}-${field.name}`,
+          field: field.name,
+          cause: 'multiple_field_candidates',
+          raw: segment.raw,
+          candidates: selected.candidates,
+          sources: [segment.line_number],
+          context: segment.inherited_context || {}
+        });
+        continue;
+      }
+
+      if (!sourceCandidate) {
+        if (field.required) {
+          blocked = true;
+          ambiguities.push({
+            ambiguity_id: `amb-${segment.segment_id}-${field.name}-missing`,
+            field: field.name,
+            cause: 'required_field_missing',
+            raw: segment.raw,
+            candidates: [],
+            sources: [segment.line_number],
+            context: segment.inherited_context || {}
+          });
+        }
+        continue;
+      }
+
+      let resolved;
+      if (field.resolver?.kind === 'entity') {
+        if (sourceType === 'context') {
+          resolved = resolveContextEntry(segment.inherited_context[field.name], field, knowledgeIndex);
+        } else {
+          resolved = resolveEntityCandidate(sourceCandidate, field, knowledgeIndex);
+        }
+
+        if (resolved.state === 'unresolved') {
+          blocked = true;
+          ambiguities.push({
+            ambiguity_id: `amb-${segment.segment_id}-${field.name}-unresolved`,
+            field: field.name,
+            cause: 'entity_unresolved',
+            raw: String(sourceCandidate.value),
+            candidates: [],
+            sources: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+            context: segment.inherited_context || {}
+          });
+          learningProposals.push({
+            proposal_id: `learn-${segment.segment_id}-${field.name}`,
+            kind: 'local_resolution',
+            payload: {
+              field: field.name,
+              entity_kind: field.resolver.entity_kind,
+              raw: sourceCandidate.value
+            },
+            evidence: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+            score: sourceCandidate.score ?? null
+          });
+          continue;
+        }
+
+        if (resolved.state === 'ambiguous') {
+          blocked = true;
+          ambiguities.push({
+            ambiguity_id: `amb-${segment.segment_id}-${field.name}-entity`,
+            field: field.name,
+            cause: 'entity_resolution_ambiguous',
+            raw: String(sourceCandidate.value),
+            candidates: resolved.matches,
+            sources: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+            context: segment.inherited_context || {}
+          });
+          continue;
+        }
+
+        if (resolved.state === 'inferred') inferred = true;
+        fieldsOut[field.name] = resolved.entity_id ? {
+          id: resolved.entity_id,
+          label: resolved.value,
+          attributes: resolved.attributes || {}
+        } : resolved.value;
+        trace.push({
+          field: field.name,
+          chosen: fieldsOut[field.name],
+          sources: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+          derived_from: sourceType === 'context' ? [resolved.source_line] : [],
+          rules: [`resolver:${resolved.via || resolved.state}`],
+          alternatives: [],
+          score: resolved.score ?? null
+        });
+      } else {
+        fieldsOut[field.name] = sourceCandidate.value;
+        trace.push({
+          field: field.name,
+          chosen: sourceCandidate.value,
+          sources: [sourceType === 'context'
+            ? segment.inherited_context[field.name].source_line
+            : sourceCandidate.evidence?.line_number || segment.line_number],
+          derived_from: sourceType === 'context' ? [segment.inherited_context[field.name].source_line] : [],
+          rules: [sourceType === 'context' ? 'context_inheritance' : 'direct_extraction'],
+          alternatives: [],
+          score: sourceCandidate.score ?? null
+        });
+      }
+    }
+
+    if (!blocked) {
+      records.push({
+        record_id: `record-${segment.segment_id}`,
+        state: inferred ? 'inferred' : 'interpreted',
+        fields: fieldsOut,
+        trace
+      });
+    }
+  }
+
+  return { records, ambiguities, learningProposals };
+}
+
 function makeBaseBundle(request, segments, warnings) {
   const { document, schema = {}, knowledge = null } = request;
   const invalid = [];
@@ -348,6 +673,7 @@ function makeBaseBundle(request, segments, warnings) {
       n_ambiguous: ambiguities.length,
       n_invalid: invalid.length,
       n_context_events: segments.reduce((n, s) => n + (s.context_events?.length || 0), 0),
+      n_learning_proposals: 0,
       parse_ms: 0,
       fallback_calls: 0
     }
@@ -373,10 +699,29 @@ function interpretContextual(request) {
   return bundle;
 }
 
+function interpretResolved(request) {
+  if (!request || typeof request !== 'object') throw new Error('request obrigatorio');
+  const started = Date.now();
+  const structural = segmentDocument(request.document);
+  const contextual = buildContextTrace(structural, request.schema || {});
+  const segments = semanticizeSegments(contextual, request.schema || {}, request.knowledge || {});
+  const composed = composeRecords(segments, request.schema || {}, request.knowledge || {});
+  const bundle = makeBaseBundle(request, segments, ['shadow_mode_resolver', 'no_persistence', 'no_operational_price_write']);
+  bundle.records = composed.records;
+  bundle.ambiguities.push(...composed.ambiguities);
+  bundle.learning_proposals = composed.learningProposals;
+  bundle.metrics.n_records = bundle.records.length;
+  bundle.metrics.n_ambiguous = bundle.ambiguities.length;
+  bundle.metrics.n_learning_proposals = bundle.learning_proposals.length;
+  bundle.metrics.parse_ms = Date.now() - started;
+  return bundle;
+}
+
 module.exports = {
   ENGINE_VERSION,
   normalizeText,
   normalizeLine,
+  normalizeKey,
   isTimestampLine,
   scoreRoles,
   segmentDocument,
@@ -384,6 +729,11 @@ module.exports = {
   applyTransform,
   extractFieldCandidates,
   buildContextTrace,
+  buildKnowledgeIndex,
+  resolveEntityCandidate,
+  semanticizeSegments,
+  composeRecords,
   interpretStructural,
-  interpretContextual
+  interpretContextual,
+  interpretResolved
 };
