@@ -1,12 +1,21 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const {
   normalizeLine,
   scoreRoles,
   segmentDocument,
-  interpretStructural
+  extractFieldCandidates,
+  buildContextTrace,
+  interpretStructural,
+  interpretContextual
 } = require('./core');
+
+const genericSchema = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'fixtures', 'generic-device-domain.json'), 'utf8')
+);
 
 let ok = 0;
 function check(name, fn) {
@@ -18,6 +27,15 @@ function check(name, fn) {
     console.error(`FALHOU - ${name}`);
     throw err;
   }
+}
+
+function raw(documentId, content) {
+  return {
+    contract_version: 'raw-document/v1',
+    document_id: documentId,
+    content,
+    source: { kind: 'plain_text' }
+  };
 }
 
 check('normaliza espacos sem destruir texto', () => {
@@ -49,12 +67,7 @@ check('simbolos puros viram noise', () => {
 });
 
 check('segmentacao preserva raw e numero da linha', () => {
-  const segments = segmentDocument({
-    contract_version: 'raw-document/v1',
-    document_id: 'fixture-1',
-    content: 'IPHONE 16\n256GB\nBLACK\nR$ 4299',
-    source: { kind: 'plain_text' }
-  });
+  const segments = segmentDocument(raw('fixture-1', 'IPHONE 16\n256GB\nBLACK\nR$ 4299'));
   assert.strictEqual(segments.length, 4);
   assert.strictEqual(segments[0].raw, 'IPHONE 16');
   assert.strictEqual(segments[3].line_number, 4);
@@ -62,19 +75,8 @@ check('segmentacao preserva raw e numero da linha', () => {
 
 check('core devolve InterpretationBundle estrutural sem registros semanticos', () => {
   const result = interpretStructural({
-    document: {
-      contract_version: 'raw-document/v1',
-      document_id: 'fixture-2',
-      content: 'TABELA NOVA\niPhone 16 Pro Max 256GB\nR$ 6999',
-      source: { kind: 'plain_text' }
-    },
-    schema: {
-      contract_version: 'domain-schema/v1',
-      schema_id: 'apple-electronics',
-      schema_version: '1',
-      entity_type: 'product_offer',
-      fields: []
-    },
+    document: raw('fixture-2', 'TABELA NOVA\niPhone 16 Pro Max 256GB\nR$ 6999'),
+    schema: genericSchema,
     knowledge: {
       contract_version: 'knowledge-snapshot/v1',
       snapshot_id: 'empty',
@@ -86,6 +88,62 @@ check('core devolve InterpretationBundle estrutural sem registros semanticos', (
   assert.strictEqual(result.records.length, 0);
   assert.ok(result.warnings.includes('shadow_mode_structural_only'));
   assert.strictEqual(result.metrics.n_lines, 3);
+});
+
+check('schema extrai modelo sem o Core conhecer o dominio', () => {
+  const segment = segmentDocument(raw('fixture-3', 'DEVICE ALPHA16'))[0];
+  const candidates = extractFieldCandidates(segment, genericSchema);
+  assert.deepStrictEqual(candidates.map(c => [c.field, c.value]), [['model', 'ALPHA16']]);
+});
+
+check('capacidade abre contexto e e herdada pela linha seguinte', () => {
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-4', 'DEVICE ALPHA16\n256GB\n6999')),
+    genericSchema
+  );
+  assert.strictEqual(segments[0].context_after.model.value, 'ALPHA16');
+  assert.strictEqual(segments[1].context_after.capacity.value, 256);
+  assert.strictEqual(segments[2].inherited_context.model.value, 'ALPHA16');
+  assert.strictEqual(segments[2].inherited_context.capacity.value, 256);
+});
+
+check('novo anchor de modelo limpa contexto dependente anterior', () => {
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-5', 'DEVICE ALPHA16\n256GB\n6999\nDEVICE BETA20\n7999')),
+    genericSchema
+  );
+  assert.strictEqual(segments[3].context_after.model.value, 'BETA20');
+  assert.strictEqual(segments[3].context_after.capacity, undefined);
+  assert.strictEqual(segments[4].inherited_context.model.value, 'BETA20');
+  assert.strictEqual(segments[4].inherited_context.capacity, undefined);
+});
+
+check('timestamp zera contexto para impedir vazamento entre mensagens', () => {
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-6', 'DEVICE ALPHA16\n256GB\n[17/09/2026, 10:30] Outro bloco\n6999')),
+    genericSchema
+  );
+  assert.deepStrictEqual(segments[2].context_after, {});
+  assert.deepStrictEqual(segments[3].inherited_context, {});
+  assert.ok(segments[2].context_events.some(e => e.type === 'reset' && e.reason === 'timestamp_boundary'));
+});
+
+check('origem da heranca fica rastreavel por linha', () => {
+  const result = interpretContextual({
+    document: raw('fixture-7', 'DEVICE ALPHA16\n256GB\n6999'),
+    schema: genericSchema,
+    knowledge: {
+      contract_version: 'knowledge-snapshot/v1',
+      snapshot_id: 'empty',
+      version: '0',
+      entities: [], aliases: [], semantic_rules: [], supplier_profiles: []
+    }
+  });
+  const priceLine = result.segments[2];
+  assert.strictEqual(priceLine.inherited_context.model.source_line, 1);
+  assert.strictEqual(priceLine.inherited_context.capacity.source_line, 2);
+  assert.ok(result.warnings.includes('shadow_mode_context_only'));
+  assert.ok(result.warnings.includes('no_persistence'));
 });
 
 console.log(`PASSOU: ${ok} assercoes`);
