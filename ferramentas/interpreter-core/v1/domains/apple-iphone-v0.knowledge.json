@@ -189,12 +189,6 @@
       "text": "iPhone 16 Promax 256",
       "normalized": null,
       "target_id": "iphone_16_pro_max_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "iPhone 17 Promax 256GB",
-      "normalized": null,
-      "target_id": "iphone_17_256gb"
     }
   ],
   "semantic_rules": [],
