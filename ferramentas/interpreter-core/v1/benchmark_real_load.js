@@ -55,6 +55,7 @@ const coreBundle = interpretResolved({
 });
 
 const report = compareSemanticShadow({ legacy, coreBundle });
+const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
 const divergence = analyzeDivergences({ legacy, coreBundle });
 
 const summary = {
@@ -71,6 +72,8 @@ const summary = {
   missing_offers: report.metrics.missing_offers,
   extra_offers: report.metrics.extra_offers,
   agreement_ratio: report.metrics.agreement_ratio,
+  agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
+  exact_multiset_without_color: reportNoColor.gates.exact_multiset,
   no_silent_wrong_price: report.gates.no_silent_wrong_price,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
