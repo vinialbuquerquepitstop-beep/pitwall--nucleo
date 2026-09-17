@@ -121,6 +121,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     extra_model: 0
   };
 
+  const mismatchSignatures = {};
   const modelSummary = new Map();
   const touchModel = model => {
     if (!modelSummary.has(model)) {
@@ -153,6 +154,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     } else if (pair.diffs.length > 1) {
       categories.multi_field_mismatch += 1;
       row.field_mismatches += 1;
+      increment(mismatchSignatures, pair.diffs.slice().sort().join('+'));
     } else {
       categories.exact_matches += 1;
       row.exact += 1;
@@ -208,6 +210,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
       core_ambiguities: (coreBundle.ambiguities || []).length
     },
     categories,
+    mismatch_signatures: mismatchSignatures,
     ambiguities_by_cause: ambiguitiesByCause,
     ambiguities_by_field: ambiguitiesByField,
     top_model_gaps: topModelGaps
