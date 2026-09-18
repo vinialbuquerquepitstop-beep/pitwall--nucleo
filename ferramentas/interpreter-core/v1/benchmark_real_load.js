@@ -418,6 +418,44 @@ function unresolvedModelDiagnostics(bundle, knowledgeSnapshot) {
   };
 }
 
+function supplierBoundaryDiagnostics(bundle) {
+  const out = {
+    boundary_events: 0,
+    supplier_only_segments: 0,
+    with_model: 0,
+    with_price: 0,
+    with_condition: 0,
+    with_color: 0,
+    with_timestamp: 0,
+    by_supplier: {}
+  };
+
+  for (const segment of bundle.segments || []) {
+    const boundary = (segment.context_events || []).some(event => event.reason === 'supplier_boundary');
+    if (!boundary) continue;
+    out.boundary_events += 1;
+
+    const suppliers = distinctFieldValues(segment, 'supplier');
+    const supplier = suppliers.length === 1 ? JSON.parse(suppliers[0]) : '(ambiguous)';
+    out.by_supplier[supplier] = (out.by_supplier[supplier] || 0) + 1;
+
+    const hasModel = distinctFieldValues(segment, 'model').length > 0;
+    const hasPrice = distinctFieldValues(segment, 'price').length > 0;
+    const hasCondition = distinctFieldValues(segment, 'condition').length > 0;
+    const hasColor = distinctFieldValues(segment, 'color').length > 0;
+    const hasTimestamp = (segment.context_events || []).some(event => event.reason === 'timestamp_boundary');
+
+    if (hasModel) out.with_model += 1;
+    if (hasPrice) out.with_price += 1;
+    if (hasCondition) out.with_condition += 1;
+    if (hasColor) out.with_color += 1;
+    if (hasTimestamp) out.with_timestamp += 1;
+    if (!hasModel && !hasPrice && !hasCondition && !hasColor) out.supplier_only_segments += 1;
+  }
+
+  return out;
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -489,6 +527,7 @@ const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowled
 const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreBundle, knowledge);
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
+const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -516,7 +555,8 @@ const summary = {
   unresolved_model_diagnostic: unresolvedModelDiagnostic,
   relaxed_supported_header_diagnostic: relaxedSupportedHeaderDiagnostic,
   supported_block_diagnostic: supportedBlockDiagnostic,
-  ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic
+  ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
+  supplier_boundary_diagnostic: supplierBoundaryDiagnostic
 };
 
 const diagnostic = {
