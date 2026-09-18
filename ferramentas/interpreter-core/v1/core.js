@@ -719,9 +719,9 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
       let selected = selectUniqueCandidate(segment.field_candidates || [], field.name);
       let sourceType = 'direct';
       let sourceCandidate = selected.candidate;
+      const anchorCandidate = preferredCandidateFromAnchor(segmentsById, segment, field);
 
       if (selected.state === 'none') {
-        const anchorCandidate = preferredCandidateFromAnchor(segmentsById, segment, field);
         if (anchorCandidate) {
           sourceType = 'anchor_context';
           sourceCandidate = anchorCandidate;
@@ -734,6 +734,16 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
             score: entry.score,
             evidence: entry.evidence
           };
+        }
+      } else if (selected.state === 'unique' && anchorCandidate) {
+        const preferredValues = Array.isArray(field.prefer_from_anchor?.values)
+          ? field.prefer_from_anchor.values.map(normalizeKey)
+          : [];
+        const directIsPreferred = preferredValues.includes(normalizeKey(selected.candidate?.value));
+        if (!directIsPreferred) {
+          sourceType = 'anchor_context';
+          sourceCandidate = anchorCandidate;
+          selected = { state: 'unique', candidate: anchorCandidate, candidates: [anchorCandidate] };
         }
       }
 
