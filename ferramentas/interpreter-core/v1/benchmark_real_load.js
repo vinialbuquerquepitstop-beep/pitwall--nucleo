@@ -1623,6 +1623,94 @@ function priceSupplierResidualEvidenceDiagnostics(reportSupplierAware, bundle) {
 const priceSupplierResidualEvidenceDiagnostic =
   priceSupplierResidualEvidenceDiagnostics(reportSupplierAware, coreBundle);
 
+function supplierTraceSupportDiagnostics(legacyBundle, bundle) {
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+
+  const segments = bundle.segments || [];
+  const pathSignature = (fromLine, toLine) => {
+    const kinds = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return 'unknown';
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'supplier_boundary') kinds.add('supplier');
+        if (event.reason === 'timestamp_boundary') kinds.add('timestamp');
+        if (event.reason === 'domain_boundary') kinds.add('domain');
+      }
+    }
+    return kinds.size ? [...kinds].sort().join('+') : 'none';
+  };
+
+  const bucketDistance = distance => {
+    if (!Number.isFinite(distance)) return 'unknown';
+    if (distance <= 20) return '0-20';
+    if (distance <= 50) return '21-50';
+    if (distance <= 100) return '51-100';
+    if (distance <= 200) return '101-200';
+    if (distance <= 400) return '201-400';
+    return '401+';
+  };
+
+  const rows = {};
+  const bump = (status, signature) => {
+    if (!rows[signature]) rows[signature] = { supported: 0, surplus: 0 };
+    rows[signature][status] += 1;
+  };
+
+  for (const [key, records] of coreByKey.entries()) {
+    const supportedSlots = Math.min(legacyCounts.get(key) || 0, records.length);
+    for (let index = 0; index < records.length; index += 1) {
+      const record = records[index];
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const supplierTrace = (record.trace || []).find(item => item.field === 'supplier');
+      const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+        ? Number(priceTrace.sources[0])
+        : null;
+      const supplierLine = Array.isArray(supplierTrace?.sources) && supplierTrace.sources.length
+        ? Number(supplierTrace.sources[0])
+        : null;
+      const distance =
+        Number.isFinite(priceLine) && Number.isFinite(supplierLine)
+          ? Math.abs(priceLine - supplierLine)
+          : null;
+      const signature = [
+        'distance=' + bucketDistance(distance),
+        'boundaries=' + pathSignature(supplierLine, priceLine),
+        'supplier_rule=' + ((supplierTrace?.rules || []).join('+') || '(no-trace)')
+      ].join('|');
+      bump(index < supportedSlots ? 'supported' : 'surplus', signature);
+    }
+  }
+
+  return {
+    signatures: Object.entries(rows)
+      .sort((a, b) =>
+        (a[1].supported === 0 ? -1 : 1) - (b[1].supported === 0 ? -1 : 1) ||
+        b[1].surplus - a[1].surplus ||
+        b[1].supported - a[1].supported ||
+        a[0].localeCompare(b[0])
+      )
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const supplierTraceSupportDiagnostic =
+  supplierTraceSupportDiagnostics(legacySupplierAware, coreBundle);
+
 function sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -4449,6 +4537,7 @@ const summary = {
   source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
   price_supplier_residual_evidence_diagnostic: priceSupplierResidualEvidenceDiagnostic,
+  supplier_trace_support_diagnostic: supplierTraceSupportDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
   source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
