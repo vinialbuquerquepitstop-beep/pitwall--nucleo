@@ -2478,6 +2478,178 @@ function adjudicatedMixedPriceSupplierDiagnostics(reportSupplierAware, bundle) {
 const adjudicatedMixedPriceSupplierDiagnostic =
   adjudicatedMixedPriceSupplierDiagnostics(reportSupplierAware, coreBundle);
 
+function strongMixedResidualEvidenceDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const segments = bundle.segments || [];
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const diffFields = (a,b) =>
+    ['supplier','capacity','condition','color','price'].filter(field => a[field] !== b[field]);
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumed = new Map();
+
+  const sourceLine = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const traceRules = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.rules) ? trace.rules.map(String) : [];
+  };
+  const pathBoundaries = (fromLine,toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo=Math.min(fromLine,toLine), hi=Math.max(fromLine,toLine);
+    for(const segment of segments){
+      const line=Number(segment.line_number);
+      if(!(line>lo && line<=hi)) continue;
+      for(const event of segment.context_events||[]){
+        if(event.reason==='timestamp_boundary') out.add('timestamp');
+        if(event.reason==='domain_boundary') out.add('domain');
+        if(event.reason==='supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+  const fieldEvidenceLines = (field, expectedValue) => {
+    const canonical = value => {
+      if (field === 'condition') {
+        const map = schema.fields.find(f => f.name === 'condition')?.value_map || {};
+        return normalizeKey(map[value] || map[String(value)] || value) || null;
+      }
+      return normalizeKey(value) || null;
+    };
+    return segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === field &&
+        canonical(candidate.value) === canonical(expectedValue)
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+  const nearest = (lines,target) =>
+    lines.map(line=>({line,distance:Math.abs(target-line)}))
+      .sort((a,b)=>a.distance-b.distance || a.line-b.line)[0] || null;
+
+  let cases=0, fullySupportedCore=0, unresolvedCoreRecord=0;
+  const signatures={};
+
+  for(const miss of missing){
+    const expected=norm(miss);
+    let best=null;
+    for(let i=0;i<extras.length;i+=1){
+      if(usedExtra.has(i)) continue;
+      const actual=norm(extras[i]);
+      if(actual.model!==expected.model || actual.capacity!==expected.capacity) continue;
+      const diffs=diffFields(expected,actual);
+      if(diffs.length<3 || !diffs.includes('price') || !diffs.includes('supplier')) continue;
+      if(!best || diffs.length<best.diffs.length) best={index:i,diffs,actual};
+    }
+    if(!best) continue;
+    usedExtra.add(best.index);
+    cases+=1;
+
+    const extra=extras[best.index];
+    const key=offerKey(extra.fields||{}, {include_supplier:true});
+    const bucket=coreBuckets.get(key)||[];
+    const offset=consumed.get(key)||0;
+    const record=bucket[offset]||null;
+    consumed.set(key,offset+1);
+    if(!record){ unresolvedCoreRecord+=1; continue; }
+
+    const priceLine=sourceLine(record,'price');
+    const modelLine=sourceLine(record,'model');
+    const supplierLine=sourceLine(record,'supplier');
+    if(!Number.isFinite(priceLine)){ unresolvedCoreRecord+=1; continue; }
+
+    const modelPath=pathBoundaries(modelLine,priceLine);
+    const supplierPath=pathBoundaries(supplierLine,priceLine);
+    const priceDirect=traceRules(record,'price').includes('direct_extraction');
+    const modelLocal=Number.isFinite(modelLine) &&
+      Math.abs(priceLine-modelLine)<=6 &&
+      !modelPath.has('domain') && !modelPath.has('supplier') && !modelPath.has('timestamp');
+    const supplierLocal=Number.isFinite(supplierLine) &&
+      !supplierPath.has('supplier') && !supplierPath.has('timestamp');
+
+    let differingOptionalFieldsSupported=true;
+    const optionalEvidenceParts=[];
+    for(const field of ['color','condition']){
+      if(!best.diffs.includes(field)) continue;
+      const actualLine=sourceLine(record,field);
+      const maxDistance=field==='color'?3:6;
+      const actualPath=pathBoundaries(actualLine,priceLine);
+      const actualLocal=Number.isFinite(actualLine) &&
+        Math.abs(priceLine-actualLine)<=maxDistance &&
+        !actualPath.has('domain') && !actualPath.has('supplier') && !actualPath.has('timestamp');
+
+      const expectedNearest=nearest(fieldEvidenceLines(field,expected[field]),priceLine);
+      const expectedPath=pathBoundaries(expectedNearest?.line,priceLine);
+      const expectedUnsupported=!expectedNearest ||
+        expectedNearest.distance>maxDistance ||
+        expectedPath.has('domain') || expectedPath.has('supplier') || expectedPath.has('timestamp');
+
+      if(!(actualLocal && expectedUnsupported)) differingOptionalFieldsSupported=false;
+      optionalEvidenceParts.push(
+        field +
+        ':core_local='+(actualLocal?'yes':'no') +
+        ':legacy_local='+(expectedUnsupported?'no':'yes')
+      );
+    }
+
+    const qualifies=priceDirect && modelLocal && supplierLocal && differingOptionalFieldsSupported;
+    if(qualifies) fullySupportedCore+=1;
+
+    const sig=[
+      'diffs='+best.diffs.slice().sort().join('+'),
+      'price_direct='+(priceDirect?'yes':'no'),
+      'model_local='+(modelLocal?'yes':'no'),
+      'supplier_local='+(supplierLocal?'yes':'no'),
+      ...optionalEvidenceParts,
+      'full_core_evidence='+(qualifies?'yes':'no')
+    ].join('|');
+    signatures[sig]=(signatures[sig]||0)+1;
+  }
+
+  return {
+    mixed_residuals: cases,
+    fully_source_supported_core_mixed_pairs: fullySupportedCore,
+    not_fully_supported_mixed_pairs: cases-fullySupportedCore,
+    unresolved_core_record: unresolvedCoreRecord,
+    status: 'diagnostic_only_not_promotion_counted',
+    signatures:Object.entries(signatures)
+      .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc,[k,v])=>{acc[k]=v; return acc;},{})
+  };
+}
+
+const strongMixedResidualEvidenceDiagnostic =
+  strongMixedResidualEvidenceDiagnostics(reportSupplierAware, coreBundle);
+
 function mixedResidualOverlapCoverageDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -5896,6 +6068,7 @@ const summary = {
   source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
   mixed_price_supplier_evidence_diagnostic: mixedPriceSupplierEvidenceDiagnostic,
   adjudicated_mixed_price_supplier_diagnostic: adjudicatedMixedPriceSupplierDiagnostic,
+  strong_mixed_residual_evidence_diagnostic: strongMixedResidualEvidenceDiagnostic,
   mixed_residual_overlap_coverage_diagnostic: mixedResidualOverlapCoverageDiagnostic,
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
