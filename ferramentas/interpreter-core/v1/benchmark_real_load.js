@@ -2921,6 +2921,51 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
 }
 
 
+
+function whatIfResetConditionOnProductHeader(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+  const boundary = (candidateSchema.context_policy?.structural_boundaries || [])
+    .find(item => item?.id === 'iphone_product_header_v1');
+  if (!boundary) throw new Error('what-if reset condition: product header boundary ausente');
+  const reset = new Set(Array.isArray(boundary.reset_fields) ? boundary.reset_fields : []);
+  reset.add('condition');
+  boundary.reset_fields = [...reset];
+
+  const candidateBundle = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'real-load-shadow-what-if-reset-condition-on-product-header',
+      content: rawDocument,
+      source: { kind: 'plain_text' }
+    },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+  const report = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const reportNoColor = compareSemanticShadow({
+    legacy: legacyBundle,
+    coreBundle: candidateBundle,
+    options: { include_color: false }
+  });
+  const divergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+  return {
+    candidate: 'reset_condition_on_every_product_header',
+    metrics: {
+      core_offers: report.metrics.core_offers,
+      matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers,
+      extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio,
+      agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
+      no_silent_wrong_price: report.gates.no_silent_wrong_price,
+      exact_multiset: report.gates.exact_multiset
+    },
+    divergence_categories: divergence.categories,
+    top_model_gaps: divergence.top_model_gaps
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -3101,6 +3146,9 @@ const whatIfRelaxedColorSourceOnlyDiagnostic = whatIfRelaxedColorSourceOnly(
 const confirmedWrongPriceRecordDiagnostic = confirmedWrongPriceRecordDiagnostics(
   canonicalReferenceReport, canonicalReference.legacy, coreBundle
 );
+const whatIfResetConditionOnProductHeaderDiagnostic = whatIfResetConditionOnProductHeader(
+  raw, schema, knowledge, canonicalReference.legacy
+);
 const multiPriceNearestFallbackRiskDiagnostic = multiPriceNearestFallbackRiskDiagnostics(coreBundle);
 
 const summary = {
@@ -3188,6 +3236,7 @@ const summary = {
   what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
   confirmed_wrong_price_record_diagnostic: confirmedWrongPriceRecordDiagnostic,
+  what_if_reset_condition_on_product_header: whatIfResetConditionOnProductHeaderDiagnostic,
   what_if_supplemental_adjacent_forward_product_header:
     whatIfSupplementalAdjacentForwardProductHeaderDiagnostic,
   what_if_relaxed_color_source_only: whatIfRelaxedColorSourceOnlyDiagnostic,
