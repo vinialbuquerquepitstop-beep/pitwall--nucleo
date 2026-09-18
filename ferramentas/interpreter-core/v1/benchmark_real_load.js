@@ -2659,7 +2659,23 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
             event_reasons: [...new Set((segment.context_events || []).map(event => event.reason).filter(Boolean))].sort(),
             price_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'price').length,
             color_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'color').length,
-            condition_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'condition').length
+            condition_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'condition').length,
+            lexical_shape: {
+              char_count: String(segment.normalized || '').length,
+              numeric_run_count: (String(segment.normalized || '').match(/\d[\d.,]*/g) || []).length,
+              alpha_run_count: (String(segment.normalized || '').match(/[A-Za-zÀ-ÿ]+/g) || []).length,
+              has_percent_marker: /%/.test(String(segment.normalized || '')),
+              has_currency_marker: /(?:R\$|US\$|\$|€|£)/i.test(String(segment.normalized || ''))
+            },
+            price_evidence: (segment.field_candidates || [])
+              .filter(candidate => candidate.field === 'price')
+              .map(candidate => ({
+                evidence_kind: candidate.evidence?.kind || null,
+                extractor_id: candidate.evidence?.extractor_id || null,
+                match_mode: candidate.evidence?.match_mode || null,
+                occurrence: candidate.evidence?.occurrence ?? null,
+                match_index: candidate.evidence?.match_index ?? null
+              }))
           };
         });
 
