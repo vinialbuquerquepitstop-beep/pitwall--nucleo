@@ -1055,6 +1055,104 @@ function missing17_512AnchorTopologyDiagnostics(reportSupplierAware, bundle) {
 const missing17_512AnchorTopologyDiagnostic =
   missing17_512AnchorTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function missing17_512AnchorShapeDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  ).filter(item => item.fields?.model?.id === 'iphone_17_512gb');
+
+  const segments = bundle.segments || [];
+  const signatures = {};
+  let cases = 0;
+  let anchorsInspected = 0;
+  let anchorsResolvingExpected = 0;
+  let anchorsResolvingOtherSupported = 0;
+  let anchorsUnresolved = 0;
+
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+
+  for (const item of missing) {
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!Number.isFinite(price)) continue;
+
+    const priceSegments = segments.filter(segment =>
+      supplierAt(segment) === supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === price
+      )
+    );
+
+    for (const priceSegment of priceSegments) {
+      cases += 1;
+      const priceLine = Number(priceSegment.line_number);
+      const anchors = segments
+        .filter(segment =>
+          Number(segment.line_number) < priceLine &&
+          (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+        )
+        .sort((a, b) => Number(b.line_number) - Number(a.line_number))
+        .slice(0, 4);
+
+      const anchorStates = [];
+      for (const segment of anchors) {
+        anchorsInspected += 1;
+        const directModels = (segment.field_candidates || [])
+          .filter(candidate => candidate.field === 'model');
+        const semantic = (segment.semantic_candidates || [])
+          .filter(candidate => candidate.field === 'model');
+
+        const semanticIds = [...new Set(
+          semantic.filter(candidate => candidate.entity_id).map(candidate => candidate.entity_id)
+        )].sort();
+        if (semanticIds.includes('iphone_17_512gb')) anchorsResolvingExpected += 1;
+        else if (semanticIds.length) anchorsResolvingOtherSupported += 1;
+        else anchorsUnresolved += 1;
+
+        const candidateShapes = [...new Set(
+          directModels.map(candidate => iphoneModelShape(candidate.value) || 'unclassified')
+        )].sort();
+        const semanticStates = [...new Set(
+          semantic.map(candidate => candidate.state || 'unknown')
+        )].sort();
+
+        anchorStates.push([
+          'd=' + (priceLine - Number(segment.line_number)),
+          'candidate_shapes=' + (candidateShapes.join(',') || 'none'),
+          'semantic_states=' + (semanticStates.join(',') || 'none'),
+          'semantic_ids=' + (semanticIds.join(',') || 'none')
+        ].join('|'));
+      }
+
+      const signature = anchorStates.join(' || ') || 'none';
+      signatures[signature] = (signatures[signature] || 0) + 1;
+    }
+  }
+
+  return {
+    cases,
+    anchors_inspected: anchorsInspected,
+    anchors_resolving_expected_17_512: anchorsResolvingExpected,
+    anchors_resolving_other_supported: anchorsResolvingOtherSupported,
+    anchors_unresolved: anchorsUnresolved,
+    signatures
+  };
+}
+
+const missing17_512AnchorShapeDiagnostic =
+  missing17_512AnchorShapeDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3218,6 +3316,7 @@ const summary = {
   missing_only_model_anchor_evidence_diagnostic: missingOnlyModelAnchorEvidenceDiagnostic,
   missing_17_512_composition_diagnostic: missing17_512CompositionDiagnostic,
   missing_17_512_anchor_topology_diagnostic: missing17_512AnchorTopologyDiagnostic,
+  missing_17_512_anchor_shape_diagnostic: missing17_512AnchorShapeDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
