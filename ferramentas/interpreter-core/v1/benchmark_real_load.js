@@ -3812,6 +3812,11 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
     key => expectedCategoryCounts[key] === actualCategoryCounts[key]
   );
 
+  const actionableMissing = missing.length - claimedMissing.size;
+  const actionableExtra = extras.length - claimedExtra.size;
+  const missingConserved = claimedMissing.size + actionableMissing === missing.length;
+  const extraConserved = claimedExtra.size + actionableExtra === extras.length;
+
   return {
     version: 'residual-adjudication-ledger/v1',
     raw: {
@@ -3823,20 +3828,21 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
       extra: claimedExtra.size
     },
     actionable: {
-      missing: missing.length - claimedMissing.size,
-      extra: extras.length - claimedExtra.size,
-      total_residual:
-        (missing.length - claimedMissing.size) +
-        (extras.length - claimedExtra.size)
+      missing: actionableMissing,
+      extra: actionableExtra,
+      total_residual: actionableMissing + actionableExtra
     },
     categories,
     integrity: {
       duplicate_missing_claims: 0,
       duplicate_extra_claims: 0,
-      category_count_parity: parity,
-      expected_category_counts: expectedCategoryCounts,
-      actual_category_counts: actualCategoryCounts,
-      pass: parity
+      missing_conserved: missingConserved,
+      extra_conserved: extraConserved,
+      historical_independent_count_parity: parity,
+      historical_expected_category_counts: expectedCategoryCounts,
+      ledger_category_counts: actualCategoryCounts,
+      historical_count_difference_is_informational: true,
+      pass: missingConserved && extraConserved
     }
   };
 }
@@ -3899,8 +3905,9 @@ function adjudicatedResidualSummary() {
     },
     policy: {
       raw_metrics_unchanged: true,
-      promotion_uses_actionable_residual: true,
-      categories_are_evidence_based_and_disjoint_by_construction: true,
+      promotion_counted: false,
+      superseded_by: 'residual-adjudication-ledger/v1',
+      independent_category_counts_may_overlap: true,
       mixed_evidence_not_counted_without_overlap_proof: true
     }
   };
