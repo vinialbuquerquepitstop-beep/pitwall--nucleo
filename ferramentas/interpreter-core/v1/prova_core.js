@@ -230,4 +230,36 @@ check('boundary configurada pode ceder ao anchor valido', () => {
   assert.strictEqual(segments[2].inherited_context.capacity.value, 256);
 });
 
+
+check('boundary pode preservar campos declarados', () => {
+  const schema = JSON.parse(JSON.stringify(genericSchema));
+  schema.fields.push({
+    name: '_section_boundary',
+    type: 'string',
+    required: false,
+    context_inheritable: false,
+    context_anchor: false,
+    context_boundary: true,
+    preserve_fields: ['capacity'],
+    extractors: [{
+      kind: 'regex',
+      pattern: '^SECTION,
+      flags: 'i',
+      group: 0,
+      transform: 'trim',
+      score: 1
+    }]
+  });
+
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-boundary-preserve', '256GB\nSECTION\n6999')),
+    schema
+  );
+
+  assert.ok(segments[1].context_events.some(e => e.reason === 'domain_boundary'));
+  assert.deepStrictEqual(segments[1].context_events[0].preserved_fields, ['capacity']);
+  assert.strictEqual(segments[1].context_after.capacity.value, 256);
+  assert.strictEqual(segments[2].inherited_context.capacity.value, 256);
+});
+
 console.log(`PASSOU: ${ok} assercoes`);
