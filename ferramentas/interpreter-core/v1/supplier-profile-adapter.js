@@ -125,6 +125,18 @@ function applySupplierProfiles(schema, input) {
   out.fields = out.fields.filter(field => field.name !== 'supplier');
   out.fields.unshift(supplierField);
 
+  out.fields = out.fields.map(field => {
+    if (field.name === 'supplier' || field.context_boundary !== true) return field;
+    const preserveFields = new Set(
+      Array.isArray(field.preserve_fields) ? field.preserve_fields : []
+    );
+    preserveFields.add('supplier');
+    return {
+      ...field,
+      preserve_fields: Array.from(preserveFields)
+    };
+  });
+
   out.context_policy = out.context_policy || {};
   const preserve = new Set(
     Array.isArray(out.context_policy.preserve_on_anchor)
