@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.6",
+  "schema_version": "0.9.0-model-shorthand-shadow",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -35,6 +35,15 @@
           "group": 1,
           "transform": "trim",
           "score": 0.95
+        },
+        {
+          "id": "supported_shorthand_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}((?:13\\s+Pro\\s+128|15\\s+128|16e\\s+128|16\\s+128|16\\s+256|16\\s+Pro\\s+256|16\\s+Pro\\s+Max\\s+256|17e\\s+256|17\\s+Air\\s+256|17\\s+256|17\\s+512)\\s*(?:GB)?)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.91
         }
       ]
     },
@@ -332,6 +341,11 @@
       "safety": "equal-count color-only blocks pair by order; count-mismatch fallback requires a uniquely nearest bare price within 3 lines; ties or distance >= 4 abstain",
       "fallback": "when row counts differ, a color-only row may pair only to a uniquely nearest bare-price row; distance ties abstain",
       "fallback_max_distance": 3
+    },
+    "supported_model_shorthand": {
+      "source": "relaxed_supported_header_diagnostic",
+      "rule": "start-of-line shorthand only for model/capacity shapes already supported by Apple V0",
+      "safety": "unsupported shapes remain unresolved; regular iPhone extractors keep higher score"
     }
   }
 }
