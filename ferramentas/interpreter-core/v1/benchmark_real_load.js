@@ -2892,6 +2892,23 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
         };
       };
 
+      const conditionLine = sourceLines('condition')[0] ?? null;
+      const pathStart = conditionLine == null || priceLine == null
+        ? null
+        : Math.max(0, segments.findIndex(item => Number(item.line_number) === conditionLine));
+      const pathEnd = priceLine == null
+        ? null
+        : segments.findIndex(item => Number(item.line_number) === priceLine);
+      const contextPath = pathStart == null || pathEnd == null || pathStart < 0 || pathEnd < 0
+        ? []
+        : segments.slice(pathStart, pathEnd + 1).map(item => ({
+            line: item.line_number,
+            role: item.role_candidates?.[0]?.role || null,
+            reason: item.role_candidates?.[0]?.reason || null,
+            fields: [...new Set((item.field_candidates || []).map(candidate => candidate.field))].sort(),
+            event_reasons: [...new Set((item.context_events || []).map(event => event.reason).filter(Boolean))].sort()
+          }));
+
       rows.push({
         record_id: record.record_id,
         identity,
@@ -2908,7 +2925,8 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
         inherited_model_source_line: segment?.inherited_context?.model?.source_line ?? null,
         inherited_condition_source_line: segment?.inherited_context?.condition?.source_line ?? null,
         previous_segment: neighbor(-1),
-        next_segment: neighbor(1)
+        next_segment: neighbor(1),
+        context_path: contextPath
       });
     }
   }
