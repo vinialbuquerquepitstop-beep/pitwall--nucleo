@@ -1070,6 +1070,9 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
   const residualDiffsById = new Map(
     (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair.diffs])
   );
+  const residualPairById = new Map(
+    (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair])
+  );
   const unpairedIds = new Set((residualPairs.unpairedCore || []).map(offer => offer.core_record_id));
 
   const addedRecords = candidateCoreOffers
