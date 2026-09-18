@@ -171,6 +171,43 @@ check('cores Lavanda e Laranja entram como cores de dominio', () => {
   assert.strictEqual(laranja.records[0].fields.color, 'Laranja');
 });
 
+check('Offer Expansion V1.1 expande cores em linha anterior ao preco', () => {
+  const result = run(
+    'apple-expansion-block',
+    'iPhone 17 256GB Lacrado\nPreto Azul\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.deepStrictEqual(
+    result.records.map(r => r.fields.color).sort(),
+    ['Azul', 'Preto']
+  );
+  assert.ok(result.records.every(r => r.fields.price === 5299));
+  assert.ok(result.records.every(r =>
+    r.trace.some(t => t.field === 'color' && t.rules.includes('record_expansion:block_inheritance'))
+  ));
+});
+
+check('Offer Expansion V1.1 para no preco anterior e nao mistura ofertas', () => {
+  const result = run(
+    'apple-expansion-stop-price',
+    'iPhone 17 256GB Lacrado\nPreto\nR$ 5.299\nAzul\nR$ 5.399'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.deepStrictEqual(
+    result.records.map(r => [r.fields.color, r.fields.price]),
+    [['Preto', 5299], ['Azul', 5399]]
+  );
+});
+
+check('Offer Expansion V1.1 nao atravessa timestamp', () => {
+  const result = run(
+    'apple-expansion-stop-timestamp',
+    'iPhone 17 256GB Lacrado\nPreto\n[17/09/2026, 10:30] Nova mensagem\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(a => a.field === 'model' && a.cause === 'required_field_missing'));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
