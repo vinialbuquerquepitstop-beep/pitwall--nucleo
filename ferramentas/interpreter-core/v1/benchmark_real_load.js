@@ -2001,6 +2001,135 @@ function sourceSupportedCoreOnlyEOfferDiagnostics(bundle) {
 const sourceSupportedCoreOnlyEOfferDiagnostic =
   sourceSupportedCoreOnlyEOfferDiagnostics(coreBundle);
 
+function sourceSupportedCoreOnlyFullOfferDiagnostics(bundle) {
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+
+  const segments = bundle.segments || [];
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
+  const sourceLine = (record, field) => {
+    const trace = (record.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const boundariesBetween = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+  const localField = (record, field, priceLine, maxDistance) => {
+    if (record.fields?.[field] == null) return true;
+    const line = sourceLine(record, field);
+    if (!Number.isFinite(line)) return false;
+    const boundaries = boundariesBetween(line, priceLine);
+    return Math.abs(priceLine - line) <= maxDistance &&
+      !boundaries.has('domain') &&
+      !boundaries.has('supplier') &&
+      !boundaries.has('timestamp');
+  };
+  const modelSemanticallySupportsRecord = (record, priceLine) => {
+    const modelLine = sourceLine(record, 'model');
+    if (!Number.isFinite(modelLine) || Math.abs(priceLine - modelLine) > 6) return false;
+    const modelSegment = segmentByLine.get(modelLine);
+    const modelId = record.fields?.model?.id || null;
+    if (!modelSegment || !modelId) return false;
+    return (modelSegment.semantic_candidates || []).some(candidate =>
+      candidate.field === 'model' &&
+      candidate.entity_id === modelId &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred')
+    );
+  };
+
+  let surplusCases = 0;
+  let fullyLocal = 0;
+  const byModel = {};
+  const signatures = {};
+
+  for (const [key, records] of coreByKey.entries()) {
+    const supportedSlots = Math.min(legacyCounts.get(key) || 0, records.length);
+    for (let index = supportedSlots; index < records.length; index += 1) {
+      const record = records[index];
+      surplusCases += 1;
+      const modelId = record.fields?.model?.id || '(unknown)';
+      if (!byModel[modelId]) byModel[modelId] = { surplus: 0, fully_local: 0 };
+      byModel[modelId].surplus += 1;
+
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const priceLine = sourceLine(record, 'price');
+      const supplierLine = sourceLine(record, 'supplier');
+      const supplierBoundaries = boundariesBetween(supplierLine, priceLine);
+      const priceLocal =
+        Number.isFinite(priceLine) &&
+        (priceTrace?.rules || []).includes('direct_extraction');
+      const modelLocal =
+        priceLocal &&
+        modelSemanticallySupportsRecord(record, priceLine) &&
+        localField(record, 'model', priceLine, 6);
+      const colorLocal = priceLocal && localField(record, 'color', priceLine, 3);
+      const conditionLocal = priceLocal && localField(record, 'condition', priceLine, 6);
+      const supplierLocal =
+        priceLocal &&
+        Number.isFinite(supplierLine) &&
+        !supplierBoundaries.has('supplier') &&
+        !supplierBoundaries.has('timestamp');
+
+      const qualifies =
+        priceLocal && modelLocal && colorLocal && conditionLocal && supplierLocal;
+      if (qualifies) {
+        fullyLocal += 1;
+        byModel[modelId].fully_local += 1;
+      }
+
+      const signature = [
+        'price=' + (priceLocal ? 'local' : 'nonlocal'),
+        'model=' + (modelLocal ? 'local' : 'nonlocal'),
+        'color=' + (colorLocal ? 'local_or_absent' : 'nonlocal'),
+        'condition=' + (conditionLocal ? 'local_or_absent' : 'nonlocal'),
+        'supplier=' + (supplierLocal ? 'local' : 'nonlocal'),
+        'full_local=' + (qualifies ? 'yes' : 'no')
+      ].join('|');
+      signatures[signature] = (signatures[signature] || 0) + 1;
+    }
+  }
+
+  return {
+    surplus_cases: surplusCases,
+    fully_local_core_only_offers: fullyLocal,
+    remaining_not_fully_local: surplusCases - fullyLocal,
+    by_model: byModel,
+    signatures: Object.entries(signatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const sourceSupportedCoreOnlyFullOfferDiagnostic =
+  sourceSupportedCoreOnlyFullOfferDiagnostics(coreBundle);
+
 function sourceUnsupportedLegacyPureConditionDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -6085,6 +6214,7 @@ const summary = {
   supplier_trace_support_diagnostic: supplierTraceSupportDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
+  source_supported_core_only_full_offer_diagnostic: sourceSupportedCoreOnlyFullOfferDiagnostic,
   source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
   mixed_price_supplier_evidence_diagnostic: mixedPriceSupplierEvidenceDiagnostic,
   adjudicated_mixed_price_supplier_diagnostic: adjudicatedMixedPriceSupplierDiagnostic,
