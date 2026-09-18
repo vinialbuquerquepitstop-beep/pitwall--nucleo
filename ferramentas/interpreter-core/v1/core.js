@@ -223,6 +223,7 @@ function extractFieldCandidates(segment, schema = {}) {
             evidence: {
               kind: 'regex',
               pattern: extractor.pattern,
+              extractor_id: extractor.id || null,
               match_mode: matchMode,
               occurrence: occurrence + 1,
               match_index: match.index,
@@ -502,10 +503,18 @@ function applyOrderedFieldPairing(segments, schema = {}) {
 
   const blocks = [];
   let blockStart = null;
+  let blockAnchorExtractorId = null;
 
   const closeBlock = end => {
-    if (blockStart != null && end > blockStart) blocks.push([blockStart, end]);
+    if (blockStart != null && end > blockStart) {
+      blocks.push({
+        start: blockStart,
+        end,
+        anchor_extractor_id: blockAnchorExtractorId
+      });
+    }
     blockStart = null;
+    blockAnchorExtractorId = null;
   };
 
   for (let index = 0; index < out.length; index += 1) {
@@ -515,12 +524,14 @@ function applyOrderedFieldPairing(segments, schema = {}) {
     );
     if (hardBoundary) closeBlock(index);
 
-    const hasAnchor = [...anchorNames].some(name =>
-      uniqueFieldCandidates(segment.field_candidates || [], name).length > 0
+    const anchorCandidates = (segment.field_candidates || []).filter(candidate =>
+      anchorNames.has(candidate.field)
     );
-    if (hasAnchor) {
+    if (anchorCandidates.length > 0) {
       closeBlock(index);
       blockStart = index;
+      blockAnchorExtractorId =
+        anchorCandidates.find(candidate => candidate.evidence?.extractor_id)?.evidence?.extractor_id || null;
     }
   }
   closeBlock(out.length);
@@ -532,7 +543,8 @@ function applyOrderedFieldPairing(segments, schema = {}) {
     const triggerField = policy?.field;
     if (!triggerField) continue;
 
-    for (const [start, end] of blocks) {
+    for (const block of blocks) {
+      const { start, end } = block;
       const sources = [];
       const targets = [];
 
@@ -595,8 +607,13 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
         if (!ranked.length) continue;
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
-        if (Number.isFinite(Number(policy.fallback_max_distance))
-            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
+        const perExtractor = policy.fallback_max_distance_by_anchor_extractor || {};
+        const scopedMaxDistance =
+          block.anchor_extractor_id && perExtractor[block.anchor_extractor_id] != null
+            ? Number(perExtractor[block.anchor_extractor_id])
+            : Number(policy.fallback_max_distance);
+        if (Number.isFinite(scopedMaxDistance)
+            && ranked[0].distance > scopedMaxDistance) continue;
         appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
