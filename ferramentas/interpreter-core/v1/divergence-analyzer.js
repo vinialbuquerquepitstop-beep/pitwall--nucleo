@@ -3,7 +3,7 @@
 const { canonicalCondition } = require('./semantic-shadow');
 const { normalizeKey } = require('./core');
 
-const ANALYZER_VERSION = 'divergence-analyzer/0.2.0';
+const ANALYZER_VERSION = 'divergence-analyzer/0.3.0';
 
 function normFields(offer) {
   const f = offer?.fields || {};
@@ -126,6 +126,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
   const conditionPairProvenance = {};
   const conditionScopeDiagnostics = {};
   const wrongPriceDiagnostics = {};
+  const multiMismatchDiagnostics = {};
   const modelSummary = new Map();
   const touchModel = model => {
     if (!modelSummary.has(model)) {
@@ -215,7 +216,29 @@ function analyzeDivergences({ legacy, coreBundle }) {
     } else if (pair.diffs.length > 1) {
       categories.multi_field_mismatch += 1;
       row.field_mismatches += 1;
-      increment(mismatchSignatures, pair.diffs.slice().sort().join('+'));
+      const signature = pair.diffs.slice().sort().join('+');
+      increment(mismatchSignatures, signature);
+
+      const legacyNorm = normFields(pair.legacy);
+      const coreNorm = normFields(pair.core);
+      const colorTrace = (pair.core.trace || []).find(trace => trace.field === 'color');
+      const conditionTrace = (pair.core.trace || []).find(trace => trace.field === 'condition');
+      const priceTrace = (pair.core.trace || []).find(trace => trace.field === 'price');
+      const colorRule = Array.isArray(colorTrace?.rules) && colorTrace.rules.length
+        ? colorTrace.rules.join('+')
+        : '(no-color-trace)';
+      const conditionRule = Array.isArray(conditionTrace?.rules) && conditionTrace.rules.length
+        ? conditionTrace.rules.join('+')
+        : '(no-condition-trace)';
+      const priceRule = Array.isArray(priceTrace?.rules) && priceTrace.rules.length
+        ? priceTrace.rules.join('+')
+        : '(no-price-trace)';
+      const conditionPair = `${legacyNorm.condition ?? '(null)'}->${coreNorm.condition ?? '(null)'}`;
+
+      increment(
+        multiMismatchDiagnostics,
+        `${model} | ${signature} | condition=${conditionPair} | color_rule=${colorRule} | condition_rule=${conditionRule} | price_rule=${priceRule}`
+      );
     } else {
       categories.exact_matches += 1;
       row.exact += 1;
@@ -276,6 +299,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     condition_pair_provenance: conditionPairProvenance,
     condition_scope_diagnostics: conditionScopeDiagnostics,
     wrong_price_diagnostics: wrongPriceDiagnostics,
+    multi_mismatch_diagnostics: multiMismatchDiagnostics,
     ambiguities_by_cause: ambiguitiesByCause,
     ambiguities_by_field: ambiguitiesByField,
     top_model_gaps: topModelGaps
