@@ -31,23 +31,5 @@ jobs:
       - name: Runtime
         run: node --version
 
-      - name: Core proof
-        run: node ferramentas/interpreter-core/v1/prova_core.js
-
-      - name: CLI independent proof
-        run: node ferramentas/interpreter-core/v1/prova_cli.js
-
-      - name: Apple domain proof
-        run: node ferramentas/interpreter-core/v1/prova_apple_domain.js
-
-      - name: Shadow comparator proof
-        run: node ferramentas/interpreter-core/v1/prova_shadow_comparator.js
-
-      - name: Divergence analyzer proof
-        run: node ferramentas/interpreter-core/v1/prova_divergence_analyzer.js
-
-      - name: Offer Expansion V1 proof
-        run: node ferramentas/interpreter-core/v1/prova_offer_expansion_v1.js
-
-      - name: Real Shadow semantic proof
-        run: node ferramentas/interpreter-core/v1/prova_real_shadow_semantic.js
+      - name: Interpreter Ready local gate
+        run: node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js
