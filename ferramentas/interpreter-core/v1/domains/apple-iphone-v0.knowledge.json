@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.7.1-low-risk-shorthand",
+  "version": "0.7.3",
   "created_at": null,
   "entities": [
     {
@@ -262,15 +262,16 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "supported_header_shorthand": {
-      "source": "run103 per-model missing/extra ablation",
-      "allowlist": [
+      "source": "run102 per-model ablation",
+      "mode": "productive-only",
+      "enabled_models": [
         "iphone_13_pro_128gb",
         "iphone_16_256gb",
         "iphone_16_pro_256gb",
         "iphone_17_air_256gb",
+        "iphone_17_256gb",
         "iphone_17_512gb"
-      ],
-      "policy": "keep shorthand aliases only for zero-extra models"
+      ]
     }
   }
 }
