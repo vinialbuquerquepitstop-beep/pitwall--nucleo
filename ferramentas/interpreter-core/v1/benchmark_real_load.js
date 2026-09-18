@@ -4657,6 +4657,22 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         : sourceModelIds.includes(recordModelId)
           ? 'yes'
           : 'no';
+    const modelGeneration = modelId => {
+      const match = /^iphone_(\d+)/.exec(String(modelId || ''));
+      return match ? match[1] : null;
+    };
+    const targetGeneration = modelGeneration(recordModelId);
+    const sourceGenerations = [...new Set(
+      sourceModelIds.map(modelGeneration).filter(Boolean)
+    )];
+    const sourceGenerationMatch =
+      sourceGenerations.length === 0 || targetGeneration == null
+        ? 'none'
+        : sourceGenerations.every(value => value === targetGeneration)
+          ? 'yes'
+          : sourceGenerations.every(value => value !== targetGeneration)
+            ? 'no'
+            : 'mixed';
     const conditionSourceSupplier = conditionSourceSegment
       ? supplierAt(conditionSourceSegment)
       : null;
@@ -4673,6 +4689,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       'source_role=' + conditionSourceRole,
       'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
       'source_model_match=' + sourceModelMatch,
+      'source_generation_match=' + sourceGenerationMatch,
       'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
       'source_supplier_match=' + sourceSupplierMatch,
       'distance=' + (distance ?? 'none'),
@@ -5233,6 +5250,22 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
           : sourceModelIds.includes(model)
             ? 'yes'
             : 'no';
+      const modelGeneration = modelId => {
+        const match = /^iphone_(\d+)/.exec(String(modelId || ''));
+        return match ? match[1] : null;
+      };
+      const targetGeneration = modelGeneration(model);
+      const sourceGenerations = [...new Set(
+        sourceModelIds.map(modelGeneration).filter(Boolean)
+      )];
+      const sourceGenerationMatch =
+        sourceGenerations.length === 0 || targetGeneration == null
+          ? 'none'
+          : sourceGenerations.every(value => value === targetGeneration)
+            ? 'yes'
+            : sourceGenerations.every(value => value !== targetGeneration)
+              ? 'no'
+              : 'mixed';
       const directSourceSuppliers = [...new Set(
         (conditionSourceSegment?.field_candidates || [])
           .filter(candidate => candidate.field === 'supplier')
@@ -5255,6 +5288,7 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
         'source_role=' + conditionSourceRole,
         'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
         'source_model_match=' + sourceModelMatch,
+        'source_generation_match=' + sourceGenerationMatch,
         'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
         'source_supplier_match=' + sourceSupplierMatch,
         'distance=' + distanceBucket(distance),
@@ -5266,6 +5300,7 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
         'condition=' + condition,
         'source_role=' + conditionSourceRole,
         'source_model_match=' + sourceModelMatch,
+        'source_generation_match=' + sourceGenerationMatch,
         'source_supplier_match=' + sourceSupplierMatch,
         'distance=' + distanceBucket(distance),
         'anchors=' + anchorBucket(path.model_anchors),
