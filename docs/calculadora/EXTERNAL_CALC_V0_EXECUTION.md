@@ -175,3 +175,15 @@ Human-Approval: pedido explícito para iniciar o processo External Calc
 - `main` não alterada
 - banco/produção não alterados
 - próximo gate: prova automatizada do baseline
+
+
+## Auditoria CI isolada
+
+Branch-base de auditoria:
+`audit/external-calc-baseline-r2`
+
+PR de auditoria:
+`#7 — External Calc V0 — baseline e gate inicial`
+
+Finalidade:
+executar as provas locais do Interpreter Core em GitHub Actions sem depender de banco, secrets, dados reais, produção ou `main`.
