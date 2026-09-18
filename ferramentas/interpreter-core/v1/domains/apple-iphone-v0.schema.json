@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.0",
+  "schema_version": "0.8.7",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -222,6 +222,9 @@
     "anchor_resets_other_context": true,
     "preserve_on_anchor": [
       "condition"
+    ],
+    "preserve_on_timestamp": [
+      "condition"
     ]
   },
   "metadata": {
@@ -346,6 +349,11 @@
       "rule": "all shorthand iPhone-like model headers open a model anchor; only explicit V0 aliases resolve, unsupported shorthand remains unresolved and blocks context inheritance",
       "source": "real-load relaxed-header diagnostic + legacy modelo_desconhecido boundary behavior",
       "safety": "unsupported shorthand resets model context instead of inheriting the prior supported model"
+    },
+    "condition_timestamp_scope": {
+      "source": "supabase/migrations/20260911_calc_parse_condicao_e_cabecalho.sql",
+      "rule": "timestamp/message boundary resets model context but preserves last declared condition; supplier boundary remains the semantic reset in the legacy parser",
+      "mode": "shadow_ablation_until_supplier_boundary_is_measured"
     }
   }
 }
