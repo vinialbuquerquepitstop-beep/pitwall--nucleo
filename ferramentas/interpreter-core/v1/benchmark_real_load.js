@@ -418,6 +418,110 @@ function unresolvedModelDiagnostics(bundle, knowledgeSnapshot) {
   };
 }
 
+function anchorSpanDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  const spans = [];
+  let current = null;
+
+  const close = (endIndex, reason) => {
+    if (!current) return;
+    const endLine = endIndex > current.start_index
+      ? (segments[Math.min(endIndex - 1, segments.length - 1)]?.line_number ?? current.start_line)
+      : current.start_line;
+    spans.push({
+      model_id: current.model_id,
+      anchor_line: current.start_line,
+      end_line: endLine,
+      span_lines: Math.max(1, endLine - current.start_line + 1),
+      price_segments: current.price_segments,
+      materialized_records: current.materialized_records,
+      close_reason: reason
+    });
+    current = null;
+  };
+
+  const recordsByAnchorLine = new Map();
+  for (const record of bundle.records || []) {
+    const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+    const lines = [
+      ...(modelTrace?.sources || []),
+      ...(modelTrace?.derived_from || [])
+    ].filter(Number.isFinite);
+    const anchorLine = lines.length ? Math.min(...lines) : null;
+    if (anchorLine == null) continue;
+    recordsByAnchorLine.set(anchorLine, (recordsByAnchorLine.get(anchorLine) || 0) + 1);
+  }
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const boundary = (segment.context_events || []).find(event =>
+      event.reason === 'timestamp_boundary' ||
+      event.reason === 'domain_boundary' ||
+      event.reason === 'supplier_boundary'
+    );
+
+    if (boundary && current) close(index, boundary.reason);
+
+    const semanticModels = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model' &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+      candidate.entity_id
+    );
+
+    const resolved = semanticModels[0] || null;
+    if (resolved) {
+      if (current) close(index, 'new_model_anchor');
+      current = {
+        model_id: resolved.entity_id,
+        start_index: index,
+        start_line: segment.line_number,
+        price_segments: 0,
+        materialized_records: recordsByAnchorLine.get(segment.line_number) || 0
+      };
+    }
+
+    if (!current) continue;
+    if (distinctFieldValues(segment, 'price').length > 0) {
+      current.price_segments += 1;
+    }
+  }
+
+  if (current) close(segments.length, 'end_of_document');
+
+  const pathological = spans
+    .filter(span => span.price_segments >= 4 || span.span_lines >= 12 || span.materialized_records >= 4)
+    .sort((a, b) =>
+      b.price_segments - a.price_segments ||
+      b.materialized_records - a.materialized_records ||
+      b.span_lines - a.span_lines ||
+      a.anchor_line - b.anchor_line
+    );
+
+  const byModel = {};
+  for (const span of spans) {
+    const bucket = byModel[span.model_id] || {
+      anchors: 0,
+      price_segments: 0,
+      materialized_records: 0,
+      max_price_segments_per_anchor: 0,
+      max_span_lines: 0
+    };
+    bucket.anchors += 1;
+    bucket.price_segments += span.price_segments;
+    bucket.materialized_records += span.materialized_records;
+    bucket.max_price_segments_per_anchor = Math.max(bucket.max_price_segments_per_anchor, span.price_segments);
+    bucket.max_span_lines = Math.max(bucket.max_span_lines, span.span_lines);
+    byModel[span.model_id] = bucket;
+  }
+
+  return {
+    total_anchor_spans: spans.length,
+    pathological_anchor_spans: pathological.length,
+    by_model: byModel,
+    top_pathological_spans: pathological.slice(0, 30)
+  };
+}
+
 function supplierBoundaryDiagnostics(bundle) {
   const out = {
     boundary_events: 0,
@@ -554,6 +658,7 @@ const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreB
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
+const anchorSpanDiagnostic = anchorSpanDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 
 const summary = {
@@ -584,6 +689,7 @@ const summary = {
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
+  anchor_span_diagnostic: anchorSpanDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic
 };
 
