@@ -5259,6 +5259,7 @@ function simulateSameGenerationVariantConditionGuard(bundle) {
   let cleared = 0;
   const byModel = {};
   const fallbackByCondition = {};
+  const candidateDiagnostics = [];
 
   for (const record of simulated.records || []) {
     const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
@@ -5310,6 +5311,70 @@ function simulateSameGenerationVariantConditionGuard(bundle) {
     const fallback = fallbacks[0] || null;
     const priorCondition = record.fields?.condition ?? null;
 
+    const legacyMissingConditions = {};
+    for (const item of reportSupplierAware?.missing || []) {
+      const fields = item.fields || {};
+      if (fields.model?.id !== targetModel) continue;
+      if (String(fields.supplier ?? '') !== String(record.fields?.supplier ?? '')) continue;
+      if (Number(fields.price) !== Number(record.fields?.price)) continue;
+      const condition = canonicalCondition(fields.condition ?? null);
+      const key = String(condition ?? 'null');
+      legacyMissingConditions[key] =
+        (legacyMissingConditions[key] || 0) + Number(item.count || 0);
+    }
+
+    const conditionEvidence = {};
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!Number.isFinite(line) || line === priceLine) continue;
+      const sourceSupplier = supplierAtSegment(segment);
+      if (targetSupplier != null && sourceSupplier != null &&
+          String(sourceSupplier) !== targetSupplier) {
+        continue;
+      }
+      const conditions = uniqueFieldCandidates(segment.field_candidates || [], 'condition');
+      if (conditions.length !== 1) continue;
+      const condition = String(canonicalCondition(conditions[0].value) ?? 'null');
+      const signedDistance = line - priceLine;
+      const direction = signedDistance < 0 ? 'before' : 'after';
+      const distance = Math.abs(signedDistance);
+      const hardBoundary = pathHasHardBoundary(line, priceLine);
+      const variantConflict = sourceConflictsWithTargetVariant(segment, targetModel);
+      const sourceModels = resolvedModelIds(segment);
+      const sourceRole = segment.role_candidates?.[0]?.role || 'unknown';
+      const entry = {
+        distance,
+        hard_boundary: hardBoundary,
+        variant_conflict: variantConflict,
+        source_model_count: sourceModels.length,
+        source_role: sourceRole
+      };
+      if (!conditionEvidence[condition]) conditionEvidence[condition] = {};
+      const prior = conditionEvidence[condition][direction];
+      if (!prior || distance < prior.distance) {
+        conditionEvidence[condition][direction] = entry;
+      }
+    }
+
+    candidateDiagnostics.push({
+      target_model: targetModel,
+      current_condition: priorCondition,
+      current_source_distance: Math.abs(priceLine - conditionLine),
+      current_source_role: sourceSegment?.role_candidates?.[0]?.role || 'unknown',
+      legacy_missing_conditions: legacyMissingConditions,
+      nearest_condition_evidence: conditionEvidence,
+      selected_fallback: fallback
+        ? {
+            condition: canonicalCondition(fallback.candidate.value),
+            distance: fallback.distance,
+            source_role:
+              segmentByLine.get(fallback.line)?.role_candidates?.[0]?.role || 'unknown',
+            variant_conflict:
+              sourceConflictsWithTargetVariant(segmentByLine.get(fallback.line), targetModel)
+          }
+        : null
+    });
+
     if (fallback) {
       const nextCondition = canonicalCondition(fallback.candidate.value);
       record.fields.condition = nextCondition;
@@ -5342,7 +5407,8 @@ function simulateSameGenerationVariantConditionGuard(bundle) {
     replaced,
     cleared,
     by_model: byModel,
-    fallback_by_condition: fallbackByCondition
+    fallback_by_condition: fallbackByCondition,
+    candidate_diagnostics: candidateDiagnostics
   };
 }
 
@@ -7908,6 +7974,7 @@ const summary = {
     cleared: conditionSameGenerationVariantGuard.cleared,
     by_model: conditionSameGenerationVariantGuard.by_model,
     fallback_by_condition: conditionSameGenerationVariantGuard.fallback_by_condition,
+    candidate_diagnostics: conditionSameGenerationVariantGuard.candidate_diagnostics,
     core_offers: conditionSameGenerationVariantGuardReport.metrics.core_offers,
     matched_offers: conditionSameGenerationVariantGuardReport.metrics.matched_offers,
     missing_offers: conditionSameGenerationVariantGuardReport.metrics.missing_offers,
