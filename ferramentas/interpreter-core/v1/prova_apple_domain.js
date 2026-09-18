@@ -346,6 +346,24 @@ check('sem valor preferencial, duas condicoes distintas continuam ambiguas', () 
   ));
 });
 
+check('condicoes plurais canonizam para o singular sem alterar preco', () => {
+  const lacrados = run(
+    'apple-condition-lacrados',
+    'Lacrados\niPhone 17 256GB Preto R$ 5.299'
+  );
+  assert.strictEqual(lacrados.records.length, 1);
+  assert.strictEqual(lacrados.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(lacrados.records[0].fields.price, 5299);
+
+  const seminovos = run(
+    'apple-condition-seminovos',
+    'Seminovos\niPhone 17 256GB Preto R$ 5.199'
+  );
+  assert.strictEqual(seminovos.records.length, 1);
+  assert.strictEqual(seminovos.records[0].fields.condition, 'Seminovo');
+  assert.strictEqual(seminovos.records[0].fields.price, 5199);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
