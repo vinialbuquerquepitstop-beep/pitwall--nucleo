@@ -168,6 +168,52 @@ function iphoneModelShape(value) {
   return `${generation}|${variant}|${capacity}`;
 }
 
+function rejectedColorSourceDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  let activeModel = null;
+  const byModel = {};
+  const byRoleReason = {};
+  const featureCounts = {};
+  let total = 0;
+
+  for (const segment of segments) {
+    const hardBoundary = (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary' ||
+      event.reason === 'supplier_boundary' || event.reason === 'product_header_boundary'
+    );
+    if (hardBoundary) activeModel = null;
+
+    const resolvedModels = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model' &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+      candidate.entity_id
+    );
+    if (resolvedModels.length === 1) activeModel = resolvedModels[0].entity_id;
+
+    const colors = distinctFieldValues(segment, 'color');
+    const prices = distinctFieldValues(segment, 'price');
+    if (!colors.length || prices.length || isFieldOnlySegment(segment, 'color')) continue;
+
+    total += 1;
+    const model = activeModel || '(none)';
+    byModel[model] = (byModel[model] || 0) + 1;
+    const top = segment.role_candidates?.[0];
+    const roleKey = `${top?.role || '(none)'}|${top?.reason || '(none)'}`;
+    byRoleReason[roleKey] = (byRoleReason[roleKey] || 0) + 1;
+
+    const candidates = segment.field_candidates || [];
+    const features = [
+      candidates.some(c => c.field === 'model') ? 'has_model' : null,
+      candidates.some(c => c.field === 'capacity_gb') ? 'has_capacity' : null,
+      candidates.some(c => c.field === 'condition') ? 'has_condition' : null,
+      /\\d/.test(segment.normalized || '') ? 'has_digit' : 'no_digit'
+    ].filter(Boolean).join('+');
+    featureCounts[features] = (featureCounts[features] || 0) + 1;
+  }
+
+  return { rejected_color_source_rows: total, by_model: byModel, by_role_reason: byRoleReason, by_features: featureCounts };
+}
+
 function orderedPairFallbackDiagnostics(bundle) {
   const segments = bundle.segments || [];
   const blocks = [];
@@ -2554,6 +2600,7 @@ const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowled
 const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreBundle, knowledge);
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
+const rejectedColorSourceDiagnostic = rejectedColorSourceDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
@@ -2680,6 +2727,7 @@ const summary = {
   relaxed_supported_header_diagnostic: relaxedSupportedHeaderDiagnostic,
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
+  rejected_color_source_diagnostic: rejectedColorSourceDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
