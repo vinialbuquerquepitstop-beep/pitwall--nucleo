@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>External Calc — Analisar</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">EC</div>
+        <div class="brand-copy">
+          <strong>External Calc</strong>
+          <span>Workspace</span>
+        </div>
+      </div>
+
+      <nav class="primary-nav" aria-label="Navegação principal">
+        <button class="nav-item" disabled><span>Overview</span><small>em breve</small></button>
+        <button class="nav-item active" aria-current="page"><span>Analisar</span><small>01</small></button>
+        <button class="nav-item" disabled><span>Calcular</span><small>02</small></button>
+        <button class="nav-item" disabled><span>Mercado</span><small>03</small></button>
+        <button class="nav-item" disabled><span>Histórico</span><small>depois</small></button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="dev-panel">
+        <label for="scenario">Preview de estado</label>
+        <select id="scenario">
+          <option value="ready">Pronto</option>
+          <option value="review">Revisão necessária</option>
+          <option value="idle">Inicial</option>
+          <option value="processing">Processando</option>
+          <option value="empty">Sem ofertas</option>
+          <option value="failed">Falha técnica</option>
+        </select>
+        <span>Somente desenvolvimento.</span>
+      </div>
+
+      <div class="environment">
+        <span class="live-dot"></span>
+        <div>
+          <strong>Ambiente isolado</strong>
+          <small>fixture · sem banco · sem escrita</small>
+        </div>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="status-header">
+        <div class="status-context">
+          <span class="status-dot" id="status-dot"></span>
+          <div>
+            <strong id="status-title">Interpretação pronta</strong>
+            <span id="status-copy">A leitura terminou e pode ser revisada.</span>
+          </div>
+        </div>
+        <div class="step-pills" id="step-pills" aria-label="Etapas da análise"></div>
+      </header>
+
+      <main class="page-frame">
+        <section class="page-heading">
+          <div>
+            <p class="micro">ANALYSIS WORKSPACE</p>
+            <h1>Analisar fornecedor</h1>
+            <p>Transforme uma lista bruta em ofertas revisáveis antes de calcular ou pesquisar mercado.</p>
+          </div>
+          <button class="button secondary" id="new-analysis">Nova análise</button>
+        </section>
+
+        <section class="top-grid">
+          <article class="panel vendor-panel">
+            <div class="panel-head">
+              <div>
+                <p class="micro">ENTRADA</p>
+                <h2>Lista do fornecedor</h2>
+              </div>
+              <span class="badge neutral" id="source-status">Pronto</span>
+            </div>
+
+            <textarea id="source-input" spellcheck="false" placeholder="Cole uma lista de fornecedor aqui..."></textarea>
+            <input id="file-input" type="file" accept=".txt,text/plain" hidden>
+
+            <div class="source-footer">
+              <div class="technical-meta">
+                <span id="source-name">lista-demo.txt</span>
+                <span id="source-kind">texto</span>
+              </div>
+              <div class="button-row">
+                <button class="button secondary" id="choose-file">Enviar .txt</button>
+                <button class="button primary" id="run-analysis">Interpretar lista</button>
+              </div>
+            </div>
+            <p class="inline-message" id="input-message" role="status"></p>
+          </article>
+
+          <aside class="panel summary-panel">
+            <div class="panel-head">
+              <div>
+                <p class="micro">RESUMO</p>
+                <h2 id="summary-title">Leitura concluída</h2>
+              </div>
+              <span class="badge success" id="summary-badge">Pronto</span>
+            </div>
+
+            <div class="metric-grid" id="metrics"></div>
+            <p class="summary-note" id="summary-note">Resultados válidos, pendências e inválidos permanecem separados.</p>
+            <div class="meta-tags" id="run-meta"></div>
+          </aside>
+        </section>
+
+        <section class="bottom-grid">
+          <article class="dataset-region">
+            <div class="region-head">
+              <div>
+                <p class="micro">OFERTAS</p>
+                <h2>Leitura estruturada</h2>
+              </div>
+              <div class="region-actions">
+                <div class="tabs" role="tablist" aria-label="Filtrar ofertas">
+                  <button class="tab active" data-filter="all">Todas</button>
+                  <button class="tab" data-filter="VALID">Válidas</button>
+                  <button class="tab" data-filter="REVIEW_REQUIRED">Revisar</button>
+                </div>
+                <button class="button secondary" id="next-step" disabled>Calcular</button>
+              </div>
+            </div>
+
+            <div class="data-surface">
+              <div class="table-scroll" id="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Produto</th>
+                      <th>Condição</th>
+                      <th>Cor</th>
+                      <th>Fornecedor</th>
+                      <th class="numeric">Preço</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="offer-rows"></tbody>
+                </table>
+              </div>
+
+              <div class="empty-state hidden" id="empty-state">
+                <strong id="empty-title">Nenhuma oferta</strong>
+                <span id="empty-copy">Os resultados da interpretação aparecerão aqui.</span>
+              </div>
+            </div>
+          </article>
+
+          <aside class="review-rail">
+            <section>
+              <div class="rail-head">
+                <div>
+                  <p class="micro">REVISÃO</p>
+                  <h2>Pendências</h2>
+                </div>
+                <span class="badge review" id="review-count">0</span>
+              </div>
+              <div class="review-list" id="review-list"></div>
+              <div class="rail-empty hidden" id="review-empty">Nenhuma pendência aberta.</div>
+            </section>
+
+            <section class="invalid-section">
+              <div class="rail-head">
+                <div>
+                  <p class="micro">BLOQUEIOS</p>
+                  <h2>Inválidos</h2>
+                </div>
+                <span class="badge danger" id="invalid-count">0</span>
+              </div>
+              <div class="invalid-list" id="invalid-list"></div>
+              <div class="rail-empty hidden" id="invalid-empty">Nenhum registro inválido.</div>
+            </section>
+
+            <section class="rail-contract">
+              <p class="micro">BOUNDARY</p>
+              <strong>C01 · Reviewed Offer</strong>
+              <span>Esta tela só promove ofertas válidas. Nenhum cálculo, pesquisa ou escrita ocorre aqui.</span>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
+  <aside class="evidence-drawer" id="evidence-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <div>
+        <p class="micro">PROVENIÊNCIA</p>
+        <h2>Evidência da oferta</h2>
+      </div>
+      <button class="icon-button" id="close-drawer" aria-label="Fechar">×</button>
+    </div>
+    <div id="drawer-content"></div>
+  </aside>
+
+  <dialog class="review-dialog" id="review-dialog">
+    <form method="dialog" id="review-form">
+      <div class="dialog-head">
+        <div>
+          <p class="micro">REVIEW</p>
+          <h2>Resolver pendência</h2>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+      </div>
+      <div class="dialog-body" id="review-body"></div>
+      <div class="dialog-actions">
+        <button class="button secondary" value="cancel">Cancelar</button>
+        <button class="button primary" value="default" id="confirm-review">Confirmar revisão</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./contracts.js"></script>
+  <script src="./fixtures.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
