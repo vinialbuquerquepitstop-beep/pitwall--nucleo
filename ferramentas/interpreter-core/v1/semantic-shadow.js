@@ -2,7 +2,7 @@
 
 const { normalizeKey } = require('./core');
 
-const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.1.0';
+const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.2.0';
 
 function canonicalCondition(value) {
   const key = normalizeKey(value);
@@ -43,6 +43,20 @@ function offerKey(fields, options = {}) {
     fields.price == null ? null : Number(fields.price)
   ];
   return JSON.stringify(pieces);
+}
+
+function sameIdentityExceptPrice(leftFields, rightFields, options = {}) {
+  const includeColor = options.include_color !== false;
+  return (
+    (leftFields?.model?.id || null) === (rightFields?.model?.id || null) &&
+    (leftFields?.capacity_gb == null ? null : Number(leftFields.capacity_gb)) ===
+      (rightFields?.capacity_gb == null ? null : Number(rightFields.capacity_gb)) &&
+    canonicalCondition(leftFields?.condition) === canonicalCondition(rightFields?.condition) &&
+    (
+      !includeColor ||
+      (normalizeKey(leftFields?.color) || null) === (normalizeKey(rightFields?.color) || null)
+    )
+  );
 }
 
 function countOffers(offers, options = {}) {
@@ -129,7 +143,10 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0
     },
     gates: {
-      no_silent_wrong_price: diff.extra.every(x => !diff.missing.some(y => y.fields?.model?.id === x.fields?.model?.id && y.fields?.price !== x.fields?.price)),
+      no_silent_wrong_price: diff.extra.every(x => !diff.missing.some(y =>
+        sameIdentityExceptPrice(y.fields, x.fields, options) &&
+        Number(y.fields?.price) !== Number(x.fields?.price)
+      )),
       exact_multiset: exact
     },
     missing: diff.missing,
@@ -143,6 +160,7 @@ module.exports = {
   canonicalCondition,
   coreOffers,
   offerKey,
+  sameIdentityExceptPrice,
   countOffers,
   diffCounts,
   compareSemanticShadow
