@@ -289,6 +289,23 @@ check('MacBook encerra contexto de iPhone', () => {
   assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
+check('condicoes plurais sao canonizadas para o legado sem hardcode no Core', () => {
+  const cases = [
+    ['Lacrados', 'Lacrado'],
+    ['Novos', 'Novo'],
+    ['Seminovos', 'Seminovo'],
+    ['Usados', 'Usado']
+  ];
+  for (const [raw, expected] of cases) {
+    const result = run(
+      'apple-condition-' + raw.toLowerCase(),
+      `iPhone 17 256GB Preto ${raw} R$ 5.299`
+    );
+    assert.strictEqual(result.records.length, 1);
+    assert.strictEqual(result.records[0].fields.condition, expected);
+  }
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
