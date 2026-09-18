@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - audit/external-calc-baseline-r2
+      - audit/external-calc-ci-v4
 
 permissions:
   contents: read
