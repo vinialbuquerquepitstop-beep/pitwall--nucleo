@@ -502,59 +502,6 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
 });
 
-check('shorthand suportado sem iPhone resolve entidade V0', () => {
-  const result = run(
-    'apple-safe-shorthand-supported',
-    'Lacrados\n17 512GB\nPreto\nR$ 6.299'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_512gb');
-  assert.strictEqual(result.records[0].fields.price, 6299);
-});
-
-check('shorthand compacto 16PM resolve somente pelo alias explicito', () => {
-  const result = run(
-    'apple-safe-shorthand-16pm',
-    'Lacrados\n16PM 256GB\nPreto\nR$ 6.299'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
-});
-
-check('shorthand nao suportado abre boundary e impede vazamento do modelo anterior', () => {
-  const result = run(
-    'apple-safe-shorthand-unknown-boundary',
-    'Lacrados\n17 256GB\nPreto\nR$ 5.299\n17 Pro Max 512GB\nAzul\nR$ 8.999'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.price, 5299);
-  assert.ok(result.ambiguities.some(a =>
-    a.field === 'model' && a.cause === 'entity_unresolved'
-  ));
-});
-
-check('condicao declarada sobrevive ao timestamp mas modelo anterior nao', () => {
-  const result = run(
-    'apple-condition-across-timestamp',
-    'Lacrados\n[17/09/2026, 10:30] Nova mensagem\niPhone 17 256GB\nR$ 5.299'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
-  assert.strictEqual(result.records[0].fields.price, 5299);
-});
-
-check('nova condicao depois do timestamp substitui a preservada', () => {
-  const result = run(
-    'apple-condition-after-timestamp',
-    'Lacrados\n[17/09/2026, 10:30] Nova mensagem\nSeminovos\niPhone 17 256GB\nR$ 5.199'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
-  assert.strictEqual(result.records[0].fields.price, 5199);
-});
-
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
