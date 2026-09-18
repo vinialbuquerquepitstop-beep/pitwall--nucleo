@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.0-supplier-boundary-shadow",
+  "schema_version": "0.9.1-supplier-boundary-body",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -20,7 +20,8 @@
           "flags": "i",
           "group": 1,
           "transform": "trim",
-          "score": 0.995
+          "score": 0.995,
+          "input": "message_body"
         }
       ],
       "value_map": {
@@ -409,7 +410,8 @@
       "rule": "recognized supplier header resets inherited model/condition context, then establishes the new supplier context",
       "supplier_count": 17,
       "alias_count": 23,
-      "mode": "shadow"
+      "mode": "shadow",
+      "whatsapp_prefix_policy": "supplier matching runs on message body after timestamp/sender prefix stripping"
     }
   }
 }
