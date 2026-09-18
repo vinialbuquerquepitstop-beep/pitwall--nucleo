@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { interpretResolved } = require('./core');
+const { interpretResolved, isFieldOnlySegment } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
 const { analyzeDivergences } = require('./divergence-analyzer');
@@ -141,6 +141,87 @@ function iphoneModelShape(value) {
   }
   if (capacity == null) return null;
   return `${generation}|${variant}|${capacity}`;
+}
+
+function orderedPairFallbackDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  const blocks = [];
+  let current = null;
+
+  const close = end => {
+    if (current && end > current.start) blocks.push({ ...current, end });
+    current = null;
+  };
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const hardBoundary = (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary'
+    );
+    if (hardBoundary) close(index);
+
+    const semanticModels = (segment.semantic_candidates || []).filter(candidate => candidate.field === 'model');
+    const hasModelCandidate = (segment.field_candidates || []).some(candidate => candidate.field === 'model');
+    if (hasModelCandidate) {
+      close(index);
+      const resolved = semanticModels.find(candidate =>
+        (candidate.state === 'interpreted' || candidate.state === 'inferred') && candidate.entity_id
+      );
+      if (resolved) current = { start: index, model_id: resolved.entity_id };
+    }
+  }
+  close(segments.length);
+
+  let equalBlocks = 0;
+  let mismatchBlocks = 0;
+  let mismatchColorRows = 0;
+  let mismatchBarePriceRows = 0;
+  let uniqueNearestColorRows = 0;
+  let tiedNearestColorRows = 0;
+
+  for (const block of blocks) {
+    const colors = [];
+    const prices = [];
+    for (let index = block.start; index < block.end; index += 1) {
+      const segment = segments[index];
+      const colorCandidates = distinctFieldValues(segment, 'color');
+      const priceCandidates = distinctFieldValues(segment, 'price');
+      if (colorCandidates.length > 0 && priceCandidates.length === 0 && isFieldOnlySegment(segment, 'color')) {
+        colors.push({ index, line: segment.line_number });
+      }
+      if (priceCandidates.length === 1 && colorCandidates.length === 0) {
+        prices.push({ index, line: segment.line_number });
+      }
+    }
+
+    if (!colors.length || !prices.length) continue;
+    if (colors.length === prices.length) {
+      equalBlocks += 1;
+      continue;
+    }
+
+    mismatchBlocks += 1;
+    mismatchColorRows += colors.length;
+    mismatchBarePriceRows += prices.length;
+
+    for (const color of colors) {
+      const distances = prices
+        .map(price => Math.abs(price.index - color.index))
+        .sort((a, b) => a - b);
+      if (!distances.length) continue;
+      if (distances.length === 1 || distances[0] < distances[1]) uniqueNearestColorRows += 1;
+      else tiedNearestColorRows += 1;
+    }
+  }
+
+  return {
+    equal_pairable_blocks: equalBlocks,
+    mismatched_pair_blocks: mismatchBlocks,
+    mismatch_color_rows: mismatchColorRows,
+    mismatch_bare_price_rows: mismatchBarePriceRows,
+    unique_nearest_color_rows: uniqueNearestColorRows,
+    tied_nearest_color_rows: tiedNearestColorRows
+  };
 }
 
 function supportedBlockDiagnostics(bundle) {
@@ -295,6 +376,7 @@ const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
 const modelContextDiagnostic = modelContextDiagnostics(coreBundle);
 const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowledge);
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
+const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -320,7 +402,8 @@ const summary = {
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
   unresolved_model_diagnostic: unresolvedModelDiagnostic,
-  supported_block_diagnostic: supportedBlockDiagnostic
+  supported_block_diagnostic: supportedBlockDiagnostic,
+  ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic
 };
 
 const diagnostic = {
