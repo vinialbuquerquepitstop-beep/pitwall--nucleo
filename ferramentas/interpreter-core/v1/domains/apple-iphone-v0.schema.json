@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.1-exp-16-128-first-trigger-guard",
+  "schema_version": "0.10.2-exp-17-256-first-trigger-guard",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -103,6 +103,17 @@
           "score": 0.91,
           "context_expire_after_record_trigger": true,
           "record_require_fields": ["condition", "color"]
+        },
+        {
+          "id": "supported_shorthand_17_256_first_trigger_guard_v1",
+          "kind": "regex",
+          "pattern": "^(?!.*\\b(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)\\b)[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.91,
+          "context_expire_after_record_trigger": true,
+          "record_require_fields": ["condition", "color"]
         }
       ]
     },
@@ -187,6 +198,15 @@
           "id": "supported_shorthand_capacity_16_128_first_trigger_guard_v1",
           "kind": "regex",
           "pattern": "^(?!.*\\b(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)\\b)[^A-Za-z0-9]{0,12}16\\s+(128)(?:\\s*GB)?(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        },
+        {
+          "id": "supported_shorthand_capacity_17_256_first_trigger_guard_v1",
+          "kind": "regex",
+          "pattern": "^(?!.*\\b(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)\\b)[^A-Za-z0-9]{0,12}17\\s+(256)(?:\\s*GB)?(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "integer",

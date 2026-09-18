@@ -677,6 +677,36 @@ check('shorthand bare 16 128 se abstem sem condicao herdada', () => {
   ));
 });
 
+check('shorthand bare 17 256 usa primeiro trigger apenas com condicao e cor', () => {
+  const result = run(
+    'apple-shorthand-17-256-first-trigger-guard',
+    'Seminovos\n17 256GB\nPreto\nR$ 5.100\nR$ 5.200'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5100);
+  assert.ok(result.segments.some(segment =>
+    (segment.context_events || []).some(event =>
+      event.reason === 'scoped_context_expired_after_record_trigger' &&
+      event.field === 'model'
+    )
+  ));
+});
+
+check('shorthand bare 17 256 se abstem sem condicao herdada', () => {
+  const result = run(
+    'apple-shorthand-17-256-first-trigger-no-condition',
+    '17 256GB\nPreto\nR$ 5.100'
+  );
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(ambiguity =>
+    ambiguity.cause === 'scoped_record_requirements_missing'
+  ));
+});
+
 check('shorthand 16 Pro Max 256 sem CPO permanece desativado', () => {
   const result = run(
     'apple-safe-shorthand-exclude-16pm-without-cpo',
