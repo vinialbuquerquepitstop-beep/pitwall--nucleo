@@ -1334,8 +1334,7 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
     flags: 'i',
     group: 1,
     transform: 'trim',
-    score: 0.91,
-    record_require_fields: options.require_color_for_records === true ? ['color'] : []
+    score: 0.91
   }];
 
   capacityField.extractors = [...(capacityField.extractors || []), {
@@ -2476,7 +2475,8 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
     flags: 'i',
     group: 1,
     transform: 'trim',
-    score: 0.91
+    score: 0.91,
+    record_require_fields: options.require_color_for_records === true ? ['color'] : []
   }];
 
   capacityField.extractors = [...(capacityField.extractors || []), {
