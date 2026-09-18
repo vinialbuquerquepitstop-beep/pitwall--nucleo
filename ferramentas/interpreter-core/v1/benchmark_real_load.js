@@ -328,6 +328,7 @@ function relaxedSupportedHeaderDiagnostics(bundle, knowledgeSnapshot) {
   }
 
   const byModel = {};
+  const candidateDetails = [];
   let candidates = 0;
   let withIphoneToken = 0;
   let withoutIphoneToken = 0;
@@ -374,6 +375,31 @@ function relaxedSupportedHeaderDiagnostics(bundle, knowledgeSnapshot) {
     if (/\biphone\b/.test(key)) withIphoneToken += 1;
     else withoutIphoneToken += 1;
     byModel[modelId] = (byModel[modelId] || 0) + 1;
+
+    const directConditions = distinctFieldValues(segment, 'condition').map(value => JSON.parse(value));
+    const inheritedCondition = segment.inherited_context?.condition
+      ? {
+          value: segment.inherited_context.condition.value,
+          source_line: segment.inherited_context.condition.source_line
+        }
+      : null;
+
+    candidateDetails.push({
+      line: segment.line_number,
+      model_id: modelId,
+      generation,
+      variant,
+      capacity,
+      has_lacrado: /\blacrad[oa]s?\b/i.test(raw),
+      has_cpo: /\bcpo\b/i.test(raw),
+      has_seminovo: /\bseminov[oa]s?\b/i.test(raw),
+      has_nacional: /\bnacional\b/i.test(raw),
+      has_nf: /(?:^|\s)nf(?:\s|$)/i.test(raw),
+      has_importado: /\bimportad[oa]s?\b/i.test(raw),
+      has_esim: /\be\s*sim\b|\besim\b/i.test(raw),
+      direct_conditions: directConditions,
+      inherited_condition: inheritedCondition
+    });
   }
 
   return {
@@ -381,7 +407,8 @@ function relaxedSupportedHeaderDiagnostics(bundle, knowledgeSnapshot) {
     with_iphone_token: withIphoneToken,
     without_iphone_token: withoutIphoneToken,
     compact_pro_max_candidates: proMaxCompact,
-    by_model: byModel
+    by_model: byModel,
+    candidate_details: candidateDetails
   };
 }
 
