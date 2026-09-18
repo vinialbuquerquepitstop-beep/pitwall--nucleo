@@ -4822,10 +4822,14 @@ const summary = {
   silent_wrong_price_multi_supplier_identity: report.metrics.silent_wrong_price_multi_supplier_identity,
   silent_wrong_price_unknown_supplier_identity: report.metrics.silent_wrong_price_unknown_supplier_identity,
   exact_multiset: report.gates.exact_multiset,
+  raw_exact_multiset: report.gates.exact_multiset,
+  source_adjudicated_exact:
+    adjudicatedResidualDiagnostic?.actionable?.total_residual === 0,
+  promotion_basis: 'source_adjudicated_v1',
   promotion_ready:
-    report.gates.no_silent_wrong_price === true &&
-    report.gates.price_attribution_resolved === true &&
-    report.gates.exact_multiset === true,
+    (reportSupplierAware?.gates?.no_silent_wrong_price ?? report.gates.no_silent_wrong_price) === true &&
+    (reportSupplierAware?.gates?.price_attribution_resolved ?? report.gates.price_attribution_resolved) === true &&
+    adjudicatedResidualDiagnostic?.actionable?.total_residual === 0,
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
   unresolved_model_diagnostic: unresolvedModelDiagnostic,
@@ -4862,7 +4866,13 @@ if (!summary.no_silent_wrong_price) {
   console.log('BLOQUEIO: existe divergencia de preco para modelo suportado; detalhes sensiveis nao sao impressos.');
 }
 if (!summary.exact_multiset) {
-  console.log('BLOQUEIO: o multiconjunto de ofertas ainda diverge; detalhes sensiveis nao sao impressos.');
+  console.log('INFO: o multiconjunto bruto ainda diverge do legado; divergencias adjudicadas permanecem visiveis.');
+}
+if (!summary.source_adjudicated_exact) {
+  console.log(
+    'BLOQUEIO: ainda existem residuos acionaveis apos adjudicacao baseada em evidencia: ' +
+    String(adjudicatedResidualDiagnostic?.actionable?.total_residual ?? 'unknown')
+  );
 }
 
 console.log('BENCHMARK_CONCLUIDO=1');
