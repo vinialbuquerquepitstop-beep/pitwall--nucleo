@@ -716,6 +716,25 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           if (sourceCandidates.length !== 1 || sourceTriggerCandidates.length !== 0) continue;
 
           const candidate = sourceCandidates[0];
+
+          if (adjacentConfig.require_unique_adjacent_trigger !== false) {
+            const competingIndex = sourceIndex - 1;
+            if (competingIndex >= start) {
+              const competingSegment = out[competingIndex];
+              const competingTriggers = uniqueFieldCandidates(
+                competingSegment.field_candidates || [],
+                triggerField
+              );
+              const competingFieldCandidates = uniqueFieldCandidates(
+                competingSegment.field_candidates || [],
+                field.name
+              );
+              if (competingTriggers.length === 1 && competingFieldCandidates.length === 0) {
+                continue;
+              }
+            }
+          }
+
           const sourceIsFieldOnly = isFieldOnlySegment(sourceSegment, field.name);
 
           if (!sourceIsFieldOnly) {
