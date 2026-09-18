@@ -2031,6 +2031,12 @@ const target16256CrossModelDiagnostic = crossModelResidualDiagnostics(
 const target16256OracleAdjudication = simulateOracleModelAdjudication(
   legacy, coreBundle, target16256CrossModelDiagnostic
 );
+const target17512Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_17_512gb');
+const target17512PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_17_512gb');
+const target17512BoundaryDiagnostic = targetModelBoundaryDiagnostics(coreBundle, 'iphone_17_512gb');
+const target17512CrossModelDiagnostic = crossModelResidualDiagnostics(
+  legacy, coreBundle, 'iphone_17_512gb'
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -2110,6 +2116,10 @@ const summary = {
   target_16_256_boundary_diagnostic: target16256BoundaryDiagnostic,
   target_16_256_cross_model_diagnostic: target16256CrossModelDiagnostic,
   target_16_256_oracle_adjudication: target16256OracleAdjudication,
+  target_17_512_diagnostic: target17512Diagnostic,
+  target_17_512_pair_diagnostic: target17512PairDiagnostic,
+  target_17_512_boundary_diagnostic: target17512BoundaryDiagnostic,
+  target_17_512_cross_model_diagnostic: target17512CrossModelDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
