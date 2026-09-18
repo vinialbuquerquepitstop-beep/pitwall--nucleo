@@ -569,14 +569,27 @@ A preparação está pronta quando existirem:
 - [x] componentes propostos;
 - [x] estados obrigatórios;
 - [x] fronteiras de dados;
-- [ ] mock de interpretação;
-- [ ] mock de cálculo;
-- [ ] mock de pesquisa/indicador;
-- [ ] protótipo isolado.
+- [x] mock de interpretação;
+- [x] mock de cálculo;
+- [x] mock de pesquisa/indicador;
+- [x] protótipo isolado;
+- [x] gate automático de isolamento e sintaxe.
 
 ## 18. Próximo passo desta trilha
 
-Criar o pacote de mocks V0 e, em seguida, construir um protótipo isolado do `Analysis Workspace`.
+O pacote de mocks V0 e o primeiro protótipo isolado do `Analysis Workspace` já existem.
+
+Gate medido:
+
+- workflow: `External Calc — Frontend Preparation Gate`;
+- mock JSON: verde;
+- sintaxe JavaScript: verde;
+- arquivos do protótipo: verde;
+- isolamento de backend/segredos: verde.
+
+Próximo gate desta trilha: **Visual / Interaction Review V0**.
+
+Objetivo: revisar a estrutura visual e a sequência de interação usando o protótipo, ainda sem conectar backend real. Depois dessa revisão, a trilha fica congelada aguardando os contratos reais de Calc Service, Research Engine e Price Indicator.
 
 O protótipo NÃO substitui a calculadora atual e NÃO consome o backend real.
 
