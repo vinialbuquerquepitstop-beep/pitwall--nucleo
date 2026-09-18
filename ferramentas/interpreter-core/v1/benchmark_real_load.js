@@ -1547,6 +1547,168 @@ function sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, bundle) {
 const sourceSupportedCoreOnlyEModelDiagnostic =
   sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, coreBundle);
 
+function sourceSupportedCoreOnlyEOfferDiagnostics(bundle) {
+  const targetModels = new Set(['iphone_17e_256gb', 'iphone_16e_128gb']);
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+
+  const segments = bundle.segments || [];
+  const segmentByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+
+  const boundariesBetween = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+
+  const firstSource = trace => Array.isArray(trace?.sources) && trace.sources.length
+    ? Number(trace.sources[0])
+    : null;
+  const evidenceStatus = (record, field, priceLine) => {
+    const value = record.fields?.[field];
+    if (value == null) return { state: 'absent_optional' };
+    const trace = (record.trace || []).find(item => item.field === field);
+    if (!trace) return { state: 'missing_trace' };
+    const sourceLine = firstSource(trace);
+    const distance = Number.isFinite(sourceLine) && Number.isFinite(priceLine)
+      ? Math.abs(priceLine - sourceLine)
+      : null;
+    const boundaries = boundariesBetween(sourceLine, priceLine);
+    const rules = trace.rules || [];
+
+    let local = false;
+    if (field === 'price') {
+      local = rules.includes('direct_extraction') && distance === 0;
+    } else if (field === 'model') {
+      local =
+        Number.isFinite(distance) &&
+        distance <= 6 &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    } else if (field === 'color') {
+      local =
+        Number.isFinite(distance) &&
+        distance <= 3 &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    } else if (field === 'condition') {
+      local =
+        Number.isFinite(distance) &&
+        distance <= 6 &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    } else if (field === 'supplier') {
+      local =
+        Number.isFinite(distance) &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    }
+
+    return {
+      state: local ? 'local' : 'nonlocal',
+      distance,
+      domain_boundary: boundaries.has('domain'),
+      supplier_boundary: boundaries.has('supplier'),
+      timestamp_boundary: boundaries.has('timestamp'),
+      rules: rules.join('+') || '(no-rule)'
+    };
+  };
+
+  const byModel = {};
+  let cases = 0;
+  let fullLocal = 0;
+  let modelPriceLocalOnly = 0;
+
+  for (const [key, records] of coreByKey.entries()) {
+    const supportedSlots = Math.min(legacyCounts.get(key) || 0, records.length);
+    for (let i = supportedSlots; i < records.length; i += 1) {
+      const record = records[i];
+      const modelId = record.fields?.model?.id || null;
+      if (!targetModels.has(modelId)) continue;
+      cases += 1;
+
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const priceLine = firstSource(priceTrace);
+      const statuses = {};
+      for (const field of ['model','price','color','condition','supplier']) {
+        statuses[field] = evidenceStatus(record, field, priceLine);
+      }
+
+      const mandatoryLocal =
+        statuses.model.state === 'local' &&
+        statuses.price.state === 'local';
+      const optionalLocal =
+        ['color','condition'].every(field =>
+          statuses[field].state === 'absent_optional' || statuses[field].state === 'local'
+        );
+      const supplierLocal = statuses.supplier.state === 'local';
+      const fullyLocal = mandatoryLocal && optionalLocal && supplierLocal;
+
+      if (!byModel[modelId]) {
+        byModel[modelId] = {
+          cases: 0,
+          fully_local_offer_evidence: 0,
+          model_price_local_but_other_nonlocal: 0,
+          signatures: {}
+        };
+      }
+      const row = byModel[modelId];
+      row.cases += 1;
+      if (fullyLocal) {
+        row.fully_local_offer_evidence += 1;
+        fullLocal += 1;
+      } else if (mandatoryLocal) {
+        row.model_price_local_but_other_nonlocal += 1;
+        modelPriceLocalOnly += 1;
+      }
+
+      const signature = [
+        'model=' + statuses.model.state + ':d' + (statuses.model.distance ?? 'x'),
+        'price=' + statuses.price.state,
+        'color=' + statuses.color.state + ':d' + (statuses.color.distance ?? 'x'),
+        'condition=' + statuses.condition.state + ':d' + (statuses.condition.distance ?? 'x'),
+        'supplier=' + statuses.supplier.state + ':d' + (statuses.supplier.distance ?? 'x'),
+        'full_local=' + (fullyLocal ? 'yes' : 'no')
+      ].join('|');
+      row.signatures[signature] = (row.signatures[signature] || 0) + 1;
+    }
+  }
+
+  return {
+    cases,
+    fully_local_offer_evidence: fullLocal,
+    model_price_local_but_other_nonlocal: modelPriceLocalOnly,
+    by_model: byModel
+  };
+}
+
+const sourceSupportedCoreOnlyEOfferDiagnostic =
+  sourceSupportedCoreOnlyEOfferDiagnostics(coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3714,6 +3876,7 @@ const summary = {
   source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
+  source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
