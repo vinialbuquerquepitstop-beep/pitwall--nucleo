@@ -1,0 +1,26 @@
+{
+  "$schema": "external-calc/fidelity-report/v1",
+  "name": "EXTERNAL_CALC_FIDELITY_REPORT_V1",
+  "status": "implementation_ready_for_visual_owner_review",
+  "reference": {
+    "visual_contract": "EXTERNAL_CALC_STITCH_VISUAL_CONTRACT_V1.json",
+    "design_system": "EXTERNAL_CALC_DESIGN_SYSTEM_V1.json",
+    "reference_viewport": {"width_px": 1600, "height_px": 1280}
+  },
+  "scope": "Static calibration only. No backend, authentication, database access, writes or production behavior.",
+  "dimensions": {
+    "shell": {"status": "implemented", "evidence": ["240px sidebar", "sticky global status bar", "dark canvas"]},
+    "geometry": {"status": "implemented", "evidence": ["32px page frame", "24px grid gaps", "7/5 top split", "8/4 bottom split"]},
+    "typography": {"status": "implemented", "evidence": ["Inter-first sans stack", "11px uppercase micro labels", "12px operational body", "24px metrics", "mono only for technical/raw data"]},
+    "density": {"status": "implemented", "evidence": ["compact operational composition", "table remains primary data surface", "review rail remains secondary"]},
+    "semantics": {"status": "implemented", "evidence": ["blue active/inferred", "emerald ready/interpreted", "amber ambiguity/review"]},
+    "components": {"status": "implemented", "evidence": ["panel", "buttons", "badges", "tabs", "data table", "raw preview", "warning callout"]},
+    "responsive": {"status": "provisional", "evidence": ["single-column collapse below 1200px"], "note": "Responsive behavior is not the visual approval target for this calibration gate."}
+  },
+  "owner_visual_gate": {
+    "status": "pending",
+    "required_decision": "approve_or_request_adjustments",
+    "checklist": ["overall belonging / product feel", "sidebar proportion and hierarchy", "top status bar weight", "panel contrast and depth", "top 7/5 composition", "bottom 8/4 composition", "table density and column hierarchy", "badge restraint", "ambiguity rail prominence", "typography scale", "negative space and vertical rhythm"]
+  },
+  "freeze_rule": "Do not set canonical_approved or begin downstream pages until the owner visually approves the calibration screen."
+}
