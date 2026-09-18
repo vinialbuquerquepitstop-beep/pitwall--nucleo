@@ -2,7 +2,7 @@
 
 const { normalizeKey } = require('./core');
 
-const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.2.0';
+const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.3.0';
 
 function canonicalCondition(value) {
   const key = normalizeKey(value);
@@ -57,6 +57,62 @@ function sameIdentityExceptPrice(leftFields, rightFields, options = {}) {
       (normalizeKey(leftFields?.color) || null) === (normalizeKey(rightFields?.color) || null)
     )
   );
+}
+
+function identityKeyExceptPrice(fields, options = {}) {
+  const includeColor = options.include_color !== false;
+  return JSON.stringify([
+    fields?.model?.id || null,
+    fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+    canonicalCondition(fields?.condition),
+    includeColor ? normalizeKey(fields?.color) || null : undefined
+  ]);
+}
+
+function diagnosePriceReferences(legacyOffers, diff, options = {}) {
+  const byIdentity = new Map();
+
+  for (const offer of legacyOffers || []) {
+    const fields = offer.fields || {};
+    const key = identityKeyExceptPrice(fields, options);
+    const price = Number(fields.price);
+    if (!Number.isFinite(price)) continue;
+
+    const entry = byIdentity.get(key) || { prices: new Set(), offers: 0 };
+    entry.prices.add(price);
+    entry.offers += 1;
+    byIdentity.set(key, entry);
+  }
+
+  let confirmedWrongPriceOffers = 0;
+  let ambiguousPriceReferenceOffers = 0;
+  let extraAtKnownReferencePriceOffers = 0;
+
+  for (const extra of diff.extra || []) {
+    const fields = extra.fields || {};
+    const corePrice = Number(fields.price);
+    if (!Number.isFinite(corePrice)) continue;
+
+    const reference = byIdentity.get(identityKeyExceptPrice(fields, options));
+    if (!reference || reference.prices.size === 0) continue;
+
+    if (reference.prices.has(corePrice)) {
+      extraAtKnownReferencePriceOffers += Number(extra.count || 0);
+      continue;
+    }
+
+    if (reference.prices.size === 1) {
+      confirmedWrongPriceOffers += Number(extra.count || 0);
+    } else {
+      ambiguousPriceReferenceOffers += Number(extra.count || 0);
+    }
+  }
+
+  return {
+    confirmed_wrong_price_offers: confirmedWrongPriceOffers,
+    ambiguous_price_reference_offers: ambiguousPriceReferenceOffers,
+    extra_at_known_reference_price_offers: extraAtKnownReferencePriceOffers
+  };
 }
 
 function countOffers(offers, options = {}) {
@@ -126,6 +182,7 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
   const coreN = interpreted.length;
   const denominator = Math.max(legacyN, coreN, 1);
   const exact = diff.missing.length === 0 && diff.extra.length === 0;
+  const priceReference = diagnosePriceReferences(legacy.offers, diff, options);
 
   return {
     contract_version: 'semantic-shadow-report/v1',
@@ -140,15 +197,16 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       exact_multiset: exact,
       agreement_ratio: Math.round((diff.matched / denominator) * 10000) / 10000,
       core_ambiguities: Array.isArray(coreBundle.ambiguities) ? coreBundle.ambiguities.length : 0,
-      core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0
+      core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0,
+      confirmed_wrong_price_offers: priceReference.confirmed_wrong_price_offers,
+      ambiguous_price_reference_offers: priceReference.ambiguous_price_reference_offers,
+      extra_at_known_reference_price_offers: priceReference.extra_at_known_reference_price_offers
     },
     gates: {
-      no_silent_wrong_price: diff.extra.every(x => !diff.missing.some(y =>
-        sameIdentityExceptPrice(y.fields, x.fields, options) &&
-        Number(y.fields?.price) !== Number(x.fields?.price)
-      )),
+      no_silent_wrong_price: priceReference.confirmed_wrong_price_offers === 0,
       exact_multiset: exact
     },
+    price_reference_diagnostics: priceReference,
     missing: diff.missing,
     extra: diff.extra,
     by_model: summarizeFieldMismatch(legacy.offers, interpreted)
@@ -161,6 +219,8 @@ module.exports = {
   coreOffers,
   offerKey,
   sameIdentityExceptPrice,
+  identityKeyExceptPrice,
+  diagnosePriceReferences,
   countOffers,
   diffCounts,
   compareSemanticShadow
