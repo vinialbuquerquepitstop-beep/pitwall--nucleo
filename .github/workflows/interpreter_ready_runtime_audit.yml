@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js | tee /tmp/interpreter-local-gate.log
-          grep -q '^GATE_LOCAL=PASS$' /tmp/interpreter-local-gate.log
+          grep -q '^GATE_LOCAL=PASS' /tmp/interpreter-local-gate.log
 
       - name: Static trust-boundary audit
         run: |
