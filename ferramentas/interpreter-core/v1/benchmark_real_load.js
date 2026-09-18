@@ -319,6 +319,72 @@ function supportedBlockDiagnostics(bundle) {
   };
 }
 
+function relaxedSupportedHeaderDiagnostics(bundle, knowledgeSnapshot) {
+  const supported = new Map();
+  for (const entity of knowledgeSnapshot.entities || []) {
+    if (entity.kind !== 'model') continue;
+    const shape = iphoneModelShape(entity.label);
+    if (shape) supported.set(shape, entity.id);
+  }
+
+  const byModel = {};
+  let candidates = 0;
+  let withIphoneToken = 0;
+  let withoutIphoneToken = 0;
+  let proMaxCompact = 0;
+
+  for (const segment of bundle.segments || []) {
+    if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) continue;
+    if (distinctFieldValues(segment, 'price').length > 0) continue;
+    const raw = String(segment.normalized || '');
+    if (!raw || raw.length > 90) continue;
+    const key = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    const capMatch = /(?:^|\D)(64|128|256|512)(?:\s*gb)?(?:\D|$)/.exec(key);
+    if (!capMatch) continue;
+    const capacity = Number(capMatch[1]);
+
+    const genMatch = /(?:iphone\s*)?\b(13|15|16e?|17e?)\b/.exec(key)
+      || /\b(13|15|16e?|17e?)(?=(?:pm|p)\b)/.exec(key);
+    if (!genMatch) continue;
+    const generation = genMatch[1];
+
+    let variant = 'base';
+    if (/\bpro\s*max\b|\bpromax\b|\b(?:13|15|16|17)pm\b/.test(key)) {
+      variant = 'pro max';
+      if (/\b(?:13|15|16|17)pm\b/.test(key)) proMaxCompact += 1;
+    } else if (/\bpro\b|\b(?:13|15|16|17)p\b/.test(key)) {
+      variant = 'pro';
+    } else if (/\bair\b/.test(key)) {
+      variant = 'air';
+    } else if (/\bplus\b/.test(key)) {
+      variant = 'plus';
+    } else if (/\bmini\b/.test(key)) {
+      variant = 'mini';
+    }
+
+    const shape = `${generation}|${variant}|${capacity}`;
+    const modelId = supported.get(shape);
+    if (!modelId) continue;
+
+    candidates += 1;
+    if (/\biphone\b/.test(key)) withIphoneToken += 1;
+    else withoutIphoneToken += 1;
+    byModel[modelId] = (byModel[modelId] || 0) + 1;
+  }
+
+  return {
+    relaxed_supported_header_candidates: candidates,
+    with_iphone_token: withIphoneToken,
+    without_iphone_token: withoutIphoneToken,
+    compact_pro_max_candidates: proMaxCompact,
+    by_model: byModel
+  };
+}
+
 function unresolvedModelDiagnostics(bundle, knowledgeSnapshot) {
   const supportedByShape = new Map();
   for (const entity of knowledgeSnapshot.entities || []) {
@@ -420,6 +486,7 @@ function offerExpansionDiagnostics(bundle) {
 const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
 const modelContextDiagnostic = modelContextDiagnostics(coreBundle);
 const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowledge);
+const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreBundle, knowledge);
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 
@@ -447,6 +514,7 @@ const summary = {
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
   unresolved_model_diagnostic: unresolvedModelDiagnostic,
+  relaxed_supported_header_diagnostic: relaxedSupportedHeaderDiagnostic,
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic
 };
