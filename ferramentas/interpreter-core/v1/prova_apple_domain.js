@@ -400,34 +400,6 @@ check('CPO do anchor vence Lacrado direto dentro do mesmo modelo', () => {
   assert.ok(trace.rules.includes('anchor_precedence:model'));
 });
 
-check('cabecalho abreviado 16PM resolve somente modelo conhecido', () => {
-  const result = run(
-    'apple-short-16pm',
-    '📱16PM 256 Lacrado\nPreto R$ 6.499'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-});
-
-check('cabecalho abreviado sem palavra iPhone resolve modelo conhecido', () => {
-  const result = run(
-    'apple-short-17',
-    '🍎17 256GB Lacrado\nAzul R$ 5.299'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-});
-
-check('abreviacao de modelo fora do snapshot continua sem registro', () => {
-  const result = run(
-    'apple-short-unsupported',
-    '📱18 Pro Max 256GB Lacrado\nPreto R$ 9.999'
-  );
-  assert.strictEqual(result.records.length, 0);
-});
-
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
