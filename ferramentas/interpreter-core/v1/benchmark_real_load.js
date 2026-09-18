@@ -5,7 +5,7 @@ const path = require('path');
 const { interpretResolved, isFieldOnlySegment } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
-const { analyzeDivergences } = require('./divergence-analyzer');
+const { analyzeDivergences, normFields, removeExactMatches, pairWithinModel } = require('./divergence-analyzer');
 
 function die(message, code = 1) {
   console.error(`FALHOU: ${message}`);
@@ -769,6 +769,57 @@ function targetModelBlockDiagnostics(bundle, modelId) {
   };
 }
 
+
+function targetModelPairDiagnostics(legacyBundle, coreBundle, modelId) {
+  const coreOffers = (coreBundle.records || [])
+    .map(record => ({
+      fields: record.fields || {},
+      core_record_id: record.record_id,
+      trace: record.trace || []
+    }))
+    .filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const base = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const paired = pairWithinModel(base.remainingLegacy, base.remainingCore);
+
+  const countConditions = offers => {
+    const out = {};
+    for (const offer of offers) {
+      if (normFields(offer).model !== modelId) continue;
+      const condition = normFields(offer).condition ?? '(null)';
+      out[condition] = (out[condition] || 0) + 1;
+    }
+    return out;
+  };
+
+  const pairs = [];
+  for (const pair of paired.pairs) {
+    if (normFields(pair.legacy).model !== modelId) continue;
+    const conditionTrace = (pair.core.trace || []).find(trace => trace.field === 'condition');
+    const modelTrace = (pair.core.trace || []).find(trace => trace.field === 'model');
+    const priceTrace = (pair.core.trace || []).find(trace => trace.field === 'price');
+    pairs.push({
+      core_record_id: pair.core.core_record_id,
+      price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+      model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+      diffs: pair.diffs,
+      legacy_condition: normFields(pair.legacy).condition ?? '(null)',
+      core_condition: normFields(pair.core).condition ?? '(null)',
+      condition_source_lines: Array.isArray(conditionTrace?.sources)
+        ? conditionTrace.sources.map(Number)
+        : [],
+      condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : []
+    });
+  }
+
+  return {
+    model_id: modelId,
+    paired_non_exact: pairs,
+    unpaired_legacy_by_condition: countConditions(paired.unpairedLegacy),
+    unpaired_core_by_condition: countConditions(paired.unpairedCore)
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -844,6 +895,7 @@ const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
+const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -875,7 +927,8 @@ const summary = {
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
-  target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic
+  target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic,
+  target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic
 };
 
 const diagnostic = {
