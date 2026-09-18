@@ -997,6 +997,123 @@ function pureSupplierResidualTopologyDiagnostics(reportSupplierAware, bundle) {
 const pureSupplierResidualTopologyDiagnostic =
   pureSupplierResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function exactSurplusProvenanceDiagnostics(legacyBundle, coreBundleInput) {
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const offer of coreOffers(coreBundleInput)) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(offer);
+  }
+
+  const byModel = {};
+  let surplusOffers = 0;
+  let surplusKeys = 0;
+  let surplusFromSamePriceSource = 0;
+  let surplusFromDistinctPriceSources = 0;
+
+  const traceRule = (offer, field) => {
+    const trace = (offer.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.rules) && trace.rules.length
+      ? trace.rules.join('+')
+      : '(no-trace)';
+  };
+  const traceSource = (offer, field) => {
+    const trace = (offer.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length && Number.isFinite(Number(trace.sources[0]))
+      ? Number(trace.sources[0])
+      : null;
+  };
+
+  for (const [key, offers] of coreByKey.entries()) {
+    const legacyCount = legacyCounts.get(key) || 0;
+    if (offers.length <= legacyCount) continue;
+
+    const surplus = offers.length - legacyCount;
+    surplusOffers += surplus;
+    surplusKeys += 1;
+    const model = offers[0]?.fields?.model?.id || '(unknown)';
+
+    if (!byModel[model]) {
+      byModel[model] = {
+        surplus_offers: 0,
+        surplus_keys: 0,
+        keys_with_legacy_support: 0,
+        keys_without_legacy_support: 0,
+        same_price_source_surplus: 0,
+        distinct_price_source_surplus: 0,
+        record_shape: {},
+        color_rule: {},
+        condition_rule: {},
+        price_rule: {},
+        multiplicity: {}
+      };
+    }
+    const row = byModel[model];
+    row.surplus_offers += surplus;
+    row.surplus_keys += 1;
+    if (legacyCount > 0) row.keys_with_legacy_support += 1;
+    else row.keys_without_legacy_support += 1;
+
+    const priceSources = offers
+      .map(offer => traceSource(offer, 'price'))
+      .filter(Number.isFinite);
+    const distinctPriceSources = new Set(priceSources);
+    const maxSamePriceSourceMultiplicity = priceSources.reduce((acc, line) => {
+      acc.set(line, (acc.get(line) || 0) + 1);
+      return acc;
+    }, new Map());
+    const maxSameSource = Math.max(0, ...maxSamePriceSourceMultiplicity.values());
+
+    const sameSourceExcess = Math.max(0, maxSameSource - Math.max(legacyCount, 1));
+    const sameSourceContribution = Math.min(surplus, sameSourceExcess);
+    row.same_price_source_surplus += sameSourceContribution;
+    row.distinct_price_source_surplus += surplus - sameSourceContribution;
+    surplusFromSamePriceSource += sameSourceContribution;
+    surplusFromDistinctPriceSources += surplus - sameSourceContribution;
+
+    const multKey = [
+      'legacy=' + legacyCount,
+      'core=' + offers.length,
+      'price_sources=' + distinctPriceSources.size,
+      'max_same_price_source=' + maxSameSource
+    ].join('|');
+    row.multiplicity[multKey] = (row.multiplicity[multKey] || 0) + 1;
+
+    const supportedSlots = legacyCount;
+    for (let index = supportedSlots; index < offers.length; index += 1) {
+      const offer = offers[index];
+      const shape = String(offer.core_record_id || '').includes('-exp-') ? 'expanded' : 'base';
+      row.record_shape[shape] = (row.record_shape[shape] || 0) + 1;
+
+      const colorRule = traceRule(offer, 'color');
+      const conditionRule = traceRule(offer, 'condition');
+      const priceRule = traceRule(offer, 'price');
+      row.color_rule[colorRule] = (row.color_rule[colorRule] || 0) + 1;
+      row.condition_rule[conditionRule] = (row.condition_rule[conditionRule] || 0) + 1;
+      row.price_rule[priceRule] = (row.price_rule[priceRule] || 0) + 1;
+    }
+  }
+
+  return {
+    surplus_offers: surplusOffers,
+    surplus_keys: surplusKeys,
+    same_price_source_surplus: surplusFromSamePriceSource,
+    distinct_price_source_surplus: surplusFromDistinctPriceSources,
+    by_model: Object.entries(byModel)
+      .sort((a, b) => b[1].surplus_offers - a[1].surplus_offers || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const exactSurplusProvenanceDiagnostic =
+  exactSurplusProvenanceDiagnostics(legacySupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -2033,6 +2150,7 @@ const summary = {
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
   pure_supplier_residual_topology_diagnostic: pureSupplierResidualTopologyDiagnostic,
+  exact_surplus_provenance_diagnostic: exactSurplusProvenanceDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
