@@ -36,7 +36,7 @@
           <option value="empty">Vazio</option>
           <option value="failed">Falhou</option>
         </select>
-        <p>Controle exclusivo do protótipo para validar todos os estados da Slice 01.</p>
+        <p>Somente protótipo. Serve para revisar todos os estados da Slice 01.</p>
       </div>
 
       <div class="sidebar-note">
@@ -46,16 +46,16 @@
     </aside>
 
     <main class="main">
-      <header class="topbar">
+      <header class="page-header">
         <div>
           <p class="eyebrow">ANALYSIS WORKSPACE</p>
           <h1>Analisar lista</h1>
-          <p class="topbar-copy">Interpretação auditável antes de cálculo, mercado ou persistência.</p>
+          <p class="page-intro">Entenda o que a lista contém, onde existe inferência e o que ainda precisa de revisão antes de calcular.</p>
         </div>
         <button class="primary" id="new-analysis">Nova análise</button>
       </header>
 
-      <section class="processing-shell" id="processing-shell" aria-live="polite">
+      <section class="status-strip" id="processing-shell" aria-live="polite">
         <div class="processing-copy">
           <span class="state-dot" id="state-dot"></span>
           <div>
@@ -66,9 +66,9 @@
         <div class="stepper" id="stepper" aria-label="Progresso da análise"></div>
       </section>
 
-      <section class="grid two workspace-top">
-        <article class="card source-card">
-          <div class="card-head">
+      <section class="source-summary-grid">
+        <article class="source-workbench">
+          <div class="section-head">
             <div>
               <p class="eyebrow">ENTRADA</p>
               <h2>Lista do fornecedor</h2>
@@ -80,20 +80,21 @@
           <textarea id="source-text" placeholder="Cole uma lista aqui..."></textarea>
           <input type="file" id="source-file" accept=".txt,text/plain" hidden />
 
-          <div class="source-meta">
-            <span id="source-filename">lista-demo.txt</span>
-            <span id="source-kind">texto simples</span>
-          </div>
-
-          <div class="actions">
-            <button class="secondary" id="upload-file">Enviar .txt</button>
-            <button class="primary" id="interpret-list">Interpretar lista</button>
+          <div class="source-footer">
+            <div class="source-meta">
+              <span id="source-filename">lista-demo.txt</span>
+              <span id="source-kind">texto simples</span>
+            </div>
+            <div class="actions">
+              <button class="secondary" id="upload-file">Enviar .txt</button>
+              <button class="primary" id="interpret-list">Interpretar lista</button>
+            </div>
           </div>
           <p class="inline-feedback" id="input-feedback" role="status"></p>
         </article>
 
-        <article class="card" id="summary-card">
-          <div class="card-head">
+        <aside class="summary-rail" id="summary-card">
+          <div class="section-head compact">
             <div>
               <p class="eyebrow">RESUMO</p>
               <h2 id="summary-title">Interpretação concluída</h2>
@@ -103,80 +104,84 @@
 
           <div class="metrics" id="metrics"></div>
           <p class="muted" id="summary-copy">O sistema separa o que foi interpretado, inferido e o que ainda exige revisão.</p>
-
           <div class="run-meta" id="run-meta"></div>
-        </article>
+        </aside>
       </section>
 
-      <article class="card table-card">
-        <div class="card-head table-head">
-          <div>
-            <p class="eyebrow">OFERTAS VÁLIDAS</p>
-            <h2>O que a leitura encontrou</h2>
-          </div>
-          <div class="table-actions">
-            <div class="segmented" aria-label="Filtro de ofertas">
-              <button class="segment is-active" data-filter="all">Todas</button>
-              <button class="segment" data-filter="interpreted">Interpretadas</button>
-              <button class="segment" data-filter="inferred">Inferidas</button>
-            </div>
-            <button class="secondary" id="next-slice" disabled>Calcular · Slice 02</button>
-          </div>
-        </div>
-
-        <div class="table-wrap" id="offers-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Modelo</th>
-                <th>Condição</th>
-                <th>Cor</th>
-                <th>Fornecedor</th>
-                <th>Preço</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="offers-body"></tbody>
-          </table>
-        </div>
-
-        <div class="empty-state is-hidden" id="offers-empty">
-          <strong id="offers-empty-title">Nenhuma oferta válida</strong>
-          <span id="offers-empty-copy">Quando houver registros interpretados, eles aparecerão aqui.</span>
-        </div>
-      </article>
-
-      <section class="grid two review-grid">
-        <article class="card">
-          <div class="card-head">
+      <div class="analysis-grid">
+        <section class="offers-section">
+          <div class="section-head offers-head">
             <div>
-              <p class="eyebrow">PENDÊNCIAS</p>
-              <h2>Ambiguidades</h2>
+              <p class="eyebrow">OFERTAS VÁLIDAS</p>
+              <h2>O que a leitura encontrou</h2>
             </div>
-            <span class="status warn" id="ambiguity-count">0 casos</span>
-          </div>
-          <div class="issue-list" id="ambiguity-list"></div>
-          <div class="empty-compact is-hidden" id="ambiguity-empty">Nenhuma ambiguidade nesta leitura.</div>
-        </article>
-
-        <article class="card">
-          <div class="card-head">
-            <div>
-              <p class="eyebrow">FORA DO CAMINHO FELIZ</p>
-              <h2>Registros inválidos</h2>
+            <div class="table-actions">
+              <div class="segmented" aria-label="Filtro de ofertas">
+                <button class="segment is-active" data-filter="all">Todas</button>
+                <button class="segment" data-filter="interpreted">Interpretadas</button>
+                <button class="segment" data-filter="inferred">Inferidas</button>
+              </div>
+              <button class="secondary" id="next-slice" disabled>Calcular · Slice 02</button>
             </div>
-            <span class="status danger" id="invalid-count">0 casos</span>
           </div>
-          <div class="issue-list" id="invalid-list"></div>
-          <div class="empty-compact is-hidden" id="invalid-empty">Nenhum registro inválido nesta leitura.</div>
-        </article>
-      </section>
 
-      <section class="contract-note">
-        <strong>Slice 01 · leitura somente</strong>
-        <span>O protótipo representa o InterpretationBundle. Não aprova, não aprende, não grava preço e não acessa Supabase.</span>
-      </section>
+          <div class="table-shell">
+            <div class="table-wrap" id="offers-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Modelo</th>
+                    <th>Condição</th>
+                    <th>Cor</th>
+                    <th>Fornecedor</th>
+                    <th>Preço</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="offers-body"></tbody>
+              </table>
+            </div>
+
+            <div class="empty-state is-hidden" id="offers-empty">
+              <strong id="offers-empty-title">Nenhuma oferta válida</strong>
+              <span id="offers-empty-copy">Quando houver registros interpretados, eles aparecerão aqui.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="review-rail">
+          <section class="review-block">
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">PENDÊNCIAS</p>
+                <h2>Ambiguidades</h2>
+              </div>
+              <span class="status warn" id="ambiguity-count">0 casos</span>
+            </div>
+            <div class="issue-list" id="ambiguity-list"></div>
+            <div class="empty-compact is-hidden" id="ambiguity-empty">Nenhuma ambiguidade nesta leitura.</div>
+          </section>
+
+          <section class="review-block">
+            <div class="section-head compact">
+              <div>
+                <p class="eyebrow">BLOQUEIOS</p>
+                <h2>Registros inválidos</h2>
+              </div>
+              <span class="status danger" id="invalid-count">0 casos</span>
+            </div>
+            <div class="issue-list" id="invalid-list"></div>
+            <div class="empty-compact is-hidden" id="invalid-empty">Nenhum registro inválido nesta leitura.</div>
+          </section>
+
+          <section class="rail-note">
+            <p class="eyebrow">CONTRATO</p>
+            <strong>Slice 01 · leitura somente</strong>
+            <span>Representa o InterpretationBundle. Não aprova, não aprende, não grava preço e não acessa Supabase.</span>
+          </section>
+        </aside>
+      </div>
     </main>
   </div>
 
