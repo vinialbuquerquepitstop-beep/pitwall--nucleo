@@ -1,0 +1,44 @@
+{
+  "contract_version": "interpreter-reference-adjudication/v1",
+  "adjudication_id": "pitstop-real-load-2026-09-18-v1",
+  "source_load_id": "6c4d3491-f85b-4015-8393-9798ab1ce758",
+  "status": "reviewed_reference_v1",
+  "corrections": [
+    {
+      "legacy_record_id": "legacy-product-257-color-2",
+      "expected_from_model": "iphone_16_256gb",
+      "to_model": "iphone_16_pro_max_256gb",
+      "reason": "cross_model_exact_match_confirmed"
+    },
+    {
+      "legacy_record_id": "legacy-product-259-color-1",
+      "expected_from_model": "iphone_16_256gb",
+      "to_model": "iphone_16_pro_max_256gb",
+      "reason": "cross_model_exact_match_confirmed"
+    },
+    {
+      "legacy_record_id": "legacy-product-259-color-2",
+      "expected_from_model": "iphone_16_256gb",
+      "to_model": "iphone_16_pro_max_256gb",
+      "reason": "cross_model_exact_match_confirmed"
+    },
+    {
+      "legacy_record_id": "legacy-product-259-color-3",
+      "expected_from_model": "iphone_16_256gb",
+      "to_model": "iphone_16_pro_max_256gb",
+      "reason": "cross_model_exact_match_confirmed"
+    }
+  ],
+  "exclusions": [
+    {
+      "legacy_record_id": "legacy-product-320-color-1",
+      "expected_model": "iphone_17_512gb",
+      "reason": "raw_model_outside_supported_domain"
+    },
+    {
+      "legacy_record_id": "legacy-product-320-color-2",
+      "expected_model": "iphone_17_512gb",
+      "reason": "raw_model_outside_supported_domain"
+    }
+  ]
+}
