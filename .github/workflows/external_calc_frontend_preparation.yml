@@ -1,0 +1,57 @@
+name: External Calc — Frontend Preparation Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-frontend-preparation-v0
+    paths:
+      - 'docs/calculadora/EXTERNAL_CALC_FRONTEND_PREPARATION_V0.md'
+      - 'docs/calculadora/mocks/**'
+      - 'prototypes/external-calc-frontend-v0/**'
+      - '.github/workflows/external_calc_frontend_preparation.yml'
+  pull_request:
+    paths:
+      - 'docs/calculadora/EXTERNAL_CALC_FRONTEND_PREPARATION_V0.md'
+      - 'docs/calculadora/mocks/**'
+      - 'prototypes/external-calc-frontend-v0/**'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-preparation:
+    name: Frontend Preparation — isolated mock
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Validate mock JSON
+        run: |
+          node -e "const fs=require('fs'); const p='docs/calculadora/mocks/external-calc-workspace-v0.json'; const d=JSON.parse(fs.readFileSync(p,'utf8')); if(d.contract_version!=='external-calc-workspace-mock/v0') process.exit(1); if(!d.interpretation||!d.calculation||!d.research) process.exit(1);"
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check prototypes/external-calc-frontend-v0/app.js
+          node --check prototypes/external-calc-frontend-v0/mock-data.js
+
+      - name: Validate prototype files
+        run: |
+          test -f prototypes/external-calc-frontend-v0/index.html
+          test -f prototypes/external-calc-frontend-v0/styles.css
+          grep -q './styles.css' prototypes/external-calc-frontend-v0/index.html
+          grep -q './mock-data.js' prototypes/external-calc-frontend-v0/index.html
+          grep -q './app.js' prototypes/external-calc-frontend-v0/index.html
+
+      - name: Enforce isolation
+        run: |
+          if grep -RniE 'supabase|SUPABASE_DB_URL|service_role|postgresql://' prototypes/external-calc-frontend-v0; then
+            echo 'FALHA: prototipo isolado contém dependência ou segredo proibido.'
+            exit 1
+          fi
+          echo 'FRONTEND_PREPARATION_ISOLATED=1'
