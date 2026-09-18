@@ -281,10 +281,17 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       silent_wrong_price_supplier_cardinality_by_model: priceDiagnostic.supplier_cardinality_by_model,
       silent_wrong_price_single_supplier_identity: priceDiagnostic.substitutions_single_supplier_identity,
       silent_wrong_price_multi_supplier_identity: priceDiagnostic.substitutions_multi_supplier_identity,
-      silent_wrong_price_unknown_supplier_identity: priceDiagnostic.substitutions_unknown_supplier_identity
+      silent_wrong_price_unknown_supplier_identity: priceDiagnostic.substitutions_unknown_supplier_identity,
+      confirmed_silent_wrong_price: priceDiagnostic.substitutions_single_supplier_identity,
+      unresolved_price_attribution:
+        priceDiagnostic.substitutions_multi_supplier_identity +
+        priceDiagnostic.substitutions_unknown_supplier_identity
     },
     gates: {
-      no_silent_wrong_price: priceDiagnostic.substitutions === 0,
+      no_silent_wrong_price: priceDiagnostic.substitutions_single_supplier_identity === 0,
+      price_attribution_resolved:
+        priceDiagnostic.substitutions_multi_supplier_identity === 0 &&
+        priceDiagnostic.substitutions_unknown_supplier_identity === 0,
       exact_multiset: exact
     },
     missing: diff.missing,
