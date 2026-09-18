@@ -251,6 +251,55 @@ const adjacentColorReport = compareSemanticShadow({
   options: { include_supplier: true }
 });
 
+// Diagnostic simulation: remove only inherited condition values whose provenance
+// crosses a domain boundary. Price/model/supplier/pairing remain untouched.
+const conditionDomainGuardBundle = JSON.parse(JSON.stringify(coreBundle));
+const conditionDomainSegments = conditionDomainGuardBundle.segments || [];
+let conditionDomainGuardCleared = 0;
+const conditionDomainGuardByModel = {};
+
+const hasDomainBoundaryBetween = (fromLine, toLine) => {
+  if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return false;
+  const lo = Math.min(fromLine, toLine);
+  const hi = Math.max(fromLine, toLine);
+  return conditionDomainSegments.some(segment => {
+    const line = Number(segment.line_number);
+    if (!(line > lo && line <= hi)) return false;
+    return (segment.context_events || []).some(event => event.reason === 'domain_boundary');
+  });
+};
+
+for (const record of conditionDomainGuardBundle.records || []) {
+  if (record?.fields?.condition == null) continue;
+  const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
+  if (!conditionTrace || !(conditionTrace.rules || []).includes('context_inheritance')) continue;
+
+  const conditionLine = Array.isArray(conditionTrace.sources) && conditionTrace.sources.length
+    ? Number(conditionTrace.sources[0])
+    : null;
+  const priceTrace = (record.trace || []).find(item => item.field === 'price');
+  const modelTrace = (record.trace || []).find(item => item.field === 'model');
+  const targetLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+    ? Number(priceTrace.sources[0])
+    : Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+      ? Number(modelTrace.sources[0])
+      : null;
+
+  if (!hasDomainBoundaryBetween(conditionLine, targetLine)) continue;
+
+  const modelId = record.fields?.model?.id || '(unknown)';
+  conditionDomainGuardByModel[modelId] = (conditionDomainGuardByModel[modelId] || 0) + 1;
+  record.fields.condition = null;
+  record.trace = (record.trace || []).filter(item => item.field !== 'condition');
+  conditionDomainGuardCleared += 1;
+}
+
+const conditionDomainGuardReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: conditionDomainGuardBundle,
+  options: { include_supplier: true }
+});
+
 const longHeaderFallbackPriceBundle = JSON.parse(JSON.stringify(coreBundle));
 const longHeaderSegments = new Map(
   (longHeaderFallbackPriceBundle.segments || []).map(segment => [Number(segment.line_number), segment])
@@ -6911,6 +6960,20 @@ const summary = {
   surplus_price_source_shape_diagnostic: surplusPriceSourceShapeDiagnostic,
   price_source_shape_support_diagnostic: priceSourceShapeSupportDiagnostic,
   surplus_long_header_price_evidence_diagnostic: surplusLongHeaderPriceEvidenceDiagnostic,
+  condition_domain_boundary_guard_simulation: {
+    cleared_conditions: conditionDomainGuardCleared,
+    cleared_by_model: conditionDomainGuardByModel,
+    core_offers: conditionDomainGuardReport.metrics.core_offers,
+    matched_offers: conditionDomainGuardReport.metrics.matched_offers,
+    missing_offers: conditionDomainGuardReport.metrics.missing_offers,
+    extra_offers: conditionDomainGuardReport.metrics.extra_offers,
+    agreement_ratio: conditionDomainGuardReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: conditionDomainGuardReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: conditionDomainGuardReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: conditionDomainGuardReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: conditionDomainGuardReport.gates.price_attribution_resolved,
+    exact_multiset: conditionDomainGuardReport.gates.exact_multiset
+  },
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
