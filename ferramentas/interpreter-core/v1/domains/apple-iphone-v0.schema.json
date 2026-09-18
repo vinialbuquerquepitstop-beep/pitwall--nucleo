@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.0",
+  "schema_version": "0.9.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -141,6 +141,24 @@
           "score": 0.97
         }
       ]
+    },
+    {
+      "name": "_domain_boundary",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "context_boundary": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Poco|Xiaomi|Redmi|iPad|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|AirPods|AirTag|Pencil|Garmin|JBL|Moto(?:rola)?|Galaxy|Samsung)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.99
+        }
+      ]
     }
   ],
   "structural_roles": [
@@ -204,6 +222,29 @@
         "_"
       ],
       "safety": "still requires iPhone token + recognized model family + recognized capacity"
+    },
+    "domain_boundaries": {
+      "source": "real supplier load + canonical calculator references",
+      "purpose": "prevent iPhone context leaking into other product families",
+      "families": [
+        "Poco",
+        "Xiaomi",
+        "Redmi",
+        "iPad",
+        "MacBook",
+        "Mac Mini",
+        "iMac",
+        "Apple Watch",
+        "Watch",
+        "AirPods",
+        "AirTag",
+        "Pencil",
+        "Garmin",
+        "JBL",
+        "Moto/Motorola",
+        "Galaxy",
+        "Samsung"
+      ]
     }
   }
 }
