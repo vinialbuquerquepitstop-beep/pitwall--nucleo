@@ -2756,6 +2756,453 @@ function mixedResidualOverlapCoverageDiagnostics(reportSupplierAware, bundle) {
 const mixedResidualOverlapCoverageDiagnostic =
   mixedResidualOverlapCoverageDiagnostics(reportSupplierAware, coreBundle);
 
+function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = (items, prefix) => {
+    const out = [];
+    for (const item of items || []) {
+      const count = Number(item.count || 0);
+      for (let i = 0; i < count; i += 1) {
+        out.push({ id: prefix + out.length, fields: item.fields || {} });
+      }
+    }
+    return out;
+  };
+
+  const missing = expand(reportSupplierAware.missing, 'm');
+  const extra = expand(reportSupplierAware.extra, 'e');
+  const consumedMissing = new Set();
+  const consumedExtra = new Set();
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const segmentByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const diffFields = (a, b) =>
+    ['supplier','capacity','condition','color','price'].filter(field => a[field] !== b[field]);
+  const sourceLine = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const pathBoundaries = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment?.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment?.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+  const supplierEvidenceLines = supplier => {
+    if (!supplier) return [];
+    return segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'supplier' && String(candidate.value) === String(supplier)
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+  const nearestSupplier = (supplier, priceLine) =>
+    supplierEvidenceLines(supplier)
+      .map(line => ({ line, distance: Math.abs(priceLine - line) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+  const coreByKey = new Map();
+  for (const record of records) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+  const recordForExtra = entry => {
+    const key = offerKey(entry.fields || {}, { include_supplier: true });
+    const bucket = coreByKey.get(key) || [];
+    const supported = Math.min(legacyCounts.get(key) || 0, bucket.length);
+    return bucket[supported] || null;
+  };
+
+  const categories = {};
+  const mark = (name, mId = null, eId = null) => {
+    if (!categories[name]) categories[name] = { missing: 0, extra: 0, pairs: 0 };
+    if (mId != null) {
+      consumedMissing.add(mId);
+      categories[name].missing += 1;
+    }
+    if (eId != null) {
+      consumedExtra.add(eId);
+      categories[name].extra += 1;
+    }
+    if (mId != null && eId != null) categories[name].pairs += 1;
+  };
+
+  const missingSourceContradicted = entry => {
+    const item = entry;
+    const model = item.fields?.model?.id || null;
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!model || !Number.isFinite(price)) return false;
+
+    if (model === 'iphone_16_256gb') {
+      const sameSupplierPriceRecords = records.filter(record =>
+        String(record.fields?.supplier ?? '') === supplier &&
+        Number(record.fields?.price) === price
+      );
+      if (!sameSupplierPriceRecords.length) return false;
+      return sameSupplierPriceRecords.every(record => {
+        const modelLine = sourceLine(record, 'model');
+        const segment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+        return /\bpro\s*max\b/i.test(String(segment?.normalized || ''));
+      });
+    }
+
+    if (model === 'iphone_17_512gb') {
+      const priceSegments = segments.filter(segment =>
+        supplierAt(segment) === supplier &&
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === price
+        )
+      );
+      if (!priceSegments.length) return false;
+      return priceSegments.every(priceSegment => {
+        const priceLine = Number(priceSegment.line_number);
+        const nearestAnchor = segments
+          .filter(segment =>
+            Number(segment.line_number) < priceLine &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+          )
+          .sort((a, b) => Number(b.line_number) - Number(a.line_number))[0] || null;
+        if (!nearestAnchor) return false;
+        const shapes = [...new Set(
+          (nearestAnchor.field_candidates || [])
+            .filter(candidate => candidate.field === 'model')
+            .map(candidate => iphoneModelShape(candidate.value))
+            .filter(Boolean)
+        )];
+        const semanticIds = [...new Set(
+          (nearestAnchor.semantic_candidates || [])
+            .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+            .map(candidate => candidate.entity_id)
+        )];
+        return shapes.length > 0 &&
+          shapes.every(shape => /^17\|(?:pro|pro max)\|(?:256|512)$/.test(shape)) &&
+          !semanticIds.includes('iphone_17_512gb');
+      });
+    }
+    return false;
+  };
+
+  const fullLocalEExtra = (entry, record) => {
+    const modelId = record?.fields?.model?.id || null;
+    if (!['iphone_17e_256gb','iphone_16e_128gb'].includes(modelId)) return false;
+    const priceLine = sourceLine(record, 'price');
+    if (!Number.isFinite(priceLine)) return false;
+
+    const localField = (field, maxDistance) => {
+      const value = record.fields?.[field];
+      if (value == null) return true;
+      const line = sourceLine(record, field);
+      if (!Number.isFinite(line)) return false;
+      const boundaries = pathBoundaries(line, priceLine);
+      return Math.abs(priceLine - line) <= maxDistance &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    };
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const supplierLine = sourceLine(record, 'supplier');
+    const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+    return (priceTrace?.rules || []).includes('direct_extraction') &&
+      localField('model', 6) &&
+      localField('color', 3) &&
+      localField('condition', 6) &&
+      Number.isFinite(supplierLine) &&
+      !supplierBoundaries.has('supplier') &&
+      !supplierBoundaries.has('timestamp');
+  };
+
+  for (const miss of missing) {
+    if (missingSourceContradicted(miss)) mark('source_contradicted_missing', miss.id, null);
+  }
+  for (const ex of extra) {
+    const record = recordForExtra(ex);
+    if (record && fullLocalEExtra(ex, record)) mark('source_supported_core_only_e', null, ex.id);
+  }
+
+  const availableMissing = () => missing.filter(item => !consumedMissing.has(item.id));
+  const availableExtra = () => extra.filter(item => !consumedExtra.has(item.id));
+
+  const pairAndQualify = (name, pairPredicate, qualifier) => {
+    for (const miss of availableMissing()) {
+      const expected = norm(miss);
+      let chosen = null;
+      for (const ex of availableExtra()) {
+        const actual = norm(ex);
+        if (!pairPredicate(expected, actual)) continue;
+        const record = recordForExtra(ex);
+        if (!record) continue;
+        if (!qualifier({ miss, ex, expected, actual, record })) continue;
+        chosen = ex;
+        break;
+      }
+      if (chosen) mark(name, miss.id, chosen.id);
+    }
+  };
+
+  pairAndQualify(
+    'source_contradicted_pure_supplier',
+    (a, b) =>
+      a.model === b.model &&
+      a.capacity === b.capacity &&
+      a.condition === b.condition &&
+      a.color === b.color &&
+      a.price === b.price &&
+      a.supplier !== b.supplier,
+    ({ expected, actual, record }) => {
+      const priceLine = sourceLine(record, 'price');
+      const actualSupplierLine = sourceLine(record, 'supplier');
+      if (!Number.isFinite(priceLine) || !Number.isFinite(actualSupplierLine)) return false;
+      const expectedNearest = nearestSupplier(expected.supplier, priceLine);
+      if (!expectedNearest) return false;
+      const actualDistance = Math.abs(priceLine - actualSupplierLine);
+      const actualBoundaries = pathBoundaries(actualSupplierLine, priceLine);
+      const expectedBoundaries = pathBoundaries(expectedNearest.line, priceLine);
+      return expectedNearest.distance > actualDistance &&
+        expectedBoundaries.has('supplier') &&
+        expectedBoundaries.has('timestamp') &&
+        !actualBoundaries.has('supplier') &&
+        !actualBoundaries.has('timestamp');
+    }
+  );
+
+  pairAndQualify(
+    'source_unsupported_pure_condition',
+    (a, b) =>
+      a.model === b.model &&
+      a.supplier === b.supplier &&
+      a.capacity === b.capacity &&
+      a.color === b.color &&
+      a.price === b.price &&
+      a.condition != null &&
+      b.condition == null,
+    ({ expected, record }) => {
+      const priceLine = sourceLine(record, 'price') ?? sourceLine(record, 'model');
+      if (!Number.isFinite(priceLine)) return false;
+      const matchingLines = [];
+      for (const segment of segments) {
+        const effectiveSupplier = supplierAt(segment);
+        if (effectiveSupplier !== expected.supplier) continue;
+        for (const candidate of segment.field_candidates || []) {
+          if (candidate.field !== 'condition') continue;
+          const mapped = schema.fields.find(field => field.name === 'condition')?.value_map || {};
+          const canonical = mapped[candidate.value] || mapped[String(candidate.value)] || candidate.value;
+          if (normalizeKey(canonical) === expected.condition) {
+            matchingLines.push(Number(segment.line_number));
+          }
+        }
+      }
+      const nearest = matchingLines
+        .filter(Number.isFinite)
+        .map(line => ({ line, distance: Math.abs(priceLine - line) }))
+        .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+      if (!nearest) return true;
+      let modelAnchors = 0;
+      const boundaries = pathBoundaries(nearest.line, priceLine);
+      const lo = Math.min(nearest.line, priceLine);
+      const hi = Math.max(nearest.line, priceLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (line > lo && line <= hi &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          modelAnchors += 1;
+        }
+      }
+      return nearest.distance >= 100 &&
+        modelAnchors >= 20 &&
+        boundaries.has('domain') &&
+        boundaries.has('supplier');
+    }
+  );
+
+  pairAndQualify(
+    'source_contradicted_price_supplier',
+    (a, b) => {
+      if (a.model !== b.model) return false;
+      const diffs = diffFields(a, b);
+      return diffs.length === 2 && diffs.includes('price') && diffs.includes('supplier');
+    },
+    ({ expected, record }) => {
+      const priceLine = sourceLine(record, 'price');
+      const supplierLine = sourceLine(record, 'supplier');
+      if (!Number.isFinite(priceLine) || !Number.isFinite(supplierLine)) return false;
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const supplierPath = pathBoundaries(supplierLine, priceLine);
+      const expectedSupplier = nearestSupplier(expected.supplier, priceLine);
+      const expectedSupplierPath = pathBoundaries(expectedSupplier?.line, priceLine);
+
+      const expectedPriceLines = segments
+        .filter(segment => (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === expected.price
+        ))
+        .map(segment => Number(segment.line_number))
+        .filter(Number.isFinite);
+      const expectedPrice = expectedPriceLines
+        .map(line => ({ line, distance: Math.abs(priceLine - line) }))
+        .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+      const expectedPricePath = pathBoundaries(expectedPrice?.line, priceLine);
+      let modelAnchors = 0;
+      if (expectedPrice) {
+        const lo = Math.min(expectedPrice.line, priceLine);
+        const hi = Math.max(expectedPrice.line, priceLine);
+        modelAnchors = segments.filter(segment => {
+          const line = Number(segment.line_number);
+          return line > lo && line <= hi &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model');
+        }).length;
+      }
+
+      const actualDistance = Math.abs(priceLine - supplierLine);
+      const actualLocal =
+        actualDistance <= 200 &&
+        !supplierPath.has('supplier') &&
+        !supplierPath.has('timestamp');
+      const expectedPriceUnsupported =
+        !expectedPrice ||
+        (
+          expectedPrice.distance > 3 &&
+          (
+            modelAnchors > 0 ||
+            expectedPricePath.has('domain') ||
+            expectedPricePath.has('supplier') ||
+            expectedPricePath.has('timestamp')
+          )
+        );
+      const expectedSupplierUnsupported =
+        !expectedSupplier ||
+        (
+          expectedSupplier.distance > actualDistance &&
+          (expectedSupplierPath.has('supplier') || expectedSupplierPath.has('timestamp'))
+        );
+      return (priceTrace?.rules || []).includes('direct_extraction') &&
+        actualLocal &&
+        expectedPriceUnsupported &&
+        expectedSupplierUnsupported;
+    }
+  );
+
+  pairAndQualify(
+    'source_contradicted_mixed_price_supplier',
+    (a, b) => {
+      if (a.model !== b.model || a.capacity !== b.capacity) return false;
+      const diffs = diffFields(a, b);
+      return diffs.length >= 3 && diffs.includes('price') && diffs.includes('supplier');
+    },
+    ({ expected, record }) => {
+      const priceLine = sourceLine(record, 'price');
+      const supplierLine = sourceLine(record, 'supplier');
+      const modelLine = sourceLine(record, 'model');
+      if (!Number.isFinite(priceLine) || !Number.isFinite(supplierLine) || !Number.isFinite(modelLine)) {
+        return false;
+      }
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const supplierDistance = Math.abs(priceLine - supplierLine);
+      const modelDistance = Math.abs(priceLine - modelLine);
+      const supplierPath = pathBoundaries(supplierLine, priceLine);
+      const modelPath = pathBoundaries(modelLine, priceLine);
+      const expectedSupplier = nearestSupplier(expected.supplier, priceLine);
+      const expectedPath = pathBoundaries(expectedSupplier?.line, priceLine);
+
+      return (priceTrace?.rules || []).includes('direct_extraction') &&
+        modelDistance <= 6 &&
+        !modelPath.has('domain') &&
+        !modelPath.has('supplier') &&
+        !modelPath.has('timestamp') &&
+        !supplierPath.has('supplier') &&
+        !supplierPath.has('timestamp') &&
+        expectedSupplier &&
+        expectedSupplier.distance > supplierDistance &&
+        (expectedPath.has('supplier') || expectedPath.has('timestamp'));
+    }
+  );
+
+  const remainingMissing = availableMissing();
+  const remainingExtra = availableExtra();
+  const remainingPairSignatures = {};
+  const usedRemainingExtra = new Set();
+
+  for (const miss of remainingMissing) {
+    const expected = norm(miss);
+    let best = null;
+    for (const ex of remainingExtra) {
+      if (usedRemainingExtra.has(ex.id)) continue;
+      const actual = norm(ex);
+      if (actual.model !== expected.model) continue;
+      const diffs = diffFields(expected, actual);
+      if (!best || diffs.length < best.diffs.length) best = { ex, diffs };
+    }
+    if (!best) continue;
+    usedRemainingExtra.add(best.ex.id);
+    const key = best.diffs.slice().sort().join('+') || 'exact';
+    remainingPairSignatures[key] = (remainingPairSignatures[key] || 0) + 1;
+  }
+
+  return {
+    raw: { missing: missing.length, extra: extra.length },
+    covered: {
+      missing: consumedMissing.size,
+      extra: consumedExtra.size
+    },
+    remaining: {
+      missing: remainingMissing.length,
+      extra: remainingExtra.length,
+      total: remainingMissing.length + remainingExtra.length
+    },
+    categories,
+    remaining_pair_signatures: Object.entries(remainingPairSignatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+    promotion_counted: false,
+    status: 'global_unique_consumption_diagnostic'
+  };
+}
+
+const residualAdjudicationLedgerDiagnostic =
+  residualAdjudicationLedgerDiagnostics(reportSupplierAware, coreBundle);
+
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
   const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
@@ -4994,6 +5441,7 @@ const summary = {
   mixed_price_supplier_evidence_diagnostic: mixedPriceSupplierEvidenceDiagnostic,
   adjudicated_mixed_price_supplier_diagnostic: adjudicatedMixedPriceSupplierDiagnostic,
   mixed_residual_overlap_coverage_diagnostic: mixedResidualOverlapCoverageDiagnostic,
+  residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
