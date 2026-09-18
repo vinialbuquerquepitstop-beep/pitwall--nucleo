@@ -2478,6 +2478,284 @@ function adjudicatedMixedPriceSupplierDiagnostics(reportSupplierAware, bundle) {
 const adjudicatedMixedPriceSupplierDiagnostic =
   adjudicatedMixedPriceSupplierDiagnostics(reportSupplierAware, coreBundle);
 
+function mixedResidualOverlapCoverageDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extra = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const segmentByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const diffFields = (a, b) =>
+    ['supplier','capacity','condition','color','price'].filter(field => a[field] !== b[field]);
+  const sourceLine = (record, field) => {
+    const trace = (record.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const pathBoundaries = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment?.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment?.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+  const supplierEvidenceLines = supplier => {
+    if (!supplier) return [];
+    return segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'supplier' && String(candidate.value) === supplier
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+
+  const coreBuckets = new Map();
+  for (const record of records) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+
+  const missingAlreadyContradicted = item => {
+    const model = item.fields?.model?.id || null;
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!model || !Number.isFinite(price)) return false;
+
+    if (model === 'iphone_16_256gb') {
+      const sameSupplierPriceRecords = records.filter(record =>
+        String(record.fields?.supplier ?? '') === supplier &&
+        Number(record.fields?.price) === price
+      );
+      if (!sameSupplierPriceRecords.length) return false;
+      return sameSupplierPriceRecords.every(record => {
+        const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+        const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+          ? Number(modelTrace.sources[0])
+          : null;
+        const segment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+        return /\bpro\s*max\b/i.test(String(segment?.normalized || ''));
+      });
+    }
+
+    if (model === 'iphone_17_512gb') {
+      const priceSegments = segments.filter(segment =>
+        supplierAt(segment) === supplier &&
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === price
+        )
+      );
+      if (!priceSegments.length) return false;
+      return priceSegments.every(priceSegment => {
+        const priceLine = Number(priceSegment.line_number);
+        const nearestAnchor = segments
+          .filter(segment =>
+            Number(segment.line_number) < priceLine &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+          )
+          .sort((a, b) => Number(b.line_number) - Number(a.line_number))[0] || null;
+        if (!nearestAnchor) return false;
+
+        const shapes = [...new Set(
+          (nearestAnchor.field_candidates || [])
+            .filter(candidate => candidate.field === 'model')
+            .map(candidate => iphoneModelShape(candidate.value))
+            .filter(Boolean)
+        )];
+        const semanticIds = [...new Set(
+          (nearestAnchor.semantic_candidates || [])
+            .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+            .map(candidate => candidate.entity_id)
+        )];
+
+        return shapes.length > 0 &&
+          shapes.every(shape => /^17\|(?:pro|pro max)\|(?:256|512)$/.test(shape)) &&
+          !semanticIds.includes('iphone_17_512gb');
+      });
+    }
+
+    return false;
+  };
+
+  const extraAlreadySourceSupportedE = record => {
+    const modelId = record?.fields?.model?.id || null;
+    if (!['iphone_17e_256gb','iphone_16e_128gb'].includes(modelId)) return false;
+    const priceLine = sourceLine(record, 'price');
+    if (!Number.isFinite(priceLine)) return false;
+
+    const localField = (field, maxDistance) => {
+      const value = record.fields?.[field];
+      if (value == null) return true;
+      const line = sourceLine(record, field);
+      if (!Number.isFinite(line)) return false;
+      const distance = Math.abs(priceLine - line);
+      const boundaries = pathBoundaries(line, priceLine);
+      return distance <= maxDistance &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+    };
+
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const directPrice =
+      (priceTrace?.rules || []).includes('direct_extraction') &&
+      sourceLine(record, 'price') === priceLine;
+    const supplierLine = sourceLine(record, 'supplier');
+    const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+    const supplierLocal =
+      Number.isFinite(supplierLine) &&
+      !supplierBoundaries.has('supplier') &&
+      !supplierBoundaries.has('timestamp');
+
+    return directPrice &&
+      localField('model', 6) &&
+      localField('color', 3) &&
+      localField('condition', 6) &&
+      supplierLocal;
+  };
+
+  let candidatePairs = 0;
+  let missingOverlap = 0;
+  let extraOverlap = 0;
+  let bothOverlap = 0;
+  let additionalMissingCoverage = 0;
+  let additionalExtraCoverage = 0;
+  let fullyAdditionalPairs = 0;
+  let unresolvedCoreRecord = 0;
+
+  for (const miss of missing) {
+    const expected = norm(miss);
+    let best = null;
+    for (let index = 0; index < extra.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      const actual = norm(extra[index]);
+      if (actual.model !== expected.model || actual.capacity !== expected.capacity) continue;
+      const diffs = diffFields(expected, actual);
+      if (diffs.length < 3 || !diffs.includes('price') || !diffs.includes('supplier')) continue;
+      if (!best || diffs.length < best.diffs.length) best = { index, diffs };
+    }
+    if (!best) continue;
+
+    usedExtra.add(best.index);
+    const extraOffer = extra[best.index];
+    const key = offerKey(extraOffer.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(key) || [];
+    const offset = consumedCore.get(key) || 0;
+    const record = bucket[offset] || null;
+    consumedCore.set(key, offset + 1);
+    if (!record) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const priceLine = sourceLine(record, 'price');
+    const supplierLine = sourceLine(record, 'supplier');
+    const modelLine = sourceLine(record, 'model');
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    if (!Number.isFinite(priceLine)) continue;
+
+    const supplierDistance = Number.isFinite(supplierLine)
+      ? Math.abs(priceLine - supplierLine)
+      : null;
+    const modelDistance = Number.isFinite(modelLine)
+      ? Math.abs(priceLine - modelLine)
+      : null;
+    const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+    const modelBoundaries = pathBoundaries(modelLine, priceLine);
+    const expectedSupplierNearest = supplierEvidenceLines(expected.supplier)
+      .map(line => ({ line, distance: Math.abs(priceLine - line) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+    const expectedSupplierBoundaries =
+      pathBoundaries(expectedSupplierNearest?.line, priceLine);
+
+    const directPrice = (priceTrace?.rules || []).includes('direct_extraction');
+    const modelLocal =
+      Number.isFinite(modelDistance) &&
+      modelDistance <= 6 &&
+      !modelBoundaries.has('domain') &&
+      !modelBoundaries.has('supplier') &&
+      !modelBoundaries.has('timestamp');
+    const supplierLocal =
+      Number.isFinite(supplierDistance) &&
+      !supplierBoundaries.has('supplier') &&
+      !supplierBoundaries.has('timestamp');
+    const legacySupplierStale =
+      expectedSupplierNearest &&
+      Number.isFinite(supplierDistance) &&
+      expectedSupplierNearest.distance > supplierDistance &&
+      (
+        expectedSupplierBoundaries.has('supplier') ||
+        expectedSupplierBoundaries.has('timestamp')
+      );
+
+    if (!(directPrice && modelLocal && supplierLocal && legacySupplierStale)) continue;
+    candidatePairs += 1;
+
+    const mOverlap = missingAlreadyContradicted(miss);
+    const eOverlap = extraAlreadySourceSupportedE(record);
+    if (mOverlap) missingOverlap += 1;
+    else additionalMissingCoverage += 1;
+    if (eOverlap) extraOverlap += 1;
+    else additionalExtraCoverage += 1;
+    if (mOverlap && eOverlap) bothOverlap += 1;
+    if (!mOverlap && !eOverlap) fullyAdditionalPairs += 1;
+  }
+
+  return {
+    candidate_pairs: candidatePairs,
+    overlap_with_source_contradicted_missing: missingOverlap,
+    overlap_with_source_supported_e_extra: extraOverlap,
+    overlap_on_both_sides: bothOverlap,
+    additional_missing_coverage: additionalMissingCoverage,
+    additional_extra_coverage: additionalExtraCoverage,
+    fully_additional_pairs: fullyAdditionalPairs,
+    unresolved_core_record: unresolvedCoreRecord,
+    status: 'diagnostic_only_not_promotion_counted'
+  };
+}
+
+const mixedResidualOverlapCoverageDiagnostic =
+  mixedResidualOverlapCoverageDiagnostics(reportSupplierAware, coreBundle);
+
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
   const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
@@ -4715,6 +4993,7 @@ const summary = {
   source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
   mixed_price_supplier_evidence_diagnostic: mixedPriceSupplierEvidenceDiagnostic,
   adjudicated_mixed_price_supplier_diagnostic: adjudicatedMixedPriceSupplierDiagnostic,
+  mixed_residual_overlap_coverage_diagnostic: mixedResidualOverlapCoverageDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
