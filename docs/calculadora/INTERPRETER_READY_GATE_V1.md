@@ -55,7 +55,7 @@ o acoplamento com a Calculadora permanece fora do Core, no adapter legado.
 - [x] schema externo por arquivo
 - [x] KnowledgeSnapshot externo por arquivo
 - [x] execucao possivel sem knowledge, com abstinencia em vez de invencao
-- [ ] prova runtime da CLI observada em CI
+- [x] prova runtime da CLI observada em CI
 
 Arquivos:
 - `ferramentas/interpreter-core/v1/cli.js`
@@ -88,15 +88,14 @@ node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js
 Ela executa:
 
 1. `prova_core.js`
-2. `prova_cli.js`
-3. `prova_generalization.js`
-4. `prova_cli.js`
-5. `prova_apple_domain.js`
-6. `prova_shadow_comparator.js`
-7. `prova_divergence_analyzer.js`
-8. `prova_offer_expansion_v1.js`
-9. `prova_supplier_profile_adapter.js`
-10. `prova_real_shadow_semantic.js`
+2. `prova_generalization.js`
+3. `prova_cli.js`
+4. `prova_apple_domain.js`
+5. `prova_shadow_comparator.js`
+6. `prova_divergence_analyzer.js`
+7. `prova_offer_expansion_v1.js`
+8. `prova_supplier_profile_adapter.js`
+9. `prova_real_shadow_semantic.js`
 
 Criterio:
 
@@ -105,7 +104,7 @@ GATE_LOCAL=PASS
 ```
 
 Estado:
-- [ ] execucao runtime observada
+- [x] execucao runtime observada
 
 ### D. Corpus real / seguranca semantica
 
@@ -144,7 +143,7 @@ Tambem revisar:
 - vazamento de contexto entre mensagens/fornecedores.
 
 Estado:
-- [ ] corpus representativo executado
+- [x] corpus representativo executado
 - [x] `supplier_aware_confirmed_silent_wrong_price = 0` no corpus atual
 - [x] `supplier_aware_unresolved_price_attribution = 0` no corpus atual
 - [ ] residuos acionaveis adjudicados = 0
