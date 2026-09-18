@@ -1709,6 +1709,53 @@ function sourceSupportedCoreOnlyEOfferDiagnostics(bundle) {
 const sourceSupportedCoreOnlyEOfferDiagnostic =
   sourceSupportedCoreOnlyEOfferDiagnostics(coreBundle);
 
+function adjudicatedResidualSummary() {
+  const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
+  const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
+
+  const contradictedMissing =
+    sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0;
+  const contradictedPureSupplier =
+    sourceContradictedLegacySupplierResidualDiagnostic
+      ?.source_contradicted_legacy_supplier_residuals || 0;
+  const sourceSupportedCoreOnlyFullOffers =
+    sourceSupportedCoreOnlyEOfferDiagnostic?.fully_local_offer_evidence || 0;
+
+  const actionableMissing = Math.max(
+    0,
+    rawMissing - contradictedMissing - contradictedPureSupplier
+  );
+  const actionableExtra = Math.max(
+    0,
+    rawExtra - contradictedPureSupplier - sourceSupportedCoreOnlyFullOffers
+  );
+
+  return {
+    raw: {
+      missing: rawMissing,
+      extra: rawExtra,
+      total_residual: rawMissing + rawExtra
+    },
+    adjudicated_non_core_error: {
+      source_contradicted_legacy_missing: contradictedMissing,
+      source_contradicted_legacy_supplier_pairs: contradictedPureSupplier,
+      source_supported_core_only_full_offers: sourceSupportedCoreOnlyFullOffers
+    },
+    actionable: {
+      missing: actionableMissing,
+      extra: actionableExtra,
+      total_residual: actionableMissing + actionableExtra
+    },
+    policy: {
+      raw_metrics_unchanged: true,
+      does_not_affect_promotion_gate: true,
+      categories_are_evidence_based_and_disjoint_by_construction: true
+    }
+  };
+}
+
+const adjudicatedResidualDiagnostic = adjudicatedResidualSummary();
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3877,6 +3924,7 @@ const summary = {
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
+  adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
