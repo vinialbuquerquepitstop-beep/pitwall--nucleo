@@ -542,24 +542,24 @@ check('linha de preco nao abre product header boundary', () => {
   ));
 });
 
-check('shorthand suportado resolve dentro de product boundary', () => {
+check('shorthand low-risk resolve dentro de product boundary', () => {
   const result = run(
     'apple-boundary-shorthand-supported',
-    '🍎17 256GB Lacrado\nAzul R$ 5.299'
+    '🍎17 512GB Lacrado\nAzul R$ 6.299'
   );
   assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.price, 5299);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_512gb');
+  assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
 check('produto desconhecido depois de shorthand encerra contexto e impede vazamento', () => {
   const result = run(
     'apple-boundary-shorthand-no-bleed',
-    '17 256GB Lacrado\nAzul R$ 5.299\n15 256GB Lacrado\nPreto R$ 4.299'
+    '17 512GB Lacrado\nAzul R$ 6.299\n15 256GB Lacrado\nPreto R$ 4.299'
   );
   assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.price, 5299);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_512gb');
+  assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
 check('shorthand fora do dominio continua sem materializar oferta', () => {
@@ -584,6 +584,18 @@ check('shorthand arriscado 16 Pro Max 256 permanece desativado', () => {
     '16 Pro Max 256GB CPO\nPreto R$ 6.100'
   );
   assert.strictEqual(result.records.length, 0);
+});
+
+check('shorthands com extras no run103 permanecem desativados', () => {
+  for (const [id, header] of [
+    ['15', '15 128GB Lacrado'],
+    ['16e', '16e 128GB Lacrado'],
+    ['17e', '17e 256GB Lacrado'],
+    ['17', '17 256GB Lacrado']
+  ]) {
+    const result = run(`apple-safe-shorthand-exclude-${id}`, `${header}\nPreto R$ 5.299`);
+    assert.strictEqual(result.records.length, 0);
+  }
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
