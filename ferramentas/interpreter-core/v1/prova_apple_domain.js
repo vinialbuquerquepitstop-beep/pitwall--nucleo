@@ -468,6 +468,15 @@ check('fallback vizinho unico se abstem em empate de distancia', () => {
   assert.ok(result.records.every(record => record.fields.color === undefined));
 });
 
+check('fallback vizinho unico se abstem quando distancia passa de tres linhas', () => {
+  const result = run(
+    'apple-nearest-too-far',
+    'iPhone 17 256GB Lacrado\nPreto\nOBS 1\nOBS 2\nOBS 3\nR$ 5.299\nR$ 5.499'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.ok(result.records.every(record => record.fields.color === undefined));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
