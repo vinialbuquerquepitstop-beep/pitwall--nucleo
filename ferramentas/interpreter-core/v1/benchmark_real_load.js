@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { interpretResolved, isFieldOnlySegment } = require('./core');
+const { interpretResolved, isFieldOnlySegment, normalizeKey } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
 const { analyzeDivergences, normFields, removeExactMatches, pairWithinModel } = require('./divergence-analyzer');
