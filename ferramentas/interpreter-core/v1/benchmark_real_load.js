@@ -944,6 +944,36 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
       };
     });
 
+
+  const targetWrongPriceRecords = (residualPairs.pairs || [])
+    .filter(pair =>
+      normFields(pair.legacy).model === 'iphone_16_pro_max_256gb' &&
+      pair.diffs.length === 1 &&
+      pair.diffs[0] === 'price'
+    )
+    .map(pair => {
+      const priceTrace = (pair.core.trace || []).find(trace => trace.field === 'price');
+      const modelTrace = (pair.core.trace || []).find(trace => trace.field === 'model');
+      const conditionTrace = (pair.core.trace || []).find(trace => trace.field === 'condition');
+      const colorTrace = (pair.core.trace || []).find(trace => trace.field === 'color');
+      return {
+        core_record_id: pair.core.core_record_id,
+        existed_in_baseline: baseRecordIds.has(pair.core.core_record_id),
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+        model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+        condition: normFields(pair.core).condition ?? '(null)',
+        color: normFields(pair.core).color ?? '(null)',
+        condition_source_lines: Array.isArray(conditionTrace?.sources)
+          ? conditionTrace.sources.map(Number)
+          : [],
+        condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
+        color_source_lines: Array.isArray(colorTrace?.sources)
+          ? colorTrace.sources.map(Number)
+          : [],
+        color_rules: Array.isArray(colorTrace?.rules) ? colorTrace.rules : []
+      };
+    });
+
   const baselineTargetBlocks = targetModelBlockDiagnostics(baseCoreBundle, 'iphone_16_pro_max_256gb');
   const candidateTargetBlocks = targetModelBlockDiagnostics(candidateBundle, 'iphone_16_pro_max_256gb');
   const baselineAnchors = new Set(
@@ -967,6 +997,8 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
     divergence_categories: candidateDivergence.categories,
     target_model_gap: targetGap,
     added_target_records: addedRecords,
+    target_wrong_price_records: targetWrongPriceRecords,
+    wrong_price_diagnostics: candidateDivergence.wrong_price_diagnostics,
     newly_recognized_target_blocks: newlyRecognizedBlocks
   };
 }
