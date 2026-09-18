@@ -309,11 +309,15 @@ function buildContextTrace(segments, schema = {}) {
       ? schema.context_policy.preserve_on_timestamp
       : []
   );
+  const structuralBoundaries = Array.isArray(schema.context_policy?.structural_boundaries)
+    ? schema.context_policy.structural_boundaries
+    : [];
   const policy = {
     reset_on_timestamp: schema.context_policy?.reset_on_timestamp !== false,
     anchor_resets_other_context: schema.context_policy?.anchor_resets_other_context !== false,
     preserve_on_anchor: preserveOnAnchor,
-    preserve_on_timestamp: preserveOnTimestamp
+    preserve_on_timestamp: preserveOnTimestamp,
+    structural_boundaries: structuralBoundaries
   };
   let context = {};
 
@@ -333,6 +337,44 @@ function buildContextTrace(segments, schema = {}) {
       events.push({
         type: 'reset',
         reason: 'timestamp_boundary',
+        fields: cleared,
+        preserved_fields: Object.keys(preserved)
+      });
+    }
+
+    for (const boundary of policy.structural_boundaries) {
+      if (!boundary || !boundary.pattern) continue;
+
+      let regex;
+      try {
+        regex = new RegExp(boundary.pattern, boundary.flags || 'i');
+      } catch (err) {
+        throw new Error(`structural boundary regex invalido (${boundary.id || 'sem-id'}): ${err.message}`);
+      }
+
+      if (boundary.skip_if_field_present) {
+        const present = uniqueFieldCandidates(fieldCandidates, boundary.skip_if_field_present);
+        if (present.length > 0) continue;
+      }
+
+      if (!regex.test(segment.normalized)) continue;
+
+      const resetFields = Array.isArray(boundary.reset_fields)
+        ? new Set(boundary.reset_fields)
+        : null;
+      const preserved = {};
+      const cleared = [];
+
+      for (const [field, value] of Object.entries(context)) {
+        if (resetFields && !resetFields.has(field)) preserved[field] = value;
+        else cleared.push(field);
+      }
+
+      context = preserved;
+      events.push({
+        type: 'reset',
+        reason: boundary.reason || 'structural_boundary',
+        boundary_id: boundary.id || null,
         fields: cleared,
         preserved_fields: Object.keys(preserved)
       });
@@ -469,7 +511,7 @@ function applyOrderedFieldPairing(segments, schema = {}) {
   for (let index = 0; index < out.length; index += 1) {
     const segment = out[index];
     const hardBoundary = (segment.context_events || []).some(event =>
-      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary' || event.reason === 'supplier_boundary'
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary' || event.reason === 'supplier_boundary' || event.reason === 'product_header_boundary'
     );
     if (hardBoundary) closeBlock(index);
 
