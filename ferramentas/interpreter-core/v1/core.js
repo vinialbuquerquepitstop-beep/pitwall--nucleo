@@ -386,6 +386,25 @@ function buildContextTrace(segments, schema = {}) {
       });
     }
 
+    for (const [contextField, entry] of Object.entries(context)) {
+      if (!entry || Number(entry.source_line) === Number(segment.line_number)) continue;
+      const fieldConfig = fields.find(field => field.name === contextField);
+      const maxLineDistance = Number(fieldConfig?.context_max_line_distance);
+      if (!Number.isFinite(maxLineDistance) || maxLineDistance < 0) continue;
+      const distance = Number(segment.line_number) - Number(entry.source_line);
+      if (!Number.isFinite(distance) || distance <= maxLineDistance) continue;
+
+      delete context[contextField];
+      events.push({
+        type: 'reset',
+        reason: 'context_max_line_distance_expired',
+        field: contextField,
+        source_line: entry.source_line,
+        max_line_distance: maxLineDistance,
+        actual_line_distance: distance
+      });
+    }
+
     const declaredFields = new Set((fieldCandidates || []).map(candidate => candidate.field));
     for (const [contextField, entry] of Object.entries(context)) {
       if (!entry || Number(entry.source_line) === Number(segment.line_number)) continue;
