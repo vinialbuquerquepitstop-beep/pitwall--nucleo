@@ -6,6 +6,8 @@ const { interpretResolved, isFieldOnlySegment } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
 const { analyzeDivergences } = require('./divergence-analyzer');
+const { normalizeKey } = require('./core');
+const { normalizeProfiles, applySupplierProfiles } = require('./supplier-profile-adapter');
 
 function die(message, code = 1) {
   console.error(`FALHOU: ${message}`);
@@ -24,12 +26,16 @@ function readJson(file) {
 
 const rawPath = process.argv[2];
 const legacyPath = process.argv[3];
+const supplierProfilesPath = process.argv[4] || null;
 if (!rawPath || !legacyPath) {
-  die('uso: node benchmark_real_load.js <raw.txt> <legacy-bench.json>');
+  die('uso: node benchmark_real_load.js <raw.txt> <legacy-bench.json> [supplier-profiles.json]');
 }
 
-const schema = readJson(path.join(__dirname, 'domains', 'apple-iphone-v0.schema.json'));
+const baseSchema = readJson(path.join(__dirname, 'domains', 'apple-iphone-v0.schema.json'));
 const knowledge = readJson(path.join(__dirname, 'domains', 'apple-iphone-v0.knowledge.json'));
+const supplierProfileDocument = supplierProfilesPath ? readJson(supplierProfilesPath) : { profiles: [] };
+const supplierProfiles = normalizeProfiles(supplierProfileDocument);
+const schema = applySupplierProfiles(baseSchema, supplierProfileDocument);
 const raw = readText(rawPath);
 const legacyBench = readJson(legacyPath);
 
@@ -39,6 +45,34 @@ if (legacyBench.guarda_conservacao?.ok !== true) {
 }
 
 const legacy = adaptLegacyCalcV2(legacyBench, knowledge);
+
+const supplierTermIndex = new Map();
+for (const profile of supplierProfiles) {
+  for (const term of profile.terms || []) {
+    const key = normalizeKey(term);
+    if (key && !supplierTermIndex.has(key)) supplierTermIndex.set(key, profile.id);
+  }
+}
+let legacySupplierMapped = 0;
+let legacySupplierUnmapped = 0;
+const legacySupplierAware = {
+  ...legacy,
+  offers: (legacy.offers || []).map(offer => {
+    const rawSupplier = offer?.metadata?.supplier;
+    const supplierId = rawSupplier == null ? null : supplierTermIndex.get(normalizeKey(rawSupplier)) || null;
+    if (rawSupplier != null) {
+      if (supplierId) legacySupplierMapped += 1;
+      else legacySupplierUnmapped += 1;
+    }
+    return {
+      ...offer,
+      fields: {
+        ...(offer.fields || {}),
+        supplier: supplierId
+      }
+    };
+  })
+};
 if (legacy.offers.length === 0) {
   die('snapshot legado nao produziu nenhuma oferta suportada pelo dominio Apple V0');
 }
@@ -56,6 +90,13 @@ const coreBundle = interpretResolved({
 
 const report = compareSemanticShadow({ legacy, coreBundle });
 const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
+const reportSupplierAware = supplierProfiles.length
+  ? compareSemanticShadow({
+      legacy: legacySupplierAware,
+      coreBundle,
+      options: { include_supplier: true }
+    })
+  : null;
 const divergence = analyzeDivergences({ legacy, coreBundle });
 
 function distinctFieldValues(segment, field) {
@@ -669,6 +710,18 @@ const summary = {
   legacy_supported_offers: report.metrics.legacy_supported_offers,
   legacy_unsupported_products: legacy.unsupported.length,
   legacy_invalid_supported: legacy.invalid.length,
+  supplier_profiles_loaded: supplierProfiles.length,
+  legacy_supplier_mapped_offers: legacySupplierMapped,
+  legacy_supplier_unmapped_offers: legacySupplierUnmapped,
+  supplier_aware_core_offers: reportSupplierAware?.metrics?.core_offers ?? null,
+  supplier_aware_matched_offers: reportSupplierAware?.metrics?.matched_offers ?? null,
+  supplier_aware_missing_offers: reportSupplierAware?.metrics?.missing_offers ?? null,
+  supplier_aware_extra_offers: reportSupplierAware?.metrics?.extra_offers ?? null,
+  supplier_aware_agreement_ratio: reportSupplierAware?.metrics?.agreement_ratio ?? null,
+  supplier_aware_no_silent_wrong_price: reportSupplierAware?.gates?.no_silent_wrong_price ?? null,
+  supplier_aware_confirmed_silent_wrong_price: reportSupplierAware?.metrics?.confirmed_silent_wrong_price ?? null,
+  supplier_aware_unresolved_price_attribution: reportSupplierAware?.metrics?.unresolved_price_attribution ?? null,
+  supplier_aware_price_attribution_resolved: reportSupplierAware?.gates?.price_attribution_resolved ?? null,
   core_offers: report.metrics.core_offers,
   core_ambiguities: report.metrics.core_ambiguities,
   matched_offers: report.metrics.matched_offers,
