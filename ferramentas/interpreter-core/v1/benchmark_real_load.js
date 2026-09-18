@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { interpretResolved, isFieldOnlySegment } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
-const { compareSemanticShadow } = require('./semantic-shadow');
+const { compareSemanticShadow, offerKey, coreOffers } = require('./semantic-shadow');
 const { analyzeDivergences } = require('./divergence-analyzer');
 const { normalizeKey } = require('./core');
 const { normalizeProfiles, applySupplierProfiles } = require('./supplier-profile-adapter');
@@ -627,6 +627,48 @@ function conditionDistributionDiagnostics(legacyBundle, coreBundle) {
   };
 }
 
+function supplierAwarePairingTraceDiagnostics(legacyBundle, coreBundleInput) {
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const out = {};
+  const offers = coreOffers(coreBundleInput);
+  for (const offer of offers) {
+    const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
+    const rules = Array.isArray(colorTrace?.rules) ? colorTrace.rules : [];
+    const pairingRule = rules.find(rule =>
+      rule === 'pairing:nearest_unique' ||
+      rule === 'record_expansion:pairing_nearest_unique'
+    );
+    if (!pairingRule) continue;
+
+    const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+    const colorLine = Array.isArray(colorTrace?.sources) ? Number(colorTrace.sources[0]) : null;
+    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+    const distance = Number.isFinite(colorLine) && Number.isFinite(priceLine)
+      ? Math.abs(priceLine - colorLine)
+      : null;
+    const signature = pairingRule + '|distance=' + (distance == null ? 'unknown' : distance);
+
+    if (!out[signature]) out[signature] = { total: 0, exact_supported: 0, surplus: 0 };
+    out[signature].total += 1;
+
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    const remaining = legacyCounts.get(key) || 0;
+    if (remaining > 0) {
+      out[signature].exact_supported += 1;
+      legacyCounts.set(key, remaining - 1);
+    } else {
+      out[signature].surplus += 1;
+    }
+  }
+
+  return out;
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -705,6 +747,9 @@ const supplierRecordDiagnostic = {
 };
 const anchorSpanDiagnostic = anchorSpanDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
+const supplierAwarePairingTraceDiagnostic = supplierProfiles.length
+  ? supplierAwarePairingTraceDiagnostics(legacySupplierAware, coreBundle)
+  : null;
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -729,6 +774,7 @@ const summary = {
   supplier_boundary_events: supplierBoundaryDiagnostic.boundary_events,
   core_records_with_supplier: supplierRecordDiagnostic.records_with_supplier,
   core_records_without_supplier: supplierRecordDiagnostic.records_without_supplier,
+  supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_silent_wrong_price_by_model:
     reportSupplierAware?.metrics?.silent_wrong_price_by_model ?? null,
   supplier_aware_silent_wrong_price_surplus_trace_by_rule:
