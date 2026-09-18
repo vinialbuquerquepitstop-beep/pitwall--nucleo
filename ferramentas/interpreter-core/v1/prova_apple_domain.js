@@ -325,6 +325,27 @@ check('preco com emoji de dinheiro e separador decimal e reconhecido', () => {
   assert.strictEqual(result.records[0].fields.price, 3999.9);
 });
 
+check('CPO vence lacrado quando ambos estao na mesma linha', () => {
+  const result = run(
+    'apple-cpo-same-line',
+    'iPhone 17 256GB Preto lacrado importado CPO caixa branca R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('sem valor preferencial, duas condicoes distintas continuam ambiguas', () => {
+  const result = run(
+    'apple-condition-ambiguity',
+    'iPhone 17 256GB Preto Lacrado Seminovo R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(a =>
+    a.field === 'condition' && a.cause === 'multiple_field_candidates'
+  ));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
