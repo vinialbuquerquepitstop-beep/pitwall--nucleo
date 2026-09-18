@@ -636,11 +636,26 @@ function localHeader15128Diagnostics(bundle) {
       .map(candidate => ({ state: candidate.state, entity_id: candidate.entity_id || null }));
 
     const priceRows = [];
+    const structuralRows = [];
     let colorOnlyRows = 0;
     for (const blockSegment of block) {
       const prices = distinctFieldValues(blockSegment, 'price');
       const colors = distinctFieldValues(blockSegment, 'color');
       const rowConditions = distinctFieldValues(blockSegment, 'condition').map(value => JSON.parse(value));
+
+      const rowModels = distinctFieldValues(blockSegment, 'model').map(value => JSON.parse(value));
+      const rowCapacities = distinctFieldValues(blockSegment, 'capacity_gb').map(value => JSON.parse(value));
+      structuralRows.push({
+        line: blockSegment.line_number,
+        model_candidates: rowModels,
+        capacity_candidates: rowCapacities,
+        condition_candidates: rowConditions,
+        color_count: colors.length,
+        price_count: prices.length,
+        context_event_reasons: (blockSegment.context_events || []).map(event => event.reason || event.type).filter(Boolean),
+        inherited_model_source_line: blockSegment.inherited_context?.model?.source_line || null,
+        inherited_condition_source_line: blockSegment.inherited_context?.condition?.source_line || null
+      });
       if (prices.length > 0) {
         priceRows.push({
           line: blockSegment.line_number,
@@ -682,6 +697,7 @@ function localHeader15128Diagnostics(bundle) {
       semantic_models: semanticModels,
       block_segment_count: block.length,
       price_rows: priceRows,
+      structural_rows: structuralRows,
       color_only_rows: colorOnlyRows,
       materialized_records: blockRecords.length,
       materialized_15_128: blockRecords.filter(record => record.fields?.model?.id === 'iphone_15_128gb').length
