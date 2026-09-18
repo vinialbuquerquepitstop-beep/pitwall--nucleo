@@ -2838,6 +2838,89 @@ function combineProvisionalReferenceAdjudications(
   };
 }
 
+function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) {
+  const identities = report?.price_reference_diagnostics?.confirmed_wrong_price_identities || [];
+  const segments = coreBundle.segments || [];
+  const segmentsByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+  const rows = [];
+
+  const sameIdentity = (normalized, identity) =>
+    normalized.model === identity.model &&
+    normalized.capacity_gb === identity.capacity_gb &&
+    normalized.condition === identity.condition &&
+    (normalized.color ?? null) === (identity.color ?? null);
+
+  for (const identity of identities) {
+    const referencePrices = new Set(
+      (legacyBundle.offers || [])
+        .filter(offer => sameIdentity(normFields(offer), identity))
+        .map(offer => normFields(offer).price)
+        .filter(price => Number.isFinite(Number(price)))
+        .map(Number)
+    );
+
+    for (const record of coreBundle.records || []) {
+      const normalized = normFields({ fields: record.fields || {} });
+      if (!sameIdentity(normalized, identity)) continue;
+      if (!Number.isFinite(Number(normalized.price))) continue;
+      if (referencePrices.has(Number(normalized.price))) continue;
+
+      const fieldTrace = name => (record.trace || []).find(trace => trace.field === name);
+      const sourceLines = name => {
+        const trace = fieldTrace(name);
+        return Array.isArray(trace?.sources) ? trace.sources.map(Number).filter(Number.isFinite) : [];
+      };
+      const priceLine = sourceLines('price')[0] ?? null;
+      const segment = priceLine == null ? null : segmentsByLine.get(priceLine);
+      const segmentIndex = segment
+        ? segments.findIndex(item => Number(item.line_number) === priceLine)
+        : -1;
+      const neighbor = offset => {
+        if (segmentIndex < 0) return null;
+        const item = segments[segmentIndex + offset];
+        if (!item) return null;
+        const top = item.role_candidates?.[0] || null;
+        return {
+          line: item.line_number,
+          role: top?.role || null,
+          reason: top?.reason || null,
+          has_model: (item.field_candidates || []).some(candidate => candidate.field === 'model'),
+          has_capacity: (item.field_candidates || []).some(candidate => candidate.field === 'capacity_gb'),
+          has_condition: (item.field_candidates || []).some(candidate => candidate.field === 'condition'),
+          has_color: (item.field_candidates || []).some(candidate => candidate.field === 'color'),
+          price_candidate_count: (item.field_candidates || []).filter(candidate => candidate.field === 'price').length
+        };
+      };
+
+      rows.push({
+        record_id: record.record_id,
+        identity,
+        price_line: priceLine,
+        model_source_lines: sourceLines('model'),
+        condition_source_lines: sourceLines('condition'),
+        color_source_lines: sourceLines('color'),
+        model_rules: fieldTrace('model')?.rules || [],
+        condition_rules: fieldTrace('condition')?.rules || [],
+        color_rules: fieldTrace('color')?.rules || [],
+        price_rules: fieldTrace('price')?.rules || [],
+        price_segment_role: segment?.role_candidates?.[0]?.role || null,
+        price_segment_reason: segment?.role_candidates?.[0]?.reason || null,
+        inherited_model_source_line: segment?.inherited_context?.model?.source_line ?? null,
+        inherited_condition_source_line: segment?.inherited_context?.condition?.source_line ?? null,
+        previous_segment: neighbor(-1),
+        next_segment: neighbor(1)
+      });
+    }
+  }
+
+  return {
+    confirmed_wrong_price_identity_count: identities.length,
+    confirmed_wrong_price_record_count: rows.length,
+    rows
+  };
+}
+
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -3015,6 +3098,9 @@ const whatIfSupplementalAdjacentForwardProductHeaderDiagnostic =
 const whatIfRelaxedColorSourceOnlyDiagnostic = whatIfRelaxedColorSourceOnly(
   raw, schema, knowledge, legacy
 );
+const confirmedWrongPriceRecordDiagnostic = confirmedWrongPriceRecordDiagnostics(
+  canonicalReferenceReport, canonicalReference.legacy, coreBundle
+);
 const multiPriceNearestFallbackRiskDiagnostic = multiPriceNearestFallbackRiskDiagnostics(coreBundle);
 
 const summary = {
@@ -3101,6 +3187,7 @@ const summary = {
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
   what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
+  confirmed_wrong_price_record_diagnostic: confirmedWrongPriceRecordDiagnostic,
   what_if_supplemental_adjacent_forward_product_header:
     whatIfSupplementalAdjacentForwardProductHeaderDiagnostic,
   what_if_relaxed_color_source_only: whatIfRelaxedColorSourceOnlyDiagnostic,
