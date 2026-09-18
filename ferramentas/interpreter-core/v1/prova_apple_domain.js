@@ -181,13 +181,14 @@ check('Offer Expansion V1.1 expande multiplas cores contiguas antes do preco', (
   assert.ok(result.records.every(r => r.fields.price === 5299));
 });
 
-check('Offer Expansion V1.1 nao herda cor unica do bloco', () => {
+check('pareamento ordinal permite uma cor solta quando existe um unico preco nu', () => {
   const result = run(
-    'apple-expansion-single-disabled',
+    'apple-ordered-single-color',
     'iPhone 17 256GB Lacrado\nPreto\nR$ 5.299'
   );
   assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.color, undefined);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
 check('Offer Expansion V1.1 nao atravessa linha intermediaria sem cor', () => {
