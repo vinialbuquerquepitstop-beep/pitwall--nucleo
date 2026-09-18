@@ -250,6 +250,49 @@ const adjacentColorReport = compareSemanticShadow({
   coreBundle: adjacentColorBundle,
   options: { include_supplier: true }
 });
+
+const longHeaderFallbackPriceBundle = JSON.parse(JSON.stringify(coreBundle));
+const longHeaderSegments = new Map(
+  (longHeaderFallbackPriceBundle.segments || []).map(segment => [Number(segment.line_number), segment])
+);
+let longHeaderFallbackPriceDropped = 0;
+longHeaderFallbackPriceBundle.records = (longHeaderFallbackPriceBundle.records || []).filter(record => {
+  const priceTrace = (record.trace || []).find(item => item.field === 'price');
+  const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+    ? Number(priceTrace.sources[0])
+    : null;
+  if (!Number.isFinite(priceLine)) return true;
+
+  const segment = longHeaderSegments.get(priceLine);
+  if (!segment) return true;
+  const role = segment?.role_candidates?.[0]?.role || 'unknown';
+  if (role !== 'product_header') return true;
+
+  const normalized = String(segment.normalized || '');
+  if (/R\$|\$/.test(normalized)) return true;
+
+  const candidates = segment.field_candidates || [];
+  if (candidates.some(candidate => candidate.field === 'model')) return true;
+  if (candidates.some(candidate => candidate.field === 'color')) return true;
+
+  const tokens = normalized.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 6) return true;
+
+  const priceCandidates = candidates.filter(candidate => candidate.field === 'price');
+  if (priceCandidates.length !== 1) return true;
+  const evidence = priceCandidates[0].evidence || {};
+  const fallbackPattern = '(?:R\\$\\s*)?([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)(?=\\s*(?:PROMO)?(?:[*_~ ]*)$)';
+  if (evidence.pattern !== fallbackPattern) return true;
+
+  longHeaderFallbackPriceDropped += 1;
+  return false;
+});
+
+const longHeaderFallbackPriceReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: longHeaderFallbackPriceBundle,
+  options: { include_supplier: true }
+});
 const reportSupplierAware = supplierProfiles.length
   ? compareSemanticShadow({
       legacy: legacySupplierAware,
@@ -2480,6 +2523,19 @@ const summary = {
     no_silent_wrong_price: adjacentColorReport.gates.no_silent_wrong_price,
     price_attribution_resolved: adjacentColorReport.gates.price_attribution_resolved,
     exact_multiset: adjacentColorReport.gates.exact_multiset
+  },
+  long_product_header_fallback_price_simulation: {
+    dropped_records: longHeaderFallbackPriceDropped,
+    core_offers: longHeaderFallbackPriceReport.metrics.core_offers,
+    matched_offers: longHeaderFallbackPriceReport.metrics.matched_offers,
+    missing_offers: longHeaderFallbackPriceReport.metrics.missing_offers,
+    extra_offers: longHeaderFallbackPriceReport.metrics.extra_offers,
+    agreement_ratio: longHeaderFallbackPriceReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: longHeaderFallbackPriceReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: longHeaderFallbackPriceReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: longHeaderFallbackPriceReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: longHeaderFallbackPriceReport.gates.price_attribution_resolved,
+    exact_multiset: longHeaderFallbackPriceReport.gates.exact_multiset
   },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
