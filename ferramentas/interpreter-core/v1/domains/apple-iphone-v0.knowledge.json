@@ -264,6 +264,18 @@
     },
     {
       "kind": "model",
+      "text": "16 128GB",
+      "normalized": null,
+      "target_id": "iphone_16_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 128",
+      "normalized": null,
+      "target_id": "iphone_16_128gb"
+    },
+    {
+      "kind": "model",
       "text": "16 Pro Max 256GB",
       "normalized": null,
       "target_id": "iphone_16_pro_max_256gb"

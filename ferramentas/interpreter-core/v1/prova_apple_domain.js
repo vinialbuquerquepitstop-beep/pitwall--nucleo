@@ -583,10 +583,23 @@ check('shorthand fora do dominio continua sem materializar oferta', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
-check('shorthand arriscado 16 128 permanece desativado', () => {
+check('shorthand 16 128 resolve quando Lacrado esta no proprio anchor', () => {
   const result = run(
-    'apple-safe-shorthand-exclude-16',
+    'apple-shorthand-16-128-lacrado',
     '16 128GB Lacrado\nPreto R$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_128gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 128);
+  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 3999);
+});
+
+check('shorthand 16 128 sem Lacrado no anchor permanece desativado', () => {
+  const result = run(
+    'apple-shorthand-16-128-without-lacrado',
+    '16 128GB Seminovo\nPreto R$ 3.999'
   );
   assert.strictEqual(result.records.length, 0);
 });
