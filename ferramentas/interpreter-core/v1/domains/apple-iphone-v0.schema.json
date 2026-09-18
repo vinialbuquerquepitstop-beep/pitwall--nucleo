@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -22,7 +22,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512)\\s*GB|iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*[12]\\s*TB)",
+          "pattern": "(iPhone(?:\\\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\\\s+(?:mini|Plus|Pro(?:\\\\s*Max)?|Air))?|Air)(?:\\\\s|[-–—:|•_])*(?:64|128|256|512)\\\\s*GB|iPhone(?:\\\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\\\s+(?:mini|Plus|Pro(?:\\\\s*Max)?|Air))?|Air)(?:\\\\s|[-–—:|•_])*[12]\\\\s*TB)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -30,7 +30,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "(iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
+          "pattern": "(iPhone(?:\\\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\\\s+(?:mini|Plus|Pro(?:\\\\s*Max)?|Air))?|Air)(?:\\\\s|[-–—:|•_])*(?:64|128|256|512))(?!\\\\s*GB)(?=\\\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -55,7 +55,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "iPhone\\s+(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)\\s*[-–—:]?\\s*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "pattern": "iPhone(?:\\\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\\\s+(?:mini|Plus|Pro(?:\\\\s*Max)?|Air))?|Air)(?:\\\\s|[-–—:|•_])*(64|128|256|512)(?!\\\\s*GB)(?=\\\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "integer",
@@ -189,6 +189,21 @@
     "color_canonicalization": {
       "source": ".claude/skills/calculadoras/references/formato-dados.md",
       "policy": "dominant canonical name wins; Apple-specific color names remain distinct; Anatel variants remain distinct"
+    },
+    "model_extraction": {
+      "source": "real load 6c4d3491 headers, prices masked",
+      "accepted_separators": [
+        "whitespace",
+        "📱",
+        "-",
+        "–",
+        "—",
+        ":",
+        "|",
+        "•",
+        "_"
+      ],
+      "safety": "still requires iPhone token + recognized model family + recognized capacity"
     }
   }
 }
