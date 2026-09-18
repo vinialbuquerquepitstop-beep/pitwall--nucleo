@@ -552,6 +552,19 @@ check('shorthand low-risk resolve dentro de product boundary', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
+check('shorthand explicito 16 Pro Max 256 resolve apenas com CPO no anchor', () => {
+  const result = run(
+    'apple-shorthand-16-promax-256-cpo',
+    '🍎16 Pro Max 256GB CPO\nPreto R$ 6.699'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 6699);
+});
+
 check('produto desconhecido depois de shorthand encerra contexto e impede vazamento', () => {
   const result = run(
     'apple-boundary-shorthand-no-bleed',
@@ -578,10 +591,10 @@ check('shorthand arriscado 16 128 permanece desativado', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
-check('shorthand arriscado 16 Pro Max 256 permanece desativado', () => {
+check('shorthand 16 Pro Max 256 sem CPO permanece desativado', () => {
   const result = run(
-    'apple-safe-shorthand-exclude-16pm',
-    '16 Pro Max 256GB CPO\nPreto R$ 6.100'
+    'apple-safe-shorthand-exclude-16pm-without-cpo',
+    '16 Pro Max 256GB Lacrado\nPreto R$ 6.100'
   );
   assert.strictEqual(result.records.length, 0);
 });

@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
+  "schema_version": "0.9.6-exp-16-promax-cpo-shorthand",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -44,6 +44,15 @@
           "group": 1,
           "transform": "trim",
           "score": 0.91
+        },
+        {
+          "id": "supported_shorthand_16_promax_cpo_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=.*\\bCPO\\b)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.91
         }
       ]
     },
@@ -74,6 +83,15 @@
           "id": "supported_shorthand_capacity_v1",
           "kind": "regex",
           "pattern": "^[^A-Za-z0-9]{0,12}(?:13\\s+Pro|16|16\\s+Pro|17\\s+Air|17)\\s+(128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        },
+        {
+          "id": "supported_shorthand_capacity_16_promax_cpo_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=.*\\bCPO\\b)",
           "flags": "i",
           "group": 1,
           "transform": "integer",
