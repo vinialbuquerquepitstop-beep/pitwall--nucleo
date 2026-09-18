@@ -821,7 +821,7 @@ function targetModelPairDiagnostics(legacyBundle, coreBundle, modelId) {
 }
 
 
-function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle) {
+function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle, options = {}) {
   const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
   const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
 
@@ -834,7 +834,9 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
   modelField.extractors = [...(modelField.extractors || []), {
     id: 'what_if_16_promax_256_model',
     kind: 'regex',
-    pattern: '^[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=\\D|$)',
+    pattern: options.require_cpo_same_header === true
+      ? '^[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=.*\\bCPO\\b)'
+      : '^[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=\\D|$)',
     flags: 'i',
     group: 1,
     transform: 'trim',
@@ -844,7 +846,9 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
   capacityField.extractors = [...(capacityField.extractors || []), {
     id: 'what_if_16_promax_256_capacity',
     kind: 'regex',
-    pattern: '^[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=\\D|$)',
+    pattern: options.require_cpo_same_header === true
+      ? '^[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=.*\\bCPO\\b)'
+      : '^[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=\\D|$)',
     flags: 'i',
     group: 1,
     transform: 'integer',
@@ -871,7 +875,9 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
   const candidateBundle = interpretResolved({
     document: {
       contract_version: 'raw-document/v1',
-      document_id: 'real-load-shadow-what-if-16-promax',
+      document_id: options.require_cpo_same_header === true
+        ? 'real-load-shadow-what-if-16-promax-cpo'
+        : 'real-load-shadow-what-if-16-promax',
       content: rawDocument,
       source: { kind: 'plain_text' }
     },
@@ -947,7 +953,7 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
     .filter(block => !baselineAnchors.has(Number(block.anchor_line)));
 
   return {
-    candidate: 'explicit_16_pro_max_256_shorthand',
+    candidate: options.candidate || 'explicit_16_pro_max_256_shorthand',
     metrics: {
       core_offers: candidateReport.metrics.core_offers,
       matched_offers: candidateReport.metrics.matched_offers,
@@ -1042,6 +1048,17 @@ const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
+const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
+  raw,
+  schema,
+  knowledge,
+  legacy,
+  coreBundle,
+  {
+    candidate: 'explicit_16_pro_max_256_cpo_same_header',
+    require_cpo_same_header: true
+  }
+);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -1075,7 +1092,8 @@ const summary = {
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
   target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic,
   target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic,
-  what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic
+  what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
+  what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic
 };
 
 const diagnostic = {
