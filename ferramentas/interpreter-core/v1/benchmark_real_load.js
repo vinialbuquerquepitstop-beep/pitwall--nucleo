@@ -1167,6 +1167,122 @@ function whatIf16Base128Shorthand(rawDocument, baseSchema, baseKnowledge, legacy
   };
 }
 
+function whatIfScopedBase128Shorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle, options) {
+  const generation = String(options.generation || '').trim();
+  const targetModelId = String(options.target_model_id || '').trim();
+  const condition = String(options.condition || '').trim();
+  const conditionPattern = condition === 'Lacrado'
+    ? 'Lacrad[oa]s?'
+    : condition === 'Seminovo'
+      ? 'Seminov[oa]s?'
+      : null;
+
+  if (!generation || !targetModelId || !conditionPattern) {
+    throw new Error('what-if scoped base 128: options incompletas');
+  }
+
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+  const modelField = (candidateSchema.fields || []).find(field => field.name === 'model');
+  const capacityField = (candidateSchema.fields || []).find(field => field.name === 'capacity_gb');
+  if (!modelField || !capacityField) throw new Error('what-if scoped base 128: schema sem model/capacity_gb');
+
+  modelField.extractors = [...(modelField.extractors || []), {
+    id: 'what_if_' + generation + '_128_' + condition.toLowerCase() + '_model',
+    kind: 'regex',
+    pattern: '^[^A-Za-z0-9]{0,12}(' + generation + '\\s+128\\s*(?:GB)?)(?=.*\\b' + conditionPattern + '\\b)',
+    flags: 'i', group: 1, transform: 'trim', score: 0.91
+  }];
+
+  capacityField.extractors = [...(capacityField.extractors || []), {
+    id: 'what_if_' + generation + '_128_' + condition.toLowerCase() + '_capacity',
+    kind: 'regex',
+    pattern: '^[^A-Za-z0-9]{0,12}' + generation + '\\s+(128)(?:\\s*GB)?(?=.*\\b' + conditionPattern + '\\b)',
+    flags: 'i', group: 1, transform: 'integer', score: 0.9
+  }];
+
+  const aliases = Array.isArray(candidateKnowledge.aliases) ? candidateKnowledge.aliases : [];
+  for (const text of [generation + ' 128GB', generation + ' 128']) {
+    if (!aliases.some(alias => alias.kind === 'model' && alias.text === text && alias.target_id === targetModelId)) {
+      aliases.push({ kind: 'model', text, normalized: null, target_id: targetModelId });
+    }
+  }
+  candidateKnowledge.aliases = aliases;
+
+  const candidateBundle = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'real-load-shadow-what-if-' + generation + '-128-' + condition.toLowerCase(),
+      content: rawDocument,
+      source: { kind: 'plain_text' }
+    },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+
+  const candidateReport = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const candidateNoColor = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle, options: { include_color: false } });
+  const candidateDivergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const candidateCoreOffers = (candidateBundle.records || []).map(record => ({
+    fields: record.fields || {}, core_record_id: record.record_id, trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const baseRecordIds = new Set((baseCoreBundle.records || []).map(record => record.record_id));
+  const exactRemoval = removeExactMatches(legacyBundle.offers || [], candidateCoreOffers);
+  const remainingIds = new Set((exactRemoval.remainingCore || []).map(offer => offer.core_record_id));
+  const residualPairs = pairWithinModel(exactRemoval.remainingLegacy, exactRemoval.remainingCore);
+  const residualDiffsById = new Map((residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair.diffs]));
+  const unpairedIds = new Set((residualPairs.unpairedCore || []).map(offer => offer.core_record_id));
+
+  const addedRecords = candidateCoreOffers.filter(offer =>
+    offer.fields?.model?.id === targetModelId && !baseRecordIds.has(offer.core_record_id)
+  ).map(offer => {
+    const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+    const modelTrace = (offer.trace || []).find(trace => trace.field === 'model');
+    const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
+    const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
+    const diffs = residualDiffsById.get(offer.core_record_id) || [];
+    const classification = !remainingIds.has(offer.core_record_id)
+      ? 'exact'
+      : residualDiffsById.has(offer.core_record_id)
+        ? (diffs.length === 1 && diffs[0] === 'price' ? 'wrong_price_only' : 'field_mismatch')
+        : unpairedIds.has(offer.core_record_id) ? 'extra' : 'residual_unclassified';
+    return {
+      core_record_id: offer.core_record_id,
+      price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+      model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+      condition: normFields(offer).condition ?? '(null)',
+      color: normFields(offer).color ?? '(null)',
+      condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
+      condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
+      color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : [],
+      color_rules: Array.isArray(colorTrace?.rules) ? colorTrace.rules : [],
+      classification, diffs
+    };
+  });
+
+  const classificationCounts = {};
+  for (const record of addedRecords) classificationCounts[record.classification] = (classificationCounts[record.classification] || 0) + 1;
+
+  return {
+    candidate: generation + '_128_' + condition.toLowerCase() + '_same_header',
+    metrics: {
+      core_offers: candidateReport.metrics.core_offers,
+      matched_offers: candidateReport.metrics.matched_offers,
+      missing_offers: candidateReport.metrics.missing_offers,
+      extra_offers: candidateReport.metrics.extra_offers,
+      agreement_ratio: candidateReport.metrics.agreement_ratio,
+      agreement_ratio_without_color: candidateNoColor.metrics.agreement_ratio,
+      no_silent_wrong_price: candidateReport.gates.no_silent_wrong_price,
+      exact_multiset: candidateReport.gates.exact_multiset
+    },
+    divergence_categories: candidateDivergence.categories,
+    target_model_gap: (candidateDivergence.top_model_gaps || []).find(row => row.model === targetModelId) || null,
+    added_target_record_classifications: classificationCounts,
+    added_target_records: addedRecords
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1267,6 +1383,14 @@ const whatIf16Base128LacradoDiagnostic = whatIf16Base128Shorthand(
     require_lacrado_same_header: true
   }
 );
+const whatIf15Base128LacradoDiagnostic = whatIfScopedBase128Shorthand(
+  raw, schema, knowledge, legacy, coreBundle,
+  { generation: '15', target_model_id: 'iphone_15_128gb', condition: 'Lacrado' }
+);
+const whatIf15Base128SeminovoDiagnostic = whatIfScopedBase128Shorthand(
+  raw, schema, knowledge, legacy, coreBundle,
+  { generation: '15', target_model_id: 'iphone_15_128gb', condition: 'Seminovo' }
+);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -1303,7 +1427,9 @@ const summary = {
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
-  what_if_16_128_lacrado_same_header: whatIf16Base128LacradoDiagnostic
+  what_if_16_128_lacrado_same_header: whatIf16Base128LacradoDiagnostic,
+  what_if_15_128_lacrado_same_header: whatIf15Base128LacradoDiagnostic,
+  what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic
 };
 
 const diagnostic = {
