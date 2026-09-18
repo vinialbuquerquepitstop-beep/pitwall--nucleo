@@ -3474,6 +3474,129 @@ function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
 
   const remainingMissing = availableMissing();
   const remainingExtra = availableExtra();
+  const canonicalExpectedValue = (field, value) => {
+    if (value == null) return null;
+    if (field === 'condition') {
+      const map = schema.fields.find(item => item.name === 'condition')?.value_map || {};
+      return normalizeKey(map[value] || map[String(value)] || value) || null;
+    }
+    return normalizeKey(value) || null;
+  };
+
+  const candidateMatchesExpected = (candidate, field, expectedValue) =>
+    candidate.field === field &&
+    canonicalExpectedValue(field, candidate.value) === canonicalExpectedValue(field, expectedValue);
+
+  const remainingMissingSourceSupport = {};
+  for (const missingIndex of remainingMissingIndexes) {
+    const expected = norm(missing[missingIndex]);
+    const matchingPriceSegments = segments.filter(segment =>
+      supplierAt(segment) === expected.supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === expected.price
+      )
+    );
+
+    let fullLocalEvidence = false;
+    let priceSupplierEvidence = matchingPriceSegments.length > 0;
+    let localModelEvidence = false;
+    let localColorEvidence = expected.color == null;
+    let localConditionEvidence = expected.condition == null;
+
+    for (const priceSegment of matchingPriceSegments) {
+      const priceLine = Number(priceSegment.line_number);
+
+      const localModelSegments = segments.filter(segment => {
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line) || line > priceLine || priceLine - line > 6) return false;
+        const boundaries = pathBoundaries(line, priceLine);
+        if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+        return (segment.semantic_candidates || []).some(candidate =>
+          candidate.field === 'model' &&
+          candidate.entity_id === expected.model &&
+          (candidate.state === 'interpreted' || candidate.state === 'inferred')
+        );
+      });
+      const modelOk = localModelSegments.length > 0;
+      if (modelOk) localModelEvidence = true;
+
+      const nearbyFieldOk = (field, expectedValue, maxDistance) => {
+        if (expectedValue == null) return true;
+        return segments.some(segment => {
+          const line = Number(segment.line_number);
+          if (!Number.isFinite(line) || Math.abs(priceLine - line) > maxDistance) return false;
+          const boundaries = pathBoundaries(line, priceLine);
+          if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+          return (segment.field_candidates || []).some(candidate =>
+            candidateMatchesExpected(candidate, field, expectedValue)
+          );
+        });
+      };
+
+      const colorOk = nearbyFieldOk('color', expected.color, 3);
+      const conditionOk = nearbyFieldOk('condition', expected.condition, 6);
+      if (colorOk) localColorEvidence = true;
+      if (conditionOk) localConditionEvidence = true;
+
+      if (modelOk && colorOk && conditionOk) {
+        fullLocalEvidence = true;
+        break;
+      }
+    }
+
+    const signature = [
+      'model=' + expected.model,
+      'price_supplier=' + (priceSupplierEvidence ? 'yes' : 'no'),
+      'model_local=' + (localModelEvidence ? 'yes' : 'no'),
+      'color_local=' + (localColorEvidence ? 'yes' : 'no'),
+      'condition_local=' + (localConditionEvidence ? 'yes' : 'no'),
+      'full_local=' + (fullLocalEvidence ? 'yes' : 'no')
+    ].join('|');
+    remainingMissingSourceSupport[signature] =
+      (remainingMissingSourceSupport[signature] || 0) + 1;
+  }
+
+  const remainingExtraLocality = {};
+  for (const extraIndex of remainingExtraIndexes) {
+    const record = extraRecords[extraIndex];
+    if (!record) {
+      remainingExtraLocality['unresolved_record'] =
+        (remainingExtraLocality['unresolved_record'] || 0) + 1;
+      continue;
+    }
+    const priceLine = sourceLine(record, 'price');
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const supplierLine = sourceLine(record, 'supplier');
+    const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+    const priceLocal =
+      Number.isFinite(priceLine) &&
+      (priceTrace?.rules || []).includes('direct_extraction');
+    const modelLocal =
+      priceLocal &&
+      isLocalField(record, 'model', priceLine, 6) &&
+      modelSemanticallySupportsRecord(record, priceLine);
+    const colorLocal =
+      priceLocal && isLocalField(record, 'color', priceLine, 3);
+    const conditionLocal =
+      priceLocal && isLocalField(record, 'condition', priceLine, 6);
+    const supplierLocal =
+      priceLocal &&
+      Number.isFinite(supplierLine) &&
+      !supplierBoundaries.has('supplier') &&
+      !supplierBoundaries.has('timestamp');
+
+    const signature = [
+      'model=' + (record.fields?.model?.id || '(unknown)'),
+      'price=' + (priceLocal ? 'local' : 'nonlocal'),
+      'model_local=' + (modelLocal ? 'yes' : 'no'),
+      'color_local=' + (colorLocal ? 'yes' : 'no'),
+      'condition_local=' + (conditionLocal ? 'yes' : 'no'),
+      'supplier_local=' + (supplierLocal ? 'yes' : 'no')
+    ].join('|');
+    remainingExtraLocality[signature] =
+      (remainingExtraLocality[signature] || 0) + 1;
+  }
+
   const remainingPairSignatures = {};
   const usedRemainingExtra = new Set();
 
@@ -4164,6 +4287,12 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       missing_by_model: countByModel(missing, remainingMissingIndexes),
       extra_by_model: countByModel(extras, remainingExtraIndexes),
       nearest_same_model_pair_signatures: Object.entries(remainingPairSignatures)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      missing_source_support_signatures: Object.entries(remainingMissingSourceSupport)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      extra_locality_signatures: Object.entries(remainingExtraLocality)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
     },
