@@ -1458,6 +1458,12 @@ function invariantWrongPriceAdjudicationDiagnostics(legacyBundle, coreBundle) {
       return Number(segment.line_number) === modelSourceLine;
     });
 
+    const distinctSuppliers = new Set(
+      differentPriceLegacy
+        .map(legacy => String(legacy.metadata?.supplier ?? '').trim())
+        .filter(Boolean)
+    );
+
     const legacyMatches = differentPriceLegacy.map(legacy => {
       const legacyPrice = normFields(legacy).price;
       const matchingLines = [];
@@ -1471,10 +1477,27 @@ function invariantWrongPriceAdjudicationDiagnostics(legacyBundle, coreBundle) {
           same_color_as_core: colors.some(color => normalizeKey(color) === normFields(core).color)
         });
       }
+
+      const sameModelCoreWithLegacyPrice = coreOffers
+        .filter(other =>
+          normFields(other).model === normFields(core).model &&
+          normFields(other).price === legacyPrice
+        )
+        .map(other => {
+          const otherPriceTrace = (other.trace || []).find(trace => trace.field === 'price');
+          return {
+            core_record_id: other.core_record_id,
+            price_line: Array.isArray(otherPriceTrace?.sources) ? Number(otherPriceTrace.sources[0]) : null,
+            condition: normFields(other).condition,
+            color: normFields(other).color
+          };
+        });
+
       return {
         legacy_record_id: legacy.legacy_record_id || null,
         product_index: legacy.metadata?.product_index ?? null,
-        matching_direct_price_lines_in_same_model_scope: matchingLines
+        matching_direct_price_lines_in_same_model_scope: matchingLines,
+        same_model_core_records_with_legacy_price: sameModelCoreWithLegacyPrice
       };
     });
 
@@ -1489,6 +1512,7 @@ function invariantWrongPriceAdjudicationDiagnostics(legacyBundle, coreBundle) {
       color_source_line: colorSourceLine,
       price_is_direct_same_line: Number.isFinite(priceLine) && priceLine === colorSourceLine,
       legacy_same_nonprice_different_price_count: differentPriceLegacy.length,
+      legacy_distinct_supplier_count: distinctSuppliers.size,
       legacy_matches: legacyMatches
     });
   }
