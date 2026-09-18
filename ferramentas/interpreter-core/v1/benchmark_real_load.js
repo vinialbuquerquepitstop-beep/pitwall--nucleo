@@ -721,6 +721,15 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
   const summary = {};
   const byModel = {};
   const byModelSupplier = {};
+  const bySupplierDirection = {};
+  const directionClass = offsets => {
+    const hasBefore = offsets.some(value => value < 0);
+    const hasAfter = offsets.some(value => value > 0);
+    if (hasBefore && hasAfter) return 'mixed';
+    if (hasBefore) return 'before_only';
+    if (hasAfter) return 'after_only';
+    return 'same_or_unknown';
+  };
   for (const row of groups.values()) {
     const signature = [
       'distance=' + row.distance,
@@ -748,11 +757,16 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
     add(summary, signature);
     add(byModel, row.model_id + ' | ' + signature);
     add(byModelSupplier, row.model_id + ' | supplier=' + row.supplier_id + ' | ' + signature);
+
+    const direction = directionClass(row.color_offsets);
+    const supplierDirectionKey = 'supplier=' + row.supplier_id + '|direction=' + direction;
+    add(bySupplierDirection, supplierDirectionKey);
   }
   return {
     aggregate: summary,
     by_model: byModel,
-    by_model_supplier: byModelSupplier
+    by_model_supplier: byModelSupplier,
+    by_supplier_direction: bySupplierDirection
   };
 }
 
