@@ -1153,6 +1153,121 @@ function missing17_512AnchorShapeDiagnostics(reportSupplierAware, bundle) {
 const missing17_512AnchorShapeDiagnostic =
   missing17_512AnchorShapeDiagnostics(reportSupplierAware, coreBundle);
 
+function sourceContradictedLegacyMissingDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
+
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+
+  let contradicted = 0;
+  const byReason = {};
+  const byModel = {};
+
+  const mark = (model, reason) => {
+    contradicted += 1;
+    byReason[reason] = (byReason[reason] || 0) + 1;
+    byModel[model] = (byModel[model] || 0) + 1;
+  };
+
+  for (const item of missing) {
+    const model = item.fields?.model?.id || null;
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!model || !Number.isFinite(price)) continue;
+
+    if (model === 'iphone_16_256gb') {
+      const sameSupplierPriceRecords = records.filter(record =>
+        String(record.fields?.supplier ?? '') === supplier &&
+        Number(record.fields?.price) === price
+      );
+      if (!sameSupplierPriceRecords.length) continue;
+
+      const allExplicitProMax = sameSupplierPriceRecords.every(record => {
+        const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+        const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+          ? Number(modelTrace.sources[0])
+          : null;
+        const segment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+        return /\bpro\s*max\b/i.test(String(segment?.normalized || ''));
+      });
+      if (allExplicitProMax) {
+        mark(model, 'expected_base_but_source_explicit_pro_max');
+      }
+      continue;
+    }
+
+    if (model === 'iphone_17_512gb') {
+      const priceSegments = segments.filter(segment =>
+        supplierAt(segment) === supplier &&
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === price
+        )
+      );
+      if (!priceSegments.length) continue;
+
+      const everyPriceContradicted = priceSegments.every(priceSegment => {
+        const priceLine = Number(priceSegment.line_number);
+        const nearestAnchor = segments
+          .filter(segment =>
+            Number(segment.line_number) < priceLine &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+          )
+          .sort((a, b) => Number(b.line_number) - Number(a.line_number))[0] || null;
+        if (!nearestAnchor) return false;
+
+        const shapes = [...new Set(
+          (nearestAnchor.field_candidates || [])
+            .filter(candidate => candidate.field === 'model')
+            .map(candidate => iphoneModelShape(candidate.value))
+            .filter(Boolean)
+        )];
+        const semanticIds = [...new Set(
+          (nearestAnchor.semantic_candidates || [])
+            .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+            .map(candidate => candidate.entity_id)
+        )];
+
+        return shapes.length > 0 &&
+          shapes.every(shape => /^17\|(?:pro|pro max)\|(?:256|512)$/.test(shape)) &&
+          !semanticIds.includes('iphone_17_512gb');
+      });
+
+      if (everyPriceContradicted) {
+        mark(model, 'expected_base_after_explicit_unsupported_pro_anchor');
+      }
+    }
+  }
+
+  return {
+    raw_missing: missing.length,
+    source_contradicted_legacy_missing: contradicted,
+    actionable_missing: missing.length - contradicted,
+    by_reason: byReason,
+    by_model: byModel
+  };
+}
+
+const sourceContradictedLegacyMissingDiagnostic =
+  sourceContradictedLegacyMissingDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3317,6 +3432,7 @@ const summary = {
   missing_17_512_composition_diagnostic: missing17_512CompositionDiagnostic,
   missing_17_512_anchor_topology_diagnostic: missing17_512AnchorTopologyDiagnostic,
   missing_17_512_anchor_shape_diagnostic: missing17_512AnchorShapeDiagnostic,
+  source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
