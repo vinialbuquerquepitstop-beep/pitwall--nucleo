@@ -99,6 +99,79 @@ const reportSupplierAware = supplierProfiles.length
   : null;
 const divergence = analyzeDivergences({ legacy, coreBundle });
 
+function supplierAwareResidualDiagnostics(reportSupplierAware) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extra = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const signatures = {};
+  const byModel = {};
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier || null,
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+
+  const diffFields = (left, right) => {
+    const a = norm(left);
+    const b = norm(right);
+    return ['supplier', 'capacity', 'condition', 'color', 'price']
+      .filter(field => a[field] !== b[field]);
+  };
+
+  let paired = 0;
+  let unpairedMissing = 0;
+
+  for (const miss of missing) {
+    const model = norm(miss).model;
+    let best = null;
+    for (let index = 0; index < extra.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      if (norm(extra[index]).model !== model) continue;
+      const diffs = diffFields(miss, extra[index]);
+      const score = diffs.length;
+      if (!best || score < best.score || (score === best.score && index < best.index)) {
+        best = { index, diffs, score };
+      }
+    }
+
+    if (!best) {
+      unpairedMissing += 1;
+      continue;
+    }
+
+    usedExtra.add(best.index);
+    paired += 1;
+    const signature = best.diffs.length ? best.diffs.slice().sort().join('+') : 'exact_residual';
+    signatures[signature] = (signatures[signature] || 0) + 1;
+    if (!byModel[model]) byModel[model] = {};
+    byModel[model][signature] = (byModel[model][signature] || 0) + 1;
+  }
+
+  return {
+    paired_residuals: paired,
+    unpaired_missing: unpairedMissing,
+    unpaired_extra: extra.length - usedExtra.size,
+    mismatch_signatures: Object.entries(signatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+    by_model: byModel
+  };
+}
+
+const supplierAwareResidualDiagnostic = supplierAwareResidualDiagnostics(reportSupplierAware);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -1130,6 +1203,7 @@ const summary = {
   core_records_without_supplier_by_model: supplierRecordDiagnostic.records_without_supplier_by_model,
   supplierless_context_diagnostic: supplierlessContextDiagnostic,
   supplier_aware_gap_by_model: supplierAwareGapByModel,
+  supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
   supplier_aware_silent_wrong_price_by_model:
