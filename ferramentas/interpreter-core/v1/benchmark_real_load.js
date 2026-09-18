@@ -280,9 +280,10 @@ longHeaderFallbackPriceBundle.records = (longHeaderFallbackPriceBundle.records |
 
   const priceCandidates = candidates.filter(candidate => candidate.field === 'price');
   if (priceCandidates.length !== 1) return true;
-  const evidence = priceCandidates[0].evidence || {};
-  const fallbackPattern = '(?:R\\$\\s*)?([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)(?=\\s*(?:PROMO)?(?:[*_~ ]*)$)';
-  if (evidence.pattern !== fallbackPattern) return true;
+  const candidateScore = Number(priceCandidates[0].score);
+  const traceScore = Number(priceTrace?.score);
+  const effectiveScore = Number.isFinite(candidateScore) ? candidateScore : traceScore;
+  if (!Number.isFinite(effectiveScore) || effectiveScore > 0.971) return true;
 
   longHeaderFallbackPriceDropped += 1;
   return false;
