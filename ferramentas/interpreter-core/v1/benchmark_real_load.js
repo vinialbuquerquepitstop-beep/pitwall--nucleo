@@ -112,6 +112,70 @@ function modelContextDiagnostics(bundle) {
   };
 }
 
+function iphoneModelShape(value) {
+  const key = String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/promax/g, 'pro max')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  const generation = /\biphone\s+(xr|\d{1,2}e?)\b/.exec(key)?.[1] || null;
+  if (!generation) return null;
+
+  let variant = 'base';
+  if (/\bpro\s+max\b/.test(key)) variant = 'pro max';
+  else if (/\bpro\b/.test(key)) variant = 'pro';
+  else if (/\bplus\b/.test(key)) variant = 'plus';
+  else if (/\bmini\b/.test(key)) variant = 'mini';
+  else if (/\bair\b/.test(key)) variant = 'air';
+
+  const gb = /\b(64|128|256|512|1024|2048)\s*gb\b/.exec(key);
+  const tb = /\b([12])\s*tb\b/.exec(key);
+  let capacity = gb ? Number(gb[1]) : null;
+  if (tb) capacity = Number(tb[1]) * 1024;
+  if (capacity == null) {
+    const bare = /\b(64|128|256|512|1024|2048)\b/.exec(key);
+    capacity = bare ? Number(bare[1]) : null;
+  }
+  if (capacity == null) return null;
+  return `${generation}|${variant}|${capacity}`;
+}
+
+function unresolvedModelDiagnostics(bundle, knowledgeSnapshot) {
+  const supportedByShape = new Map();
+  for (const entity of knowledgeSnapshot.entities || []) {
+    if (entity.kind !== 'model') continue;
+    const shape = iphoneModelShape(entity.label);
+    if (shape) supportedByShape.set(shape, entity.id);
+  }
+
+  let unresolvedCandidates = 0;
+  let unresolvedNearSupported = 0;
+  const nearSupportedByModel = {};
+
+  for (const segment of bundle.segments || []) {
+    const semantic = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model' && candidate.state === 'unresolved'
+    );
+    for (const candidate of semantic) {
+      unresolvedCandidates += 1;
+      const shape = iphoneModelShape(candidate.input);
+      const modelId = shape ? supportedByShape.get(shape) : null;
+      if (!modelId) continue;
+      unresolvedNearSupported += 1;
+      nearSupportedByModel[modelId] = (nearSupportedByModel[modelId] || 0) + 1;
+    }
+  }
+
+  return {
+    unresolved_model_candidates: unresolvedCandidates,
+    unresolved_near_supported: unresolvedNearSupported,
+    unresolved_near_supported_by_model: nearSupportedByModel
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -179,6 +243,7 @@ function offerExpansionDiagnostics(bundle) {
 
 const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
 const modelContextDiagnostic = modelContextDiagnostics(coreBundle);
+const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowledge);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -202,7 +267,8 @@ const summary = {
     report.gates.no_silent_wrong_price === true &&
     report.gates.exact_multiset === true,
   offer_expansion_diagnostic: expansionDiagnostic,
-  model_context_diagnostic: modelContextDiagnostic
+  model_context_diagnostic: modelContextDiagnostic,
+  unresolved_model_diagnostic: unresolvedModelDiagnostic
 };
 
 const diagnostic = {
