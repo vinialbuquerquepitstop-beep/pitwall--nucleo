@@ -598,8 +598,6 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         }
       }
 
-      if (!sources.length || !targets.length) continue;
-
       const appendCandidates = (source, target, kind) => {
         const targetSegment = out[target.index];
         for (const candidate of source.candidates) {
@@ -617,6 +615,50 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           });
         }
       };
+
+      const supplemental = policy.supplemental_adjacent_forward;
+      if (supplemental && typeof supplemental === 'object') {
+        const expectedRole = supplemental.source_role || null;
+        const expectedReason = supplemental.source_reason || null;
+
+        for (let index = start; index + 1 < end; index += 1) {
+          const sourceSegment = out[index];
+          const targetSegment = out[index + 1];
+          const sourceCandidates = uniqueFieldCandidates(
+            sourceSegment.field_candidates || [],
+            field.name
+          );
+          const sourceTriggers = uniqueFieldCandidates(
+            sourceSegment.field_candidates || [],
+            triggerField
+          );
+          const targetCandidates = uniqueFieldCandidates(
+            targetSegment.field_candidates || [],
+            field.name
+          );
+          const targetTriggers = uniqueFieldCandidates(
+            targetSegment.field_candidates || [],
+            triggerField
+          );
+
+          if (sourceCandidates.length !== 1 || sourceTriggers.length !== 0) continue;
+          if (targetCandidates.length !== 0 || targetTriggers.length !== 1) continue;
+          if (supplemental.require_non_source_only !== false &&
+              isFieldOnlySegment(sourceSegment, field.name)) continue;
+
+          const topRole = sourceSegment.role_candidates?.[0] || null;
+          if (expectedRole && topRole?.role !== expectedRole) continue;
+          if (expectedReason && topRole?.reason !== expectedReason) continue;
+
+          appendCandidates(
+            { index, candidates: sourceCandidates },
+            { index: index + 1, candidate: targetTriggers[0] },
+            'supplemental_adjacent_forward'
+          );
+        }
+      }
+
+      if (!sources.length || !targets.length) continue;
 
       const countsEqual = sources.length === targets.length;
       if (countsEqual) {
@@ -1133,7 +1175,9 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
                 ? 'pairing:nearest_unique'
                 : sourceCandidate.evidence?.kind === 'ordered_pair'
                   ? 'pairing:ordered'
-                  : 'direct_extraction'],
+                  : sourceCandidate.evidence?.kind === 'supplemental_adjacent_forward'
+                    ? 'pairing:supplemental_adjacent_forward'
+                    : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
         });
