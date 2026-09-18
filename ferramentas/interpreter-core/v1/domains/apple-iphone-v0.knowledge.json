@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.7.0",
+  "version": "0.5.0",
   "created_at": null,
   "entities": [
     {
@@ -189,138 +189,6 @@
       "text": "iPhone 16 Promax 256",
       "normalized": null,
       "target_id": "iphone_16_pro_max_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "13 Pro 128GB",
-      "normalized": null,
-      "target_id": "iphone_13_pro_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "13 Pro 128",
-      "normalized": null,
-      "target_id": "iphone_13_pro_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "15 128GB",
-      "normalized": null,
-      "target_id": "iphone_15_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "15 128",
-      "normalized": null,
-      "target_id": "iphone_15_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 128GB",
-      "normalized": null,
-      "target_id": "iphone_16_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 128",
-      "normalized": null,
-      "target_id": "iphone_16_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 256GB",
-      "normalized": null,
-      "target_id": "iphone_16_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 256",
-      "normalized": null,
-      "target_id": "iphone_16_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro 256GB",
-      "normalized": null,
-      "target_id": "iphone_16_pro_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro 256",
-      "normalized": null,
-      "target_id": "iphone_16_pro_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro Max 256GB",
-      "normalized": null,
-      "target_id": "iphone_16_pro_max_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro Max 256",
-      "normalized": null,
-      "target_id": "iphone_16_pro_max_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16e 128GB",
-      "normalized": null,
-      "target_id": "iphone_16e_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16e 128",
-      "normalized": null,
-      "target_id": "iphone_16e_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "17e 256GB",
-      "normalized": null,
-      "target_id": "iphone_17e_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17e 256",
-      "normalized": null,
-      "target_id": "iphone_17e_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 Air 256GB",
-      "normalized": null,
-      "target_id": "iphone_17_air_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 Air 256",
-      "normalized": null,
-      "target_id": "iphone_17_air_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 256GB",
-      "normalized": null,
-      "target_id": "iphone_17_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 256",
-      "normalized": null,
-      "target_id": "iphone_17_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 512GB",
-      "normalized": null,
-      "target_id": "iphone_17_512gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 512",
-      "normalized": null,
-      "target_id": "iphone_17_512gb"
     }
   ],
   "semantic_rules": [],
@@ -332,11 +200,6 @@
       "supabase/migrations/20260908_calc_catalogo_semente.sql",
       "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
       "ferramentas/prova_calc_catalogo.sql"
-    ],
-    "supported_header_shorthand": {
-      "source": "real-load structural diagnostic",
-      "scope": "only model shapes already present in Apple V0 knowledge",
-      "aliases_added": 22
-    }
+    ]
   }
 }
