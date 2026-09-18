@@ -3317,12 +3317,24 @@ function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
       const modelPath = pathBoundaries(modelLine, priceLine);
       const expectedSupplier = nearestSupplier(expected.supplier, priceLine);
       const expectedPath = pathBoundaries(expectedSupplier?.line, priceLine);
+      const optionalFieldLocal = (field, maxDistance) => {
+        if (record.fields?.[field] == null) return true;
+        const line = sourceLine(record, field);
+        if (!Number.isFinite(line)) return false;
+        const boundaries = pathBoundaries(line, priceLine);
+        return Math.abs(priceLine - line) <= maxDistance &&
+          !boundaries.has('domain') &&
+          !boundaries.has('supplier') &&
+          !boundaries.has('timestamp');
+      };
 
       return (priceTrace?.rules || []).includes('direct_extraction') &&
         modelDistance <= 6 &&
         !modelPath.has('domain') &&
         !modelPath.has('supplier') &&
         !modelPath.has('timestamp') &&
+        optionalFieldLocal('color', 3) &&
+        optionalFieldLocal('condition', 6) &&
         !supplierPath.has('supplier') &&
         !supplierPath.has('timestamp') &&
         expectedSupplier &&
@@ -3368,6 +3380,7 @@ function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
     promotion_counted: false,
+    mixed_offer_locality: 'model<=6,color<=3,condition<=6,price=direct,supplier=no-hard-boundary',
     status: 'global_unique_consumption_diagnostic'
   };
 }
