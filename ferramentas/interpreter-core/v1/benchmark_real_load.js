@@ -280,10 +280,11 @@ longHeaderFallbackPriceBundle.records = (longHeaderFallbackPriceBundle.records |
 
   const priceCandidates = candidates.filter(candidate => candidate.field === 'price');
   if (priceCandidates.length !== 1) return true;
-  const candidateScore = Number(priceCandidates[0].score);
-  const traceScore = Number(priceTrace?.score);
-  const effectiveScore = Number.isFinite(candidateScore) ? candidateScore : traceScore;
-  if (!Number.isFinite(effectiveScore) || effectiveScore > 0.971) return true;
+  const candidate = priceCandidates[0];
+  const pattern = String(candidate.evidence?.pattern || '');
+  const candidateScore = Number(candidate.score);
+  if (!(pattern.includes('💰') || pattern.includes('💵'))) return true;
+  if (!Number.isFinite(candidateScore) || Math.abs(candidateScore - 0.995) > 0.0001) return true;
 
   longHeaderFallbackPriceDropped += 1;
   return false;
@@ -1494,9 +1495,9 @@ function surplusLongHeaderPriceEvidenceDiagnostics(legacyBundle, coreBundleInput
       const candidate = priceCandidates[0];
       const pattern = String(candidate.evidence?.pattern || '');
       const patternClass =
+        pattern.includes('💰') || pattern.includes('💵') ? 'money_emoji' :
         pattern.includes('PROMO') ? 'suffix_fallback' :
         pattern.includes('(?:R\\$|\\$)') ? 'currency_required' :
-        pattern.includes('💰') || pattern.includes('💵') ? 'money_emoji' :
         pattern ? 'other_regex' : 'no_pattern';
       const score = Number(candidate.score);
       const scoreKey = Number.isFinite(score) ? score.toFixed(3) : 'unknown';
