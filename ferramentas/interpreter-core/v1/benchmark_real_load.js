@@ -4181,6 +4181,101 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
+  // 9. SIMULATION ONLY: claim a remaining missing/extra pair only when
+  // every divergent field is locally supported on the Core side and locally
+  // unsupported on the legacy side. No ties and no legacy-local wins allowed.
+  if (options.includeStrictPairDominance === true) {
+    const remainingMissing = () => missing
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !claimedMissing.has(index));
+    const remainingExtra = () => extras
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !claimedExtra.has(index));
+
+    const actualFieldLocalForPair = (record, field, priceLine) => {
+      if (field === 'price') {
+        const trace = (record.trace || []).find(item => item.field === 'price');
+        return Number.isFinite(priceLine) &&
+          (trace?.rules || []).includes('direct_extraction');
+      }
+      if (field === 'supplier') {
+        const line = sourceLine(record, 'supplier');
+        const boundaries = pathBoundaries(line, priceLine);
+        return Number.isFinite(line) &&
+          !boundaries.has('supplier') &&
+          !boundaries.has('timestamp');
+      }
+      if (field === 'color') return isLocalField(record, 'color', priceLine, 3);
+      if (field === 'condition') return isLocalField(record, 'condition', priceLine, 6);
+      return false;
+    };
+
+    const expectedFieldLocalForPair = (expected, field, priceLine) => {
+      if (!Number.isFinite(priceLine)) return false;
+      if (field === 'price') {
+        return segments.some(segment =>
+          supplierAt(segment) === expected.supplier &&
+          Number(segment.line_number) === priceLine &&
+          (segment.field_candidates || []).some(candidate =>
+            candidate.field === 'price' && Number(candidate.value) === expected.price
+          )
+        );
+      }
+      if (field === 'supplier') {
+        return supplierAt(segmentByLine.get(priceLine)) === expected.supplier;
+      }
+      if (field !== 'color' && field !== 'condition') return false;
+
+      const maxDistance = field === 'color' ? 3 : 6;
+      const expectedValue = expected[field];
+      if (expectedValue == null) return true;
+      return segments.some(segment => {
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line) || Math.abs(priceLine - line) > maxDistance) return false;
+        const boundaries = pathBoundaries(line, priceLine);
+        if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+        if (supplierAt(segment) !== expected.supplier) return false;
+        return (segment.field_candidates || []).some(candidate =>
+          candidateMatchesExpected(candidate, field, expectedValue)
+        );
+      });
+    };
+
+    const usedExtra = new Set();
+    for (const { item: miss, index: missingIndex } of remainingMissing()) {
+      const expected = norm(miss);
+      let best = null;
+
+      for (const { item: ex, index: extraIndex } of remainingExtra()) {
+        if (usedExtra.has(extraIndex)) continue;
+        const actual = norm(ex);
+        if (actual.model !== expected.model || actual.capacity !== expected.capacity) continue;
+        const diffs = diffFields(expected, actual);
+        if (!diffs.length || diffs.includes('capacity')) continue;
+        if (!best || diffs.length < best.diffs.length || (
+          diffs.length === best.diffs.length && extraIndex < best.extraIndex
+        )) {
+          best = { extraIndex, diffs };
+        }
+      }
+      if (!best) continue;
+
+      const record = extraRecords[best.extraIndex];
+      if (!record) continue;
+      const priceLine = sourceLine(record, 'price');
+
+      const fullyDominated = best.diffs.every(field =>
+        actualFieldLocalForPair(record, field, priceLine) === true &&
+        expectedFieldLocalForPair(expected, field, priceLine) === false
+      );
+
+      if (!fullyDominated) continue;
+      if (claim('source_dominated_legacy_remaining_pair', missingIndex, best.extraIndex)) {
+        usedExtra.add(best.extraIndex);
+      }
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -4579,8 +4674,10 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      options.includeSourceUnsupportedMissing === true
-        ? 'residual-adjudication-ledger/v3'
+      options.includeStrictPairDominance === true
+        ? 'residual-adjudication-ledger/v4-simulation'
+        : options.includeSourceUnsupportedMissing === true
+          ? 'residual-adjudication-ledger/v3'
         : (
             options.includeStrongMixed === true ||
             options.includeAllFullyLocalCoreOnly === true ||
@@ -4646,6 +4743,18 @@ const residualAdjudicationLedger =
       includeStrongMixed: true,
       includeAllFullyLocalCoreOnlyLate: true,
       includeSourceUnsupportedMissing: true
+    }
+  );
+
+const residualAdjudicationLedgerStrictPairDominanceSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true
     }
   );
 
@@ -6945,6 +7054,7 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  residual_adjudication_ledger_strict_pair_dominance_simulation: residualAdjudicationLedgerStrictPairDominanceSimulation,
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
   residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
