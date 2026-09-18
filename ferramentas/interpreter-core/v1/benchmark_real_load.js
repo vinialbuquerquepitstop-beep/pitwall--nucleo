@@ -242,6 +242,26 @@ function supportedBlockDiagnostics(bundle) {
   let supportedBlockMultiPriceSegments = 0;
   let supportedBlockPriceWithDirectColor = 0;
   let supportedBlockPriceWithoutDirectColor = 0;
+  const perModel = {};
+  const touch = modelId => {
+    if (!perModel[modelId]) {
+      perModel[modelId] = {
+        anchors: 0,
+        price_segments: 0,
+        price_with_color: 0,
+        price_without_color: 0,
+        color_only_rows: 0,
+        color_candidates_on_color_only_rows: 0,
+        materialized_records: 0
+      };
+    }
+    return perModel[modelId];
+  };
+
+  for (const record of bundle.records || []) {
+    const modelId = record.fields?.model?.id;
+    if (modelId) touch(modelId).materialized_records += 1;
+  }
 
   for (const segment of segments) {
     if ((segment.context_events || []).some(event => event.reason === 'timestamp_boundary')) {
@@ -256,20 +276,35 @@ function supportedBlockDiagnostics(bundle) {
         (candidate.state === 'interpreted' || candidate.state === 'inferred') && candidate.entity_id
       );
       currentModelId = resolved?.entity_id || null;
-      if (currentModelId) supportedAnchors += 1;
+      if (currentModelId) {
+        supportedAnchors += 1;
+        touch(currentModelId).anchors += 1;
+      }
     }
 
     if (!currentModelId) continue;
+    const colors = distinctFieldValues(segment, 'color');
     const prices = distinctFieldValues(segment, 'price');
+
+    if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(segment, 'color')) {
+      touch(currentModelId).color_only_rows += 1;
+      touch(currentModelId).color_candidates_on_color_only_rows += colors.length;
+    }
+
     if (!prices.length) continue;
 
     supportedBlockPriceSegments += 1;
+    touch(currentModelId).price_segments += 1;
     if (prices.length === 1) supportedBlockSinglePriceSegments += 1;
     else supportedBlockMultiPriceSegments += 1;
 
-    const colors = distinctFieldValues(segment, 'color');
-    if (colors.length) supportedBlockPriceWithDirectColor += 1;
-    else supportedBlockPriceWithoutDirectColor += 1;
+    if (colors.length) {
+      supportedBlockPriceWithDirectColor += 1;
+      touch(currentModelId).price_with_color += 1;
+    } else {
+      supportedBlockPriceWithoutDirectColor += 1;
+      touch(currentModelId).price_without_color += 1;
+    }
   }
 
   return {
@@ -279,7 +314,8 @@ function supportedBlockDiagnostics(bundle) {
     supported_block_multi_price_segments: supportedBlockMultiPriceSegments,
     supported_block_price_with_direct_color: supportedBlockPriceWithDirectColor,
     supported_block_price_without_direct_color: supportedBlockPriceWithoutDirectColor,
-    materialized_records: (bundle.records || []).length
+    materialized_records: (bundle.records || []).length,
+    per_model: perModel
   };
 }
 
