@@ -1875,6 +1875,75 @@ function crossModelResidualDiagnostics(legacyBundle, coreBundle, legacyModelId) 
   };
 }
 
+
+function simulateOracleModelAdjudication(legacyBundle, coreBundle, crossModelDiagnostic) {
+  const coreById = new Map(
+    (coreBundle.records || []).map(record => [record.record_id, record])
+  );
+
+  const corrections = [];
+  const usedCore = new Set();
+  const correctionByLegacyId = new Map();
+
+  for (const row of crossModelDiagnostic?.matches || []) {
+    if (Number(row.candidate_count) !== 1) continue;
+    const candidate = row.candidates?.[0];
+    if (!candidate?.core_record_id || usedCore.has(candidate.core_record_id)) continue;
+    const coreRecord = coreById.get(candidate.core_record_id);
+    if (!coreRecord?.fields?.model?.id) continue;
+
+    usedCore.add(candidate.core_record_id);
+    correctionByLegacyId.set(row.legacy_record_id, coreRecord.fields.model);
+    corrections.push({
+      legacy_record_id: row.legacy_record_id,
+      product_index: row.product_index ?? null,
+      from_model: crossModelDiagnostic.legacy_model_id,
+      to_model: coreRecord.fields.model.id,
+      core_record_id: candidate.core_record_id,
+      model_source_line: candidate.model_source_line ?? null
+    });
+  }
+
+  const correctedLegacy = {
+    ...legacyBundle,
+    offers: (legacyBundle.offers || []).map(offer => {
+      const correctedModel = correctionByLegacyId.get(offer.legacy_record_id);
+      if (!correctedModel) return offer;
+      return {
+        ...offer,
+        fields: {
+          ...(offer.fields || {}),
+          model: correctedModel
+        }
+      };
+    })
+  };
+
+  const report = compareSemanticShadow({ legacy: correctedLegacy, coreBundle });
+  const reportNoColor = compareSemanticShadow({
+    legacy: correctedLegacy,
+    coreBundle,
+    options: { include_color: false }
+  });
+  const divergence = analyzeDivergences({ legacy: correctedLegacy, coreBundle });
+
+  return {
+    status: corrections.length > 0 ? 'provisional_oracle_adjudication' : 'no_corrections',
+    raw_metrics_preserved: true,
+    correction_count: corrections.length,
+    corrections,
+    adjudicated_metrics: {
+      matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers,
+      extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio,
+      agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio
+    },
+    adjudicated_divergence_categories: divergence.categories,
+    adjudicated_top_model_gaps: divergence.top_model_gaps
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1959,6 +2028,9 @@ const target16256BoundaryDiagnostic = targetModelBoundaryDiagnostics(coreBundle,
 const target16256CrossModelDiagnostic = crossModelResidualDiagnostics(
   legacy, coreBundle, 'iphone_16_256gb'
 );
+const target16256OracleAdjudication = simulateOracleModelAdjudication(
+  legacy, coreBundle, target16256CrossModelDiagnostic
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -2037,6 +2109,7 @@ const summary = {
   target_16_256_pair_diagnostic: target16256PairDiagnostic,
   target_16_256_boundary_diagnostic: target16256BoundaryDiagnostic,
   target_16_256_cross_model_diagnostic: target16256CrossModelDiagnostic,
+  target_16_256_oracle_adjudication: target16256OracleAdjudication,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
