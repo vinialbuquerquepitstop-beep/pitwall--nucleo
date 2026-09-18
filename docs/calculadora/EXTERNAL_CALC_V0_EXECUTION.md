@@ -26,10 +26,13 @@ A meta operacional é chegar ao ponto em que um usuário externo receba um link,
 Repository:
 `vinialbuquerquepitstop-beep/pitwall--nucleo`
 
-Baseline commit:
-`fca19fe5c6281a03ae98401da00589b1b6c60683`
+Baseline commit R2:
+`d7692302778510bc80c95ce490579371fedc3782`
 
-Branch de preservação:
+Branch de preservação oficial R2:
+`backup/external-calc-baseline-2026-09-17-r2`
+
+Backup histórico R1:
 `backup/external-calc-baseline-2026-09-17`
 
 Branch de execução:
@@ -39,7 +42,7 @@ Origem do baseline:
 `feat/calculadora-interpretador-real-shadow-v0`
 
 Observação:
-A linha `real-shadow-v0` está 16 commits à frente de `feat/calculadora-interpretador-offer-expansion-v1`. O External Calc nasce da ponta mais avançada para não perder correções posteriores.
+A linha `real-shadow-v0` estava 16 commits à frente de `feat/calculadora-interpretador-offer-expansion-v1` na abertura do processo e avançou mais 1 commit durante a preparação do baseline. O External Calc foi sincronizado com o R2 para não perder essa correção posterior.
 
 ## Regras de segurança da execução
 
@@ -103,7 +106,7 @@ A linha `real-shadow-v0` está 16 commits à frente de `feat/calculadora-interpr
 Critérios:
 
 - [x] identificar a ponta mais avançada do interpretador
-- [x] registrar SHA exato
+- [x] registrar SHA exato e reconciliar avanço concorrente da branch-base
 - [x] criar branch de backup
 - [x] criar branch exclusiva do External Calc
 - [x] manter `main` sem alteração
@@ -142,11 +145,14 @@ rollback explícito
 
 ## Rollback
 
-Rollback estrutural:
-`backup/external-calc-baseline-2026-09-17`
+Rollback estrutural oficial:
+`backup/external-calc-baseline-2026-09-17-r2`
 
-Rollback SHA:
-`fca19fe5c6281a03ae98401da00589b1b6c60683`
+Rollback SHA oficial:
+`d7692302778510bc80c95ce490579371fedc3782`
+
+Rollback histórico R1:
+`backup/external-calc-baseline-2026-09-17` / `fca19fe5c6281a03ae98401da00589b1b6c60683`
 
 ## Registro de mudança
 
@@ -162,7 +168,10 @@ Human-Approval: pedido explícito para iniciar o processo External Calc
 
 - criada `backup/external-calc-baseline-2026-09-17`
 - criada `feat/external-calc-v0`
-- ambas apontando inicialmente para `fca19fe5c6281a03ae98401da00589b1b6c60683`
+- R1 preservado em `fca19fe5c6281a03ae98401da00589b1b6c60683`
+- detectado avanço concorrente de 1 commit em `real-shadow-v0`
+- criado baseline R2 em `d7692302778510bc80c95ce490579371fedc3782`
+- `benchmark_real_load.js` sincronizado com o R2
 - `main` não alterada
 - banco/produção não alterados
 - próximo gate: prova automatizada do baseline
