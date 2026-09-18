@@ -477,27 +477,16 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       }
 
       if (!sources.length || !targets.length) continue;
-      if (policy.require_equal_rows !== false && sources.length !== targets.length) continue;
 
-      const pairCount = Math.min(sources.length, targets.length);
-      if (policy.require_adjacent_rows === true) {
-        const allAdjacent = Array.from({ length: pairCount }, (_, pairIndex) =>
-          targets[pairIndex]?.index === sources[pairIndex]?.index + 1
-        ).every(Boolean);
-        if (!allAdjacent) continue;
-      }
-      for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
-        const source = sources[pairIndex];
-        const target = targets[pairIndex];
+      const appendCandidates = (source, target, kind) => {
         const targetSegment = out[target.index];
-
         for (const candidate of source.candidates) {
           targetSegment.field_candidates.push({
             ...candidate,
             score: Math.min(1, (candidate.score ?? 0.7) * 0.99),
             evidence: {
               ...(candidate.evidence || {}),
-              kind: 'ordered_pair',
+              kind,
               paired_field: field.name,
               trigger_field: triggerField,
               source_line: out[source.index].line_number,
@@ -505,6 +494,33 @@ function applyOrderedFieldPairing(segments, schema = {}) {
             }
           });
         }
+      };
+
+      const countsEqual = sources.length === targets.length;
+      if (countsEqual) {
+        const pairCount = sources.length;
+        if (policy.require_adjacent_rows === true) {
+          const allAdjacent = Array.from({ length: pairCount }, (_, pairIndex) =>
+            targets[pairIndex]?.index === sources[pairIndex]?.index + 1
+          ).every(Boolean);
+          if (!allAdjacent) continue;
+        }
+        for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+          appendCandidates(sources[pairIndex], targets[pairIndex], 'ordered_pair');
+        }
+        continue;
+      }
+
+      if (policy.require_equal_rows !== false && policy.fallback_unique_nearest !== true) continue;
+      if (policy.fallback_unique_nearest !== true) continue;
+
+      for (const source of sources) {
+        const ranked = targets
+          .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
+          .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
+        if (!ranked.length) continue;
+        if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
+        appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
   }
