@@ -90,6 +90,27 @@ const coreBundle = interpretResolved({
 
 const report = compareSemanticShadow({ legacy, coreBundle });
 const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
+
+const conditionTimestampSchema = JSON.parse(JSON.stringify(schema));
+conditionTimestampSchema.context_policy = conditionTimestampSchema.context_policy || {};
+conditionTimestampSchema.context_policy.preserve_on_timestamp = Array.from(new Set(
+  (conditionTimestampSchema.context_policy.preserve_on_timestamp || []).concat(['condition'])
+));
+const conditionTimestampBundle = interpretResolved({
+  document: {
+    contract_version: 'raw-document/v1',
+    document_id: 'real-load-shadow-condition-timestamp-simulation',
+    content: raw,
+    source: { kind: 'plain_text' }
+  },
+  schema: conditionTimestampSchema,
+  knowledge
+});
+const conditionTimestampReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: conditionTimestampBundle,
+  options: { include_supplier: true }
+});
 const reportSupplierAware = supplierProfiles.length
   ? compareSemanticShadow({
       legacy: legacySupplierAware,
@@ -1204,6 +1225,18 @@ const summary = {
   supplierless_context_diagnostic: supplierlessContextDiagnostic,
   supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
+  condition_timestamp_preservation_simulation: {
+    core_offers: conditionTimestampReport.metrics.core_offers,
+    matched_offers: conditionTimestampReport.metrics.matched_offers,
+    missing_offers: conditionTimestampReport.metrics.missing_offers,
+    extra_offers: conditionTimestampReport.metrics.extra_offers,
+    agreement_ratio: conditionTimestampReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: conditionTimestampReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: conditionTimestampReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: conditionTimestampReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: conditionTimestampReport.gates.price_attribution_resolved,
+    exact_multiset: conditionTimestampReport.gates.exact_multiset
+  },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
   supplier_aware_silent_wrong_price_by_model:
