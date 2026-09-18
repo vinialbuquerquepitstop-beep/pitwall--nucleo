@@ -4289,6 +4289,20 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       return false;
     };
 
+    const conditionValueMapForPair =
+      schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalPairValue = (field, value) => {
+      if (value == null) return null;
+      if (field === 'condition') {
+        return normalizeKey(
+          conditionValueMapForPair[value] ||
+          conditionValueMapForPair[String(value)] ||
+          value
+        ) || null;
+      }
+      return normalizeKey(value) || null;
+    };
+
     const expectedFieldLocalForPair = (expected, field, priceLine) => {
       if (!Number.isFinite(priceLine)) return false;
       if (field === 'price') {
@@ -4315,7 +4329,9 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
         if (supplierAt(segment) !== expected.supplier) return false;
         return (segment.field_candidates || []).some(candidate =>
-          candidateMatchesExpected(candidate, field, expectedValue)
+          candidate.field === field &&
+          canonicalPairValue(field, candidate.value) ===
+            canonicalPairValue(field, expectedValue)
         );
       });
     };
