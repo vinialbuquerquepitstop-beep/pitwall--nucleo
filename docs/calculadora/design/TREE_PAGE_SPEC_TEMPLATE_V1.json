@@ -1,0 +1,42 @@
+{
+  "$schema": "tree/page-spec/v1",
+  "page_id": "<page-id>",
+  "page_name": "<page name>",
+  "status": "planned",
+  "semantic_contract": {
+    "purpose": "<what job this page performs>",
+    "owner_entity": "<canonical entity>",
+    "supporting_entities": [],
+    "entry_conditions": [],
+    "primary_actions": [],
+    "secondary_actions": [],
+    "next_transitions": [],
+    "business_rules": [],
+    "permissions": [],
+    "required_states": ["loading","empty","error","success"]
+  },
+  "visual_contract": {
+    "golden_reference": "<reference id>",
+    "page_archetype": "<overview|workspace|list|detail|command-center|...>",
+    "shell": "reuse",
+    "density": "inherit",
+    "regions": [
+      {"id":"<region>","role":"<primary|secondary|contextual>","component":"<existing component>","data":"<entity/view>"}
+    ],
+    "new_patterns": []
+  },
+  "integration": {
+    "client_boundary": "<Client/Adapter>",
+    "read_contract": "<versioned contract>",
+    "write_contract": "<versioned contract or none>",
+    "direct_db_access": false
+  },
+  "fidelity_gate": {
+    "compare": ["proportion","padding","gaps","typography","density","borders","alignment","contrast","component anatomy"],
+    "deviations": [],
+    "decision": "pending"
+  },
+  "slice_gate": {
+    "functional":"pending","data":"pending","semantics":"pending","permissions":"pending","rls_isolation":"pending","auditability":"pending","states":"pending","design":"pending","quality":"pending","operation":"pending"
+  }
+}
