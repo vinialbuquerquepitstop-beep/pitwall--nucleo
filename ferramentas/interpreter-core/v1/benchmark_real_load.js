@@ -4867,6 +4867,13 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         canonicalExpectedValue('condition', expected.condition)
     );
 
+    const legacySameModelSupplierPrice = (legacySupplierAware?.offers || []).filter(offer => {
+      const fields = offer.fields || {};
+      return fields.model?.id === expected.model &&
+        String(fields.supplier ?? '') === String(expected.supplier ?? '') &&
+        Number(fields.price) === expected.price;
+    });
+
     const priceSegments = segments.filter(segment =>
       supplierAt(segment) === expected.supplier &&
       (segment.field_candidates || []).some(candidate =>
@@ -4878,6 +4885,8 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     let modelLocalAtPrice = false;
     let colorLocalAtPrice = expected.color == null;
     let conditionLocalAtPrice = expected.condition == null;
+    const localColorValues = new Set();
+    const localConditionValues = new Set();
 
     for (const priceSegment of priceSegments) {
       const priceLine = Number(priceSegment.line_number);
@@ -4890,6 +4899,23 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
           !boundaries.has('domain') &&
           !boundaries.has('supplier') &&
           !boundaries.has('timestamp');
+
+        if (safePath && distance <= 3) {
+          for (const candidate of segment.field_candidates || []) {
+            if (candidate.field === 'color') {
+              const value = canonicalExpectedValue('color', candidate.value);
+              if (value != null) localColorValues.add(String(value));
+            }
+          }
+        }
+        if (safePath && distance <= 6) {
+          for (const candidate of segment.field_candidates || []) {
+            if (candidate.field === 'condition') {
+              const value = canonicalExpectedValue('condition', candidate.value);
+              if (value != null) localConditionValues.add(String(value));
+            }
+          }
+        }
 
         const expectedModelHere = (segment.semantic_candidates || []).some(candidate =>
           candidate.field === 'model' &&
@@ -4925,6 +4951,10 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       'same_model_supplier_price_core=' + sameModelSupplierPrice.length,
       'same_msp_color_core=' + sameModelSupplierPriceColor.length,
       'same_msp_condition_core=' + sameModelSupplierPriceCondition.length,
+      'legacy_same_msp=' + legacySameModelSupplierPrice.length,
+      'core_same_msp=' + sameModelSupplierPrice.length,
+      'local_distinct_colors=' + localColorValues.size,
+      'local_distinct_conditions=' + localConditionValues.size,
       'nearest_expected_model_distance=' + (nearestExpectedModelDistance ?? 'none'),
       'model_local=' + (modelLocalAtPrice ? 'yes' : 'no'),
       'color_local=' + (colorLocalAtPrice ? 'yes' : 'no'),
