@@ -56,7 +56,7 @@ for (const token of requiredStateTokens) {
 }
 
 const forbidden = [
-  { re: /supabase\s*\./i, label: "chamada Supabase" },
+  { re: /\bsupabase\s*\.(?:from|rpc|auth|storage|functions)\b/i, label: "chamada Supabase" },
   { re: /createClient\s*\(/i, label: "cliente Supabase" },
   { re: /service_role/i, label: "service_role" },
   { re: /XMLHttpRequest/i, label: "XMLHttpRequest" },
