@@ -266,6 +266,29 @@ check('modelo resolve com bullet antes da capacidade', () => {
   assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
 });
 
+check('familia Android encerra contexto de iPhone antes do preco', () => {
+  const result = run(
+    'apple-domain-boundary-android',
+    'iPhone 17e 256GB\nBranco\nR$ 4.299\nPoco F8 Pro 5G 16/256GB\nBlue\nR$ 3.280'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17e_256gb');
+  assert.strictEqual(result.records[0].fields.price, 4299);
+  assert.ok(result.segments.some(segment =>
+    segment.context_events?.some(event => event.reason === 'domain_boundary')
+  ));
+});
+
+check('MacBook encerra contexto de iPhone', () => {
+  const result = run(
+    'apple-domain-boundary-mac',
+    'iPhone 17 256GB\nPreto\nR$ 5.299\nMacBook Air M4 16/256GB\nR$ 6.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
