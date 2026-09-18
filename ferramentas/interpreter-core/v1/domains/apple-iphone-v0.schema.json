@@ -259,7 +259,8 @@
           "transform": "trim",
           "score": 0.88
         }
-      ]
+      ],
+      "skip_if_anchor_present": true
     },
     {
       "name": "_domain_boundary",
