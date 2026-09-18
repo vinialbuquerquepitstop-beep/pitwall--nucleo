@@ -171,20 +171,14 @@ check('cores Lavanda e Laranja entram como cores de dominio', () => {
   assert.strictEqual(laranja.records[0].fields.color, 'Laranja');
 });
 
-check('Offer Expansion V1.1 expande cores em linha anterior ao preco', () => {
+check('ablacao single_only nao explode varias cores do bloco', () => {
   const result = run(
     'apple-expansion-block',
     'iPhone 17 256GB Lacrado\nPreto Azul\nR$ 5.299'
   );
-  assert.strictEqual(result.records.length, 2);
-  assert.deepStrictEqual(
-    result.records.map(r => r.fields.color).sort(),
-    ['Azul', 'Preto']
-  );
-  assert.ok(result.records.every(r => r.fields.price === 5299));
-  assert.ok(result.records.every(r =>
-    r.trace.some(t => t.field === 'color' && t.rules.includes('record_expansion:block_inheritance'))
-  ));
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, undefined);
+  assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
 check('Offer Expansion V1.1 para no preco anterior e nao mistura ofertas', () => {
