@@ -231,32 +231,7 @@ function extractFieldCandidates(segment, schema = {}) {
     const prior = byKey.get(key);
     if (!prior || candidate.score > prior.score) byKey.set(key, candidate);
   }
-
-  let deduped = [...byKey.values()];
-  for (const field of fields) {
-    const preferred = Array.isArray(field.prefer_values_if_present)
-      ? field.prefer_values_if_present
-      : [];
-    if (!preferred.length) continue;
-
-    const fieldCandidates = deduped.filter(candidate => candidate.field === field.name);
-    const preferredKeys = preferred.map(normalizeKey);
-    const preferredCandidate = fieldCandidates
-      .filter(candidate => preferredKeys.includes(normalizeKey(candidate.value)))
-      .sort((a, b) => {
-        const ai = preferredKeys.indexOf(normalizeKey(a.value));
-        const bi = preferredKeys.indexOf(normalizeKey(b.value));
-        return (ai - bi) || (b.score - a.score);
-      })[0];
-
-    if (!preferredCandidate) continue;
-    deduped = deduped.filter(candidate =>
-      candidate.field !== field.name ||
-      normalizeKey(candidate.value) === normalizeKey(preferredCandidate.value)
-    );
-  }
-
-  return deduped.sort((a, b) => b.score - a.score);
+  return [...byKey.values()].sort((a, b) => b.score - a.score);
 }
 
 function cloneContext(context) {
@@ -339,17 +314,8 @@ function buildContextTrace(segments, schema = {}) {
       const preserved = {};
       const cleared = [];
       for (const [field, value] of Object.entries(context)) {
-        const fieldConfig = fields.find(item => item.name === field) || {};
-        const excluded = new Set(
-          Array.isArray(fieldConfig.context_do_not_preserve_values)
-            ? fieldConfig.context_do_not_preserve_values.map(normalizeKey)
-            : []
-        );
-        if (policy.preserve_on_anchor.has(field) && !excluded.has(normalizeKey(value?.value))) {
-          preserved[field] = value;
-        } else {
-          cleared.push(field);
-        }
+        if (policy.preserve_on_anchor.has(field)) preserved[field] = value;
+        else cleared.push(field);
       }
       context = preserved;
       events.push({
@@ -374,28 +340,6 @@ function buildContextTrace(segments, schema = {}) {
       if (selected.state !== 'unique') continue;
 
       const candidate = selected.candidate;
-      const stickyValues = new Set(
-        Array.isArray(field.context_sticky_values)
-          ? field.context_sticky_values.map(normalizeKey)
-          : []
-      );
-      const current = context[field.name];
-      if (
-        current &&
-        stickyValues.has(normalizeKey(current.value)) &&
-        normalizeKey(current.value) !== normalizeKey(candidate.value)
-      ) {
-        events.push({
-          type: 'context_set_skipped',
-          reason: 'sticky_value',
-          field: field.name,
-          current_value: current.value,
-          rejected_value: candidate.value,
-          source_line: segment.line_number
-        });
-        continue;
-      }
-
       context[field.name] = {
         value: candidate.value,
         source_line: segment.line_number,
