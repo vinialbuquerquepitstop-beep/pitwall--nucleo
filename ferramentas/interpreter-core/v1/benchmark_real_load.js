@@ -2665,7 +2665,13 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
               numeric_run_count: (String(segment.normalized || '').match(/\d[\d.,]*/g) || []).length,
               alpha_run_count: (String(segment.normalized || '').match(/[A-Za-zÀ-ÿ]+/g) || []).length,
               has_percent_marker: /%/.test(String(segment.normalized || '')),
-              has_currency_marker: /(?:R\$|US\$|\$|€|£)/i.test(String(segment.normalized || ''))
+              has_currency_marker: /(?:R\$|US\$|\$|€|£)/i.test(String(segment.normalized || '')),
+              has_lacrado_token: /\bLacrad[oa]s?\b/i.test(String(segment.normalized || '')),
+              has_cpo_token: /\bCPO\b/i.test(String(segment.normalized || '')),
+              has_seminovo_token: /\bSeminov[oa]s?\b/i.test(String(segment.normalized || '')),
+              has_nacional_token: /\bNacional\b/i.test(String(segment.normalized || '')),
+              has_importado_token: /\bImportad[oa]s?\b/i.test(String(segment.normalized || '')),
+              has_esim_token: /(?:\be\s*sim\b|\besim\b)/i.test(String(segment.normalized || ''))
             },
             price_evidence: (segment.field_candidates || [])
               .filter(candidate => candidate.field === 'price')
