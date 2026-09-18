@@ -673,6 +673,59 @@ check('supersessao local preserva cores distintas no mesmo bloco', () => {
   assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto']);
 });
 
+check('17 256 local forward-group liga cada grupo de cores ao preco seguinte', () => {
+  const result = run(
+    'apple-local-17-256-forward-groups',
+    '17 256 eSIM lacrado importado\nLavanda\nPreto\nR$ 5.199\nVerde\nAzul\nR$ 5.099'
+  );
+  assert.strictEqual(result.records.length, 4);
+  const byColor = Object.fromEntries(result.records.map(r => [r.fields.color, r.fields.price]));
+  assert.strictEqual(byColor.Lavanda, 5199);
+  assert.strictEqual(byColor.Preto, 5199);
+  assert.strictEqual(byColor.Verde, 5099);
+  assert.strictEqual(byColor.Azul, 5099);
+  assert.ok(result.records.every(r =>
+    r.trace.some(trace =>
+      trace.field === 'color' &&
+      trace.rules.includes('record_expansion:pairing_forward_group')
+    )
+  ));
+});
+
+check('17 256 local forward-group expande tres cores para um unico preco', () => {
+  const result = run(
+    'apple-local-17-256-forward-national',
+    '17 256 CHIP VIRTUAL+CHIP FÍSICO LACRADO NACIONAL NF\nVerde\nPreto\nLavanda\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.deepStrictEqual(
+    result.records.map(r => r.fields.color).sort(),
+    ['Lavanda', 'Preto', 'Verde']
+  );
+  assert.ok(result.records.every(r => r.fields.price === 5299));
+});
+
+check('forward-group local nao vaza para shorthand de outro modelo', () => {
+  const result = run(
+    'apple-forward-group-scope',
+    '17 512 Lacrado\nLavanda\nPreto\nR$ 6.399\nVerde\nAzul\nR$ 6.299'
+  );
+  assert.ok(result.records.every(r =>
+    !r.trace.some(trace =>
+      trace.field === 'color' &&
+      trace.rules.includes('record_expansion:pairing_forward_group')
+    )
+  ));
+});
+
+check('17 256 A+ continua fora da regra local forward-group', () => {
+  const result = run(
+    'apple-local-17-256-forward-a-plus-disabled',
+    '17 256GB🇺🇸 A+\nBLACK\nR$ 4.680'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
