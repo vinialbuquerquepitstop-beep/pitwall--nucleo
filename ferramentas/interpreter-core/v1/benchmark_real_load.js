@@ -482,6 +482,68 @@ function conditionDistributionDiagnostics(legacyBundle, coreBundle) {
   };
 }
 
+function localHeader17256Diagnostics(bundle) {
+  const segments = bundle.segments || [];
+  const records = bundle.records || [];
+  const headers = [];
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const normalized = String(segment.normalized || '');
+    if (/iphone/i.test(normalized)) continue;
+    if (!/^[^A-Za-z0-9]{0,12}17\s+256(?:\s*GB)?(?=\D|$)/i.test(normalized)) continue;
+
+    let end = segments.length;
+    for (let j = index + 1; j < segments.length; j += 1) {
+      const next = segments[j];
+      const boundary = (next.context_events || []).some(event =>
+        event.reason === 'product_header_boundary' ||
+        event.reason === 'timestamp_boundary' ||
+        event.reason === 'domain_boundary'
+      );
+      if (boundary) {
+        end = j;
+        break;
+      }
+    }
+
+    const blockLines = new Set(segments.slice(index, end).map(s => Number(s.line_number)));
+    const modelCandidates = (segment.field_candidates || [])
+      .filter(candidate => candidate.field === 'model')
+      .map(candidate => String(candidate.value));
+    const semanticModels = (segment.semantic_candidates || [])
+      .filter(candidate => candidate.field === 'model')
+      .map(candidate => ({
+        state: candidate.state,
+        entity_id: candidate.entity_id || null
+      }));
+    const priceSegments = segments.slice(index, end).filter(s =>
+      distinctFieldValues(s, 'price').length > 0
+    ).length;
+    const blockRecords = records.filter(record => {
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      const line = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+      return line != null && blockLines.has(line);
+    });
+
+    headers.push({
+      line: segment.line_number,
+      has_lacrado: /\blacrado\b/i.test(normalized),
+      has_a_plus: /\bA\+\b/i.test(normalized),
+      model_candidates: modelCandidates,
+      semantic_models: semanticModels,
+      price_segments: priceSegments,
+      materialized_records: blockRecords.length,
+      materialized_17256: blockRecords.filter(record => record.fields?.model?.id === 'iphone_17_256gb').length
+    });
+  }
+
+  return {
+    header_count: headers.length,
+    headers
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -555,6 +617,7 @@ const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
+const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -584,7 +647,8 @@ const summary = {
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
-  condition_distribution_diagnostic: conditionDistributionDiagnostic
+  condition_distribution_diagnostic: conditionDistributionDiagnostic,
+  local_header_17_256_diagnostic: localHeader17256Diagnostic
 };
 
 const diagnostic = {
