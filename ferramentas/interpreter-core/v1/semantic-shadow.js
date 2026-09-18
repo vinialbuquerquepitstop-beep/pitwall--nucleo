@@ -131,6 +131,7 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
   const identities = new Set([...left.keys(), ...right.keys()]);
   let substitutions = 0;
   let identitiesWithSubstitution = 0;
+  const byModel = {};
 
   for (const identity of identities) {
     if (!left.has(identity) || !right.has(identity)) continue;
@@ -151,12 +152,15 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
     if (replaced > 0) {
       substitutions += replaced;
       identitiesWithSubstitution += 1;
+      const model = JSON.parse(identity)[0] || '(unknown)';
+      byModel[model] = (byModel[model] || 0) + replaced;
     }
   }
 
   return {
     substitutions,
-    identities_with_substitution: identitiesWithSubstitution
+    identities_with_substitution: identitiesWithSubstitution,
+    by_model: byModel
   };
 }
 
@@ -189,7 +193,8 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       core_ambiguities: Array.isArray(coreBundle.ambiguities) ? coreBundle.ambiguities.length : 0,
       core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0,
       silent_wrong_price_substitutions: priceDiagnostic.substitutions,
-      silent_wrong_price_identities: priceDiagnostic.identities_with_substitution
+      silent_wrong_price_identities: priceDiagnostic.identities_with_substitution,
+      silent_wrong_price_by_model: priceDiagnostic.by_model
     },
     gates: {
       no_silent_wrong_price: priceDiagnostic.substitutions === 0,
