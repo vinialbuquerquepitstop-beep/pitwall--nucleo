@@ -778,6 +778,7 @@ function targetModelBlockDiagnostics(bundle, modelId) {
     let priceWithoutDirectColor = 0;
     let colorOnlyRows = 0;
     let colorCandidates = 0;
+    const colorRows = [];
     let directConditionRows = 0;
     const directConditions = {};
     const priceContext = [];
