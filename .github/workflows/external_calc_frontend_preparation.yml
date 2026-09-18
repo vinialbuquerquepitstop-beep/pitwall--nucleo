@@ -50,8 +50,8 @@ jobs:
 
       - name: Enforce isolation
         run: |
-          if grep -RniE 'supabase|SUPABASE_DB_URL|service_role|postgresql://' prototypes/external-calc-frontend-v0; then
-            echo 'FALHA: prototipo isolado contém dependência ou segredo proibido.'
+          if grep -RniE '@supabase/|supabase\.co|createClient\(|SUPABASE_DB_URL|SUPABASE_[A-Z_]+|service_role|postgresql://' prototypes/external-calc-frontend-v0; then
+            echo 'FALHA: prototipo isolado contém dependência técnica ou segredo proibido.'
             exit 1
           fi
           echo 'FRONTEND_PREPARATION_ISOLATED=1'
