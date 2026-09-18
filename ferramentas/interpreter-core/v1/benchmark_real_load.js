@@ -111,6 +111,32 @@ const conditionTimestampReport = compareSemanticShadow({
   coreBundle: conditionTimestampBundle,
   options: { include_supplier: true }
 });
+
+const capacityFromResolvedModelBundle = JSON.parse(JSON.stringify(coreBundle));
+let capacityFromResolvedModelFilled = 0;
+for (const record of capacityFromResolvedModelBundle.records || []) {
+  if (record?.fields?.capacity_gb != null) continue;
+  const modelId = record?.fields?.model?.id;
+  const match = typeof modelId === 'string' ? /_(64|128|256|512)gb$/.exec(modelId) : null;
+  if (!match) continue;
+  record.fields.capacity_gb = Number(match[1]);
+  record.trace = Array.isArray(record.trace) ? record.trace : [];
+  record.trace.push({
+    field: 'capacity_gb',
+    chosen: Number(match[1]),
+    sources: [],
+    derived_from: [],
+    rules: ['diagnostic:resolved_model_identity_capacity'],
+    alternatives: [],
+    score: 1
+  });
+  capacityFromResolvedModelFilled += 1;
+}
+const capacityFromResolvedModelReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: capacityFromResolvedModelBundle,
+  options: { include_supplier: true }
+});
 const reportSupplierAware = supplierProfiles.length
   ? compareSemanticShadow({
       legacy: legacySupplierAware,
@@ -1258,6 +1284,19 @@ const summary = {
     no_silent_wrong_price: conditionTimestampReport.gates.no_silent_wrong_price,
     price_attribution_resolved: conditionTimestampReport.gates.price_attribution_resolved,
     exact_multiset: conditionTimestampReport.gates.exact_multiset
+  },
+  capacity_from_resolved_model_simulation: {
+    filled_records: capacityFromResolvedModelFilled,
+    core_offers: capacityFromResolvedModelReport.metrics.core_offers,
+    matched_offers: capacityFromResolvedModelReport.metrics.matched_offers,
+    missing_offers: capacityFromResolvedModelReport.metrics.missing_offers,
+    extra_offers: capacityFromResolvedModelReport.metrics.extra_offers,
+    agreement_ratio: capacityFromResolvedModelReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: capacityFromResolvedModelReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: capacityFromResolvedModelReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: capacityFromResolvedModelReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: capacityFromResolvedModelReport.gates.price_attribution_resolved,
+    exact_multiset: capacityFromResolvedModelReport.gates.exact_multiset
   },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
