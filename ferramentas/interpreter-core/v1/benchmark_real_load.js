@@ -66,6 +66,52 @@ function distinctFieldValues(segment, field) {
   )];
 }
 
+function modelContextDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  let priceSegments = 0;
+  let priceWithDirectModel = 0;
+  let priceWithInheritedModel = 0;
+  let priceWithoutModel = 0;
+  let modelCandidateSegments = 0;
+  let modelCandidateResolved = 0;
+  let modelCandidateUnresolved = 0;
+  let modelCandidateAmbiguous = 0;
+
+  for (const segment of segments) {
+    const prices = distinctFieldValues(segment, 'price');
+    const directModels = (segment.field_candidates || []).filter(candidate => candidate.field === 'model');
+    const semanticModels = (segment.semantic_candidates || []).filter(candidate => candidate.field === 'model');
+
+    if (directModels.length) {
+      modelCandidateSegments += 1;
+      if (semanticModels.some(candidate => candidate.state === 'interpreted' || candidate.state === 'inferred')) {
+        modelCandidateResolved += 1;
+      } else if (semanticModels.some(candidate => candidate.state === 'ambiguous')) {
+        modelCandidateAmbiguous += 1;
+      } else {
+        modelCandidateUnresolved += 1;
+      }
+    }
+
+    if (prices.length !== 1) continue;
+    priceSegments += 1;
+    if (directModels.length) priceWithDirectModel += 1;
+    else if (segment.inherited_context?.model) priceWithInheritedModel += 1;
+    else priceWithoutModel += 1;
+  }
+
+  return {
+    price_segments: priceSegments,
+    price_with_direct_model: priceWithDirectModel,
+    price_with_inherited_model: priceWithInheritedModel,
+    price_without_model: priceWithoutModel,
+    model_candidate_segments: modelCandidateSegments,
+    model_candidate_resolved: modelCandidateResolved,
+    model_candidate_unresolved: modelCandidateUnresolved,
+    model_candidate_ambiguous: modelCandidateAmbiguous
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -132,6 +178,7 @@ function offerExpansionDiagnostics(bundle) {
 }
 
 const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
+const modelContextDiagnostic = modelContextDiagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -154,7 +201,8 @@ const summary = {
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
     report.gates.exact_multiset === true,
-  offer_expansion_diagnostic: expansionDiagnostic
+  offer_expansion_diagnostic: expansionDiagnostic,
+  model_context_diagnostic: modelContextDiagnostic
 };
 
 const diagnostic = {
