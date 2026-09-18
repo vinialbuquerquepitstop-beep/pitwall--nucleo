@@ -951,6 +951,110 @@ function missing17_512CompositionDiagnostics(reportSupplierAware, bundle, schema
 const missing17_512CompositionDiagnostic =
   missing17_512CompositionDiagnostics(reportSupplierAware, coreBundle, schema);
 
+function missing17_512AnchorTopologyDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  ).filter(item => item.fields?.model?.id === 'iphone_17_512gb');
+
+  const segments = bundle.segments || [];
+  const signatures = {};
+  let cases = 0;
+
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+
+  const semanticModels = segment => [...new Set(
+    (segment?.semantic_candidates || [])
+      .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+      .map(candidate => candidate.entity_id)
+  )].sort();
+
+  for (const item of missing) {
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!Number.isFinite(price)) continue;
+
+    const priceSegments = segments.filter(segment =>
+      supplierAt(segment) === supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === price
+      )
+    );
+
+    for (const priceSegment of priceSegments) {
+      cases += 1;
+      const priceLine = Number(priceSegment.line_number);
+      const priorAnchors = segments
+        .filter(segment =>
+          Number(segment.line_number) < priceLine &&
+          (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+        )
+        .sort((a, b) => Number(b.line_number) - Number(a.line_number))
+        .slice(0, 4)
+        .map(segment => {
+          const line = Number(segment.line_number);
+          const ids = semanticModels(segment);
+          const boundaryReasons = [...new Set(
+            (segment.context_events || [])
+              .map(event => event.reason)
+              .filter(Boolean)
+          )].sort();
+          return [
+            'd=' + (priceLine - line),
+            'models=' + (ids.join(',') || 'none'),
+            'supplier=' + (supplierAt(segment) || 'none'),
+            'boundaries=' + (boundaryReasons.join('+') || 'none')
+          ].join('|');
+        });
+
+      const inherited = priceSegment.inherited_context?.model || null;
+      const inheritedLine = Number(inherited?.source_line);
+      const inheritedSegment = Number.isFinite(inheritedLine)
+        ? segments.find(segment => Number(segment.line_number) === inheritedLine)
+        : null;
+      const inheritedIds = semanticModels(inheritedSegment);
+
+      const betweenBoundaries = segments
+        .filter(segment =>
+          Number(segment.line_number) > Math.min(...[
+            priceLine,
+            ...priorAnchors.map(() => priceLine)
+          ]) &&
+          Number(segment.line_number) <= priceLine
+        );
+
+      const signature = [
+        'price_role=' + (priceSegment.role_candidates?.[0]?.role || 'unknown'),
+        'inherited_source_distance=' + (
+          Number.isFinite(inheritedLine) ? Math.abs(priceLine - inheritedLine) : 'unknown'
+        ),
+        'inherited_models=' + (inheritedIds.join(',') || 'none'),
+        'prior_anchors=' + (priorAnchors.join(' || ') || 'none')
+      ].join('|');
+      signatures[signature] = (signatures[signature] || 0) + 1;
+    }
+  }
+
+  return {
+    cases,
+    signatures
+  };
+}
+
+const missing17_512AnchorTopologyDiagnostic =
+  missing17_512AnchorTopologyDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3113,6 +3217,7 @@ const summary = {
   missing_price_source_topology_diagnostic: missingPriceSourceTopologyDiagnostic,
   missing_only_model_anchor_evidence_diagnostic: missingOnlyModelAnchorEvidenceDiagnostic,
   missing_17_512_composition_diagnostic: missing17_512CompositionDiagnostic,
+  missing_17_512_anchor_topology_diagnostic: missing17_512AnchorTopologyDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
