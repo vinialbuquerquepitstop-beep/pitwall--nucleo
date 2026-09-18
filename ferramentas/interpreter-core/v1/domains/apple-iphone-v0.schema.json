@@ -228,6 +228,40 @@
       ]
     },
     {
+      "name": "_iphone_model_boundary",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "context_boundary": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512)\\s*GB|iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512))(?!\\s*GB)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(?:64|128|256|512)(?:\\s*GB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:[0-9]{1,2})(?:PM|P)(?:\\s|[-–—:|•_])*(?:64|128|256|512)(?:\\s*GB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.88
+        }
+      ]
+    },
+    {
       "name": "_domain_boundary",
       "type": "string",
       "required": false,
