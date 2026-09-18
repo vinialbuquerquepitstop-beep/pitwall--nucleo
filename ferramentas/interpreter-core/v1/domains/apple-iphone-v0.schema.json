@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.0",
+  "schema_version": "0.10.1",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -76,7 +76,8 @@
           "flags": "i",
           "group": 1,
           "transform": "trim",
-          "score": 0.93
+          "score": 0.93,
+          "match_mode": "all"
         }
       ],
       "value_map": {
@@ -89,7 +90,10 @@
         "Seminovos": "Seminovo",
         "Usado": "Usado",
         "Usados": "Usado"
-      }
+      },
+      "prefer_values_if_present": [
+        "CPO"
+      ]
     },
     {
       "name": "color",
@@ -276,6 +280,10 @@
         "💵"
       ],
       "safety": "requires explicit money emoji before 4-6 digit monetary token; generic bare-number rule unchanged"
+    },
+    "condition_same_line_precedence": {
+      "source": ".claude/skills/calculadoras/references/formato-dados.md item 3",
+      "rule": "extract all condition tokens on the segment; when CPO is present, CPO wins; otherwise ambiguity is preserved"
     }
   }
 }
