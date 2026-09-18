@@ -2543,6 +2543,40 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
       const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
       const diffs = residualDiffsById.get(offer.core_record_id) || [];
       const paired = residualPairById.get(offer.core_record_id) || null;
+      const offerNorm = normFields(offer);
+      const sameIdentityReferences = (legacyBundle.offers || [])
+        .map(row => ({ row, norm: normFields(row) }))
+        .filter(item =>
+          item.norm.model === offerNorm.model &&
+          item.norm.capacity_gb === offerNorm.capacity_gb &&
+          item.norm.condition === offerNorm.condition &&
+          item.norm.color === offerNorm.color
+        );
+      const sameIdentityPrices = new Set(
+        sameIdentityReferences
+          .map(item => Number(item.norm.price))
+          .filter(Number.isFinite)
+      );
+      const sameCorePriceReferences = (legacyBundle.offers || [])
+        .map(row => ({ row, norm: normFields(row) }))
+        .filter(item =>
+          item.norm.model === offerNorm.model &&
+          item.norm.capacity_gb === offerNorm.capacity_gb &&
+          Number(item.norm.price) === Number(offerNorm.price)
+        );
+      const sameCorePriceIdentities = [
+        ...new Set(
+          sameCorePriceReferences.map(item =>
+            JSON.stringify([
+              item.norm.condition ?? null,
+              item.norm.color ?? null
+            ])
+          )
+        )
+      ].map(value => {
+        const [condition, color] = JSON.parse(value);
+        return { condition, color };
+      });
       const classification = !remainingIds.has(offer.core_record_id)
         ? 'exact'
         : residualDiffsById.has(offer.core_record_id)
@@ -2560,6 +2594,13 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
         color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : [],
         classification,
         diffs,
+        price_reference: {
+          same_identity_offer_count: sameIdentityReferences.length,
+          same_identity_distinct_price_count: sameIdentityPrices.size,
+          core_price_known_same_identity: sameIdentityPrices.has(Number(offerNorm.price)),
+          same_model_capacity_core_price_reference_count: sameCorePriceReferences.length,
+          same_model_capacity_core_price_identities: sameCorePriceIdentities
+        },
         paired_legacy: paired ? {
           legacy_record_id: paired.legacy?.legacy_record_id || null,
           product_index: paired.legacy?.metadata?.product_index ?? null,
