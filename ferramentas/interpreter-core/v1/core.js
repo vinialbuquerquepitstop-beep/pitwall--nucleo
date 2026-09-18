@@ -989,7 +989,11 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
             ? 'context_inheritance'
             : sourceType === 'anchor_context'
               ? `anchor_precedence:${field.prefer_from_anchor.anchor_field}`
-              : 'direct_extraction'],
+              : sourceCandidate.evidence?.kind === 'nearest_unique_pair'
+                ? 'pairing:nearest_unique'
+                : sourceCandidate.evidence?.kind === 'ordered_pair'
+                  ? 'pairing:ordered'
+                  : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
         });
