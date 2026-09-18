@@ -132,6 +132,40 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
   let substitutions = 0;
   let identitiesWithSubstitution = 0;
   const byModel = {};
+  const surplusTraceByRule = {};
+
+  const firstSource = trace => Array.isArray(trace?.sources) && trace.sources.length
+    ? Number(trace.sources[0])
+    : null;
+  const ruleName = trace => Array.isArray(trace?.rules) && trace.rules.length
+    ? trace.rules.join('+')
+    : '(no-trace)';
+  const safeTraceSignature = (offer, model) => {
+    const traces = Array.isArray(offer?.trace) ? offer.trace : [];
+    const priceTrace = traces.find(trace => trace.field === 'price');
+    const colorTrace = traces.find(trace => trace.field === 'color');
+    const conditionTrace = traces.find(trace => trace.field === 'condition');
+    const priceLine = firstSource(priceTrace);
+    const colorLine = firstSource(colorTrace);
+    let relation = 'color_source_unknown';
+    if (Number.isFinite(priceLine) && Number.isFinite(colorLine)) {
+      const delta = priceLine - colorLine;
+      relation = delta === 0
+        ? 'same_line'
+        : delta > 0
+          ? `color_before_price:d${Math.abs(delta)}`
+          : `color_after_price:d${Math.abs(delta)}`;
+    } else if (Number.isFinite(priceLine)) {
+      relation = 'no_color_trace';
+    }
+    return [
+      model,
+      `color=${ruleName(colorTrace)}`,
+      `condition=${ruleName(conditionTrace)}`,
+      `price=${ruleName(priceTrace)}`,
+      relation
+    ].join(' | ');
+  };
 
   for (const identity of identities) {
     if (!left.has(identity) || !right.has(identity)) continue;
@@ -154,13 +188,32 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
       identitiesWithSubstitution += 1;
       const model = JSON.parse(identity)[0] || '(unknown)';
       byModel[model] = (byModel[model] || 0) + replaced;
+
+      const legacyCountByPrice = legacyPrices;
+      const seenCoreByPrice = new Map();
+      let remainingDiagnosticSlots = replaced;
+      for (const offer of interpretedOffers || []) {
+        if (remainingDiagnosticSlots <= 0) break;
+        if (priceIdentityKey(offer.fields || {}, options) !== identity) continue;
+        const price = offer.fields?.price == null || !Number.isFinite(Number(offer.fields.price))
+          ? null
+          : Number(offer.fields.price);
+        const seen = (seenCoreByPrice.get(price) || 0) + 1;
+        seenCoreByPrice.set(price, seen);
+        const legacyCount = legacyCountByPrice.get(price) || 0;
+        if (seen <= legacyCount) continue;
+        const signature = safeTraceSignature(offer, model);
+        surplusTraceByRule[signature] = (surplusTraceByRule[signature] || 0) + 1;
+        remainingDiagnosticSlots -= 1;
+      }
     }
   }
 
   return {
     substitutions,
     identities_with_substitution: identitiesWithSubstitution,
-    by_model: byModel
+    by_model: byModel,
+    surplus_trace_by_rule: surplusTraceByRule
   };
 }
 
@@ -194,7 +247,8 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0,
       silent_wrong_price_substitutions: priceDiagnostic.substitutions,
       silent_wrong_price_identities: priceDiagnostic.identities_with_substitution,
-      silent_wrong_price_by_model: priceDiagnostic.by_model
+      silent_wrong_price_by_model: priceDiagnostic.by_model,
+      silent_wrong_price_surplus_trace_by_rule: priceDiagnostic.surplus_trace_by_rule
     },
     gates: {
       no_silent_wrong_price: priceDiagnostic.substitutions === 0,
