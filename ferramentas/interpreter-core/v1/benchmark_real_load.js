@@ -4236,6 +4236,107 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       (remainingExtraLocality[signature] || 0) + 1;
   }
 
+  const conditionPathShape = (fromLine, toLine) => {
+    const boundaries = new Set();
+    let modelAnchors = 0;
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) {
+      return { boundaries, modelAnchors };
+    }
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+        modelAnchors += 1;
+      }
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'domain_boundary') boundaries.add('domain');
+        if (event.reason === 'supplier_boundary') boundaries.add('supplier');
+        if (event.reason === 'timestamp_boundary') boundaries.add('timestamp');
+      }
+    }
+    return { boundaries, modelAnchors };
+  };
+
+  const conditionCandidateLines = (condition, supplier) => {
+    if (condition == null) return [];
+    return segments
+      .filter(segment => {
+        const effectiveSupplier = supplierAt(segment);
+        if (String(effectiveSupplier ?? '') !== String(supplier ?? '')) return false;
+        return (segment.field_candidates || []).some(candidate =>
+          candidateMatchesExpected(candidate, 'condition', condition)
+        );
+      })
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+
+  const remainingMissingConditionTopology = {};
+  for (const missingIndex of remainingMissingIndexes) {
+    const expected = norm(missing[missingIndex]);
+    const matchingPriceSegments = segments.filter(segment =>
+      supplierAt(segment) === expected.supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === expected.price
+      )
+    );
+
+    let best = null;
+    const conditionLines = conditionCandidateLines(expected.condition, expected.supplier);
+    for (const priceSegment of matchingPriceSegments) {
+      const priceLine = Number(priceSegment.line_number);
+      for (const conditionLine of conditionLines) {
+        const distance = Math.abs(priceLine - conditionLine);
+        if (!best || distance < best.distance) {
+          best = { priceLine, conditionLine, distance };
+        }
+      }
+    }
+
+    const path = best
+      ? conditionPathShape(best.conditionLine, best.priceLine)
+      : { boundaries: new Set(), modelAnchors: 0 };
+    const signature = [
+      'model=' + expected.model,
+      'condition=' + (expected.condition || 'null'),
+      'nearest_same_supplier=' + (best ? 'yes' : 'no'),
+      'distance=' + (best?.distance ?? 'none'),
+      'model_anchors=' + path.modelAnchors,
+      'boundaries=' + ([...path.boundaries].sort().join('+') || 'none')
+    ].join('|');
+    remainingMissingConditionTopology[signature] =
+      (remainingMissingConditionTopology[signature] || 0) + 1;
+  }
+
+  const remainingExtraConditionTopology = {};
+  for (const extraIndex of remainingExtraIndexes) {
+    const record = extraRecords[extraIndex];
+    if (!record) continue;
+    const priceLine = sourceLine(record, 'price');
+    const conditionLine = sourceLine(record, 'condition');
+    const path = conditionPathShape(conditionLine, priceLine);
+    const distance =
+      Number.isFinite(priceLine) && Number.isFinite(conditionLine)
+        ? Math.abs(priceLine - conditionLine)
+        : null;
+    const conditionRules = (record.trace || [])
+      .filter(item => item.field === 'condition')
+      .flatMap(item => Array.isArray(item.rules) ? item.rules.map(String) : []);
+    const signature = [
+      'model=' + (record.fields?.model?.id || '(unknown)'),
+      'condition=' + (normalizeKey(record.fields?.condition) || 'null'),
+      'source=' + (Number.isFinite(conditionLine) ? 'yes' : 'no'),
+      'distance=' + (distance ?? 'none'),
+      'model_anchors=' + path.modelAnchors,
+      'boundaries=' + ([...path.boundaries].sort().join('+') || 'none'),
+      'rule=' + (conditionRules.length ? conditionRules.join('+') : 'none')
+    ].join('|');
+    remainingExtraConditionTopology[signature] =
+      (remainingExtraConditionTopology[signature] || 0) + 1;
+  }
+
   const remainingPairSignatures = {};
   const usedRemainingExtra = new Set();
   for (const missingIndex of remainingMissingIndexes) {
@@ -4290,6 +4391,12 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
       extra_locality_signatures: Object.entries(remainingExtraLocality)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      missing_condition_topology: Object.entries(remainingMissingConditionTopology)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      extra_condition_topology: Object.entries(remainingExtraConditionTopology)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
     },
