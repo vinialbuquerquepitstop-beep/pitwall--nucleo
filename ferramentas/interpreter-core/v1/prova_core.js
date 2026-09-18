@@ -243,7 +243,8 @@ check('boundary pode preservar campos declarados', () => {
     preserve_fields: ['capacity'],
     extractors: [{
       kind: 'regex',
-      pattern: '^SECTION
+      pattern: '^SECTION$',
+      flags: 'i',
       group: 0,
       transform: 'trim',
       score: 1
