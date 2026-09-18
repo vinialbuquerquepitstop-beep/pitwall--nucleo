@@ -972,10 +972,52 @@ const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreB
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
-const supplierRecordDiagnostic = {
-  records_with_supplier: (coreBundle.records || []).filter(record => record?.fields?.supplier != null).length,
-  records_without_supplier: (coreBundle.records || []).filter(record => record?.fields?.supplier == null).length
-};
+const supplierRecordDiagnostic = (() => {
+  const withSupplier = (coreBundle.records || []).filter(record => record?.fields?.supplier != null);
+  const withoutSupplier = (coreBundle.records || []).filter(record => record?.fields?.supplier == null);
+  const withoutByModel = {};
+  for (const record of withoutSupplier) {
+    const model = record?.fields?.model?.id || '(unknown)';
+    withoutByModel[model] = (withoutByModel[model] || 0) + 1;
+  }
+  return {
+    records_with_supplier: withSupplier.length,
+    records_without_supplier: withoutSupplier.length,
+    records_without_supplier_by_model: withoutByModel
+  };
+})();
+
+const supplierAwareGapByModel = (() => {
+  if (!reportSupplierAware) return null;
+  const out = {};
+  const touch = model => {
+    if (!out[model]) out[model] = { missing: 0, extra: 0 };
+    return out[model];
+  };
+  for (const item of reportSupplierAware.missing || []) {
+    const model = item?.fields?.model?.id || '(unknown)';
+    touch(model).missing += Number(item.count || 0);
+  }
+  for (const item of reportSupplierAware.extra || []) {
+    const model = item?.fields?.model?.id || '(unknown)';
+    touch(model).extra += Number(item.count || 0);
+  }
+  return Object.values(
+    Object.entries(out)
+      .sort((a, b) => (b[1].missing + b[1].extra) - (a[1].missing + a[1].extra) || a[0].localeCompare(b[0]))
+      .reduce((acc, [model, row]) => {
+        acc[model] = { ...row, total_gap: row.missing + row.extra };
+        return acc;
+      }, {})
+  ).length
+    ? Object.entries(out)
+        .sort((a, b) => (b[1].missing + b[1].extra) - (a[1].missing + a[1].extra) || a[0].localeCompare(b[0]))
+        .reduce((acc, [model, row]) => {
+          acc[model] = { ...row, total_gap: row.missing + row.extra };
+          return acc;
+        }, {})
+    : {};
+})();
 const anchorSpanDiagnostic = anchorSpanDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const supplierAwarePairingTraceDiagnostic = supplierProfiles.length
@@ -1008,6 +1050,8 @@ const summary = {
   supplier_boundary_events: supplierBoundaryDiagnostic.boundary_events,
   core_records_with_supplier: supplierRecordDiagnostic.records_with_supplier,
   core_records_without_supplier: supplierRecordDiagnostic.records_without_supplier,
+  core_records_without_supplier_by_model: supplierRecordDiagnostic.records_without_supplier_by_model,
+  supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
   supplier_aware_silent_wrong_price_by_model:
