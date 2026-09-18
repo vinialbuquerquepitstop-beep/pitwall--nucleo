@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.3",
+  "schema_version": "0.10.4",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -38,7 +38,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-z0-9]{0,8}((?:13\\s+Pro\\s+128|15\\s+128|16e?\\s+(?:128|256)|16\\s+Pro\\s+256|16\\s+(?:Pro\\s*Max|Promax|PM)\\s+256|17e\\s+256|17\\s+(?:256|512)|17\\s+Air\\s+256)\\s*(?:GB)?)\\b",
+          "pattern": "^[^A-Za-z0-9]{0,8}((?:13\\s+Pro\\s+128|15\\s+128|16e?\\s+(?:128|256)|16\\s+Pro\\s+256|16\\s*(?:Pro\\s*Max|Promax|PM)\\s+256|17e\\s+256|17\\s+(?:256|512)|17\\s+Air\\s+256)\\s*(?:GB)?)\\b",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -71,7 +71,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-z0-9]{0,8}(?:13\\s+Pro|15|16e?|16\\s+Pro|16\\s+(?:Pro\\s*Max|Promax|PM)|17e|17|17\\s+Air)\\s+(128|256|512)\\s*(?:GB)?\\b",
+          "pattern": "^[^A-Za-z0-9]{0,8}(?:13\\s+Pro|15|16e?|16\\s+Pro|16\\s*(?:Pro\\s*Max|Promax|PM)|17e|17|17\\s+Air)\\s+(128|256|512)\\s*(?:GB)?\\b",
           "flags": "i",
           "group": 1,
           "transform": "integer",
