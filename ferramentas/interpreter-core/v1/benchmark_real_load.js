@@ -1334,7 +1334,8 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
     flags: 'i',
     group: 1,
     transform: 'trim',
-    score: 0.91
+    score: 0.91,
+    record_require_fields: options.require_color_for_records === true ? ['color'] : []
   }];
 
   capacityField.extractors = [...(capacityField.extractors || []), {
@@ -2459,7 +2460,7 @@ function locateResidualOffersInSegments(legacyBundle, coreBundle, modelId) {
 }
 
 
-function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle) {
+function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle, options = {}) {
   const targetModelId = 'iphone_17_256gb';
   const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
   const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
@@ -2499,7 +2500,7 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
   const candidateBundle = interpretResolved({
     document: {
       contract_version: 'raw-document/v1',
-      document_id: 'real-load-shadow-what-if-17-256-bare-unqualified',
+      document_id: options.candidate || 'real-load-shadow-what-if-17-256-bare-unqualified',
       content: rawDocument,
       source: { kind: 'plain_text' }
     },
@@ -2622,7 +2623,7 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
         });
 
   return {
-    candidate: '17_256_bare_unqualified_header',
+    candidate: options.candidate || '17_256_bare_unqualified_header',
     metrics: {
       core_offers: report.metrics.core_offers,
       matched_offers: report.metrics.matched_offers,
@@ -3265,6 +3266,13 @@ const whatIf17256ImportadoEsimDiagnostic = whatIf17256ImportadoEsimShorthand(
 const whatIf17256BareUnqualifiedDiagnostic = whatIf17256BareUnqualifiedHeader(
   raw, schema, knowledge, legacy, coreBundle
 );
+const whatIf17256BareRequireColorDiagnostic = whatIf17256BareUnqualifiedHeader(
+  raw, schema, knowledge, legacy, coreBundle,
+  {
+    candidate: '17_256_bare_unqualified_require_color',
+    require_color_for_records: true
+  }
+);
 const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
   legacy, coreBundle
 );
@@ -3373,6 +3381,7 @@ const summary = {
   what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic,
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
   what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
+  what_if_17_256_bare_unqualified_require_color: whatIf17256BareRequireColorDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
   confirmed_wrong_price_record_diagnostic: confirmedWrongPriceRecordDiagnostic,
   what_if_reset_condition_on_product_header: whatIfResetConditionOnProductHeaderDiagnostic,
