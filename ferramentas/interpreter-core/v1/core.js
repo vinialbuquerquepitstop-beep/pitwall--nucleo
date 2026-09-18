@@ -520,6 +520,8 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
         if (!ranked.length) continue;
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
+        if (Number.isFinite(Number(policy.fallback_max_distance))
+            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
         appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
