@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.7.1",
+  "schema_version": "0.10.2",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -93,7 +93,13 @@
       },
       "prefer_values_if_present": [
         "CPO"
-      ]
+      ],
+      "prefer_from_anchor": {
+        "anchor_field": "model",
+        "values": [
+          "CPO"
+        ]
+      }
     },
     {
       "name": "color",
@@ -284,6 +290,11 @@
     "condition_same_line_precedence": {
       "source": ".claude/skills/calculadoras/references/formato-dados.md item 3",
       "rule": "extract all condition tokens on the segment; when CPO is present, CPO wins; otherwise ambiguity is preserved"
+    },
+    "condition_anchor_precedence": {
+      "rule": "when model anchor itself declares CPO, record composition prefers that CPO over later generic condition context for the same model",
+      "scope": "record composition only; context state is not mutated",
+      "source": "real CPO blocks in load 6c4d3491"
     }
   }
 }
