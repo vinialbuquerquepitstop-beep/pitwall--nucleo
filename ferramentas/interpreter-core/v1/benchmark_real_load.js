@@ -820,6 +820,92 @@ function targetModelPairDiagnostics(legacyBundle, coreBundle, modelId) {
   };
 }
 
+
+function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+
+  const modelField = (candidateSchema.fields || []).find(field => field.name === 'model');
+  const capacityField = (candidateSchema.fields || []).find(field => field.name === 'capacity_gb');
+  if (!modelField || !capacityField) {
+    throw new Error('what-if 16 Pro Max: schema sem model/capacity_gb');
+  }
+
+  modelField.extractors = [...(modelField.extractors || []), {
+    id: 'what_if_16_promax_256_model',
+    kind: 'regex',
+    pattern: '^[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=\\D|$)',
+    flags: 'i',
+    group: 1,
+    transform: 'trim',
+    score: 0.91
+  }];
+
+  capacityField.extractors = [...(capacityField.extractors || []), {
+    id: 'what_if_16_promax_256_capacity',
+    kind: 'regex',
+    pattern: '^[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=\\D|$)',
+    flags: 'i',
+    group: 1,
+    transform: 'integer',
+    score: 0.9
+  }];
+
+  const aliases = Array.isArray(candidateKnowledge.aliases) ? candidateKnowledge.aliases : [];
+  for (const text of ['16 Pro Max 256GB', '16 Pro Max 256']) {
+    if (!aliases.some(alias =>
+      alias.kind === 'model' &&
+      alias.text === text &&
+      alias.target_id === 'iphone_16_pro_max_256gb'
+    )) {
+      aliases.push({
+        kind: 'model',
+        text,
+        normalized: null,
+        target_id: 'iphone_16_pro_max_256gb'
+      });
+    }
+  }
+  candidateKnowledge.aliases = aliases;
+
+  const candidateBundle = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'real-load-shadow-what-if-16-promax',
+      content: rawDocument,
+      source: { kind: 'plain_text' }
+    },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+
+  const candidateReport = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const candidateNoColor = compareSemanticShadow({
+    legacy: legacyBundle,
+    coreBundle: candidateBundle,
+    options: { include_color: false }
+  });
+  const candidateDivergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const targetGap = (candidateDivergence.top_model_gaps || [])
+    .find(row => row.model === 'iphone_16_pro_max_256gb') || null;
+
+  return {
+    candidate: 'explicit_16_pro_max_256_shorthand',
+    metrics: {
+      core_offers: candidateReport.metrics.core_offers,
+      matched_offers: candidateReport.metrics.matched_offers,
+      missing_offers: candidateReport.metrics.missing_offers,
+      extra_offers: candidateReport.metrics.extra_offers,
+      agreement_ratio: candidateReport.metrics.agreement_ratio,
+      agreement_ratio_without_color: candidateNoColor.metrics.agreement_ratio,
+      no_silent_wrong_price: candidateReport.gates.no_silent_wrong_price,
+      exact_multiset: candidateReport.gates.exact_multiset
+    },
+    divergence_categories: candidateDivergence.categories,
+    target_model_gap: targetGap
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -896,6 +982,7 @@ const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy,
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
+const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -928,7 +1015,8 @@ const summary = {
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
   target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic,
-  target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic
+  target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic,
+  what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic
 };
 
 const diagnostic = {
