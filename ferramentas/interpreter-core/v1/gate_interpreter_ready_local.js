@@ -10,6 +10,7 @@ const proofs = [
   'prova_shadow_comparator.js',
   'prova_divergence_analyzer.js',
   'prova_offer_expansion_v1.js',
+  'prova_supplier_profile_adapter.js',
   'prova_real_shadow_semantic.js'
 ];
 
