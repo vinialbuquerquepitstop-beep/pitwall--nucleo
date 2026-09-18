@@ -139,6 +139,15 @@ function applyTransform(value, transform = 'identity') {
   throw new Error(`transform desconhecido: ${transform}`);
 }
 
+function applyFieldValueMap(value, field = {}) {
+  if (value == null || !field.value_map || typeof field.value_map !== 'object') return value;
+  const key = normalizeKey(value);
+  for (const [raw, canonical] of Object.entries(field.value_map)) {
+    if (normalizeKey(raw) === key) return canonical;
+  }
+  return value;
+}
+
 function extractFieldCandidates(segment, schema = {}) {
   const out = [];
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
@@ -148,7 +157,8 @@ function extractFieldCandidates(segment, schema = {}) {
       if (extractor.kind === 'role_raw') {
         const role = segment.role_candidates.find(r => r.role === extractor.role);
         if (!role) continue;
-        const value = applyTransform(segment.normalized, extractor.transform || 'trim');
+        const transformed = applyTransform(segment.normalized, extractor.transform || 'trim');
+        const value = applyFieldValueMap(transformed, field);
         if (value == null || value === '') continue;
         out.push({
           field: field.name,
@@ -192,7 +202,8 @@ function extractFieldCandidates(segment, schema = {}) {
           const match = matches[occurrence];
           const group = extractor.group ?? 1;
           const captured = match[group] ?? match[0];
-          const value = applyTransform(captured, extractor.transform || 'trim');
+          const transformed = applyTransform(captured, extractor.transform || 'trim');
+          const value = applyFieldValueMap(transformed, field);
           if (value == null || value === '') continue;
           out.push({
             field: field.name,
@@ -913,6 +924,7 @@ module.exports = {
   segmentDocument,
   parseGenericNumber,
   applyTransform,
+  applyFieldValueMap,
   extractFieldCandidates,
   uniqueFieldCandidates,
   buildContextTrace,
