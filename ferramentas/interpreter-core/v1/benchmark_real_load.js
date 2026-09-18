@@ -2574,6 +2574,53 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
   const classificationCounts = {};
   for (const row of added) classificationCounts[row.classification] = (classificationCounts[row.classification] || 0) + 1;
 
+  const sourceLines = added
+    .flatMap(row => [
+      row.model_source_line,
+      row.price_line,
+      ...(row.condition_source_lines || []),
+      ...(row.color_source_lines || [])
+    ])
+    .map(Number)
+    .filter(Number.isFinite);
+  const traceStart = sourceLines.length ? Math.max(1, Math.min(...sourceLines) - 2) : null;
+  const traceEnd = sourceLines.length ? Math.max(...sourceLines) + 2 : null;
+  const localBlockTrace = traceStart == null || traceEnd == null
+    ? []
+    : (candidateBundle.segments || [])
+        .filter(segment =>
+          Number(segment.line_number) >= traceStart &&
+          Number(segment.line_number) <= traceEnd
+        )
+        .map(segment => {
+          const fields = [...new Set((segment.field_candidates || []).map(candidate => candidate.field))].sort();
+          const semanticModels = (segment.semantic_candidates || [])
+            .filter(candidate => candidate.field === 'model')
+            .map(candidate => ({
+              state: candidate.state || null,
+              entity_id: candidate.entity_id || null
+            }));
+          return {
+            line: Number(segment.line_number),
+            role: segment.role_candidates?.[0]?.role || null,
+            reason: segment.role_candidates?.[0]?.reason || null,
+            fields,
+            semantic_models: semanticModels,
+            inherited_condition_source_line:
+              Number.isFinite(Number(segment.inherited_context?.condition?.source_line))
+                ? Number(segment.inherited_context.condition.source_line)
+                : null,
+            inherited_model_source_line:
+              Number.isFinite(Number(segment.inherited_context?.model?.source_line))
+                ? Number(segment.inherited_context.model.source_line)
+                : null,
+            event_reasons: [...new Set((segment.context_events || []).map(event => event.reason).filter(Boolean))].sort(),
+            price_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'price').length,
+            color_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'color').length,
+            condition_candidate_count: (segment.field_candidates || []).filter(candidate => candidate.field === 'condition').length
+          };
+        });
+
   return {
     candidate: '17_256_bare_unqualified_header',
     metrics: {
@@ -2588,7 +2635,8 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
     target_model_gap: (divergence.top_model_gaps || []).find(row => row.model === targetModelId) || null,
     added_target_record_count: added.length,
     added_target_record_classifications: classificationCounts,
-    added_target_records: added
+    added_target_records: added,
+    local_block_trace: localBlockTrace
   };
 }
 
