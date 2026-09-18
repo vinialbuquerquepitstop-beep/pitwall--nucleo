@@ -4633,10 +4633,21 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     const conditionRules = (record.trace || [])
       .filter(item => item.field === 'condition')
       .flatMap(item => Array.isArray(item.rules) ? item.rules.map(String) : []);
+    const conditionSourceSegment = Number.isFinite(conditionLine)
+      ? segmentByLine.get(conditionLine)
+      : null;
+    const conditionSourceFields = new Set(
+      (conditionSourceSegment?.field_candidates || []).map(candidate => candidate.field)
+    );
+    const conditionSourceRole =
+      conditionSourceSegment?.role_candidates?.[0]?.role || 'unknown';
     const signature = [
       'model=' + (record.fields?.model?.id || '(unknown)'),
       'condition=' + (normalizeKey(record.fields?.condition) || 'null'),
       'source=' + (Number.isFinite(conditionLine) ? 'yes' : 'no'),
+      'source_role=' + conditionSourceRole,
+      'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
+      'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
       'distance=' + (distance ?? 'none'),
       'model_anchors=' + path.modelAnchors,
       'boundaries=' + ([...path.boundaries].sort().join('+') || 'none'),
@@ -4933,8 +4944,19 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
       const path = pathShape(conditionLine, priceLine);
       const condition = normalizeKey(record.fields?.condition) || 'null';
       const model = record.fields?.model?.id || '(unknown)';
+      const conditionSourceSegment = segments.find(
+        segment => Number(segment.line_number) === conditionLine
+      ) || null;
+      const conditionSourceFields = new Set(
+        (conditionSourceSegment?.field_candidates || []).map(candidate => candidate.field)
+      );
+      const conditionSourceRole =
+        conditionSourceSegment?.role_candidates?.[0]?.role || 'unknown';
       const signature = [
         'condition=' + condition,
+        'source_role=' + conditionSourceRole,
+        'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
+        'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
         'distance=' + distanceBucket(distance),
         'anchors=' + anchorBucket(path.model_anchors),
         'boundaries=' + ([...path.boundaries].sort().join('+') || 'none')
