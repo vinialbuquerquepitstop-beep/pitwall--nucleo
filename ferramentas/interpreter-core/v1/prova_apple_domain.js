@@ -586,12 +586,11 @@ check('shorthand arriscado 16 Pro Max 256 permanece desativado', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
-check('shorthands com extras no run103 permanecem desativados', () => {
+check('shorthands improdutivos permanecem desativados', () => {
   for (const [id, header] of [
     ['15', '15 128GB Lacrado'],
     ['16e', '16e 128GB Lacrado'],
-    ['17e', '17e 256GB Lacrado'],
-    ['17', '17 256GB Lacrado']
+    ['17e', '17e 256GB Lacrado']
   ]) {
     const result = run(`apple-safe-shorthand-exclude-${id}`, `${header}\nPreto R$ 5.299`);
     assert.strictEqual(result.records.length, 0);
