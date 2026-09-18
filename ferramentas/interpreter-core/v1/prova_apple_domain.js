@@ -389,6 +389,17 @@ check('precedencia CPO do cabecalho nao vaza para o modelo seguinte', () => {
   assert.notStrictEqual(result.records[1].fields.condition, 'CPO');
 });
 
+check('CPO do anchor vence Lacrado direto dentro do mesmo modelo', () => {
+  const result = run(
+    'apple-cpo-anchor-over-direct',
+    'iPhone 13 Pro 128GB (CPO)\nLacrado\nPreto R$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  const trace = result.records[0].trace.find(item => item.field === 'condition');
+  assert.ok(trace.rules.includes('anchor_precedence:model'));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
