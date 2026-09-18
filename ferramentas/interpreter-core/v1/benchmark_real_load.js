@@ -1598,6 +1598,7 @@ const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
+const target16128Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_128gb');
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
@@ -1669,6 +1670,7 @@ const summary = {
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
   target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic,
+  target_16_128_diagnostic: target16128Diagnostic,
   target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
