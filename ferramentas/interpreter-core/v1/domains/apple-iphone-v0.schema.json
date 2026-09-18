@@ -98,7 +98,8 @@
         }
       ],
       "expand_records": true,
-      "expand_records_block_mode": "single_only"
+      "expand_records_block_mode": "multi_only",
+      "expand_records_block_strategy": "contiguous_before_trigger"
     },
     {
       "name": "price",
@@ -159,8 +160,8 @@
         "color"
       ],
       "rule": "multiple distinct direct color candidates + one unambiguous price => one record per color",
-      "safety": "multiple prices or multiple expansion fields remain ambiguous",
-      "ablation": "single_only"
+      "safety": "cross-line expansion requires multiple distinct colors contiguous immediately before one unambiguous price; prior price, timestamp and model anchors bound the scan",
+      "ablation": "multi_only_contiguous"
     }
   }
 }
