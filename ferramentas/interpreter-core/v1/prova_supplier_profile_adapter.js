@@ -95,4 +95,47 @@ function ok(value, message) {
   eq(result.records[0].fields.supplier, 'supplier_mp', 'alias tolera variacao de espaco e caixa');
 }
 
+
+{
+  const result = run(
+    'supplier-direction-guard',
+    [
+      'MP Imports',
+      'iPhone 13 Pro 128GB Lacrado',
+      'R$ 3.999',
+      'Azul',
+      'Preto',
+      'iPhone 15 128GB Lacrado',
+      'R$ 4.299',
+      'Azul',
+      'Preto',
+      'iPhone 16 256GB Lacrado',
+      'R$ 4.899',
+      'Azul',
+      'Preto',
+      'iPhone 16 128GB Lacrado',
+      'Azul',
+      'Preto',
+      'OBS',
+      'R$ 4.599',
+      'Branco'
+    ].join('\n')
+  );
+
+  const target = result.records.filter(record =>
+    record.fields.model?.id === 'iphone_16_128gb' &&
+    record.fields.price === 4599
+  );
+  eq(target.length, 2, 'guard deve preservar duas cores seguras no grupo misto');
+  eq(
+    target.map(record => record.fields.color).sort(),
+    ['Branco', 'Preto'],
+    'guard deve abster apenas a cor oposta mais distante'
+  );
+  ok(result.ambiguities.some(ambiguity =>
+    ambiguity.field === 'color' &&
+    ambiguity.cause === 'pairing_supplier_direction_conflict'
+  ), 'abstencao deve ficar auditavel como ambiguidade');
+}
+
 console.log(`PASSOU: ${n} assercoes Supplier Profile Adapter V0`);
