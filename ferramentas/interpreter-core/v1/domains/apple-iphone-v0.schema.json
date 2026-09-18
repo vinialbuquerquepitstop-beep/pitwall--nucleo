@@ -401,7 +401,7 @@
         "iphone_16e_128gb",
         "iphone_17e_256gb"
       ],
-      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled"
+      "bare_capacity_policy": "17 256 is enabled only when local Lacrado evidence is present; nearest fallback is capped to distance 1 for that extractor"
     },
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
