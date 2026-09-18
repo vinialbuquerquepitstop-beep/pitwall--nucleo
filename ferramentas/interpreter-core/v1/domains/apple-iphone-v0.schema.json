@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.2-local-17-256-pairing-cap",
+  "schema_version": "0.10.3-local-17-256-forward-group",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -172,6 +172,9 @@
         "fallback_max_distance": 3,
         "fallback_max_distance_by_anchor_extractor": {
           "supported_shorthand_17_256_lacrado_v1": 1
+        },
+        "fallback_group_to_next_trigger_by_anchor_extractor": {
+          "supported_shorthand_17_256_lacrado_v1": true
         }
       }
     },
@@ -411,10 +414,10 @@
     },
     "local_header_17_256": {
       "source": "real-load Quality/Cristiano block evidence",
-      "rule": "resolve shorthand 17 256 only when the same header line explicitly contains Lacrado",
+      "rule": "resolve shorthand 17 256 only when same header contains Lacrado",
+      "pairing": "within this anchor, color-only rows between the previous price and the next price bind forward to that next price",
       "excludes": "A+/seminovo shorthand headers without Lacrado",
-      "nearest_unique_max_distance": 1,
-      "safety": "nearest_unique inside this local shorthand may pair only adjacent color/price rows; distance >=2 abstains",
+      "safety": "scoped to extractor supported_shorthand_17_256_lacrado_v1; no global pairing change",
       "mode": "shadow"
     }
   },
