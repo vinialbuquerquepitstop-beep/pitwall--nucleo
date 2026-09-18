@@ -508,4 +508,40 @@ check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   assert.ok(result.warnings.includes('no_operational_price_write'));
 });
 
+
+check('cabecalho abreviado sem token iPhone resolve modelo base', () => {
+  const result = run(
+    'apple-bare-header-base',
+    '17 256GB Lacrado\nPreto R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('cabecalho abreviado Pro Max sem token iPhone e sem GB resolve', () => {
+  const result = run(
+    'apple-bare-header-pro-max',
+    '16 Pro Max 256 CPO\nPreto R$ 4.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.strictEqual(result.records[0].fields.price, 4999);
+});
+
+check('cabecalho compacto PM resolve via conhecimento de dominio', () => {
+  const result = run(
+    'apple-bare-header-pm',
+    '16PM 256GB Seminovo\nAzul R$ 4.799'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+  assert.strictEqual(result.records[0].fields.price, 4799);
+});
+
 console.log(`PASSOU: ${ok} assercoes Apple`);
