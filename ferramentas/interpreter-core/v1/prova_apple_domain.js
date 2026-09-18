@@ -653,7 +653,7 @@ check('capacidade generica de pareamento adjacente recupera cor quando explicita
     document: {
       contract_version: 'raw-document/v1',
       document_id: 'apple-adjacent-unique-color-with-text',
-      content: 'iPhone 17 256GB Lacrado\nDisponível Preto\nR$ 5.299',
+      content: 'iPhone 17 256GB Lacrado\nDisponível agora Preto\nR$ 5.299',
       source: { kind: 'plain_text' }
     },
     schema: adjacentSchema,
@@ -676,7 +676,7 @@ check('pareamento adjacente habilitado nao pula linha intermediaria', () => {
     document: {
       contract_version: 'raw-document/v1',
       document_id: 'apple-adjacent-unique-color-does-not-skip',
-      content: 'iPhone 17 256GB Lacrado\nDisponível Preto\nOBSERVAÇÃO\nR$ 5.299',
+      content: 'iPhone 17 256GB Lacrado\nDisponível agora Preto\nOBSERVAÇÃO\nR$ 5.299',
       source: { kind: 'plain_text' }
     },
     schema: adjacentSchema,
