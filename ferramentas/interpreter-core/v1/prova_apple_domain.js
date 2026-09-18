@@ -633,10 +633,10 @@ check('shorthand low-risk sem GB herda capacidade correta do cabecalho', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
-check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () => {
+check('17 256 sem evidencia Lacrado permanece desativado', () => {
   const result = run(
     'apple-shorthand-bare-capacity-disabled-17-256',
-    '17 256 Lacrado\nAzul R$ 5.299'
+    '17 256\nAzul R$ 5.299'
   );
   assert.strictEqual(result.records.length, 0);
 });
