@@ -1,22 +1,10 @@
 name: External Calc — Baseline Proof
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - feat/external-calc-v0
-    paths:
-      - 'ferramentas/interpreter-core/v1/**'
-      - '.github/workflows/external_calc_baseline.yml'
-      - 'docs/calculadora/EXTERNAL_CALC_V0_EXECUTION.md'
   pull_request:
     branches:
-      - main
-      - feat/calculadora-interpretador-real-shadow-v0
-    paths:
-      - 'ferramentas/interpreter-core/v1/**'
-      - '.github/workflows/external_calc_baseline.yml'
-      - 'docs/calculadora/EXTERNAL_CALC_V0_EXECUTION.md'
+      - audit/external-calc-baseline-r2
+  workflow_dispatch:
 
 permissions:
   contents: read
