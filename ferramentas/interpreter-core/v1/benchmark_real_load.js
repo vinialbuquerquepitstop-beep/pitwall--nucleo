@@ -788,12 +788,73 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
       }
     }
   }
+  const supplierDirectionEvidence = {};
+  for (const row of groups.values()) {
+    const direction = directionClass(row.color_offsets);
+    if (direction !== 'before_only' && direction !== 'after_only') continue;
+    if (!supplierDirectionEvidence[row.supplier_id]) {
+      supplierDirectionEvidence[row.supplier_id] = {
+        before_only_groups: 0,
+        after_only_groups: 0
+      };
+    }
+    supplierDirectionEvidence[row.supplier_id][direction + '_groups'] += 1;
+  }
+
+  const dominanceSimulation = {
+    policy: 'min_3_pure_groups_zero_opposite_drop_mixed_opposite_at_max_distance',
+    candidates: 0,
+    exact_supported_would_drop: 0,
+    surplus_would_drop: 0,
+    by_supplier: {}
+  };
+
+  for (const row of groups.values()) {
+    if (directionClass(row.color_offsets) !== 'mixed') continue;
+    const evidence = supplierDirectionEvidence[row.supplier_id];
+    if (!evidence) continue;
+
+    let dominant = null;
+    if (evidence.after_only_groups >= 3 && evidence.before_only_groups === 0) dominant = 'after';
+    if (evidence.before_only_groups >= 3 && evidence.after_only_groups === 0) dominant = 'before';
+    if (!dominant) continue;
+
+    for (const [offsetKey, quality] of Object.entries(row.offset_quality || {})) {
+      const match = /^offset=(before|after):d(\d+)$/.exec(offsetKey);
+      if (!match) continue;
+      const direction = match[1];
+      const distance = Number(match[2]);
+      if (direction === dominant || distance < 3) continue;
+
+      dominanceSimulation.candidates += quality.total;
+      dominanceSimulation.exact_supported_would_drop += quality.exact_supported;
+      dominanceSimulation.surplus_would_drop += quality.surplus;
+
+      const key = row.supplier_id;
+      if (!dominanceSimulation.by_supplier[key]) {
+        dominanceSimulation.by_supplier[key] = {
+          dominant_direction: dominant,
+          pure_before_groups: evidence.before_only_groups,
+          pure_after_groups: evidence.after_only_groups,
+          candidates: 0,
+          exact_supported_would_drop: 0,
+          surplus_would_drop: 0
+        };
+      }
+      dominanceSimulation.by_supplier[key].candidates += quality.total;
+      dominanceSimulation.by_supplier[key].exact_supported_would_drop += quality.exact_supported;
+      dominanceSimulation.by_supplier[key].surplus_would_drop += quality.surplus;
+    }
+  }
+
   return {
     aggregate: summary,
     by_model: byModel,
     by_model_supplier: byModelSupplier,
     by_supplier_direction: bySupplierDirection,
-    by_supplier_mixed_offset: bySupplierMixedOffset
+    by_supplier_mixed_offset: bySupplierMixedOffset,
+    supplier_direction_evidence: supplierDirectionEvidence,
+    dominance_policy_simulation: dominanceSimulation
   };
 }
 
