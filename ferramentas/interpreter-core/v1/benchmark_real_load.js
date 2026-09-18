@@ -536,17 +536,6 @@ function localHeader17256Diagnostics(bundle) {
         .map(value => JSON.parse(value));
 
       if (prices.length > 0) {
-        priceContext.push({
-          line: segment.line_number,
-          direct_conditions: conditions,
-          inherited_condition: segment.inherited_context?.condition
-            ? {
-                value: segment.inherited_context.condition.value,
-                source_line: segment.inherited_context.condition.source_line
-              }
-            : null,
-          inherited_model_source_line: segment.inherited_context?.model?.source_line || null
-        });
         priceSegments += 1;
         if (prices.length === 1) singlePriceSegments += 1;
         else multiPriceSegments += 1;
@@ -689,6 +678,17 @@ function targetModelBlockDiagnostics(bundle, modelId) {
       const conditions = distinctFieldValues(segment, 'condition').map(value => JSON.parse(value));
 
       if (prices.length > 0) {
+        priceContext.push({
+          line: segment.line_number,
+          direct_conditions: conditions,
+          inherited_condition: segment.inherited_context?.condition
+            ? {
+                value: segment.inherited_context.condition.value,
+                source_line: segment.inherited_context.condition.source_line
+              }
+            : null,
+          inherited_model_source_line: segment.inherited_context?.model?.source_line || null
+        });
         priceSegments += 1;
         if (prices.length === 1) singlePriceSegments += 1;
         else multiPriceSegments += 1;
