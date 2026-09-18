@@ -73,6 +73,8 @@ function offerExpansionDiagnostics(bundle) {
   let priceWithDirectColor = 0;
   let priceWithoutDirectColor = 0;
   let priceWithRecentColorBefore = 0;
+  let priceWithContiguousMultiColorBefore = 0;
+  let priceWithContiguousMultiColorAfter = 0;
   let expandedRecords = 0;
 
   for (let index = 0; index < segments.length; index += 1) {
@@ -97,6 +99,20 @@ function offerExpansionDiagnostics(bundle) {
         }
       }
     }
+
+    const immediateBefore = index > 0 ? distinctFieldValues(segments[index - 1], 'color') : [];
+    if (immediateBefore.length > 1) priceWithContiguousMultiColorBefore += 1;
+
+    if (index + 1 < segments.length) {
+      const next = segments[index + 1];
+      const nextHasBoundary = (next.context_events || []).some(event => event.reason === 'timestamp_boundary');
+      const nextHasModel = distinctFieldValues(next, 'model').length > 0;
+      const nextHasPrice = distinctFieldValues(next, 'price').length > 0;
+      const immediateAfter = distinctFieldValues(next, 'color');
+      if (!nextHasBoundary && !nextHasModel && !nextHasPrice && immediateAfter.length > 1) {
+        priceWithContiguousMultiColorAfter += 1;
+      }
+    }
   }
 
   for (const record of bundle.records || []) {
@@ -109,6 +125,8 @@ function offerExpansionDiagnostics(bundle) {
     price_with_direct_color: priceWithDirectColor,
     price_without_direct_color: priceWithoutDirectColor,
     price_with_recent_color_before: priceWithRecentColorBefore,
+    price_with_contiguous_multi_color_before: priceWithContiguousMultiColorBefore,
+    price_with_contiguous_multi_color_after: priceWithContiguousMultiColorAfter,
     expanded_records: expandedRecords
   };
 }
