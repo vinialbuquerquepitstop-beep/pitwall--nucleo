@@ -526,6 +526,7 @@ function localHeader17256Diagnostics(bundle) {
     let priceWithoutDirectColor = 0;
     let colorOnlyRows = 0;
     let colorCandidates = 0;
+    const colorRows = [];
     let conditionCandidateRows = 0;
     const conditionCounts = { Lacrado: 0, Seminovo: 0, CPO: 0, other: 0 };
 
@@ -805,6 +806,14 @@ function targetModelBlockDiagnostics(bundle, modelId) {
         else priceWithoutDirectColor += 1;
       }
 
+      if (colors.length > 0) {
+        colorRows.push({
+          line: segment.line_number,
+          colors: colors.map(value => JSON.parse(value)),
+          price_count: prices.length,
+          field_only_color: prices.length === 0 && isFieldOnlySegment(segment, 'color')
+        });
+      }
       if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(segment, 'color')) {
         colorOnlyRows += 1;
         colorCandidates += colors.length;
@@ -862,6 +871,7 @@ function targetModelBlockDiagnostics(bundle, modelId) {
       price_without_direct_color: priceWithoutDirectColor,
       color_only_rows: colorOnlyRows,
       color_candidates: colorCandidates,
+      color_rows: colorRows,
       direct_condition_rows: directConditionRows,
       direct_conditions: directConditions,
       price_context: priceContext,
@@ -921,11 +931,23 @@ function targetModelPairDiagnostics(legacyBundle, coreBundle, modelId) {
     });
   }
 
+  const unpairedLegacyDetails = (paired.unpairedLegacy || [])
+    .filter(offer => normFields(offer).model === modelId)
+    .map(offer => ({
+      legacy_record_id: offer.legacy_record_id || null,
+      product_index: offer.metadata?.product_index ?? null,
+      condition: normFields(offer).condition ?? '(null)',
+      color: normFields(offer).color ?? '(null)',
+      capacity_gb: normFields(offer).capacity_gb,
+      supplier_present: Boolean(String(offer.metadata?.supplier ?? '').trim())
+    }));
+
   return {
     model_id: modelId,
     paired_non_exact: pairs,
     unpaired_legacy_by_condition: countConditions(paired.unpairedLegacy),
-    unpaired_core_by_condition: countConditions(paired.unpairedCore)
+    unpaired_core_by_condition: countConditions(paired.unpairedCore),
+    unpaired_legacy_details: unpairedLegacyDetails
   };
 }
 
