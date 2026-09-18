@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "created_at": null,
   "entities": [
     {
@@ -240,6 +240,18 @@
     },
     {
       "kind": "model",
+      "text": "17 256GB",
+      "normalized": null,
+      "target_id": "iphone_17_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 256",
+      "normalized": null,
+      "target_id": "iphone_17_256gb"
+    },
+    {
+      "kind": "model",
       "text": "17 512GB",
       "normalized": null,
       "target_id": "iphone_17_512gb"
@@ -262,8 +274,8 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "supported_header_shorthand": {
-      "source": "run102 per-model ablation",
-      "mode": "productive-only",
+      "source": "run102/run110 ablation",
+      "mode": "deterministic-allowlist",
       "enabled_models": [
         "iphone_13_pro_128gb",
         "iphone_16_256gb",
@@ -271,7 +283,8 @@
         "iphone_17_air_256gb",
         "iphone_17_256gb",
         "iphone_17_512gb"
-      ]
+      ],
+      "aliases": 12
     }
   }
 }
