@@ -2214,6 +2214,84 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
   };
 }
 
+
+function simulateUnsupportedRawModelExclusionAdjudication(
+  legacyBundle,
+  coreBundle,
+  residualLocator,
+  knowledgeSnapshot,
+  options = {}
+) {
+  const expectedPattern = options.expected_raw_model_pattern
+    ? new RegExp(options.expected_raw_model_pattern, options.flags || 'i')
+    : null;
+  if (!expectedPattern) throw new Error('unsupported raw model adjudication: pattern ausente');
+
+  const knownModelKeys = new Set();
+  for (const entity of knowledgeSnapshot.entities || []) {
+    if (entity.kind === 'model') knownModelKeys.add(normalizeKey(entity.label));
+  }
+  for (const alias of knowledgeSnapshot.aliases || []) {
+    if (alias.kind === 'model') knownModelKeys.add(normalizeKey(alias.normalized || alias.text));
+  }
+
+  const excludedIds = [];
+  const evidence = [];
+
+  for (const row of residualLocator?.rows || []) {
+    if (!row.legacy_record_id) continue;
+    const values = [...new Set(
+      (row.candidate_segments || [])
+        .map(segment => String(segment.inherited_model_value || '').trim())
+        .filter(Boolean)
+    )];
+    if (!values.length) continue;
+
+    const allMatchExpected = values.every(value => expectedPattern.test(value));
+    const anyKnown = values.some(value => knownModelKeys.has(normalizeKey(value)));
+    if (!allMatchExpected || anyKnown) continue;
+
+    excludedIds.push(row.legacy_record_id);
+    evidence.push({
+      legacy_record_id: row.legacy_record_id,
+      product_index: row.product_index ?? null,
+      raw_model_values: values,
+      reason: 'raw_model_outside_supported_domain'
+    });
+  }
+
+  const excludedSet = new Set(excludedIds);
+  const adjudicatedLegacy = {
+    ...legacyBundle,
+    offers: (legacyBundle.offers || []).filter(offer => !excludedSet.has(offer.legacy_record_id))
+  };
+
+  const report = compareSemanticShadow({ legacy: adjudicatedLegacy, coreBundle });
+  const reportNoColor = compareSemanticShadow({
+    legacy: adjudicatedLegacy,
+    coreBundle,
+    options: { include_color: false }
+  });
+  const divergence = analyzeDivergences({ legacy: adjudicatedLegacy, coreBundle });
+
+  return {
+    status: excludedIds.length ? 'provisional_unsupported_raw_model_exclusion' : 'no_exclusions',
+    raw_metrics_preserved: true,
+    exclusion_count: excludedIds.length,
+    evidence,
+    adjudicated_metrics: {
+      legacy_supported_offers: adjudicatedLegacy.offers.length,
+      matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers,
+      extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio,
+      agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio
+    },
+    adjudicated_divergence_categories: divergence.categories,
+    adjudicated_top_model_gaps: divergence.top_model_gaps
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -2313,6 +2391,15 @@ const target17512CrossConditionDiagnostic = crossConditionResidualDiagnostics(
 const target17512ResidualLocatorDiagnostic = locateResidualOffersInSegments(
   legacy, coreBundle, 'iphone_17_512gb'
 );
+const target17512UnsupportedRawModelAdjudication = simulateUnsupportedRawModelExclusionAdjudication(
+  legacy,
+  coreBundle,
+  target17512ResidualLocatorDiagnostic,
+  knowledge,
+  {
+    expected_raw_model_pattern: '17\\s*(?:Pro\\s*Max|Promax)\\s*512\\s*(?:GB)?'
+  }
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -2411,6 +2498,7 @@ const summary = {
   target_17_512_cross_model_diagnostic: target17512CrossModelDiagnostic,
   target_17_512_cross_condition_diagnostic: target17512CrossConditionDiagnostic,
   target_17_512_residual_locator: target17512ResidualLocatorDiagnostic,
+  target_17_512_unsupported_raw_model_adjudication: target17512UnsupportedRawModelAdjudication,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
