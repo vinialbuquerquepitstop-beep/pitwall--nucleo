@@ -5073,6 +5073,33 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       }
     }
 
+    const localColorLayout = [];
+    for (const priceSegment of priceSegments) {
+      const priceLine = Number(priceSegment.line_number);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line)) continue;
+        const offset = line - priceLine;
+        if (Math.abs(offset) > 3) continue;
+        const boundaries = pathBoundaries(line, priceLine);
+        if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) continue;
+        const colors = (segment.field_candidates || []).filter(candidate => candidate.field === 'color');
+        if (!colors.length) continue;
+        const onlyColor = (segment.field_candidates || []).every(candidate => candidate.field === 'color');
+        localColorLayout.push(
+          'o' + offset +
+          ':role=' + (segment.role_candidates?.[0]?.role || 'unknown') +
+          ':n=' + new Set(colors.map(candidate => String(canonicalExpectedValue('color', candidate.value)))).size +
+          ':only=' + (onlyColor ? 'yes' : 'no')
+        );
+      }
+    }
+
+    const actualRecord = sameModelSupplierPrice[0] || null;
+    const actualPriceLine = sourceLine(actualRecord, 'price');
+    const actualColorLine = sourceLine(actualRecord, 'color');
+    const actualConditionLine = sourceLine(actualRecord, 'condition');
+
     const signature = [
       'model=' + expected.model,
       'price_loci=' + priceSegments.length,
@@ -5084,6 +5111,19 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       'core_same_msp=' + sameModelSupplierPrice.length,
       'local_distinct_colors=' + localColorValues.size,
       'local_distinct_conditions=' + localConditionValues.size,
+      'local_color_layout=' + (localColorLayout.sort().join(',') || 'none'),
+      'actual_color_rule=' + traceRules(actualRecord, 'color'),
+      'actual_color_offset=' + (
+        Number.isFinite(actualPriceLine) && Number.isFinite(actualColorLine)
+          ? String(actualColorLine - actualPriceLine)
+          : 'none'
+      ),
+      'actual_condition_rule=' + traceRules(actualRecord, 'condition'),
+      'actual_condition_offset=' + (
+        Number.isFinite(actualPriceLine) && Number.isFinite(actualConditionLine)
+          ? String(actualConditionLine - actualPriceLine)
+          : 'none'
+      ),
       'nearest_expected_model_distance=' + (nearestExpectedModelDistance ?? 'none'),
       'model_local=' + (modelLocalAtPrice ? 'yes' : 'no'),
       'color_local=' + (colorLocalAtPrice ? 'yes' : 'no'),
