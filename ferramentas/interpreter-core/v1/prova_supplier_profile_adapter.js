@@ -138,4 +138,38 @@ function ok(value, message) {
   ), 'abstencao deve ficar auditavel como ambiguidade');
 }
 
+
+{
+  const result = run(
+    'supplier-preserve-timestamp',
+    [
+      'MP Imports',
+      '18/09/2026, 10:00 - Lista atualizada',
+      'iPhone 17 256GB Lacrado',
+      'Preto R$ 5.299'
+    ].join('\n')
+  );
+  eq(result.records.length, 1, 'oferta apos timestamp continua interpretavel');
+  eq(result.records[0].fields.supplier, 'supplier_mp', 'fornecedor deve sobreviver ao timestamp');
+  const timestampEvent = result.segments
+    .flatMap(segment => segment.context_events || [])
+    .find(event => event.reason === 'timestamp_boundary');
+  ok(timestampEvent?.preserved_fields?.includes('supplier'), 'timestamp deve preservar apenas contexto autorizado de fornecedor');
+}
+
+{
+  const result = run(
+    'supplier-timestamp-new-supplier-overrides',
+    [
+      'MP Imports',
+      '18/09/2026, 10:00 - Lista atualizada',
+      'Quality Imports',
+      'iPhone 17 256GB Lacrado',
+      'Azul R$ 5.399'
+    ].join('\n')
+  );
+  eq(result.records.length, 1, 'oferta do novo fornecedor continua interpretavel');
+  eq(result.records[0].fields.supplier, 'supplier_quality', 'novo supplier boundary deve sobrescrever fornecedor preservado');
+}
+
 console.log(`PASSOU: ${n} assercoes Supplier Profile Adapter V0`);
