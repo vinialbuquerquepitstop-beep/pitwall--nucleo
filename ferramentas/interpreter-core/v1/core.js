@@ -575,6 +575,13 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
 
       if (field.expand_records === true) {
         const expansion = collectExpansionCandidates(segments, segmentIndex, field.name, schema);
+        const blockMode = field.expand_records_block_mode || 'all';
+        if (expansion.source === 'block' && expansion.candidates.length > 1 && blockMode === 'single_only') {
+          expansion.candidates = [];
+        }
+        if (expansion.source === 'block' && expansion.candidates.length === 1 && blockMode === 'multi_only') {
+          expansion.candidates = [];
+        }
 
         if (field.resolver?.kind === 'entity' && expansion.candidates.length > 0) {
           blocked = true;
