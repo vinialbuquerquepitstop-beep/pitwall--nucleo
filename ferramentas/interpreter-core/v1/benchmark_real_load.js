@@ -4098,6 +4098,48 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   const missingConserved = claimedMissing.size + actionableMissing === missing.length;
   const extraConserved = claimedExtra.size + actionableExtra === extras.length;
 
+  const remainingMissingIndexes = missing
+    .map((_, index) => index)
+    .filter(index => !claimedMissing.has(index));
+  const remainingExtraIndexes = extras
+    .map((_, index) => index)
+    .filter(index => !claimedExtra.has(index));
+
+  const countByModel = (items, indexes) => {
+    const out = {};
+    for (const index of indexes) {
+      const model = items[index]?.fields?.model?.id || '(unknown)';
+      out[model] = (out[model] || 0) + 1;
+    }
+    return Object.entries(out)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {});
+  };
+
+  const remainingPairSignatures = {};
+  const usedRemainingExtra = new Set();
+  for (const missingIndex of remainingMissingIndexes) {
+    const expected = norm(missing[missingIndex]);
+    let best = null;
+    for (const extraIndex of remainingExtraIndexes) {
+      if (usedRemainingExtra.has(extraIndex)) continue;
+      const actual = norm(extras[extraIndex]);
+      if (actual.model !== expected.model) continue;
+      const diffs = diffFields(expected, actual);
+      if (!best || diffs.length < best.diffs.length || (
+        diffs.length === best.diffs.length && extraIndex < best.extraIndex
+      )) {
+        best = { extraIndex, diffs };
+      }
+    }
+    if (!best) continue;
+    usedRemainingExtra.add(best.extraIndex);
+    const signature = best.diffs.length
+      ? best.diffs.slice().sort().join('+')
+      : 'exact';
+    remainingPairSignatures[signature] = (remainingPairSignatures[signature] || 0) + 1;
+  }
+
   return {
     version:
       options.includeStrongMixed === true ||
@@ -4117,6 +4159,13 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       missing: actionableMissing,
       extra: actionableExtra,
       total_residual: actionableMissing + actionableExtra
+    },
+    remaining_diagnostic: {
+      missing_by_model: countByModel(missing, remainingMissingIndexes),
+      extra_by_model: countByModel(extras, remainingExtraIndexes),
+      nearest_same_model_pair_signatures: Object.entries(remainingPairSignatures)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
     },
     categories,
     integrity: {
