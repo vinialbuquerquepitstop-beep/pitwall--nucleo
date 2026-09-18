@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.1-supplier-boundary-body",
+  "schema_version": "0.9.2-supplier-canonical-boundary",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -16,7 +16,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "(ATENÇÃO!\\s+NÃO\\s+TROCAMOS\\s+APARELHO\\s+SEM\\s+OS\\s+SELOS|SWAP\\s+GRADE\\s+A\\s+/\\s+IPHONE\\s+STOCK\\s+\\(VITRINE\\)|Lista\\s+nova,\\s+fornecedor\\s+João\\s+Telles|🇺🇸\\s+APARELHOS\\s+SEMINOVOS🇺🇸|All\\s+imports,\\s+fornecedor\\s+novo|ATACADO\\s+E\\s+REVENDA\\s+DA\\s+RAPOSA|IPHONE\\s+NEW\\s+LACRADO\\s+NA\\s+CAIXA|Fábio\\s+Sousa\\s+davi\\s+Sobral|Raphael\\s+barra\\s+da\\s+Tijuca|TABELA\\s+ATUALIZADA|MELHOR\\s+DE\\s+CAXIAS|DG\\s+Jacarepaguá|LBR\\s+Importados|Júnior\\s+recreio|Real\\s+Comércio|Charles\\s+revel|Raphael\\s+Barra|REVEL\\s+IMPORTS|ATACADO\\s+BR10|Br\\s+10,\\s+iraja|All\\s+imports|João\\s+Telles|Fábio\\s+Fmata|Fábio\\s+souza|Davi/Fábio|MP\\s+Imports|davi\\s+fabio|Cristiano|Five\\s+Cell|JT\\s+Telles|M\\s+Apple|Quality|Recreio|Júnior|Rafael|Raposa|Dg\\s+JPA|FMATA|Revel|BR10)",
+          "pattern": "(DG\\s+Jacarepaguá|LBR\\s+Importados|Real\\s+Comércio|All\\s+imports|João\\s+Telles|Davi/Fábio|MP\\s+Imports|Cristiano|Five\\s+Cell|M\\s+Apple|Quality|Júnior|Rafael|Raposa|FMATA|Revel|BR10)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -41,30 +41,7 @@
         "Rafael": "rafael",
         "Raposa": "raposa",
         "Real Comércio": "real_comercio",
-        "Revel": "revel",
-        "🇺🇸 APARELHOS SEMINOVOS🇺🇸": "junior",
-        "All imports, fornecedor novo": "all_imports",
-        "ATACADO BR10": "br10",
-        "ATACADO E REVENDA DA RAPOSA": "raposa",
-        "ATENÇÃO! NÃO TROCAMOS APARELHO SEM OS SELOS": "mp_imports",
-        "Br 10, iraja": "br10",
-        "Charles revel": "revel",
-        "davi fabio": "davi_fabio",
-        "Dg JPA": "dg_jacarepagua",
-        "Fábio Fmata": "fmata",
-        "Fábio Sousa davi Sobral": "davi_fabio",
-        "Fábio souza": "davi_fabio",
-        "IPHONE NEW LACRADO NA CAIXA": "fmata",
-        "JT Telles": "joao_telles",
-        "Júnior recreio": "junior",
-        "Lista nova, fornecedor João Telles": "joao_telles",
-        "MELHOR DE CAXIAS": "five_cell",
-        "Raphael Barra": "rafael",
-        "Raphael barra da Tijuca": "rafael",
-        "Recreio": "junior",
-        "REVEL IMPORTS": "revel",
-        "SWAP GRADE A / IPHONE STOCK (VITRINE)": "fmata",
-        "TABELA ATUALIZADA": "mp_imports"
+        "Revel": "revel"
       }
     },
     {
@@ -410,8 +387,9 @@
       "rule": "recognized supplier header resets inherited model/condition context, then establishes the new supplier context",
       "supplier_count": 17,
       "alias_count": 23,
-      "mode": "shadow",
-      "whatsapp_prefix_policy": "supplier matching runs on message body after timestamp/sender prefix stripping"
+      "mode": "shadow_canonical_only_ablation",
+      "whatsapp_prefix_policy": "supplier matching runs on message body after timestamp/sender prefix stripping",
+      "boundary_vocabulary": "canonical supplier labels only; learned aliases remain identity data but do not open hard context boundaries"
     }
   }
 }
