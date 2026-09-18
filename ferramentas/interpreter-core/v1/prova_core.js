@@ -133,6 +133,27 @@ check('schema pode preservar campo declarado ao abrir novo anchor', () => {
   );
 });
 
+check('schema pode expirar contexto por distancia maxima de linhas', () => {
+  const schema = JSON.parse(JSON.stringify(genericSchema));
+  schema.fields.find(field => field.name === 'capacity').context_max_line_distance = 1;
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-context-ttl', 'DEVICE ALPHA16\n256GB\n\n6999')),
+    schema
+  );
+  assert.strictEqual(segments[3].inherited_context.model.value, 'ALPHA16');
+  assert.strictEqual(segments[3].inherited_context.capacity, undefined);
+  assert.ok(
+    segments[3].context_events.some(
+      e => e.type === 'reset' &&
+           e.reason === 'context_max_line_distance_expired' &&
+           e.field === 'capacity' &&
+           e.source_line === 2 &&
+           e.max_line_distance === 1 &&
+           e.actual_line_distance === 2
+    )
+  );
+});
+
 check('timestamp zera contexto para impedir vazamento entre mensagens', () => {
   const segments = buildContextTrace(segmentDocument(raw('fixture-6', 'DEVICE ALPHA16\n256GB\n[17/09/2026, 10:30] Outro bloco\n6999')), genericSchema);
   assert.deepStrictEqual(segments[2].context_after, {});
