@@ -133,6 +133,10 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
   let identitiesWithSubstitution = 0;
   const byModel = {};
   const surplusTraceByRule = {};
+  const supplierCardinalityByModel = {};
+  let substitutionsSingleSupplierIdentity = 0;
+  let substitutionsMultiSupplierIdentity = 0;
+  let substitutionsUnknownSupplierIdentity = 0;
 
   const firstSource = trace => Array.isArray(trace?.sources) && trace.sources.length
     ? Number(trace.sources[0])
@@ -189,6 +193,27 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
       const model = JSON.parse(identity)[0] || '(unknown)';
       byModel[model] = (byModel[model] || 0) + replaced;
 
+      const suppliers = new Set(
+        (legacyOffers || [])
+          .filter(offer => priceIdentityKey(offer.fields || {}, options) === identity)
+          .map(offer => offer?.metadata?.supplier)
+          .filter(value => value != null && String(value).trim() !== '')
+          .map(value => String(value).trim())
+      );
+      const supplierCount = suppliers.size;
+      const bucketKey = supplierCount === 0 ? 'unknown' : supplierCount === 1 ? 'single' : 'multi';
+      supplierCardinalityByModel[model] = supplierCardinalityByModel[model] || {
+        substitution_identities: 0,
+        single_supplier_identities: 0,
+        multi_supplier_identities: 0,
+        unknown_supplier_identities: 0
+      };
+      supplierCardinalityByModel[model].substitution_identities += 1;
+      supplierCardinalityByModel[model][`${bucketKey}_supplier_identities`] += 1;
+      if (supplierCount === 0) substitutionsUnknownSupplierIdentity += replaced;
+      else if (supplierCount === 1) substitutionsSingleSupplierIdentity += replaced;
+      else substitutionsMultiSupplierIdentity += replaced;
+
       const legacyCountByPrice = legacyPrices;
       const seenCoreByPrice = new Map();
       let remainingDiagnosticSlots = replaced;
@@ -213,7 +238,11 @@ function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options =
     substitutions,
     identities_with_substitution: identitiesWithSubstitution,
     by_model: byModel,
-    surplus_trace_by_rule: surplusTraceByRule
+    surplus_trace_by_rule: surplusTraceByRule,
+    supplier_cardinality_by_model: supplierCardinalityByModel,
+    substitutions_single_supplier_identity: substitutionsSingleSupplierIdentity,
+    substitutions_multi_supplier_identity: substitutionsMultiSupplierIdentity,
+    substitutions_unknown_supplier_identity: substitutionsUnknownSupplierIdentity
   };
 }
 
@@ -248,7 +277,11 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       silent_wrong_price_substitutions: priceDiagnostic.substitutions,
       silent_wrong_price_identities: priceDiagnostic.identities_with_substitution,
       silent_wrong_price_by_model: priceDiagnostic.by_model,
-      silent_wrong_price_surplus_trace_by_rule: priceDiagnostic.surplus_trace_by_rule
+      silent_wrong_price_surplus_trace_by_rule: priceDiagnostic.surplus_trace_by_rule,
+      silent_wrong_price_supplier_cardinality_by_model: priceDiagnostic.supplier_cardinality_by_model,
+      silent_wrong_price_single_supplier_identity: priceDiagnostic.substitutions_single_supplier_identity,
+      silent_wrong_price_multi_supplier_identity: priceDiagnostic.substitutions_multi_supplier_identity,
+      silent_wrong_price_unknown_supplier_identity: priceDiagnostic.substitutions_unknown_supplier_identity
     },
     gates: {
       no_silent_wrong_price: priceDiagnostic.substitutions === 0,
