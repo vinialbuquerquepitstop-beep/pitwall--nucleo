@@ -477,6 +477,19 @@ check('fallback vizinho unico se abstem quando distancia passa de tres linhas', 
   assert.ok(result.records.every(record => record.fields.color === undefined));
 });
 
+check('bloco multi-preco limita nearest fallback a duas linhas', () => {
+  const result = run(
+    'apple-nearest-multiprice-distance-cap',
+    'iPhone 16 128GB Lacrado\nR$ 3.900 R$ 4.000\nPreto\nOBS\nAzul\nR$ 4.100'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.price, 4100);
+  assert.strictEqual(result.records[0].fields.color, 'Azul');
+  assert.ok(result.ambiguities.some(a =>
+    a.field === 'price' && a.cause === 'multiple_trigger_candidates'
+  ));
+});
+
 check('catalogo real: Azul Profundo e Citrus entram como cores validas', () => {
   const azulProfundo = run(
     'apple-color-azul-profundo',
