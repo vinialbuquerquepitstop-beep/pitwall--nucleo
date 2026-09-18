@@ -644,11 +644,22 @@ check('capacidade direta tem precedencia sobre derivacao por entidade', () => {
 });
 
 
-check('cor unica em linha adjacente com texto adicional pareia com preco', () => {
-  const result = run(
-    'apple-adjacent-unique-color-with-text',
-    'iPhone 17 256GB Lacrado\nDisponível Preto\nR$ 5.299'
-  );
+check('capacidade generica de pareamento adjacente recupera cor quando explicitamente habilitada', () => {
+  const adjacentSchema = JSON.parse(JSON.stringify(schema));
+  const colorField = adjacentSchema.fields.find(field => field.name === 'color');
+  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = true;
+
+  const result = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'apple-adjacent-unique-color-with-text',
+      content: 'iPhone 17 256GB Lacrado\nDisponível Preto\nR$ 5.299',
+      source: { kind: 'plain_text' }
+    },
+    schema: adjacentSchema,
+    knowledge
+  });
+
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.color, 'Preto');
   assert.strictEqual(result.records[0].fields.price, 5299);
@@ -656,11 +667,22 @@ check('cor unica em linha adjacente com texto adicional pareia com preco', () =>
   assert.deepStrictEqual(trace.rules, ['pairing:adjacent_unique']);
 });
 
-check('pareamento adjacente de cor nao pula linha intermediaria', () => {
-  const result = run(
-    'apple-adjacent-unique-color-does-not-skip',
-    'iPhone 17 256GB Lacrado\nDisponível Preto\nOBSERVAÇÃO\nR$ 5.299'
-  );
+check('pareamento adjacente habilitado nao pula linha intermediaria', () => {
+  const adjacentSchema = JSON.parse(JSON.stringify(schema));
+  const colorField = adjacentSchema.fields.find(field => field.name === 'color');
+  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = true;
+
+  const result = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'apple-adjacent-unique-color-does-not-skip',
+      content: 'iPhone 17 256GB Lacrado\nDisponível Preto\nOBSERVAÇÃO\nR$ 5.299',
+      source: { kind: 'plain_text' }
+    },
+    schema: adjacentSchema,
+    knowledge
+  });
+
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.color, undefined);
   assert.strictEqual(result.records[0].fields.price, 5299);
