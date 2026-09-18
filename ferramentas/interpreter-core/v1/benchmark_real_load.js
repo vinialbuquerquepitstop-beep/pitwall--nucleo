@@ -3258,6 +3258,8 @@ const summary = {
   confirmed_wrong_price_offers: report.metrics.confirmed_wrong_price_offers,
   ambiguous_price_reference_offers: report.metrics.ambiguous_price_reference_offers,
   extra_at_known_reference_price_offers: report.metrics.extra_at_known_reference_price_offers,
+  under_specified_color_price_reference_offers:
+    report.metrics.under_specified_color_price_reference_offers,
   price_reference_diagnostics: report.price_reference_diagnostics,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
@@ -3307,6 +3309,8 @@ const summary = {
       confirmed_wrong_price_offers: canonicalReferenceReport.metrics.confirmed_wrong_price_offers,
       ambiguous_price_reference_offers: canonicalReferenceReport.metrics.ambiguous_price_reference_offers,
       extra_at_known_reference_price_offers: canonicalReferenceReport.metrics.extra_at_known_reference_price_offers,
+      under_specified_color_price_reference_offers:
+        canonicalReferenceReport.metrics.under_specified_color_price_reference_offers,
       price_reference_diagnostics: canonicalReferenceReport.price_reference_diagnostics
     },
     divergence_categories: canonicalReferenceDivergence.categories,
