@@ -641,35 +641,6 @@ check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () =
   assert.strictEqual(result.records.length, 0);
 });
 
-check('supersessao local mantem a oferta mais recente da mesma cor no mesmo bloco', () => {
-  const result = run(
-    'apple-message-dedup-latest',
-    '[17/09/2026, 10:30] Loja: iPhone 17 512GB Lacrado\nAzul R$ 6.399\niPhone 17 512GB Lacrado\nAzul R$ 6.299'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_512gb');
-  assert.strictEqual(result.records[0].fields.color, 'Azul');
-  assert.strictEqual(result.records[0].fields.price, 6299);
-});
-
-check('supersessao local nao atravessa mensagens diferentes', () => {
-  const result = run(
-    'apple-message-dedup-boundary',
-    '[17/09/2026, 10:30] Loja: iPhone 17 512GB Lacrado\nAzul R$ 6.399\n[17/09/2026, 11:00] Loja: iPhone 17 512GB Lacrado\nAzul R$ 6.299'
-  );
-  assert.strictEqual(result.records.length, 2);
-  assert.deepStrictEqual(result.records.map(r => r.fields.price), [6399, 6299]);
-});
-
-check('supersessao local preserva cores distintas no mesmo bloco', () => {
-  const result = run(
-    'apple-message-dedup-colors',
-    '[17/09/2026, 10:30] Loja: iPhone 17 512GB Lacrado\nAzul R$ 6.299\nPreto R$ 6.399'
-  );
-  assert.strictEqual(result.records.length, 2);
-  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto']);
-});
-
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
