@@ -562,6 +562,29 @@ check('supplier boundary aparece no trace de contexto', () => {
   assert.strictEqual(result.records[1].fields.supplier, 'br10');
 });
 
+check('nome do remetente nao vira fornecedor por acidente', () => {
+  const result = run(
+    'supplier-sender-not-boundary',
+    '[17/09/2026, 10:30] Rafael: iPhone 17 256GB\nR$ 5.299'
+  );
+  const first = result.segments[0];
+  assert.ok(!(first.context_events || []).some(event => event.reason === 'supplier_boundary'));
+  assert.ok(!(first.field_candidates || []).some(candidate => candidate.field === 'supplier'));
+});
+
+check('fornecedor no corpo da mensagem abre a fronteira correta', () => {
+  const result = run(
+    'supplier-body-boundary',
+    '[17/09/2026, 10:30] Rafael: MP Imports\nLacrados\niPhone 17 256GB\nR$ 5.299'
+  );
+  const first = result.segments[0];
+  assert.ok((first.context_events || []).some(event => event.reason === 'supplier_boundary'));
+  assert.ok((first.field_candidates || []).some(candidate =>
+    candidate.field === 'supplier' && candidate.value === 'mp_imports'
+  ));
+  assert.strictEqual(result.records[0].fields.supplier, 'mp_imports');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
