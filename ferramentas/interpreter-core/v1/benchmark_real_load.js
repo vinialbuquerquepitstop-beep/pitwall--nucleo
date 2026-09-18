@@ -2292,6 +2292,74 @@ function simulateUnsupportedRawModelExclusionAdjudication(
   };
 }
 
+
+function combineProvisionalReferenceAdjudications(
+  legacyBundle,
+  coreBundle,
+  modelAdjudication,
+  unsupportedAdjudication
+) {
+  const coreById = new Map(
+    (coreBundle.records || []).map(record => [record.record_id, record])
+  );
+
+  const correctionByLegacyId = new Map();
+  for (const correction of modelAdjudication?.corrections || []) {
+    const coreRecord = coreById.get(correction.core_record_id);
+    if (!coreRecord?.fields?.model?.id) continue;
+    correctionByLegacyId.set(correction.legacy_record_id, coreRecord.fields.model);
+  }
+
+  const excludedIds = new Set(
+    (unsupportedAdjudication?.evidence || [])
+      .map(row => row.legacy_record_id)
+      .filter(Boolean)
+  );
+
+  const adjudicatedLegacy = {
+    ...legacyBundle,
+    offers: (legacyBundle.offers || [])
+      .filter(offer => !excludedIds.has(offer.legacy_record_id))
+      .map(offer => {
+        const correctedModel = correctionByLegacyId.get(offer.legacy_record_id);
+        if (!correctedModel) return offer;
+        return {
+          ...offer,
+          fields: {
+            ...(offer.fields || {}),
+            model: correctedModel
+          }
+        };
+      })
+  };
+
+  const report = compareSemanticShadow({ legacy: adjudicatedLegacy, coreBundle });
+  const reportNoColor = compareSemanticShadow({
+    legacy: adjudicatedLegacy,
+    coreBundle,
+    options: { include_color: false }
+  });
+  const divergence = analyzeDivergences({ legacy: adjudicatedLegacy, coreBundle });
+
+  return {
+    status: 'provisional_combined_reference_adjudication',
+    raw_metrics_preserved: true,
+    model_correction_count: correctionByLegacyId.size,
+    unsupported_exclusion_count: excludedIds.size,
+    total_reference_adjustments: correctionByLegacyId.size + excludedIds.size,
+    adjudicated_metrics: {
+      legacy_supported_offers: adjudicatedLegacy.offers.length,
+      matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers,
+      extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio,
+      agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio
+    },
+    adjudicated_divergence_categories: divergence.categories,
+    adjudicated_top_model_gaps: divergence.top_model_gaps
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -2400,6 +2468,12 @@ const target17512UnsupportedRawModelAdjudication = simulateUnsupportedRawModelEx
     expected_raw_model_pattern: '17\\s*(?:Pro\\s*Max|Promax)\\s*512\\s*(?:GB)?'
   }
 );
+const combinedReferenceAdjudication = combineProvisionalReferenceAdjudications(
+  legacy,
+  coreBundle,
+  target16256OracleAdjudication,
+  target17512UnsupportedRawModelAdjudication
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -2499,6 +2573,7 @@ const summary = {
   target_17_512_cross_condition_diagnostic: target17512CrossConditionDiagnostic,
   target_17_512_residual_locator: target17512ResidualLocatorDiagnostic,
   target_17_512_unsupported_raw_model_adjudication: target17512UnsupportedRawModelAdjudication,
+  combined_reference_adjudication: combinedReferenceAdjudication,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
