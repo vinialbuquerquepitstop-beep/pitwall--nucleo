@@ -1,0 +1,139 @@
+name: External Calc — Real Shadow Gate
+
+on:
+  pull_request:
+    branches:
+      - audit/external-calc-baseline-r2
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-real-shadow-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  local-gate:
+    name: Interpreter Ready — local
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Run local gate
+        run: node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js
+
+  real-shadow:
+    name: Real shadow — read only
+    needs: local-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOAD_ID: 6c4d3491-f85b-4015-8393-9798ab1ce758
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install PostgreSQL client 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+
+      - name: Prepare private read-only snapshot
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "FALHA: secret SUPABASE_DB_URL indisponivel."
+            exit 1
+          fi
+
+          if ! [[ "$LOAD_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "FALHA: LOAD_ID invalido."
+            exit 1
+          fi
+
+          OWNER_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1               -c "select u.id::text
+                    from public.app_usuario u
+                    join public.calc_carga c on c.tenant_id = u.tenant_id
+                   where c.id = '$LOAD_ID'::uuid
+                     and u.ativo
+                     and u.papel = 'dono'
+                   order by u.id
+                   limit 1"
+          )"
+
+          if [ -z "$OWNER_ID" ]; then
+            echo "FALHA: dono ativo nao encontrado para a carga."
+            exit 1
+          fi
+
+          CLAIMS="{\"sub\":\"$OWNER_ID\"}"
+
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1             -v claims="$CLAIMS" -v load_id="$LOAD_ID" <<'SQL'
+          \o /dev/null
+          select set_config('request.jwt.claims', :'claims', false);
+
+          \o /tmp/calc_raw.b64
+          select encode(convert_to(texto_bruto, 'UTF8'), 'base64')
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o /tmp/calc_legacy.b64
+          select encode(
+                   convert_to(public.calc_bench_ler(texto_bruto)::text, 'UTF8'),
+                   'base64'
+                 )
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+          \o
+          SQL
+
+          if [ ! -s /tmp/calc_raw.b64 ] || [ ! -s /tmp/calc_legacy.b64 ]; then
+            echo "FALHA: snapshot real vazio."
+            exit 1
+          fi
+
+          base64 --decode /tmp/calc_raw.b64 > /tmp/calc_raw.txt
+          base64 --decode /tmp/calc_legacy.b64 > /tmp/calc_legacy.json
+          node -e "JSON.parse(require('fs').readFileSync('/tmp/calc_legacy.json','utf8'));"
+          echo "Snapshot privado preparado; conteudo omitido do log."
+
+      - name: Run real shadow benchmark
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/benchmark_real_load.js             /tmp/calc_raw.txt /tmp/calc_legacy.json | tee /tmp/calc_benchmark_summary.log
+
+          grep -q '^BENCHMARK_CONCLUIDO=1$' /tmp/calc_benchmark_summary.log
+
+          if ! grep -q '^PROMOTION_READY=true$' /tmp/calc_benchmark_summary.log; then
+            echo "GATE_REAL_SHADOW=FAIL"
+            exit 1
+          fi
+
+          echo "GATE_REAL_SHADOW=PASS"
+
+      - name: Remove temporary data
+        if: always()
+        run: |
+          rm -f /tmp/calc_raw.b64 /tmp/calc_legacy.b64                 /tmp/calc_raw.txt /tmp/calc_legacy.json                 /tmp/calc_benchmark_summary.log
