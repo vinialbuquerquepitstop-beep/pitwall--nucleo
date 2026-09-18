@@ -1114,6 +1114,124 @@ function exactSurplusProvenanceDiagnostics(legacyBundle, coreBundleInput) {
 const exactSurplusProvenanceDiagnostic =
   exactSurplusProvenanceDiagnostics(legacySupplierAware, coreBundle);
 
+function eModelSurplusSourceDiagnostics(legacyBundle, coreBundleInput) {
+  const targets = new Set(['iphone_16e_128gb', 'iphone_17e_256gb']);
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const segmentsByLine = new Map(
+    (coreBundleInput.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+  const coreByKey = new Map();
+  for (const offer of coreOffers(coreBundleInput)) {
+    const model = offer.fields?.model?.id || null;
+    if (!targets.has(model)) continue;
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(offer);
+  }
+
+  const byModel = {};
+  const ensure = model => {
+    if (!byModel[model]) {
+      byModel[model] = {
+        surplus_offers: 0,
+        explicit_e_source: 0,
+        source_without_explicit_e: 0,
+        unresolved_source: 0,
+        direct_model_on_price_line: 0,
+        inherited_model_to_price: 0,
+        source_relation: {},
+        model_rule: {},
+        anchors: {
+          distinct_source_lines: 0,
+          max_surplus_per_source_line: 0,
+          source_lines_with_multiple_surplus: 0
+        }
+      };
+    }
+    return byModel[model];
+  };
+
+  const sourceCountsByModel = new Map();
+
+  for (const [key, offers] of coreByKey.entries()) {
+    const legacyCount = legacyCounts.get(key) || 0;
+    if (offers.length <= legacyCount) continue;
+
+    for (let index = legacyCount; index < offers.length; index += 1) {
+      const offer = offers[index];
+      const model = offer.fields?.model?.id || null;
+      const row = ensure(model);
+      row.surplus_offers += 1;
+
+      const modelTrace = (offer.trace || []).find(item => item.field === 'model');
+      const priceTrace = (offer.trace || []).find(item => item.field === 'price');
+      const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+      const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+        ? Number(priceTrace.sources[0])
+        : null;
+      const modelRule = Array.isArray(modelTrace?.rules) && modelTrace.rules.length
+        ? modelTrace.rules.join('+')
+        : '(no-trace)';
+      row.model_rule[modelRule] = (row.model_rule[modelRule] || 0) + 1;
+
+      if (!Number.isFinite(modelLine)) {
+        row.unresolved_source += 1;
+        continue;
+      }
+
+      const sourceSegment = segmentsByLine.get(modelLine);
+      const modelCandidates = (sourceSegment?.field_candidates || [])
+        .filter(candidate => candidate.field === 'model')
+        .map(candidate => String(candidate.value || ''));
+      const targetGeneration = model === 'iphone_16e_128gb' ? '16e' : '17e';
+      const explicitPattern = new RegExp('(?:^|[^0-9a-z])' + targetGeneration + '(?=[^0-9a-z]|$)', 'i');
+      const explicitE = modelCandidates.some(value => explicitPattern.test(value));
+      if (explicitE) row.explicit_e_source += 1;
+      else row.source_without_explicit_e += 1;
+
+      const relation = Number.isFinite(priceLine)
+        ? modelLine === priceLine
+          ? 'same_line'
+          : modelLine < priceLine
+            ? 'before:d' + (priceLine - modelLine)
+            : 'after:d' + (modelLine - priceLine)
+        : 'price_source_unknown';
+      row.source_relation[relation] = (row.source_relation[relation] || 0) + 1;
+
+      if (Number.isFinite(priceLine) && modelLine === priceLine) {
+        row.direct_model_on_price_line += 1;
+      } else if (Number.isFinite(priceLine)) {
+        row.inherited_model_to_price += 1;
+      }
+
+      const bucketKey = model + '|' + modelLine;
+      sourceCountsByModel.set(bucketKey, (sourceCountsByModel.get(bucketKey) || 0) + 1);
+    }
+  }
+
+  for (const model of targets) {
+    const row = ensure(model);
+    const counts = [...sourceCountsByModel.entries()]
+      .filter(([key]) => key.startsWith(model + '|'))
+      .map(([, count]) => count);
+    row.anchors.distinct_source_lines = counts.length;
+    row.anchors.max_surplus_per_source_line = counts.length ? Math.max(...counts) : 0;
+    row.anchors.source_lines_with_multiple_surplus = counts.filter(count => count > 1).length;
+  }
+
+  return byModel;
+}
+
+const eModelSurplusSourceDiagnostic =
+  eModelSurplusSourceDiagnostics(legacySupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -2151,6 +2269,7 @@ const summary = {
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
   pure_supplier_residual_topology_diagnostic: pureSupplierResidualTopologyDiagnostic,
   exact_surplus_provenance_diagnostic: exactSurplusProvenanceDiagnostic,
+  e_model_surplus_source_diagnostic: eModelSurplusSourceDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
