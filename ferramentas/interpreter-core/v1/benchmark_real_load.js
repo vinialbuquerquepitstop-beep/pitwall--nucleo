@@ -4854,6 +4854,112 @@ const residualAdjudicationLedgerStrictPairDominanceSimulation =
     }
   );
 
+function exactSupportedConditionTopologyDiagnostics(bundle) {
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+
+  const segments = bundle.segments || [];
+  const sourceLine = (record, field) => {
+    const trace = (record.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const pathShape = (fromLine, toLine) => {
+    const out = { model_anchors: 0, boundaries: new Set() };
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+        out.model_anchors += 1;
+      }
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'domain_boundary') out.boundaries.add('domain');
+        if (event.reason === 'supplier_boundary') out.boundaries.add('supplier');
+        if (event.reason === 'timestamp_boundary') out.boundaries.add('timestamp');
+      }
+    }
+    return out;
+  };
+  const distanceBucket = distance => {
+    if (distance <= 6) return 'd<=6';
+    if (distance <= 12) return 'd<=12';
+    if (distance <= 18) return 'd<=18';
+    if (distance <= 24) return 'd<=24';
+    if (distance <= 36) return 'd<=36';
+    if (distance <= 48) return 'd<=48';
+    if (distance <= 75) return 'd<=75';
+    return 'd>75';
+  };
+  const anchorBucket = anchors => {
+    if (anchors <= 1) return 'a<=1';
+    if (anchors <= 2) return 'a<=2';
+    if (anchors <= 4) return 'a<=4';
+    if (anchors <= 8) return 'a<=8';
+    return 'a>8';
+  };
+
+  let exactRecords = 0;
+  let inheritedConditionExact = 0;
+  const shapes = {};
+  const byModel = {};
+
+  for (const [key, records] of coreByKey.entries()) {
+    const supported = Math.min(legacyCounts.get(key) || 0, records.length);
+    for (let i = 0; i < supported; i += 1) {
+      const record = records[i];
+      exactRecords += 1;
+      const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
+      if (!conditionTrace || !(conditionTrace.rules || []).includes('context_inheritance')) continue;
+      const conditionLine = sourceLine(record, 'condition');
+      const priceLine = sourceLine(record, 'price');
+      if (!Number.isFinite(conditionLine) || !Number.isFinite(priceLine)) continue;
+
+      inheritedConditionExact += 1;
+      const distance = Math.abs(priceLine - conditionLine);
+      const path = pathShape(conditionLine, priceLine);
+      const condition = normalizeKey(record.fields?.condition) || 'null';
+      const model = record.fields?.model?.id || '(unknown)';
+      const signature = [
+        'condition=' + condition,
+        'distance=' + distanceBucket(distance),
+        'anchors=' + anchorBucket(path.model_anchors),
+        'boundaries=' + ([...path.boundaries].sort().join('+') || 'none')
+      ].join('|');
+      shapes[signature] = (shapes[signature] || 0) + 1;
+      if (!byModel[model]) byModel[model] = { exact: 0, max_distance: 0, max_model_anchors: 0 };
+      byModel[model].exact += 1;
+      byModel[model].max_distance = Math.max(byModel[model].max_distance, distance);
+      byModel[model].max_model_anchors = Math.max(byModel[model].max_model_anchors, path.model_anchors);
+    }
+  }
+
+  return {
+    exact_supported_records: exactRecords,
+    exact_with_inherited_condition: inheritedConditionExact,
+    shapes: Object.entries(shapes)
+      .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc,[k,v])=>{acc[k]=v; return acc;},{}),
+    by_model: byModel
+  };
+}
+
+const exactSupportedConditionTopologyDiagnostic =
+  exactSupportedConditionTopologyDiagnostics(coreBundle);
+
 const conditionConfidenceHorizonDiagnostics = conditionConfidenceHorizonSimulations.map(sim => {
   const ledger = buildResidualAdjudicationLedger(
     sim.report,
@@ -7183,6 +7289,7 @@ const summary = {
   residual_adjudication_ledger: residualAdjudicationLedger,
   residual_adjudication_ledger_strict_pair_dominance_simulation: residualAdjudicationLedgerStrictPairDominanceSimulation,
   condition_confidence_horizon_simulations: conditionConfidenceHorizonDiagnostics,
+  exact_supported_condition_topology_diagnostic: exactSupportedConditionTopologyDiagnostic,
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
   residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
