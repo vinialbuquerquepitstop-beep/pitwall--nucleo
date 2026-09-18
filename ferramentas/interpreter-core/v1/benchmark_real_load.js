@@ -3706,8 +3706,22 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     if (qualifies) claim('source_contradicted_legacy_missing', missingIndex, null);
   }
 
-  // 2. Extras e-model com oferta completa sustentada localmente pela fonte.
+  // 2. Extras Core-only com oferta completa sustentada localmente pela fonte.
+  // Default V1 remains restricted to e-models. Simulation can broaden this
+  // using the same strict semantic/locality evidence as the generic diagnostic.
   const targetEModels = new Set(['iphone_17e_256gb', 'iphone_16e_128gb']);
+  const modelSemanticallySupportsRecord = (record, priceLine) => {
+    const modelLine = sourceLine(record, 'model');
+    if (!Number.isFinite(modelLine) || Math.abs(priceLine - modelLine) > 6) return false;
+    const modelSegment = segmentByLine.get(modelLine);
+    const modelId = record.fields?.model?.id || null;
+    if (!modelSegment || !modelId) return false;
+    return (modelSegment.semantic_candidates || []).some(candidate =>
+      candidate.field === 'model' &&
+      candidate.entity_id === modelId &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred')
+    );
+  };
   const isLocalField = (record, field, priceLine, maxDistance) => {
     const value = record?.fields?.[field];
     if (value == null) return true;
@@ -3722,7 +3736,10 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   };
   for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
     const record = extraRecords[extraIndex];
-    if (!record || !targetEModels.has(record.fields?.model?.id || null)) continue;
+    if (!record) continue;
+    const modelId = record.fields?.model?.id || null;
+    const broadFullLocal = options.includeAllFullyLocalCoreOnly === true;
+    if (!broadFullLocal && !targetEModels.has(modelId)) continue;
     const priceLine = sourceLine(record, 'price');
     const priceTrace = (record.trace || []).find(item => item.field === 'price');
     const supplierLine = sourceLine(record, 'supplier');
@@ -3731,6 +3748,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       (priceTrace?.rules || []).includes('direct_extraction') &&
       Number.isFinite(priceLine) &&
       isLocalField(record, 'model', priceLine, 6) &&
+      (!broadFullLocal || modelSemanticallySupportsRecord(record, priceLine)) &&
       isLocalField(record, 'color', priceLine, 3) &&
       isLocalField(record, 'condition', priceLine, 6) &&
       Number.isFinite(supplierLine) &&
@@ -4087,6 +4105,23 @@ const residualAdjudicationLedgerStrongMixedSimulation =
     reportSupplierAware,
     coreBundle,
     { includeStrongMixed: true }
+  );
+
+const residualAdjudicationLedgerAllFullLocalSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    { includeAllFullyLocalCoreOnly: true }
+  );
+
+const residualAdjudicationLedgerCombinedSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeAllFullyLocalCoreOnly: true,
+      includeStrongMixed: true
+    }
   );
 
 function adjudicatedResidualSummary() {
@@ -6334,6 +6369,8 @@ const summary = {
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
+  residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
+  residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
