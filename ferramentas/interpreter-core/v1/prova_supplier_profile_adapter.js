@@ -54,16 +54,6 @@ function ok(value, message) {
   );
 
   eq(result.records.length, 2, 'deve produzir duas ofertas');
-  console.log('SUPPLIER_DIAG=' + JSON.stringify(result.segments.map(segment => ({
-    line: segment.line_number,
-    supplier_candidates: (segment.field_candidates || [])
-      .filter(candidate => candidate.field === 'supplier')
-      .map(candidate => candidate.value),
-    inherited_supplier: segment.inherited_context?.supplier?.value ?? null,
-    events: (segment.context_events || [])
-      .filter(event => event.reason === 'supplier_boundary' || event.field === 'supplier')
-      .map(event => ({ type: event.type, reason: event.reason, value: event.value ?? null }))
-  }))));
   eq(result.records[0].fields.supplier, 'supplier_mp', 'primeiro bloco herda fornecedor MP');
   eq(result.records[1].fields.supplier, 'supplier_quality', 'segundo bloco herda fornecedor Quality');
 
