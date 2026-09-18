@@ -582,4 +582,56 @@ check('linha de preco colorida nao vira fronteira de modelo', () => {
   assert.ok(!priceSegment.context_events.some(event => event.reason === 'domain_boundary'));
 });
 
+
+check('capacidade pode derivar de atributo da entidade modelo quando ausente', () => {
+  const derivedSchema = JSON.parse(JSON.stringify(schema));
+  const capacityField = derivedSchema.fields.find(field => field.name === 'capacity_gb');
+  capacityField.extractors = [];
+
+  const result = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'apple-capacity-derived',
+      content: 'iPhone 17 256GB Preto Lacrado - 7.300',
+      source: { kind: 'plain_text' }
+    },
+    schema: derivedSchema,
+    knowledge
+  });
+
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  const trace = result.records[0].trace.find(item => item.field === 'capacity_gb');
+  assert.deepStrictEqual(trace.rules, ['entity_attribute:model.capacity_gb']);
+});
+
+check('capacidade direta tem precedencia sobre derivacao por entidade', () => {
+  const directSchema = JSON.parse(JSON.stringify(schema));
+  const capacityField = directSchema.fields.find(field => field.name === 'capacity_gb');
+  capacityField.extractors = [{
+    kind: 'regex',
+    pattern: 'CAP=(128)',
+    flags: 'i',
+    group: 1,
+    transform: 'integer',
+    score: 0.99
+  }];
+
+  const result = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'apple-capacity-direct-precedence',
+      content: 'iPhone 17 256GB Preto Lacrado - 7.300 CAP=128',
+      source: { kind: 'plain_text' }
+    },
+    schema: directSchema,
+    knowledge
+  });
+
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.capacity_gb, 128);
+  const trace = result.records[0].trace.find(item => item.field === 'capacity_gb');
+  assert.deepStrictEqual(trace.rules, ['direct_extraction']);
+});
+
 console.log(`PASSOU: ${ok} assercoes Apple`);
