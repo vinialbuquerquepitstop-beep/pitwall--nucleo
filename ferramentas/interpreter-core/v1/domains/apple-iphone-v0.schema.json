@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.6",
+  "schema_version": "0.9.0-product-header-boundary-shadow",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -214,6 +214,18 @@
     "anchor_resets_other_context": true,
     "preserve_on_anchor": [
       "condition"
+    ],
+    "structural_boundaries": [
+      {
+        "id": "iphone_product_header_v1",
+        "pattern": "^[^A-Za-z0-9]{0,12}(?:iPhone\\s*)?(?:13|14|15|16e?|17e?)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air)|\\s*(?:Promax|PM))?\\s*[-–—|:_]?\\s*(?:64|128|256|512)(?:\\s*GB)?\\b",
+        "flags": "i",
+        "reason": "product_header_boundary",
+        "reset_fields": [
+          "model"
+        ],
+        "skip_if_field_present": "price"
+      }
     ]
   },
   "metadata": {
@@ -332,6 +344,11 @@
       "safety": "equal-count color-only blocks pair by order; count-mismatch fallback requires a uniquely nearest bare price within 3 lines; ties or distance >= 4 abstain",
       "fallback": "when row counts differ, a color-only row may pair only to a uniquely nearest bare-price row; distance ties abstain",
       "fallback_max_distance": 3
+    },
+    "product_header_boundary": {
+      "source": "legacy calc_parse_v2 modelo_desconhecido block semantics",
+      "rule": "product-looking iPhone header resets only model context before any recognized model anchor is applied",
+      "safety": "price lines do not open this boundary; condition context is preserved"
     }
   }
 }
