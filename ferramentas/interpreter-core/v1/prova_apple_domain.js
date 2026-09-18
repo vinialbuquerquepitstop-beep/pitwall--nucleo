@@ -643,4 +643,27 @@ check('capacidade direta tem precedencia sobre derivacao por entidade', () => {
   assert.deepStrictEqual(trace.rules, ['direct_extraction']);
 });
 
+
+check('cor unica em linha adjacente com texto adicional pareia com preco', () => {
+  const result = run(
+    'apple-adjacent-unique-color-with-text',
+    'iPhone 17 256GB Lacrado\nDisponível Preto\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  const trace = result.records[0].trace.find(item => item.field === 'color');
+  assert.deepStrictEqual(trace.rules, ['pairing:adjacent_unique']);
+});
+
+check('pareamento adjacente de cor nao pula linha intermediaria', () => {
+  const result = run(
+    'apple-adjacent-unique-color-does-not-skip',
+    'iPhone 17 256GB Lacrado\nDisponível Preto\nOBSERVAÇÃO\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, undefined);
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
 console.log(`PASSOU: ${ok} assercoes Apple`);
