@@ -1157,37 +1157,40 @@ function dedupeRecordsWithinMessageBlock(records, segments, policy = {}) {
   if (!keyFields.length) return records;
 
   const blockByLine = messageBlockByLine(segments);
-  const bestByKey = new Map();
-  const passthrough = [];
+  const chosenIndexByKey = new Map();
+  const keep = new Set();
 
-  for (const record of records || []) {
+  for (let index = 0; index < (records || []).length; index += 1) {
+    const record = records[index];
     const sourceLine = recordSourceLine(record);
     const block = sourceLine == null ? null : blockByLine.get(sourceLine);
     const values = keyFields.map(path => getNestedValue(record.fields || {}, path));
 
     if (block == null || values.some(value => value == null || value === '')) {
-      passthrough.push(record);
+      keep.add(index);
       continue;
     }
 
     const key = JSON.stringify([block, ...values]);
-    const prior = bestByKey.get(key);
-    if (!prior) {
-      bestByKey.set(key, { record, sourceLine });
+    const priorIndex = chosenIndexByKey.get(key);
+    if (priorIndex == null) {
+      chosenIndexByKey.set(key, index);
       continue;
     }
 
+    const priorRecord = records[priorIndex];
+    const priorLine = recordSourceLine(priorRecord);
     const keepLatest = policy.keep !== 'earliest';
-    const replace = keepLatest ? sourceLine >= prior.sourceLine : sourceLine < prior.sourceLine;
-    if (replace) bestByKey.set(key, { record, sourceLine });
+    const replace = keepLatest
+      ? sourceLine >= priorLine
+      : sourceLine < priorLine;
+
+    if (replace) chosenIndexByKey.set(key, index);
   }
 
-  return [
-    ...passthrough,
-    ...[...bestByKey.values()]
-      .sort((a, b) => a.sourceLine - b.sourceLine)
-      .map(entry => entry.record)
-  ];
+  for (const index of chosenIndexByKey.values()) keep.add(index);
+
+  return (records || []).filter((_, index) => keep.has(index));
 }
 
 function makeBaseBundle(request, segments, warnings) {
