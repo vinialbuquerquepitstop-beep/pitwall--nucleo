@@ -2563,6 +2563,7 @@ const summary = {
   e_model_surplus_source_diagnostic: eModelSurplusSourceDiagnostic,
   surplus_price_source_shape_diagnostic: surplusPriceSourceShapeDiagnostic,
   price_source_shape_support_diagnostic: priceSourceShapeSupportDiagnostic,
+  surplus_long_header_price_evidence_diagnostic: surplusLongHeaderPriceEvidenceDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
