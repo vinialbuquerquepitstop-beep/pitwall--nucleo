@@ -699,6 +699,10 @@ const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreB
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
+const supplierRecordDiagnostic = {
+  records_with_supplier: (coreBundle.records || []).filter(record => record?.fields?.supplier != null).length,
+  records_without_supplier: (coreBundle.records || []).filter(record => record?.fields?.supplier == null).length
+};
 const anchorSpanDiagnostic = anchorSpanDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 
@@ -722,6 +726,13 @@ const summary = {
   supplier_aware_confirmed_silent_wrong_price: reportSupplierAware?.metrics?.confirmed_silent_wrong_price ?? null,
   supplier_aware_unresolved_price_attribution: reportSupplierAware?.metrics?.unresolved_price_attribution ?? null,
   supplier_aware_price_attribution_resolved: reportSupplierAware?.gates?.price_attribution_resolved ?? null,
+  supplier_boundary_events: supplierBoundaryDiagnostic.boundary_events,
+  core_records_with_supplier: supplierRecordDiagnostic.records_with_supplier,
+  core_records_without_supplier: supplierRecordDiagnostic.records_without_supplier,
+  supplier_aware_silent_wrong_price_by_model:
+    reportSupplierAware?.metrics?.silent_wrong_price_by_model ?? null,
+  supplier_aware_silent_wrong_price_surplus_trace_by_rule:
+    reportSupplierAware?.metrics?.silent_wrong_price_surplus_trace_by_rule ?? null,
   core_offers: report.metrics.core_offers,
   core_ambiguities: report.metrics.core_ambiguities,
   matched_offers: report.metrics.matched_offers,
