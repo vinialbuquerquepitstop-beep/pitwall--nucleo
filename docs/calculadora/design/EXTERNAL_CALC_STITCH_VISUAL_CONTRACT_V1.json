@@ -1,84 +1,318 @@
 {
-  "$schema": "external-calc/visual-contract/v1",
-  "contract_version": "external-calc-stitch-visual-contract/v1",
+  "$schema": "external-calc/visual-reference/v1",
+  "contract_version": "external-calc-stitch-visual-reference/v1",
+  "reference_role": "global_visual_reference_not_page_contract",
+  "semantic_scope": {
+    "page_contract": null,
+    "screen_specific_semantics_are_authoritative": false,
+    "note": "The supplied render happens to depict an Analyze-like mock, but this artifact is intentionally extracted only as a reusable visual/system reference. Page meaning, flows, states and actions must come from each page semantic contract."
+  },
   "extraction": {
-    "source_archive": "stitch_commercial_ai_command_center.zip",
-    "exported_files": {
-      "html": {"name":"code.html","sha256":"4a24d5e86a41bd4e43726c4487c39b17ba31a88b58c01a0bcb567424339cc5cf"},
-      "render": {"name":"screen.png","sha256":"6decf11506be4323233e2fc473d82bcbe4fe4513993926c359d1f863bca5cc47","width_px":1600,"height_px":1280}
+    "source_archive": "stitch_commercial_ai_command_center (1).zip",
+    "source_files": {
+      "html": {
+        "name": "code.html",
+        "sha256": "a430c40d2aa8bac7797b4dab6be8efe785cce500532869282e2dedab7b8f30ae"
+      },
+      "render": {
+        "name": "screen.png",
+        "sha256": "5c10f53df6ac84444503c5a1b9b5531c75265804082441d75d462e1749a275fe",
+        "width_px": 1600,
+        "height_px": 1280
+      },
+      "design_metadata": {
+        "name": "DESIGN.md",
+        "sha256": "6b6f3b4b2bdb9d1785cfdddcd68b68c2ebd7a43072b90580cd9bb4c20454e547"
+      }
     },
     "extraction_date": "2026-09-18",
-    "source_rule": "Do not infer missing product semantics from the visual export. Render governs visual fidelity; product contracts govern behavior and domain semantics."
+    "source_precedence": [
+      "approved_render_for_visual_appearance",
+      "rendered_html_for_measurable_structure",
+      "normalized_tokens_and_patterns",
+      "DESIGN.md_only_when_it_does_not_conflict_with_the_render"
+    ],
+    "conflict_note": "DESIGN.md describes a light COMMERCIAL AI / Intelligence OS system using Geist + JetBrains Mono, while the supplied render/HTML is a dark External Calc Product Preview using Inter. For this selected visual reference, render and rendered HTML take precedence. Conflicting DESIGN.md metadata is not merged into the visual canon."
   },
-  "identity": {"document_title":"External Calc - Product Preview","brand_label":"External Calc","brand_subtitle":"Product Preview","page":"Analysis Workspace / Analisar","theme":"dark","language":"pt-BR"},
-  "source_of_truth_precedence": ["approved_render","rendered_html_structure","normalized_design_tokens_and_components","generator_metadata_or_one_off_values"],
+  "identity": {
+    "product_label_visible": "External Calc",
+    "subtitle_visible": "Product Preview",
+    "reference_name": "External Calc — Dark Command Center Reference",
+    "visual_mode": "dark_technical_command_center",
+    "language": "pt-BR"
+  },
+  "visual_principles": [
+    "dark operational workspace",
+    "technical command-center character",
+    "high contrast without pure-black/pure-white extremes",
+    "functional color",
+    "structured medium-high density",
+    "fine borders plus selective glow",
+    "clear hierarchy between shell, primary panes, technical nested surfaces and operational data",
+    "monospace reserved for machine-like metadata and technical payloads",
+    "ambient depth is localized rather than decorative everywhere"
+  ],
   "foundations": {
     "colors": {
-      "custom_config": {"brand.50":"#f0f7ff","brand.100":"#e0effe","brand.500":"#1d6bf3","brand.600":"#2563eb","brand.700":"#1d4ed8","sidebar":"#111827","canvas":"#0b0f17"},
-      "rendered_one_off_surfaces": {"panel":"#161f2e","deep_input":"#0b0f17","select_surface":"#0d1420","metadata_tag":"#1e293b"},
-      "tailwind_semantic_references": {
-        "primary_action":["blue-600","blue-500","blue-400"],
-        "success":["emerald-500","emerald-400"],
-        "warning":["amber-500","amber-400","amber-300","amber-100"],
-        "neutral_text":["slate-100","slate-200","slate-300","slate-400","slate-500"],
-        "neutral_border":["slate-700","slate-800"]
-      },
-      "usage_rules": {"blue":"active navigation, inferred state, primary CTA and selected/filter emphasis","emerald":"ready/interpreted/success","amber":"ambiguity/review required","slate":"shell, surfaces, hierarchy and neutral metadata"}
+      "canvas_rendered": "#080b11",
+      "sidebar_header_rendered": "#0d121d",
+      "configured_canvas_token": "#0b0f17",
+      "configured_sidebar_token": "#111827",
+      "primary_panel_rendered": "#0e1422",
+      "deep_technical_surface": "#070a10",
+      "nested_dark_surface": "#111827",
+      "blue_primary": "#2563eb",
+      "blue_secondary": "#1d6bf3",
+      "blue_hover": "#1d4ed8",
+      "emerald_success": "#34d399",
+      "emerald_base": "#10b981",
+      "amber_warning": "#fbbf24",
+      "amber_base": "#f59e0b",
+      "rose_error_hint": "#f43f5e",
+      "text_primary": "slate-100 / white",
+      "text_secondary": "slate-400",
+      "text_tertiary": "slate-500",
+      "border_primary": "white at approximately 7-10% opacity",
+      "ambient_grid_line": "#ffffff03"
     },
     "typography": {
-      "family":"Inter",
-      "fallbacks":["-apple-system","BlinkMacSystemFont","Segoe UI","Roboto","sans-serif"],
-      "weights_present":[400,500,600,700],
-      "mono_usage":"technical evidence only: filenames, run IDs, offer IDs, engine/schema tags and raw list preview",
-      "scale_observed":{"micro_label":"11px uppercase tracking-wider","metadata":"10-11px","body_small":"12px","nav_body":"14px","section_title":"16-18px","metric":"24px"}
+      "primary_family": "Inter",
+      "fallbacks": [
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "Segoe UI",
+        "Roboto",
+        "sans-serif"
+      ],
+      "weights_present": [400, 500, 600, 700],
+      "technical_mono": "Tailwind/default monospace stack in the rendered artifact",
+      "usage": {
+        "brand": "Inter 600",
+        "navigation": "Inter 500-600",
+        "section_title": "Inter 600",
+        "body": "Inter 400",
+        "micro_label": "10px uppercase, wide tracking, often mono",
+        "technical_metadata": "10-11px mono",
+        "numeric_kpi": "24px strong with technical/mono treatment in this reference",
+        "table_body": "12px"
+      },
+      "conflict_rule": "Do not import Geist or JetBrains Mono from DESIGN.md into this selected visual reference unless separately approved."
     },
-    "shape":{"primary_panel_radius":"rounded-xl / 12px","control_radius":"rounded-lg / 8px","nav_item_radius":"rounded-md to rounded-lg","status_badge_radius":"rounded-full","ambiguity_pattern":"left accent border + warning tinted surface"},
-    "depth":{"panel_shadow":"shadow-lg shadow-black/20","primary_button_shadow":"blue shadow at 20-25% opacity","status_glow":"emerald glow only on live/ready dots","rule":"depth is restrained; most hierarchy comes from surface contrast and borders"}
-  },
-  "layout": {
-    "viewport_reference":{"width_px":1600,"height_px":1280},
-    "app_shell":{"desktop":"flex row","mobile_base":"flex column","sidebar_width":"w-60 / 240px","sidebar_padding":"p-5 / 20px","sidebar_min_height":"min-h-screen","canvas":"#0b0f17"},
-    "top_status_bar":{"sticky":true,"top":0,"horizontal_padding":"px-8 / 32px","vertical_padding":"py-3.5 / 14px","surface":"#111827","border":"slate-800"},
-    "page_frame":{"padding":"p-8 / 32px","max_width":"max-w-7xl / 1280px","vertical_rhythm":"space-y-8 / 32px"},
-    "grid_top":{"breakpoint":"lg","columns":12,"gap":"gap-6 / 24px","input_span":7,"summary_span":5},
-    "grid_bottom":{"breakpoint":"lg","columns":12,"gap":"gap-6 / 24px","offers_span":8,"pending_span":4}
+    "spacing": {
+      "base_rhythm_px": 4,
+      "sidebar_padding_px": 20,
+      "page_padding_px": 32,
+      "primary_grid_gap_px": 24,
+      "panel_padding_px": 20,
+      "section_vertical_gap_px": 32,
+      "compact_control_gap_px": "8-10"
+    },
+    "shape": {
+      "brand_mark": "rounded-lg ~8px",
+      "primary_panels": "rounded-2xl ~16px",
+      "nested_panels": "rounded-xl ~12px",
+      "controls": "rounded-lg ~8px",
+      "filter_segments": "rounded-md to rounded-lg ~6-8px",
+      "status_badges": "rounded-full",
+      "rule": "Use rendered geometry. The conflicting light DESIGN.md describes sharper 4-6px geometry and is not authoritative for this reference."
+    },
+    "depth_and_texture": {
+      "ambient_background": [
+        "large low-opacity blue glow near upper center",
+        "large low-opacity indigo glow toward right side",
+        "32px subtle technical grid with radial mask"
+      ],
+      "panel_depth": "dark translucent planes, backdrop blur, low-opacity white hairline borders and deep black shadow",
+      "active_depth": "blue selection/action elements may use restrained blue glow",
+      "success_depth": "emerald ready dots may use restrained glow and pulse",
+      "warning_depth": "amber is localized review emphasis",
+      "rule": "Glows encode brand/state emphasis and must not become generic decoration."
+    }
   },
   "shell": {
-    "sidebar":{"brand_mark":"36x36, slate-800, slate-700 border, rounded-lg","nav_active":"blue-600/15 surface + blue-500/20 border + blue-400 text","nav_inactive":"slate-400 with hover slate-200 and slate-800/50 surface","dev_widget":"test state selector card anchored at bottom","environment_footer":"emerald dot + isolated/no-db/no-write/no-production status"},
-    "status_header":{"left":"ready dot + title + supporting copy","right":"three compact step pills: Entrada, Interpretação, Revisão"}
+    "desktop": {
+      "composition": "persistent left sidebar + flexible main canvas",
+      "sidebar_width_px": 240,
+      "sidebar_min_height": "100vh",
+      "main_scroll": "vertical"
+    },
+    "responsive_base": "column before md breakpoint",
+    "sidebar": {
+      "surface": "#0d121d at approximately 90% opacity + backdrop blur",
+      "border_right": "white ~7%",
+      "brand_block": "36px mark + product name + technical subtitle",
+      "nav_pattern": "stacked compact items",
+      "active_nav": "blue tint/gradient + blue border/ring + tiny blue state dot",
+      "inactive_nav": "slate-400 + very subtle white hover plane",
+      "bottom_utility_zone": "may host dev/test controls in prototypes; not a production requirement"
+    },
+    "top_status_bar_pattern": {
+      "sticky": true,
+      "surface": "#0d121d at approximately 85% opacity + backdrop blur",
+      "border_bottom": "white ~7%",
+      "left_region": "status signal + concise state copy",
+      "right_region": "compact progress chips when a page has a staged flow",
+      "scope_rule": "This is a reusable pattern, not a mandatory global element on every page."
+    }
   },
-  "components": {
-    "vendor_input_panel":{"surface":"#161f2e","border":"slate-800","radius":"xl","padding":"20px","raw_preview":"deep #0b0f17 nested surface, mono 12px, fixed 176px height, scrollable","footer":"filename/source kind left; secondary + primary action right"},
-    "interpretation_summary":{"surface":"#161f2e","metrics_grid":"2x2","metric_style":"24px bold value + 12px slate-400 label","footer_tags":"mono 11px on #1e293b with slate border"},
-    "filter_tabs":{"container":"#111827 + slate-800 border + 2px padding","active":"#1e293b, slate-100, semibold","inactive":"slate-400"},
-    "offers_table":{"surface":"#161f2e","header":"#111827 at 70% opacity, uppercase 11px, slate-400","row_height_pattern":"py-3.5 / 14px","horizontal_cell_padding":"px-4 / 16px","row_dividers":"slate-800/80","row_hover":"slate-800/30","columns":["STATUS","MODELO","CONDIÇÃO","COR","FORNECEDOR","PREÇO"]},
-    "status_badges":{"interpreted":"emerald text + emerald 15% background + 30% border","inferred":"blue text + blue 15% background + 30% border","ready":"emerald text + emerald 15% background + 30% border","ambiguity_count":"amber text + amber 15% background + 30% border"},
-    "ambiguity_panel":{"surface":"amber-500/10","border":"amber-500/25 + 4px amber left border","radius":"right xl","padding":"16px","content_order":["field label","raw unresolved value","cause + source"]},
-    "primary_button":{"surface":"blue-600","hover":"blue-500","text":"white","radius":"lg","shadow":"blue-600/20 to /25"},
-    "secondary_button":{"surface":"slate-800/80","border":"slate-700","text":"slate-300","radius":"lg"}
+  "layout_patterns": {
+    "page_frame": {
+      "max_width_px": 1280,
+      "horizontal_padding_px": 32,
+      "vertical_section_rhythm_px": 32
+    },
+    "grid": {
+      "system": "12-column",
+      "gap_px": 24,
+      "reference_examples": {
+        "top_split": "7 / 5",
+        "bottom_split": "8 / 4"
+      },
+      "scope_rule": "Reference proportions illustrate the language; target pages choose spans through their PAGE_SPEC."
+    },
+    "plane_hierarchy": [
+      "canvas",
+      "primary operational pane",
+      "nested technical surface where semantics justify it",
+      "dense table/list or contextual review block"
+    ]
   },
-  "page_composition": {
-    "sequence":["Sidebar + sticky global interpretation status","Top row: vendor input + interpretation summary","Bottom row: valid offers table + pending ambiguities"],
-    "visual_protagonist":"offers table after interpretation; input + summary establish context",
-    "information_priority":["operational status","source data","interpretation summary","valid offers","pending review"]
+  "component_patterns": {
+    "primary_panel": {
+      "surface": "#0e1422 at approximately 75% opacity",
+      "border": "white ~8%",
+      "radius_px": 16,
+      "padding_px": 20,
+      "effects": [
+        "backdrop blur",
+        "deep low-alpha black shadow",
+        "subtle white ring"
+      ]
+    },
+    "technical_surface": {
+      "surface": "#070a10",
+      "border": "white ~9%",
+      "radius_px": 12,
+      "optional_header_strip": "white ~2% over deep black",
+      "content_style": "monospace / machine-like",
+      "custom_scrollbar_px": 6
+    },
+    "section_microheader": {
+      "pattern": "uppercase 10px technical label + optional divider + optional machine namespace",
+      "tracking": "wide",
+      "color": "slate-400"
+    },
+    "status_badge": {
+      "shape": "pill",
+      "font": "10px mono/medium",
+      "success": "emerald text + ~15% fill + ~30% border + optional micro-dot",
+      "info_or_inferred": "blue family",
+      "review": "amber family",
+      "error_or_invalid": "rose/red family"
+    },
+    "primary_button": {
+      "surface": "blue-600 to blue-500 horizontal gradient",
+      "text": "white",
+      "border": "blue-400 ~30%",
+      "radius_px": 8,
+      "font": "12px semibold",
+      "effects": "restrained blue glow + hover brightness + tiny active scale"
+    },
+    "secondary_button": {
+      "surface": "white ~4%",
+      "border": "white ~8%",
+      "text": "slate-300",
+      "radius_px": 8
+    },
+    "segmented_control": {
+      "container": "deep dark plane + white ~8% border",
+      "active": "white ~8% surface + white ~8% border",
+      "inactive": "slate-400"
+    },
+    "metric_block": {
+      "item_surface": "white ~2%",
+      "item_border": "white ~6%",
+      "radius_px": 12,
+      "numeric_treatment": "24px strong; semantic color allowed when meaningful"
+    },
+    "table": {
+      "role": "preferred dense operational-data surface",
+      "header": "dark strip + uppercase micro labels",
+      "row_dividers": "dark/slate hairlines",
+      "row_hover": "subtle light/slate tint",
+      "numeric_alignment": "right",
+      "technical_ids": "mono",
+      "status": "semantic badge"
+    },
+    "contextual_review_panel": {
+      "base": "dark operational surface",
+      "warning_accent": "amber localized border/rule",
+      "hard_error_accent": "rose/red localized border/rule",
+      "cause_metadata": "mono and visually secondary"
+    }
   },
-  "content_contract_observed": {
-    "navigation":["Overview","Analisar","Calcular","Mercado","Histórico"],
-    "current_page":"Analisar",
-    "progress_steps":["Entrada","Interpretação","Revisão"],
-    "test_selector_options_in_export":["Pronto","Carregando","Erro"],
-    "offer_states_in_export":["Interpretado","Inferido"],
-    "review_state_in_export":["Ambiguidade"],
-    "next_slice_cta":"Calcular · Slice 02"
+  "semantic_color_roles": {
+    "blue": [
+      "primary action",
+      "active navigation",
+      "selected filter/control",
+      "informational or inferred state",
+      "active computation"
+    ],
+    "emerald": [
+      "ready",
+      "confirmed/interpreted",
+      "healthy operation",
+      "success"
+    ],
+    "amber": [
+      "ambiguity",
+      "review required",
+      "warning/anomaly"
+    ],
+    "rose_red": [
+      "invalid",
+      "failed",
+      "destructive",
+      "hard error"
+    ],
+    "slate": [
+      "neutral structure",
+      "secondary metadata",
+      "inactive state",
+      "borders"
+    ]
   },
-  "semantic_gap_audit": {
-    "present_in_visual_export":["source input preview","ready status","interpretation summary","interpreted offer","inferred offer","ambiguity","offer filters","transition CTA to Slice 02"],
-    "not_present_but_required_by_existing_product_contracts":["invalid record presentation","evidence/trace drawer","idle state","partial state","explicit failed/retry composition beyond selector label","empty results composition","full processing state semantics","actual interactions/service bindings"],
-    "rule":"These missing requirements must be added using this visual language; they must not be deleted from the product contract to match the screenshot."
+  "density_and_hierarchy": {
+    "density": "medium-high operational density",
+    "container_strategy": "few strong panes; nested surfaces only when the information model benefits from a technical sub-plane",
+    "titles": "compact semibold title paired with technical micro-labels where appropriate",
+    "metadata": "quiet, secondary, often mono",
+    "actions": "one visually dominant CTA per action cluster; secondary controls subdued"
   },
-  "interaction_audit":{"export_type":"static HTML visual prototype","interactive_logic_present":false,"buttons_and_links":"visual only in the exported HTML","implementation_rule":"Use this export as visual canon candidate, not as application behavior source."},
-  "normalization_candidates": {
-    "promote_to_tokens":["canvas/sidebar/panel/deep-input surfaces","semantic blue/emerald/amber treatments","240px sidebar","32px page frame","24px grid gaps","12px panel radius","8px control radius","micro-label typography","technical mono metadata"],
-    "avoid_copying_as_one_off":["individual arbitrary opacity values without semantic naming","component-specific surface hex repeated outside tokens","Stitch-only wording or mock counts","static href=# navigation behavior"]
-  }
+  "responsive_evidence": {
+    "observed_in_html": [
+      "body is column by default and row at md",
+      "major grids are single-column until lg, then use 12-column composition",
+      "secondary status copy hides on smaller widths"
+    ],
+    "limitation": "No separate mobile render was supplied. Do not invent a complete mobile design language from this artifact alone."
+  },
+  "reuse_rules": [
+    "Use this JSON as a global visual vocabulary, not as the semantic specification for any one screen.",
+    "Each future PAGE_SPEC decides which shell regions, grids and component patterns apply.",
+    "Do not copy page-specific labels, counts, steps, entities or actions unless the target page contract requires them.",
+    "Do not assume every page uses a top progress bar, 7/5 split, 8/4 split or developer state widget.",
+    "Do not classify future pages as Analysis because this mock happens to display Analyze content.",
+    "Fidelity means reusing visual grammar, density, hierarchy, tokens, surface logic and component anatomy rather than duplicating mock content."
+  ],
+  "excluded_from_global_contract": [
+    "Analyze-page semantics",
+    "mock device/supplier data",
+    "mock counts",
+    "Slice 02 / Slice 03 labels",
+    "Entrada / Interpretação / Revisão as a universal app flow",
+    "developer test-state selector as an end-user component",
+    "page-specific grid spans as universal layout requirements"
+  ]
 }
