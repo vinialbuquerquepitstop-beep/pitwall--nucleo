@@ -306,6 +306,25 @@ check('condicoes plurais sao canonizadas para o legado sem hardcode no Core', ()
   }
 });
 
+check('preco com emoji de dinheiro sem R$ e reconhecido', () => {
+  const result = run(
+    'apple-money-emoji',
+    'iPhone 17 256GB Lacrado\nPreto 💰5.299🔥🔥'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('preco com emoji de dinheiro e separador decimal e reconhecido', () => {
+  const result = run(
+    'apple-money-emoji-decimal',
+    'iPhone 16 128GB Lacrado\nBranco 💵 3.999,90'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.price, 3999.9);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
