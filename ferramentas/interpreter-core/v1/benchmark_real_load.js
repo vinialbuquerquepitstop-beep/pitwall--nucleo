@@ -2593,6 +2593,79 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
 }
 
 
+function whatIfSupplementalAdjacentForwardProductHeader(
+  rawDocument,
+  baseSchema,
+  baseKnowledge,
+  legacyBundle,
+  canonicalLegacyBundle
+) {
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+  const colorField = (candidateSchema.fields || []).find(field => field.name === 'color');
+  if (!colorField?.pair_by_order_with_trigger) {
+    throw new Error('what-if supplemental adjacent forward: policy de cor ausente');
+  }
+
+  colorField.pair_by_order_with_trigger.supplemental_adjacent_forward = {
+    source_role: 'product_header',
+    source_reason: 'mixed-alpha-numeric-short-line',
+    require_non_source_only: true
+  };
+
+  const candidateBundle = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'real-load-shadow-what-if-supplemental-adjacent-forward',
+      content: rawDocument,
+      source: { kind: 'plain_text' }
+    },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+
+  const rawReport = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const rawDivergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const canonicalReport = compareSemanticShadow({
+    legacy: canonicalLegacyBundle,
+    coreBundle: candidateBundle
+  });
+  const canonicalDivergence = analyzeDivergences({
+    legacy: canonicalLegacyBundle,
+    coreBundle: candidateBundle
+  });
+
+  return {
+    candidate: 'supplemental_adjacent_forward_product_header',
+    raw_reference: {
+      metrics: {
+        core_offers: rawReport.metrics.core_offers,
+        matched_offers: rawReport.metrics.matched_offers,
+        missing_offers: rawReport.metrics.missing_offers,
+        extra_offers: rawReport.metrics.extra_offers,
+        agreement_ratio: rawReport.metrics.agreement_ratio,
+        no_silent_wrong_price: rawReport.gates.no_silent_wrong_price,
+        exact_multiset: rawReport.gates.exact_multiset
+      },
+      divergence_categories: rawDivergence.categories
+    },
+    canonical_reference: {
+      metrics: {
+        core_offers: canonicalReport.metrics.core_offers,
+        matched_offers: canonicalReport.metrics.matched_offers,
+        missing_offers: canonicalReport.metrics.missing_offers,
+        extra_offers: canonicalReport.metrics.extra_offers,
+        agreement_ratio: canonicalReport.metrics.agreement_ratio,
+        no_silent_wrong_price: canonicalReport.gates.no_silent_wrong_price,
+        exact_multiset: canonicalReport.gates.exact_multiset
+      },
+      divergence_categories: canonicalDivergence.categories,
+      top_model_gaps: canonicalDivergence.top_model_gaps
+    }
+  };
+}
+
+
 function whatIfRelaxedColorSourceOnly(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
   const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
   const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
@@ -2935,6 +3008,10 @@ const whatIf17256BareUnqualifiedDiagnostic = whatIf17256BareUnqualifiedHeader(
 const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
   legacy, coreBundle
 );
+const whatIfSupplementalAdjacentForwardProductHeaderDiagnostic =
+  whatIfSupplementalAdjacentForwardProductHeader(
+    raw, schema, knowledge, legacy, canonicalReference.legacy
+  );
 const whatIfRelaxedColorSourceOnlyDiagnostic = whatIfRelaxedColorSourceOnly(
   raw, schema, knowledge, legacy
 );
@@ -3015,6 +3092,8 @@ const summary = {
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
   what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
+  what_if_supplemental_adjacent_forward_product_header:
+    whatIfSupplementalAdjacentForwardProductHeaderDiagnostic,
   what_if_relaxed_color_source_only: whatIfRelaxedColorSourceOnlyDiagnostic,
   multi_price_nearest_fallback_risk: multiPriceNearestFallbackRiskDiagnostic
 };
