@@ -3517,7 +3517,7 @@ function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
 const residualAdjudicationLedgerDiagnostic =
   residualAdjudicationLedgerDiagnostics(reportSupplierAware, coreBundle);
 
-function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
+function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = {}) {
   if (!reportSupplierAware) return null;
 
   const expand = items => (items || []).flatMap(item =>
@@ -3910,6 +3910,109 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
     }
   }
 
+  // 6. SIMULATION ONLY: mixed residuals where every divergent Core field is
+  // locally supported and the corresponding legacy value is not locally supported.
+  // Disabled by default; this must not affect the promotion gate until explicitly promoted.
+  if (options.includeStrongMixed === true) {
+    const canonicalCandidateValue = (field, value) => {
+      if (value == null) return null;
+      if (field === 'condition') {
+        const map = schema.fields.find(item => item.name === 'condition')?.value_map || {};
+        return normalizeKey(map[value] || map[String(value)] || value) || null;
+      }
+      return normalizeKey(value) || null;
+    };
+    const evidenceLinesForValue = (field, value) =>
+      segments
+        .filter(segment => (segment.field_candidates || []).some(candidate =>
+          candidate.field === field &&
+          canonicalCandidateValue(field, candidate.value) === canonicalCandidateValue(field, value)
+        ))
+        .map(segment => Number(segment.line_number))
+        .filter(Number.isFinite);
+
+    for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+      if (claimedMissing.has(missingIndex)) continue;
+      const expected = norm(missing[missingIndex]);
+
+      let best = null;
+      for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
+        if (claimedExtra.has(extraIndex)) continue;
+        const actual = norm(extras[extraIndex]);
+        if (actual.model !== expected.model || actual.capacity !== expected.capacity) continue;
+        const diffs = diffFields(expected, actual);
+        if (diffs.length < 3 || !diffs.includes('price') || !diffs.includes('supplier')) continue;
+        if (!best || diffs.length < best.diffs.length || (
+          diffs.length === best.diffs.length && extraIndex < best.extraIndex
+        )) {
+          best = { extraIndex, diffs, actual };
+        }
+      }
+      if (!best) continue;
+
+      const record = extraRecords[best.extraIndex];
+      if (!record) continue;
+      const priceLine = sourceLine(record, 'price');
+      const modelLine = sourceLine(record, 'model');
+      const supplierLine = sourceLine(record, 'supplier');
+      if (!Number.isFinite(priceLine)) continue;
+
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const modelPath = pathBoundaries(modelLine, priceLine);
+      const supplierPath = pathBoundaries(supplierLine, priceLine);
+      const priceDirect = (priceTrace?.rules || []).includes('direct_extraction');
+      const modelLocal =
+        Number.isFinite(modelLine) &&
+        Math.abs(priceLine - modelLine) <= 6 &&
+        !modelPath.has('domain') &&
+        !modelPath.has('supplier') &&
+        !modelPath.has('timestamp');
+      const supplierLocal =
+        Number.isFinite(supplierLine) &&
+        !supplierPath.has('supplier') &&
+        !supplierPath.has('timestamp');
+
+      let divergentOptionalFieldsSupported = true;
+      for (const field of ['color', 'condition']) {
+        if (!best.diffs.includes(field)) continue;
+        const actualLine = sourceLine(record, field);
+        const maxDistance = field === 'color' ? 3 : 6;
+        const actualPath = pathBoundaries(actualLine, priceLine);
+        const actualLocal =
+          Number.isFinite(actualLine) &&
+          Math.abs(priceLine - actualLine) <= maxDistance &&
+          !actualPath.has('domain') &&
+          !actualPath.has('supplier') &&
+          !actualPath.has('timestamp');
+
+        const expectedNearest = nearest(
+          evidenceLinesForValue(field, expected[field]),
+          priceLine
+        );
+        const expectedPath = pathBoundaries(expectedNearest?.line, priceLine);
+        const expectedUnsupported =
+          !expectedNearest ||
+          expectedNearest.distance > maxDistance ||
+          expectedPath.has('domain') ||
+          expectedPath.has('supplier') ||
+          expectedPath.has('timestamp');
+
+        if (!(actualLocal && expectedUnsupported)) {
+          divergentOptionalFieldsSupported = false;
+          break;
+        }
+      }
+
+      if (priceDirect && modelLocal && supplierLocal && divergentOptionalFieldsSupported) {
+        claim(
+          'source_supported_core_mixed_full_evidence_pairs',
+          missingIndex,
+          best.extraIndex
+        );
+      }
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -3978,6 +4081,13 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
 
 const residualAdjudicationLedger =
   buildResidualAdjudicationLedger(reportSupplierAware, coreBundle);
+
+const residualAdjudicationLedgerStrongMixedSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    { includeStrongMixed: true }
+  );
 
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
@@ -6223,6 +6333,7 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
