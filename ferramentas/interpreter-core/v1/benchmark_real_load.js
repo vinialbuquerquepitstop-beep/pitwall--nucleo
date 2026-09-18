@@ -1709,6 +1709,163 @@ function sourceSupportedCoreOnlyEOfferDiagnostics(bundle) {
 const sourceSupportedCoreOnlyEOfferDiagnostic =
   sourceSupportedCoreOnlyEOfferDiagnostics(coreBundle);
 
+function sourceUnsupportedLegacyPureConditionDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extra = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const segments = bundle.segments || [];
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const equalExceptCondition = (a, b) =>
+    a.model === b.model &&
+    a.supplier === b.supplier &&
+    a.capacity === b.capacity &&
+    a.color === b.color &&
+    a.price === b.price &&
+    a.condition !== b.condition;
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+
+  let pureCases = 0;
+  let unsupported = 0;
+  const signatures = {};
+
+  for (const miss of missing) {
+    const expected = norm(miss);
+    if (!expected.condition) continue;
+
+    let found = null;
+    for (let i = 0; i < extra.length; i += 1) {
+      if (usedExtra.has(i)) continue;
+      const actual = norm(extra[i]);
+      if (!equalExceptCondition(expected, actual)) continue;
+      if (actual.condition != null) continue;
+      found = { index: i, actual };
+      break;
+    }
+    if (!found) continue;
+
+    usedExtra.add(found.index);
+    pureCases += 1;
+
+    const extraOffer = extra[found.index];
+    const extraKey = offerKey(extraOffer.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const consumed = consumedCore.get(extraKey) || 0;
+    const record = bucket[consumed] || null;
+    consumedCore.set(extraKey, consumed + 1);
+    if (!record) continue;
+
+    const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+    const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+    const recordLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+    if (!Number.isFinite(recordLine)) continue;
+
+    const matchingConditionLines = [];
+    for (const segment of segments) {
+      const supplier = segment.inherited_context?.supplier?.value == null
+        ? null
+        : String(segment.inherited_context.supplier.value);
+      const directSupplier = [...new Set(
+        (segment.field_candidates || [])
+          .filter(candidate => candidate.field === 'supplier')
+          .map(candidate => String(candidate.value))
+      )];
+      const effectiveSupplier = directSupplier.length === 1 ? directSupplier[0] : supplier;
+      if (effectiveSupplier !== expected.supplier) continue;
+
+      for (const candidate of segment.field_candidates || []) {
+        if (candidate.field !== 'condition') continue;
+        const mapped = schema.fields.find(field => field.name === 'condition')?.value_map || {};
+        const canonical = mapped[candidate.value] || mapped[String(candidate.value)] || candidate.value;
+        if (normalizeKey(canonical) !== expected.condition) continue;
+        matchingConditionLines.push(Number(segment.line_number));
+      }
+    }
+
+    const ranked = matchingConditionLines
+      .filter(Number.isFinite)
+      .map(line => ({ line, distance: Math.abs(recordLine - line) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line);
+    const nearest = ranked[0] || null;
+
+    let modelAnchorsBetween = 0;
+    const boundaries = new Set();
+    if (nearest) {
+      const lo = Math.min(nearest.line, recordLine);
+      const hi = Math.max(nearest.line, recordLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > lo && line <= hi)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          modelAnchorsBetween += 1;
+        }
+        for (const event of segment.context_events || []) {
+          if (event.reason === 'domain_boundary') boundaries.add('domain');
+          if (event.reason === 'supplier_boundary') boundaries.add('supplier');
+          if (event.reason === 'timestamp_boundary') boundaries.add('timestamp');
+        }
+      }
+    }
+
+    const qualifies =
+      !nearest ||
+      (
+        nearest.distance >= 100 &&
+        modelAnchorsBetween >= 20 &&
+        boundaries.has('domain') &&
+        boundaries.has('supplier')
+      );
+
+    if (qualifies) unsupported += 1;
+
+    const signature = [
+      'expected=' + expected.condition,
+      'nearest_distance=' + (nearest?.distance ?? 'none'),
+      'model_anchors_between=' + modelAnchorsBetween,
+      'domain_boundary=' + (boundaries.has('domain') ? 'yes' : 'no'),
+      'supplier_boundary=' + (boundaries.has('supplier') ? 'yes' : 'no'),
+      'source_unsupported=' + (qualifies ? 'yes' : 'no')
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    pure_condition_residuals: pureCases,
+    source_unsupported_legacy_condition_residuals: unsupported,
+    actionable_pure_condition_residuals: pureCases - unsupported,
+    signatures
+  };
+}
+
+const sourceUnsupportedLegacyPureConditionDiagnostic =
+  sourceUnsupportedLegacyPureConditionDiagnostics(reportSupplierAware, coreBundle);
+
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
   const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
@@ -1720,14 +1877,17 @@ function adjudicatedResidualSummary() {
       ?.source_contradicted_legacy_supplier_residuals || 0;
   const sourceSupportedCoreOnlyFullOffers =
     sourceSupportedCoreOnlyEOfferDiagnostic?.fully_local_offer_evidence || 0;
+  const unsupportedPureCondition =
+    sourceUnsupportedLegacyPureConditionDiagnostic
+      ?.source_unsupported_legacy_condition_residuals || 0;
 
   const actionableMissing = Math.max(
     0,
-    rawMissing - contradictedMissing - contradictedPureSupplier
+    rawMissing - contradictedMissing - contradictedPureSupplier - unsupportedPureCondition
   );
   const actionableExtra = Math.max(
     0,
-    rawExtra - contradictedPureSupplier - sourceSupportedCoreOnlyFullOffers
+    rawExtra - contradictedPureSupplier - sourceSupportedCoreOnlyFullOffers - unsupportedPureCondition
   );
 
   return {
@@ -1739,7 +1899,8 @@ function adjudicatedResidualSummary() {
     adjudicated_non_core_error: {
       source_contradicted_legacy_missing: contradictedMissing,
       source_contradicted_legacy_supplier_pairs: contradictedPureSupplier,
-      source_supported_core_only_full_offers: sourceSupportedCoreOnlyFullOffers
+      source_supported_core_only_full_offers: sourceSupportedCoreOnlyFullOffers,
+      source_unsupported_legacy_pure_condition_pairs: unsupportedPureCondition
     },
     actionable: {
       missing: actionableMissing,
@@ -3924,6 +4085,7 @@ const summary = {
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
+  source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
