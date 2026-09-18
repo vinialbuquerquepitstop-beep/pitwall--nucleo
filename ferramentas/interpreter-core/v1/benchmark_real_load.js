@@ -565,7 +565,8 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
     mismatch_signatures: Object.entries(signatures)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
-    by_model: byModel
+    by_model: byModel,
+    source_identity_by_target_model: sourceIdentityByTargetModel
   };
 }
 
@@ -5192,6 +5193,7 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
   let inheritedConditionExact = 0;
   const shapes = {};
   const byModel = {};
+  const sourceIdentityByTargetModel = {};
 
   for (const [key, records] of coreByKey.entries()) {
     const supported = Math.min(legacyCounts.get(key) || 0, records.length);
@@ -5261,6 +5263,19 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
         'boundaries=' + ([...path.boundaries].sort().join('+') || 'none')
       ].join('|');
       shapes[signature] = (shapes[signature] || 0) + 1;
+      const identitySignature = [
+        'condition=' + condition,
+        'source_role=' + conditionSourceRole,
+        'source_model_match=' + sourceModelMatch,
+        'source_supplier_match=' + sourceSupplierMatch,
+        'distance=' + distanceBucket(distance),
+        'anchors=' + anchorBucket(path.model_anchors),
+        'boundaries=' + ([...path.boundaries].sort().join('+') || 'none')
+      ].join('|');
+      if (!sourceIdentityByTargetModel[model]) sourceIdentityByTargetModel[model] = {};
+      sourceIdentityByTargetModel[model][identitySignature] =
+        (sourceIdentityByTargetModel[model][identitySignature] || 0) + 1;
+
       if (!byModel[model]) byModel[model] = { exact: 0, max_distance: 0, max_model_anchors: 0 };
       byModel[model].exact += 1;
       byModel[model].max_distance = Math.max(byModel[model].max_distance, distance);
