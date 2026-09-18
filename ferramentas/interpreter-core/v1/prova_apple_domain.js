@@ -502,6 +502,27 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
 });
 
+check('condicao declarada sobrevive ao timestamp mas modelo anterior nao', () => {
+  const result = run(
+    'apple-condition-across-timestamp',
+    'Lacrados\n[17/09/2026, 10:30] Nova mensagem\niPhone 17 256GB\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('nova condicao depois do timestamp substitui a preservada', () => {
+  const result = run(
+    'apple-condition-after-timestamp',
+    'Lacrados\n[17/09/2026, 10:30] Nova mensagem\nSeminovos\niPhone 17 256GB\nR$ 5.199'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+  assert.strictEqual(result.records[0].fields.price, 5199);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
