@@ -523,6 +523,45 @@ check('nova condicao depois do timestamp substitui a preservada', () => {
   assert.strictEqual(result.records[0].fields.price, 5199);
 });
 
+check('supplier boundary preserva condicao no mesmo fornecedor atraves de timestamp', () => {
+  const result = run(
+    'supplier-boundary-same-supplier',
+    'MP Imports\nLacrados\n[17/09/2026, 10:30] Nova mensagem\niPhone 17 256GB\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.supplier, 'mp_imports');
+  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('novo fornecedor zera condicao herdada do fornecedor anterior', () => {
+  const result = run(
+    'supplier-boundary-reset-condition',
+    'MP Imports\nLacrados\niPhone 17 256GB\nR$ 5.299\nBR10\niPhone 17 256GB\nR$ 5.199'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.supplier, 'mp_imports');
+  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(result.records[1].fields.supplier, 'br10');
+  assert.strictEqual(result.records[1].fields.condition, undefined);
+});
+
+check('supplier boundary aparece no trace de contexto', () => {
+  const result = run(
+    'supplier-boundary-trace',
+    'MP Imports\nLacrados\niPhone 17 256GB\nR$ 5.299\nBR10\nSeminovos\niPhone 17 256GB\nR$ 5.199'
+  );
+  const br10 = result.segments.find(segment =>
+    (segment.field_candidates || []).some(candidate =>
+      candidate.field === 'supplier' && candidate.value === 'br10'
+    )
+  );
+  assert.ok(br10);
+  assert.ok((br10.context_events || []).some(event => event.reason === 'supplier_boundary'));
+  assert.strictEqual(result.records[1].fields.condition, 'Seminovo');
+  assert.strictEqual(result.records[1].fields.supplier, 'br10');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
