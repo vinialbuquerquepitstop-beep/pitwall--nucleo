@@ -400,6 +400,40 @@ check('CPO do anchor vence Lacrado direto dentro do mesmo modelo', () => {
   assert.ok(trace.rules.includes('anchor_precedence:model'));
 });
 
+check('pareamento ordinal casa primeira cor com primeiro preco e segunda com segundo', () => {
+  const result = run(
+    'apple-ordered-pairing',
+    'iPhone 17 256GB Lacrado\nRoxo\nR$ 4.480\nGold\nR$ 4.520'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.deepStrictEqual(
+    result.records.map(record => [record.fields.color, record.fields.price]),
+    [['Roxo', 4480], ['Gold', 4520]]
+  );
+  assert.ok(result.records.every(record =>
+    record.trace.some(trace => trace.field === 'color')
+  ));
+});
+
+check('pareamento ordinal expande varias cores da mesma linha para o mesmo preco', () => {
+  const result = run(
+    'apple-ordered-pairing-multicolor',
+    'iPhone 17 256GB Lacrado\nPreto Azul\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto']);
+  assert.ok(result.records.every(r => r.fields.price === 5299));
+});
+
+check('pareamento ordinal se abstém quando contagens de linhas diferem', () => {
+  const result = run(
+    'apple-ordered-pairing-count-mismatch',
+    'iPhone 17 256GB Lacrado\nPreto\nR$ 5.299\nR$ 5.399'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.ok(result.records.every(record => record.fields.color === undefined));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
