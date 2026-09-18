@@ -1413,6 +1413,92 @@ function whatIf17256ImportadoEsimShorthand(rawDocument, baseSchema, baseKnowledg
   };
 }
 
+
+function invariantWrongPriceAdjudicationDiagnostics(legacyBundle, coreBundle) {
+  const coreOffers = (coreBundle.records || []).map(record => ({
+    fields: record.fields || {},
+    core_record_id: record.record_id,
+    trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const base = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const nonPriceKey = offer => {
+    const n = normFields(offer);
+    return JSON.stringify([n.model, n.capacity_gb, n.condition, n.color]);
+  };
+
+  const legacyByKey = new Map();
+  for (const offer of base.remainingLegacy) {
+    const key = nonPriceKey(offer);
+    if (!legacyByKey.has(key)) legacyByKey.set(key, []);
+    legacyByKey.get(key).push(offer);
+  }
+
+  const out = [];
+  for (const core of base.remainingCore) {
+    const legacyCandidates = legacyByKey.get(nonPriceKey(core)) || [];
+    if (!legacyCandidates.length) continue;
+
+    const corePrice = normFields(core).price;
+    const differentPriceLegacy = legacyCandidates.filter(legacy => normFields(legacy).price !== corePrice);
+    if (!differentPriceLegacy.length) continue;
+
+    const modelTrace = (core.trace || []).find(trace => trace.field === 'model');
+    const priceTrace = (core.trace || []).find(trace => trace.field === 'price');
+    const colorTrace = (core.trace || []).find(trace => trace.field === 'color');
+    const modelSourceLine = Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null;
+    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+    const colorSourceLine = Array.isArray(colorTrace?.sources) ? Number(colorTrace.sources[0]) : null;
+
+    const scopedSegments = (coreBundle.segments || []).filter(segment => {
+      if (!Number.isFinite(modelSourceLine)) return false;
+      if (Number(segment.line_number) < modelSourceLine) return false;
+      const inheritedSource = Number(segment.inherited_context?.model?.source_line);
+      if (Number.isFinite(inheritedSource) && inheritedSource === modelSourceLine) return true;
+      return Number(segment.line_number) === modelSourceLine;
+    });
+
+    const legacyMatches = differentPriceLegacy.map(legacy => {
+      const legacyPrice = normFields(legacy).price;
+      const matchingLines = [];
+      for (const segment of scopedSegments) {
+        const prices = distinctFieldValues(segment, 'price').map(value => Number(JSON.parse(value)));
+        if (!prices.some(price => Number.isFinite(price) && price === legacyPrice)) continue;
+        const colors = distinctFieldValues(segment, 'color').map(value => JSON.parse(value));
+        matchingLines.push({
+          line: segment.line_number,
+          direct_colors: colors,
+          same_color_as_core: colors.some(color => normalizeKey(color) === normFields(core).color)
+        });
+      }
+      return {
+        legacy_record_id: legacy.legacy_record_id || null,
+        product_index: legacy.metadata?.product_index ?? null,
+        matching_direct_price_lines_in_same_model_scope: matchingLines
+      };
+    });
+
+    out.push({
+      core_record_id: core.core_record_id,
+      model: normFields(core).model,
+      capacity_gb: normFields(core).capacity_gb,
+      condition: normFields(core).condition,
+      color: normFields(core).color,
+      model_source_line: modelSourceLine,
+      price_line: priceLine,
+      color_source_line: colorSourceLine,
+      price_is_direct_same_line: Number.isFinite(priceLine) && priceLine === colorSourceLine,
+      legacy_same_nonprice_different_price_count: differentPriceLegacy.length,
+      legacy_matches: legacyMatches
+    });
+  }
+
+  return {
+    invariant_wrong_price_candidates: out.length,
+    candidates: out
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1524,6 +1610,9 @@ const whatIf15Base128SeminovoDiagnostic = whatIfScopedBase128Shorthand(
 const whatIf17256ImportadoEsimDiagnostic = whatIf17256ImportadoEsimShorthand(
   raw, schema, knowledge, legacy, coreBundle
 );
+const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
+  legacy, coreBundle
+);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -1563,7 +1652,8 @@ const summary = {
   what_if_16_128_lacrado_same_header: whatIf16Base128LacradoDiagnostic,
   what_if_15_128_lacrado_same_header: whatIf15Base128LacradoDiagnostic,
   what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic,
-  what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic
+  what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
+  invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic
 };
 
 const diagnostic = {
