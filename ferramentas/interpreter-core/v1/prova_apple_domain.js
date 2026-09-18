@@ -3,7 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { interpretResolved } = require('./core');
+const { interpretResolved, matchesRecordSuppressionRule } = require('./core');
 
 const schema = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'domains', 'apple-iphone-v0.schema.json'), 'utf8')
@@ -700,6 +700,21 @@ check('supressao de emissao preserva trigger para parsing mas nao cria oferta', 
     (priceSegment.field_candidates || []).filter(candidate => candidate.field === 'price').length,
     1
   );
+  const priceCandidate = (priceSegment.field_candidates || []).find(candidate => candidate.field === 'price');
+  const suppressionRule = schema.fields.find(field => field.name === 'price').suppress_record_when[0];
+  const suppressionMatched = matchesRecordSuppressionRule(priceSegment, priceCandidate, suppressionRule);
+  if (!suppressionMatched) {
+    console.log('SUPPRESSION_FIXTURE_DIAG=' + JSON.stringify({
+      top_role: priceSegment.role_candidates?.[0]?.role || null,
+      fields: [...new Set((priceSegment.field_candidates || []).map(candidate => candidate.field))].sort(),
+      token_count: String(priceSegment.normalized || '').trim().split(/\s+/).filter(Boolean).length,
+      has_money_emoji: /💰|💵/.test(String(priceSegment.normalized || '')),
+      has_text_currency: /R\$|\$/.test(String(priceSegment.normalized || '')),
+      price_score: priceCandidate?.score ?? null,
+      evidence_has_money_emoji: /💰|💵/.test(String(priceCandidate?.evidence?.pattern || ''))
+    }));
+  }
+  assert.strictEqual(suppressionMatched, true);
   assert.strictEqual(result.records.length, 0);
   assert.ok(result.ambiguities.some(item => item.cause === 'record_emission_suppressed'));
 });
