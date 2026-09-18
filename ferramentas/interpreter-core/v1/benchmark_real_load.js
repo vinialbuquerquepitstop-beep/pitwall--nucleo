@@ -1947,6 +1947,60 @@ function simulateOracleModelAdjudication(legacyBundle, coreBundle, crossModelDia
   };
 }
 
+
+function crossConditionResidualDiagnostics(legacyBundle, coreBundle, modelId) {
+  const coreOffers = (coreBundle.records || []).map(record => ({
+    fields: record.fields || {},
+    core_record_id: record.record_id,
+    trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const exact = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const residualLegacy = (exact.remainingLegacy || []).filter(offer =>
+    normFields(offer).model === modelId
+  );
+
+  const rows = residualLegacy.map(legacy => {
+    const ln = normFields(legacy);
+    const candidates = coreOffers.filter(core => {
+      const cn = normFields(core);
+      return cn.model === ln.model &&
+        cn.capacity_gb === ln.capacity_gb &&
+        cn.color === ln.color &&
+        cn.price === ln.price &&
+        cn.condition !== ln.condition;
+    }).map(core => {
+      const conditionTrace = (core.trace || []).find(trace => trace.field === 'condition');
+      const modelTrace = (core.trace || []).find(trace => trace.field === 'model');
+      const priceTrace = (core.trace || []).find(trace => trace.field === 'price');
+      return {
+        core_record_id: core.core_record_id,
+        core_condition: normFields(core).condition,
+        condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
+        condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
+        model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null
+      };
+    });
+
+    return {
+      legacy_record_id: legacy.legacy_record_id || null,
+      product_index: legacy.metadata?.product_index ?? null,
+      legacy_condition: ln.condition,
+      color: ln.color,
+      candidate_count: candidates.length,
+      candidates
+    };
+  });
+
+  return {
+    model_id: modelId,
+    residual_count: rows.length,
+    residuals_with_cross_condition_exact_match: rows.filter(row => row.candidate_count > 0).length,
+    rows
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -2038,6 +2092,9 @@ const target17512Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_17
 const target17512PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_17_512gb');
 const target17512BoundaryDiagnostic = targetModelBoundaryDiagnostics(coreBundle, 'iphone_17_512gb');
 const target17512CrossModelDiagnostic = crossModelResidualDiagnostics(
+  legacy, coreBundle, 'iphone_17_512gb'
+);
+const target17512CrossConditionDiagnostic = crossConditionResidualDiagnostics(
   legacy, coreBundle, 'iphone_17_512gb'
 );
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
@@ -2133,6 +2190,7 @@ const summary = {
   target_17_512_pair_diagnostic: target17512PairDiagnostic,
   target_17_512_boundary_diagnostic: target17512BoundaryDiagnostic,
   target_17_512_cross_model_diagnostic: target17512CrossModelDiagnostic,
+  target_17_512_cross_condition_diagnostic: target17512CrossConditionDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
