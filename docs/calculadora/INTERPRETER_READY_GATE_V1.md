@@ -131,6 +131,8 @@ O multiconjunto bruto contra o leitor legado continua sendo medido, mas nao e ma
 
 O gate local inclui prova sintetica nao-Apple para impedir overfitting ao corpus atual.
 
+A promocao usa um ledger por instancia residual. Cada missing/extra pode ser adjudicado no maximo uma vez. Contagens historicas calculadas por diagnosticos independentes continuam visiveis, mas nao entram no gate quando reutilizam a mesma instancia. No corpus atual, isso corrigiu a estimativa anterior de 34 para 44 residuos acionaveis.
+
 Tambem revisar:
 
 - extras;
@@ -146,7 +148,7 @@ Estado:
 - [x] corpus representativo executado
 - [x] `supplier_aware_confirmed_silent_wrong_price = 0` no corpus atual
 - [x] `supplier_aware_unresolved_price_attribution = 0` no corpus atual
-- [ ] residuos acionaveis adjudicados = 0
+- [ ] residuos acionaveis no ledger = 0 (atual: 44 = 21 missing + 23 extras)
 - [ ] divergencias restantes classificadas
 - [ ] erros transformados em fixtures permanentes
 
