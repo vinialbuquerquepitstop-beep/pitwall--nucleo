@@ -698,12 +698,16 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
         ),
         between_unknown_lines: between.filter(segment =>
           (segment.role_candidates || [])[0]?.role === 'unknown'
-        ).length
+        ).length,
+        color_offsets: []
       });
     }
 
     const row = groups.get(groupId);
     row.size += 1;
+    if (Number.isFinite(colorLine) && Number.isFinite(priceLine)) {
+      row.color_offsets.push(colorLine - priceLine);
+    }
     const key = offerKey(offer.fields || {}, { include_supplier: true });
     const remaining = legacyCounts.get(key) || 0;
     if (remaining > 0) {
@@ -729,7 +733,8 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
       'between_color=' + (row.between_has_color ? 'yes' : 'no'),
       'between_model=' + (row.between_has_model ? 'yes' : 'no'),
       'between_condition=' + (row.between_has_condition ? 'yes' : 'no'),
-      'between_unknown=' + row.between_unknown_lines
+      'between_unknown=' + row.between_unknown_lines,
+      'offsets=' + row.color_offsets.slice().sort((a, b) => a - b).join(',')
     ].join('|');
 
     const add = (bucket, key) => {
