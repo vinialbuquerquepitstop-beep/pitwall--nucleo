@@ -489,6 +489,8 @@ function collectExpansionCandidates(segments, segmentIndex, fieldName, schema = 
   if (current.length) return { source: 'direct', candidates: current };
 
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const fieldConfig = fields.find(field => field.name === fieldName) || {};
+  const blockStrategy = fieldConfig.expand_records_block_strategy || 'bounded';
   const triggerNames = new Set(fields.filter(field => field.record_trigger).map(field => field.name));
   const anchorNames = new Set(fields.filter(field => field.context_anchor).map(field => field.name));
   const collected = [];
@@ -507,7 +509,9 @@ function collectExpansionCandidates(segments, segmentIndex, fieldName, schema = 
     );
     if (hasTimestampBoundary) break;
 
-    collected.push(...uniqueFieldCandidates(candidates, fieldName));
+    const fieldCandidates = uniqueFieldCandidates(candidates, fieldName);
+    if (blockStrategy === 'contiguous_before_trigger' && fieldCandidates.length === 0) break;
+    collected.push(...fieldCandidates);
 
     const hasAnchor = [...anchorNames].some(name =>
       uniqueFieldCandidates(candidates, name).length > 0
