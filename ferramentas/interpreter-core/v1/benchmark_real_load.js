@@ -634,6 +634,124 @@ function pureModelResidualEvidenceDiagnostics(reportSupplierAware, bundle) {
 const pureModelResidualEvidenceDiagnostic =
   pureModelResidualEvidenceDiagnostics(reportSupplierAware, coreBundle);
 
+function missingPriceSourceTopologyDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const targetModels = new Set(['iphone_16_256gb', 'iphone_17_512gb']);
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  ).filter(item => targetModels.has(item.fields?.model?.id || null));
+
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const ambiguities = bundle.ambiguities || [];
+  const signatures = {};
+  const byModel = {};
+  let cases = 0;
+
+  const supplierAtSegment = segment => {
+    const direct = (segment.field_candidates || [])
+      .filter(candidate => candidate.field === 'supplier');
+    const directValues = [...new Set(direct.map(candidate => String(candidate.value)))];
+    if (directValues.length === 1) return directValues[0];
+    const inherited = segment.inherited_context?.supplier?.value;
+    return inherited == null ? null : String(inherited);
+  };
+
+  const priceValuesAtSegment = segment => [...new Set(
+    (segment.field_candidates || [])
+      .filter(candidate => candidate.field === 'price')
+      .map(candidate => Number(candidate.value))
+      .filter(Number.isFinite)
+  )];
+
+  for (const item of missing) {
+    const expectedModel = item.fields?.model?.id || null;
+    const expectedSupplier = item.fields?.supplier == null ? null : String(item.fields.supplier);
+    const expectedPrice = Number(item.fields?.price);
+    if (!expectedModel || !Number.isFinite(expectedPrice)) continue;
+    cases += 1;
+
+    const candidateSegments = segments.filter(segment => {
+      const prices = priceValuesAtSegment(segment);
+      if (!prices.includes(expectedPrice)) return false;
+      const supplier = supplierAtSegment(segment);
+      return supplier === expectedSupplier;
+    });
+
+    const emitted = records.filter(record =>
+      Number(record.fields?.price) === expectedPrice &&
+      String(record.fields?.supplier ?? '') === String(expectedSupplier ?? '')
+    );
+
+    const segmentStates = candidateSegments.map(segment => {
+      const line = Number(segment.line_number);
+      const emittedFromLine = emitted.filter(record =>
+        (record.trace || []).some(trace =>
+          trace.field === 'price' &&
+          Array.isArray(trace.sources) &&
+          trace.sources.map(Number).includes(line)
+        )
+      );
+      const ambiguityCauses = [...new Set(
+        ambiguities
+          .filter(item => Array.isArray(item.sources) && item.sources.map(Number).includes(line))
+          .map(item => item.cause)
+      )].sort();
+
+      const directSemanticModels = [...new Set(
+        (segment.semantic_candidates || [])
+          .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+          .map(candidate => candidate.entity_id)
+      )].sort();
+
+      const emittedModels = [...new Set(
+        emittedFromLine.map(record => record.fields?.model?.id || '(unknown)')
+      )].sort();
+
+      return [
+        'role=' + (segment.role_candidates?.[0]?.role || 'unknown'),
+        'direct_model_candidates=' + (segment.field_candidates || []).filter(candidate => candidate.field === 'model').length,
+        'semantic_models=' + (directSemanticModels.join(',') || 'none'),
+        'inherited_model=' + (segment.inherited_context?.model ? 'yes' : 'no'),
+        'emitted=' + emittedFromLine.length,
+        'emitted_models=' + (emittedModels.join(',') || 'none'),
+        'ambiguities=' + (ambiguityCauses.join(',') || 'none')
+      ].join('|');
+    });
+
+    const signature = [
+      'expected=' + expectedModel,
+      'price_source_segments=' + candidateSegments.length,
+      'same_supplier_price_records=' + emitted.length,
+      'states=' + (segmentStates.join(' || ') || 'none')
+    ].join('|');
+
+    signatures[signature] = (signatures[signature] || 0) + 1;
+    if (!byModel[expectedModel]) {
+      byModel[expectedModel] = {
+        cases: 0,
+        with_price_source: 0,
+        with_same_supplier_price_record: 0,
+        without_price_source: 0
+      };
+    }
+    byModel[expectedModel].cases += 1;
+    if (candidateSegments.length) byModel[expectedModel].with_price_source += 1;
+    else byModel[expectedModel].without_price_source += 1;
+    if (emitted.length) byModel[expectedModel].with_same_supplier_price_record += 1;
+  }
+
+  return {
+    cases,
+    by_model: byModel,
+    signatures
+  };
+}
+
+const missingPriceSourceTopologyDiagnostic =
+  missingPriceSourceTopologyDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -2793,6 +2911,7 @@ const summary = {
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
   pure_model_residual_topology_diagnostic: pureModelResidualTopologyDiagnostic,
   pure_model_residual_evidence_diagnostic: pureModelResidualEvidenceDiagnostic,
+  missing_price_source_topology_diagnostic: missingPriceSourceTopologyDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
