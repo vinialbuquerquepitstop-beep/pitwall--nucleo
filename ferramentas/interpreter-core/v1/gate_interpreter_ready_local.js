@@ -5,6 +5,7 @@ const path = require('path');
 
 const proofs = [
   'prova_core.js',
+  'prova_generalization.js',
   'prova_cli.js',
   'prova_apple_domain.js',
   'prova_shadow_comparator.js',
