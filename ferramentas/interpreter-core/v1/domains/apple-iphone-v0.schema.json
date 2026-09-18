@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.0",
+  "schema_version": "0.8.1",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -138,7 +138,8 @@
       },
       "pair_by_order_with_trigger": {
         "field": "price",
-        "require_equal_rows": true
+        "require_equal_rows": true,
+        "require_adjacent_rows": true
       }
     },
     {
@@ -303,7 +304,7 @@
     "ordered_color_price_pairing": {
       "source": "supabase/migrations/20260910_calc_parse_cor_pareada.sql",
       "rule": "within one model block, when color-only row count equals bare-price row count, pair nth color row with nth bare-price row",
-      "safety": "no pairing when counts differ; direct color on price line is excluded from bare-price targets"
+      "safety": "requires equal row counts and each color row immediately before its paired bare-price row; otherwise no ordered pairing"
     }
   }
 }
