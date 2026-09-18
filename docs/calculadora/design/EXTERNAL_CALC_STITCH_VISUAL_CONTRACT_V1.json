@@ -1,0 +1,84 @@
+{
+  "$schema": "external-calc/visual-contract/v1",
+  "contract_version": "external-calc-stitch-visual-contract/v1",
+  "extraction": {
+    "source_archive": "stitch_commercial_ai_command_center.zip",
+    "exported_files": {
+      "html": {"name":"code.html","sha256":"4a24d5e86a41bd4e43726c4487c39b17ba31a88b58c01a0bcb567424339cc5cf"},
+      "render": {"name":"screen.png","sha256":"6decf11506be4323233e2fc473d82bcbe4fe4513993926c359d1f863bca5cc47","width_px":1600,"height_px":1280}
+    },
+    "extraction_date": "2026-09-18",
+    "source_rule": "Do not infer missing product semantics from the visual export. Render governs visual fidelity; product contracts govern behavior and domain semantics."
+  },
+  "identity": {"document_title":"External Calc - Product Preview","brand_label":"External Calc","brand_subtitle":"Product Preview","page":"Analysis Workspace / Analisar","theme":"dark","language":"pt-BR"},
+  "source_of_truth_precedence": ["approved_render","rendered_html_structure","normalized_design_tokens_and_components","generator_metadata_or_one_off_values"],
+  "foundations": {
+    "colors": {
+      "custom_config": {"brand.50":"#f0f7ff","brand.100":"#e0effe","brand.500":"#1d6bf3","brand.600":"#2563eb","brand.700":"#1d4ed8","sidebar":"#111827","canvas":"#0b0f17"},
+      "rendered_one_off_surfaces": {"panel":"#161f2e","deep_input":"#0b0f17","select_surface":"#0d1420","metadata_tag":"#1e293b"},
+      "tailwind_semantic_references": {
+        "primary_action":["blue-600","blue-500","blue-400"],
+        "success":["emerald-500","emerald-400"],
+        "warning":["amber-500","amber-400","amber-300","amber-100"],
+        "neutral_text":["slate-100","slate-200","slate-300","slate-400","slate-500"],
+        "neutral_border":["slate-700","slate-800"]
+      },
+      "usage_rules": {"blue":"active navigation, inferred state, primary CTA and selected/filter emphasis","emerald":"ready/interpreted/success","amber":"ambiguity/review required","slate":"shell, surfaces, hierarchy and neutral metadata"}
+    },
+    "typography": {
+      "family":"Inter",
+      "fallbacks":["-apple-system","BlinkMacSystemFont","Segoe UI","Roboto","sans-serif"],
+      "weights_present":[400,500,600,700],
+      "mono_usage":"technical evidence only: filenames, run IDs, offer IDs, engine/schema tags and raw list preview",
+      "scale_observed":{"micro_label":"11px uppercase tracking-wider","metadata":"10-11px","body_small":"12px","nav_body":"14px","section_title":"16-18px","metric":"24px"}
+    },
+    "shape":{"primary_panel_radius":"rounded-xl / 12px","control_radius":"rounded-lg / 8px","nav_item_radius":"rounded-md to rounded-lg","status_badge_radius":"rounded-full","ambiguity_pattern":"left accent border + warning tinted surface"},
+    "depth":{"panel_shadow":"shadow-lg shadow-black/20","primary_button_shadow":"blue shadow at 20-25% opacity","status_glow":"emerald glow only on live/ready dots","rule":"depth is restrained; most hierarchy comes from surface contrast and borders"}
+  },
+  "layout": {
+    "viewport_reference":{"width_px":1600,"height_px":1280},
+    "app_shell":{"desktop":"flex row","mobile_base":"flex column","sidebar_width":"w-60 / 240px","sidebar_padding":"p-5 / 20px","sidebar_min_height":"min-h-screen","canvas":"#0b0f17"},
+    "top_status_bar":{"sticky":true,"top":0,"horizontal_padding":"px-8 / 32px","vertical_padding":"py-3.5 / 14px","surface":"#111827","border":"slate-800"},
+    "page_frame":{"padding":"p-8 / 32px","max_width":"max-w-7xl / 1280px","vertical_rhythm":"space-y-8 / 32px"},
+    "grid_top":{"breakpoint":"lg","columns":12,"gap":"gap-6 / 24px","input_span":7,"summary_span":5},
+    "grid_bottom":{"breakpoint":"lg","columns":12,"gap":"gap-6 / 24px","offers_span":8,"pending_span":4}
+  },
+  "shell": {
+    "sidebar":{"brand_mark":"36x36, slate-800, slate-700 border, rounded-lg","nav_active":"blue-600/15 surface + blue-500/20 border + blue-400 text","nav_inactive":"slate-400 with hover slate-200 and slate-800/50 surface","dev_widget":"test state selector card anchored at bottom","environment_footer":"emerald dot + isolated/no-db/no-write/no-production status"},
+    "status_header":{"left":"ready dot + title + supporting copy","right":"three compact step pills: Entrada, Interpretação, Revisão"}
+  },
+  "components": {
+    "vendor_input_panel":{"surface":"#161f2e","border":"slate-800","radius":"xl","padding":"20px","raw_preview":"deep #0b0f17 nested surface, mono 12px, fixed 176px height, scrollable","footer":"filename/source kind left; secondary + primary action right"},
+    "interpretation_summary":{"surface":"#161f2e","metrics_grid":"2x2","metric_style":"24px bold value + 12px slate-400 label","footer_tags":"mono 11px on #1e293b with slate border"},
+    "filter_tabs":{"container":"#111827 + slate-800 border + 2px padding","active":"#1e293b, slate-100, semibold","inactive":"slate-400"},
+    "offers_table":{"surface":"#161f2e","header":"#111827 at 70% opacity, uppercase 11px, slate-400","row_height_pattern":"py-3.5 / 14px","horizontal_cell_padding":"px-4 / 16px","row_dividers":"slate-800/80","row_hover":"slate-800/30","columns":["STATUS","MODELO","CONDIÇÃO","COR","FORNECEDOR","PREÇO"]},
+    "status_badges":{"interpreted":"emerald text + emerald 15% background + 30% border","inferred":"blue text + blue 15% background + 30% border","ready":"emerald text + emerald 15% background + 30% border","ambiguity_count":"amber text + amber 15% background + 30% border"},
+    "ambiguity_panel":{"surface":"amber-500/10","border":"amber-500/25 + 4px amber left border","radius":"right xl","padding":"16px","content_order":["field label","raw unresolved value","cause + source"]},
+    "primary_button":{"surface":"blue-600","hover":"blue-500","text":"white","radius":"lg","shadow":"blue-600/20 to /25"},
+    "secondary_button":{"surface":"slate-800/80","border":"slate-700","text":"slate-300","radius":"lg"}
+  },
+  "page_composition": {
+    "sequence":["Sidebar + sticky global interpretation status","Top row: vendor input + interpretation summary","Bottom row: valid offers table + pending ambiguities"],
+    "visual_protagonist":"offers table after interpretation; input + summary establish context",
+    "information_priority":["operational status","source data","interpretation summary","valid offers","pending review"]
+  },
+  "content_contract_observed": {
+    "navigation":["Overview","Analisar","Calcular","Mercado","Histórico"],
+    "current_page":"Analisar",
+    "progress_steps":["Entrada","Interpretação","Revisão"],
+    "test_selector_options_in_export":["Pronto","Carregando","Erro"],
+    "offer_states_in_export":["Interpretado","Inferido"],
+    "review_state_in_export":["Ambiguidade"],
+    "next_slice_cta":"Calcular · Slice 02"
+  },
+  "semantic_gap_audit": {
+    "present_in_visual_export":["source input preview","ready status","interpretation summary","interpreted offer","inferred offer","ambiguity","offer filters","transition CTA to Slice 02"],
+    "not_present_but_required_by_existing_product_contracts":["invalid record presentation","evidence/trace drawer","idle state","partial state","explicit failed/retry composition beyond selector label","empty results composition","full processing state semantics","actual interactions/service bindings"],
+    "rule":"These missing requirements must be added using this visual language; they must not be deleted from the product contract to match the screenshot."
+  },
+  "interaction_audit":{"export_type":"static HTML visual prototype","interactive_logic_present":false,"buttons_and_links":"visual only in the exported HTML","implementation_rule":"Use this export as visual canon candidate, not as application behavior source."},
+  "normalization_candidates": {
+    "promote_to_tokens":["canvas/sidebar/panel/deep-input surfaces","semantic blue/emerald/amber treatments","240px sidebar","32px page frame","24px grid gaps","12px panel radius","8px control radius","micro-label typography","technical mono metadata"],
+    "avoid_copying_as_one_off":["individual arbitrary opacity values without semantic naming","component-specific surface hex repeated outside tokens","Stitch-only wording or mock counts","static href=# navigation behavior"]
+  }
+}
