@@ -251,6 +251,135 @@ const adjacentColorReport = compareSemanticShadow({
   options: { include_supplier: true }
 });
 
+// Diagnostic simulation: for an already emitted model+supplier+price identity,
+// materialize additional locally evidenced colors that are currently absent.
+// The base record's model, supplier, price and condition are left untouched.
+const localMultiColorExpansionBundle = JSON.parse(JSON.stringify(coreBundle));
+const localMultiColorSegments = localMultiColorExpansionBundle.segments || [];
+const localMultiColorByLine = new Map(
+  localMultiColorSegments.map(segment => [Number(segment.line_number), segment])
+);
+const localMultiColorPathSafe = (fromLine, toLine) => {
+  if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return false;
+  const lo = Math.min(fromLine, toLine);
+  const hi = Math.max(fromLine, toLine);
+  for (const segment of localMultiColorSegments) {
+    const line = Number(segment.line_number);
+    if (!(line > lo && line <= hi)) continue;
+    if ((segment.context_events || []).some(event =>
+      event.reason === 'domain_boundary' ||
+      event.reason === 'supplier_boundary' ||
+      event.reason === 'timestamp_boundary'
+    )) return false;
+  }
+  return true;
+};
+const localMultiColorSupplierAt = segment => {
+  const direct = [...new Set(
+    (segment?.field_candidates || [])
+      .filter(candidate => candidate.field === 'supplier')
+      .map(candidate => String(candidate.value))
+  )];
+  if (direct.length === 1) return direct[0];
+  return segment?.inherited_context?.supplier?.value == null
+    ? null
+    : String(segment.inherited_context.supplier.value);
+};
+const localMultiColorIdentity = record => [
+  record?.fields?.model?.id || '',
+  String(record?.fields?.supplier ?? ''),
+  String(record?.fields?.price ?? '')
+].join('|');
+
+const localMultiColorGroups = new Map();
+for (const record of localMultiColorExpansionBundle.records || []) {
+  const key = localMultiColorIdentity(record);
+  if (!localMultiColorGroups.has(key)) localMultiColorGroups.set(key, []);
+  localMultiColorGroups.get(key).push(record);
+}
+
+let localMultiColorAdded = 0;
+const localMultiColorAddedByModel = {};
+for (const [identity, group] of localMultiColorGroups.entries()) {
+  if (!group.length) continue;
+  const representative = group[0];
+  const modelId = representative?.fields?.model?.id || null;
+  const supplier = representative?.fields?.supplier == null
+    ? null
+    : String(representative.fields.supplier);
+  const price = Number(representative?.fields?.price);
+  if (!modelId || !Number.isFinite(price)) continue;
+
+  const priceLines = [...new Set(
+    group.flatMap(record => {
+      const trace = (record.trace || []).find(item => item.field === 'price');
+      return Array.isArray(trace?.sources)
+        ? trace.sources.map(Number).filter(Number.isFinite)
+        : [];
+    })
+  )];
+  if (priceLines.length !== 1) continue;
+  const priceLine = priceLines[0];
+  const priceSegment = localMultiColorByLine.get(priceLine);
+  if (!priceSegment) continue;
+  if (localMultiColorSupplierAt(priceSegment) !== supplier) continue;
+
+  const localColors = new Map();
+  for (const segment of localMultiColorSegments) {
+    const line = Number(segment.line_number);
+    if (!Number.isFinite(line) || Math.abs(line - priceLine) > 3) continue;
+    if (!localMultiColorPathSafe(line, priceLine)) continue;
+    if (localMultiColorSupplierAt(segment) !== supplier) continue;
+
+    for (const candidate of segment.field_candidates || []) {
+      if (candidate.field !== 'color') continue;
+      const key = normalizeKey(candidate.value);
+      if (!key) continue;
+      const prior = localColors.get(key);
+      if (!prior || Number(candidate.score || 0) > Number(prior.score || 0)) {
+        localColors.set(key, { candidate, line });
+      }
+    }
+  }
+
+  if (localColors.size <= 1) continue;
+  const existingColors = new Set(
+    group
+      .map(record => normalizeKey(record?.fields?.color))
+      .filter(Boolean)
+  );
+
+  for (const [colorKey, evidence] of localColors.entries()) {
+    if (existingColors.has(colorKey)) continue;
+    const clone = JSON.parse(JSON.stringify(representative));
+    clone.record_id =
+      String(representative.record_id || 'record') +
+      '-diag-local-multicolor-' + (localMultiColorAdded + 1);
+    clone.fields = { ...(clone.fields || {}), color: evidence.candidate.value };
+    clone.trace = (clone.trace || []).filter(item => item.field !== 'color');
+    clone.trace.push({
+      field: 'color',
+      chosen: evidence.candidate.value,
+      sources: [evidence.line],
+      derived_from: [evidence.line],
+      rules: ['diagnostic:local_multicolor_same_price_expansion'],
+      alternatives: [],
+      score: evidence.candidate.score ?? null
+    });
+    localMultiColorExpansionBundle.records.push(clone);
+    existingColors.add(colorKey);
+    localMultiColorAdded += 1;
+    localMultiColorAddedByModel[modelId] =
+      (localMultiColorAddedByModel[modelId] || 0) + 1;
+  }
+}
+
+const localMultiColorExpansionReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: localMultiColorExpansionBundle,
+  options: { include_supplier: true }
+});
+
 // Diagnostic simulation: remove only inherited condition values whose provenance
 // crosses a domain boundary. Price/model/supplier/pairing remain untouched.
 const conditionDomainGuardBundle = JSON.parse(JSON.stringify(coreBundle));
@@ -7563,6 +7692,19 @@ const summary = {
     no_silent_wrong_price: capacityFromResolvedModelReport.gates.no_silent_wrong_price,
     price_attribution_resolved: capacityFromResolvedModelReport.gates.price_attribution_resolved,
     exact_multiset: capacityFromResolvedModelReport.gates.exact_multiset
+  },
+  local_multicolor_same_price_expansion_simulation: {
+    added_records: localMultiColorAdded,
+    added_by_model: localMultiColorAddedByModel,
+    core_offers: localMultiColorExpansionReport.metrics.core_offers,
+    matched_offers: localMultiColorExpansionReport.metrics.matched_offers,
+    missing_offers: localMultiColorExpansionReport.metrics.missing_offers,
+    extra_offers: localMultiColorExpansionReport.metrics.extra_offers,
+    agreement_ratio: localMultiColorExpansionReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: localMultiColorExpansionReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: localMultiColorExpansionReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: localMultiColorExpansionReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: localMultiColorExpansionReport.gates.price_attribution_resolved
   },
   adjacent_unique_color_simulation: {
     filled_records: adjacentColorFilled,
