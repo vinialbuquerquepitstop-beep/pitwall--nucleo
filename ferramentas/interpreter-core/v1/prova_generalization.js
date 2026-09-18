@@ -178,4 +178,126 @@ check('ordem trigger antes do anchor nao faz retro-heranca indevida', () => {
   ));
 });
 
+
+check('segundo schema sintetico interpreta lista tabular inline sem regra Apple', () => {
+  const tableSchema = {
+    contract_version: 'domain-schema/v1',
+    schema_id: 'synthetic-inline-catalog',
+    schema_version: '1',
+    entity_type: 'quote',
+    fields: [
+      {
+        name: 'sku',
+        type: 'string',
+        required: true,
+        context_inheritable: true,
+        context_anchor: true,
+        resolver: { kind: 'entity', entity_kind: 'sku', match: ['alias', 'label'] },
+        extractors: [{
+          kind: 'regex',
+          pattern: 'SKU=([A-Z]{2}-[0-9]{2})',
+          flags: 'i',
+          group: 1,
+          transform: 'trim',
+          score: 0.98
+        }]
+      },
+      {
+        name: 'grade',
+        type: 'string',
+        required: false,
+        context_inheritable: false,
+        context_anchor: false,
+        extractors: [{
+          kind: 'regex',
+          pattern: 'STATE=(NEW|USED)',
+          flags: 'i',
+          group: 1,
+          transform: 'trim',
+          score: 0.95
+        }]
+      },
+      {
+        name: 'amount',
+        type: 'number',
+        required: true,
+        context_inheritable: false,
+        context_anchor: false,
+        record_trigger: true,
+        extractors: [{
+          kind: 'regex',
+          pattern: 'VALUE=([0-9][0-9.,]*)',
+          flags: 'i',
+          group: 1,
+          transform: 'number',
+          score: 0.99
+        }]
+      }
+    ],
+    context_policy: {
+      reset_on_timestamp: true,
+      anchor_resets_other_context: true
+    }
+  };
+
+  const result = interpretResolved({
+    document: raw(
+      'gen-inline',
+      'SKU=ZX-10 STATE=NEW VALUE=1250\nSKU=QK-20 STATE=USED VALUE=875'
+    ),
+    schema: tableSchema,
+    knowledge
+  });
+
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.sku.id, 'part-zx-10');
+  assert.strictEqual(result.records[0].fields.grade, 'NEW');
+  assert.strictEqual(result.records[0].fields.amount, 1250);
+  assert.strictEqual(result.records[1].fields.sku.id, 'part-qk-20');
+  assert.strictEqual(result.records[1].fields.grade, 'USED');
+  assert.strictEqual(result.records[1].fields.amount, 875);
+});
+
+check('pairing ordinal generico funciona fora do dominio Apple', () => {
+  const pairedSchema = JSON.parse(JSON.stringify(schema));
+  pairedSchema.schema_id = 'synthetic-paired-catalog';
+  pairedSchema.fields.splice(1, 1, {
+    name: 'finish',
+    type: 'string',
+    required: false,
+    context_inheritable: false,
+    context_anchor: false,
+    extractors: [{
+      kind: 'regex',
+      pattern: '^(RED|BLUE)
+,
+      flags: 'i',
+      group: 1,
+      transform: 'trim',
+      score: 0.9
+    }],
+    pair_by_order_with_trigger: {
+      field: 'amount',
+      require_equal_rows: true,
+      require_adjacent_rows: false,
+      require_source_only: true
+    }
+  });
+
+  const result = interpretResolved({
+    document: raw(
+      'gen-paired',
+      'ITEM ZX-10\nRED\nBLUE\nAMOUNT: 1000\nAMOUNT: 1100'
+    ),
+    schema: pairedSchema,
+    knowledge
+  });
+
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.finish, 'RED');
+  assert.strictEqual(result.records[0].fields.amount, 1000);
+  assert.strictEqual(result.records[1].fields.finish, 'BLUE');
+  assert.strictEqual(result.records[1].fields.amount, 1100);
+});
+
 console.log(`PASSOU: ${ok} assercoes de generalizacao`);
