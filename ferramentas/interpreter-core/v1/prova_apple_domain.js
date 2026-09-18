@@ -364,6 +364,31 @@ check('condicoes plurais canonizam para o singular sem alterar preco', () => {
   assert.strictEqual(seminovos.records[0].fields.price, 5199);
 });
 
+check('CPO no cabecalho do modelo prevalece na composicao da oferta', () => {
+  const result = run(
+    'apple-cpo-anchor-precedence',
+    'iPhone 13 Pro 128GB (CPO)\nImportado | eSIM + Chip físico\nLacrado\nPreto | Gold | Branco\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record => record.fields.condition === 'CPO'));
+  assert.ok(result.records.every(record =>
+    record.trace.some(trace =>
+      trace.field === 'condition' &&
+      trace.rules.includes('anchor_precedence:model')
+    )
+  ));
+});
+
+check('precedencia CPO do cabecalho nao vaza para o modelo seguinte', () => {
+  const result = run(
+    'apple-cpo-anchor-no-leak',
+    'iPhone 13 Pro 128GB (CPO)\nLacrado\nPreto R$ 3.999\niPhone 15 128GB\nAzul R$ 4.499'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.notStrictEqual(result.records[1].fields.condition, 'CPO');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
