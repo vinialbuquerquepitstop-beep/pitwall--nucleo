@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.6.1",
+  "schema_version": "0.7.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -89,7 +89,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "\\b(Preto|Azul|Branco|Natural|Desert|Roxo|Verde|Rosa|Silver|Gold|Grafite|Midnight|Starlight|Lavanda|Laranja)\\b",
+          "pattern": "\\\\b(Black\\\\s+Ocean\\\\s+Band|Black\\\\s+Titanium|Blue\\\\s+Anatel|Orange\\\\s+Anatel|Silver\\\\s+Anatel|Jet\\\\s+Black|Space\\\\s+Black|Space\\\\s+Gray|Rosa\\\\s+Blush|Rose\\\\s+Gold|Sky\\\\s+Blue|Azul\\\\s+Anatel|Laranja\\\\s+Anatel|Amarelo|Azul|Black|Blue|Branco|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Verde|Vermelho|White|Ultramarine|Pacific\\\\s+Blue|Purple)\\\\b",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -99,7 +99,22 @@
       ],
       "expand_records": true,
       "expand_records_block_mode": "multi_only",
-      "expand_records_block_strategy": "contiguous_before_trigger"
+      "expand_records_block_strategy": "contiguous_before_trigger",
+      "value_map": {
+        "Black": "Preto",
+        "Blue": "Azul",
+        "White": "Branco",
+        "Green": "Verde",
+        "Orange": "Laranja",
+        "Rose": "Rosa",
+        "Blue Anatel": "Azul Anatel",
+        "Orange Anatel": "Laranja Anatel",
+        "Prateado": "Silver",
+        "Dourado": "Gold",
+        "Ultramarine": "Azul",
+        "Pacific Blue": "Azul",
+        "Purple": "Roxo"
+      }
     },
     {
       "name": "price",
@@ -170,6 +185,10 @@
         "baseline_wrong_price_only": 2,
         "candidate_wrong_price_only": 0
       }
+    },
+    "color_canonicalization": {
+      "source": ".claude/skills/calculadoras/references/formato-dados.md",
+      "policy": "dominant canonical name wins; Apple-specific color names remain distinct; Anatel variants remain distinct"
     }
   }
 }
