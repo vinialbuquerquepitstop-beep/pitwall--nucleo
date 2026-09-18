@@ -627,6 +627,115 @@ function conditionDistributionDiagnostics(legacyBundle, coreBundle) {
   };
 }
 
+function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const segmentsByLine = new Map(
+    (coreBundleInput.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+  const groups = new Map();
+
+  for (const offer of coreOffers(coreBundleInput)) {
+    const match = /^(.*)-exp-\d+$/.exec(String(offer.core_record_id || ''));
+    if (!match) continue;
+    const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
+    if (!colorTrace?.rules?.includes('record_expansion:pairing_nearest_unique')) continue;
+
+    const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+    const colorLine = Array.isArray(colorTrace.sources) ? Number(colorTrace.sources[0]) : null;
+    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+    const groupId = match[1];
+
+    if (!groups.has(groupId)) {
+      const lo = Number.isFinite(colorLine) && Number.isFinite(priceLine) ? Math.min(colorLine, priceLine) : null;
+      const hi = Number.isFinite(colorLine) && Number.isFinite(priceLine) ? Math.max(colorLine, priceLine) : null;
+      const between = lo == null ? [] : (coreBundleInput.segments || []).filter(segment =>
+        segment.line_number > lo && segment.line_number < hi
+      );
+      const source = segmentsByLine.get(colorLine);
+      const sourceColorCount = source
+        ? new Set((source.field_candidates || []).filter(c => c.field === 'color').map(c => JSON.stringify(c.value))).size
+        : 0;
+      const nearPriceLines = (coreBundleInput.segments || []).filter(segment =>
+        Number.isFinite(colorLine) &&
+        Math.abs(Number(segment.line_number) - colorLine) <= 3 &&
+        new Set((segment.field_candidates || []).filter(c => c.field === 'price').map(c => JSON.stringify(c.value))).size === 1
+      ).length;
+      const nearColorOnlyLines = (coreBundleInput.segments || []).filter(segment =>
+        Number.isFinite(colorLine) &&
+        Math.abs(Number(segment.line_number) - colorLine) <= 3 &&
+        isFieldOnlySegment(segment, 'color')
+      ).length;
+
+      groups.set(groupId, {
+        size: 0,
+        exact_supported: 0,
+        surplus: 0,
+        distance: Number.isFinite(colorLine) && Number.isFinite(priceLine) ? Math.abs(priceLine - colorLine) : null,
+        direction: Number.isFinite(colorLine) && Number.isFinite(priceLine)
+          ? (colorLine < priceLine ? 'before' : colorLine > priceLine ? 'after' : 'same')
+          : 'unknown',
+        source_color_count: sourceColorCount,
+        nearby_price_lines: nearPriceLines,
+        nearby_color_only_lines: nearColorOnlyLines,
+        between_has_price: between.some(segment =>
+          (segment.field_candidates || []).some(candidate => candidate.field === 'price')
+        ),
+        between_has_color: between.some(segment =>
+          (segment.field_candidates || []).some(candidate => candidate.field === 'color')
+        ),
+        between_has_model: between.some(segment =>
+          (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+        ),
+        between_has_condition: between.some(segment =>
+          (segment.field_candidates || []).some(candidate => candidate.field === 'condition')
+        ),
+        between_unknown_lines: between.filter(segment =>
+          (segment.role_candidates || [])[0]?.role === 'unknown'
+        ).length
+      });
+    }
+
+    const row = groups.get(groupId);
+    row.size += 1;
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    const remaining = legacyCounts.get(key) || 0;
+    if (remaining > 0) {
+      row.exact_supported += 1;
+      legacyCounts.set(key, remaining - 1);
+    } else {
+      row.surplus += 1;
+    }
+  }
+
+  const summary = {};
+  for (const row of groups.values()) {
+    const signature = [
+      'distance=' + row.distance,
+      'direction=' + row.direction,
+      'group_size=' + row.size,
+      'source_colors=' + row.source_color_count,
+      'near_prices=' + row.nearby_price_lines,
+      'near_color_rows=' + row.nearby_color_only_lines,
+      'between_price=' + (row.between_has_price ? 'yes' : 'no'),
+      'between_color=' + (row.between_has_color ? 'yes' : 'no'),
+      'between_model=' + (row.between_has_model ? 'yes' : 'no'),
+      'between_condition=' + (row.between_has_condition ? 'yes' : 'no'),
+      'between_unknown=' + row.between_unknown_lines
+    ].join('|');
+    if (!summary[signature]) summary[signature] = { groups: 0, offers: 0, exact_supported: 0, surplus: 0 };
+    summary[signature].groups += 1;
+    summary[signature].offers += row.size;
+    summary[signature].exact_supported += row.exact_supported;
+    summary[signature].surplus += row.surplus;
+  }
+  return summary;
+}
+
 function supplierAwarePairingTraceDiagnostics(legacyBundle, coreBundleInput) {
   const legacyCounts = new Map();
   for (const offer of legacyBundle?.offers || []) {
@@ -750,6 +859,9 @@ const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy,
 const supplierAwarePairingTraceDiagnostic = supplierProfiles.length
   ? supplierAwarePairingTraceDiagnostics(legacySupplierAware, coreBundle)
   : null;
+const supplierAwareExpansionGroupDiagnostic = supplierProfiles.length
+  ? supplierAwareExpansionGroupDiagnostics(legacySupplierAware, coreBundle)
+  : null;
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -775,6 +887,7 @@ const summary = {
   core_records_with_supplier: supplierRecordDiagnostic.records_with_supplier,
   core_records_without_supplier: supplierRecordDiagnostic.records_without_supplier,
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
+  supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
   supplier_aware_silent_wrong_price_by_model:
     reportSupplierAware?.metrics?.silent_wrong_price_by_model ?? null,
   supplier_aware_silent_wrong_price_surplus_trace_by_rule:
