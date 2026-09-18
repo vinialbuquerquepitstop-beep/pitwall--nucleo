@@ -222,6 +222,7 @@ function extractFieldCandidates(segment, schema = {}) {
             score: extractor.score ?? 0.7,
             evidence: {
               kind: 'regex',
+              extractor_id: extractor.id || null,
               pattern: extractor.pattern,
               match_mode: matchMode,
               occurrence: occurrence + 1,
@@ -536,6 +537,19 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       const sources = [];
       const targets = [];
 
+      let fallbackMaxDistance = policy.fallback_max_distance;
+      const byExtractor = policy.fallback_max_distance_by_anchor_extractor || {};
+      const anchorCandidates = out[start]?.field_candidates || [];
+      for (const candidate of anchorCandidates) {
+        const extractorId = candidate.evidence?.extractor_id;
+        if (!extractorId) continue;
+        const override = byExtractor[extractorId];
+        if (!Number.isFinite(Number(override))) continue;
+        fallbackMaxDistance = Number.isFinite(Number(fallbackMaxDistance))
+          ? Math.min(Number(fallbackMaxDistance), Number(override))
+          : Number(override);
+      }
+
       for (let index = start; index < end; index += 1) {
         const segment = out[index];
         const sourceCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
@@ -595,8 +609,8 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
         if (!ranked.length) continue;
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
-        if (Number.isFinite(Number(policy.fallback_max_distance))
-            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
+        if (Number.isFinite(Number(fallbackMaxDistance))
+            && ranked[0].distance > Number(fallbackMaxDistance)) continue;
         appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
