@@ -2093,6 +2093,99 @@ function locateResidualOffersInSegments(legacyBundle, coreBundle, modelId) {
   };
 }
 
+
+function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle) {
+  const targetModelId = 'iphone_17_256gb';
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+  const modelField = (candidateSchema.fields || []).find(field => field.name === 'model');
+  const capacityField = (candidateSchema.fields || []).find(field => field.name === 'capacity_gb');
+  if (!modelField || !capacityField) throw new Error('what-if 17 256 bare: schema sem model/capacity_gb');
+
+  const excluded = '(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)';
+  modelField.extractors = [...(modelField.extractors || []), {
+    id: 'what_if_17_256_bare_unqualified_model',
+    kind: 'regex',
+    pattern: '^(?!.*\\b' + excluded + '\\b)[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=\\D|$)',
+    flags: 'i',
+    group: 1,
+    transform: 'trim',
+    score: 0.91
+  }];
+
+  capacityField.extractors = [...(capacityField.extractors || []), {
+    id: 'what_if_17_256_bare_unqualified_capacity',
+    kind: 'regex',
+    pattern: '^(?!.*\\b' + excluded + '\\b)[^A-Za-z0-9]{0,12}17\\s+(256)(?:\\s*GB)?(?=\\D|$)',
+    flags: 'i',
+    group: 1,
+    transform: 'integer',
+    score: 0.9
+  }];
+
+  const aliases = Array.isArray(candidateKnowledge.aliases) ? candidateKnowledge.aliases : [];
+  for (const text of ['17 256GB', '17 256']) {
+    if (!aliases.some(alias => alias.kind === 'model' && alias.text === text && alias.target_id === targetModelId)) {
+      aliases.push({ kind: 'model', text, normalized: null, target_id: targetModelId });
+    }
+  }
+  candidateKnowledge.aliases = aliases;
+
+  const candidateBundle = interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: 'real-load-shadow-what-if-17-256-bare-unqualified',
+      content: rawDocument,
+      source: { kind: 'plain_text' }
+    },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+
+  const report = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const reportNoColor = compareSemanticShadow({
+    legacy: legacyBundle,
+    coreBundle: candidateBundle,
+    options: { include_color: false }
+  });
+  const divergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+
+  const baseIds = new Set((baseCoreBundle.records || []).map(record => record.record_id));
+  const added = (candidateBundle.records || [])
+    .filter(record => record.fields?.model?.id === targetModelId && !baseIds.has(record.record_id))
+    .map(record => {
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+      const conditionTrace = (record.trace || []).find(trace => trace.field === 'condition');
+      const colorTrace = (record.trace || []).find(trace => trace.field === 'color');
+      return {
+        core_record_id: record.record_id,
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+        model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+        condition: normFields({fields:record.fields}).condition ?? '(null)',
+        color: normFields({fields:record.fields}).color ?? '(null)',
+        condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
+        color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : []
+      };
+    });
+
+  return {
+    candidate: '17_256_bare_unqualified_header',
+    metrics: {
+      core_offers: report.metrics.core_offers,
+      matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers,
+      extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio,
+      agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio
+    },
+    divergence_categories: divergence.categories,
+    target_model_gap: (divergence.top_model_gaps || []).find(row => row.model === targetModelId) || null,
+    added_target_record_count: added.length,
+    added_target_records: added
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -2237,6 +2330,9 @@ const whatIf15Base128SeminovoDiagnostic = whatIfScopedBase128Shorthand(
 const whatIf17256ImportadoEsimDiagnostic = whatIf17256ImportadoEsimShorthand(
   raw, schema, knowledge, legacy, coreBundle
 );
+const whatIf17256BareUnqualifiedDiagnostic = whatIf17256BareUnqualifiedHeader(
+  raw, schema, knowledge, legacy, coreBundle
+);
 const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
   legacy, coreBundle
 );
@@ -2295,6 +2391,7 @@ const summary = {
   what_if_15_128_lacrado_scoped_until_next_condition: whatIf15Base128LacradoScopedDiagnostic,
   what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic,
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
+  what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
   multi_price_nearest_fallback_risk: multiPriceNearestFallbackRiskDiagnostic
 };
