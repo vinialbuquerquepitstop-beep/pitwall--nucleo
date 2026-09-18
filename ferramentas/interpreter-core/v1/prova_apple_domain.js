@@ -445,6 +445,26 @@ check('pareamento ordinal se abstém quando contagens de linhas diferem', () => 
   assert.ok(result.records.every(record => record.fields.color === undefined));
 });
 
+check('fallback vizinho unico pareia cor quando contagens diferem', () => {
+  const result = run(
+    'apple-nearest-unique',
+    'iPhone 17 256GB Lacrado\nPreto\nR$ 5.299\nOBS\nOBS\nR$ 5.499'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  assert.strictEqual(result.records[1].fields.color, undefined);
+});
+
+check('fallback vizinho unico se abstem em empate de distancia', () => {
+  const result = run(
+    'apple-nearest-tie',
+    'iPhone 17 256GB Lacrado\nR$ 5.199\nPreto\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.ok(result.records.every(record => record.fields.color === undefined));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
