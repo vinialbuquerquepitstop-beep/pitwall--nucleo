@@ -2465,9 +2465,10 @@ function adjudicatedMixedPriceSupplierDiagnostics(reportSupplierAware, bundle) {
 
   return {
     mixed_price_supplier_residuals: mixedCases,
-    source_contradicted_legacy_mixed_price_supplier_pairs: adjudicated,
-    actionable_mixed_price_supplier_residuals: mixedCases - adjudicated,
+    candidate_source_contradicted_legacy_mixed_price_supplier_pairs: adjudicated,
+    remaining_mixed_price_supplier_residuals_before_overlap_resolution: mixedCases - adjudicated,
     unresolved_core_record: unresolvedCoreRecord,
+    adjudication_status: 'evidence_only_overlap_not_proven',
     signatures: Object.entries(signatures)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
@@ -2494,9 +2495,6 @@ function adjudicatedResidualSummary() {
   const contradictedPriceSupplier =
     priceSupplierResidualEvidenceDiagnostic
       ?.source_contradicted_legacy_price_supplier_residuals || 0;
-  const contradictedMixedPriceSupplier =
-    adjudicatedMixedPriceSupplierDiagnostic
-      ?.source_contradicted_legacy_mixed_price_supplier_pairs || 0;
 
   const actionableMissing = Math.max(
     0,
@@ -2505,7 +2503,6 @@ function adjudicatedResidualSummary() {
       - contradictedPureSupplier
       - unsupportedPureCondition
       - contradictedPriceSupplier
-      - contradictedMixedPriceSupplier
   );
   const actionableExtra = Math.max(
     0,
@@ -2514,7 +2511,6 @@ function adjudicatedResidualSummary() {
       - sourceSupportedCoreOnlyFullOffers
       - unsupportedPureCondition
       - contradictedPriceSupplier
-      - contradictedMixedPriceSupplier
   );
 
   return {
@@ -2528,8 +2524,7 @@ function adjudicatedResidualSummary() {
       source_contradicted_legacy_supplier_pairs: contradictedPureSupplier,
       source_supported_core_only_full_offers: sourceSupportedCoreOnlyFullOffers,
       source_unsupported_legacy_pure_condition_pairs: unsupportedPureCondition,
-      source_contradicted_legacy_price_supplier_pairs: contradictedPriceSupplier,
-      source_contradicted_legacy_mixed_price_supplier_pairs: contradictedMixedPriceSupplier
+      source_contradicted_legacy_price_supplier_pairs: contradictedPriceSupplier
     },
     actionable: {
       missing: actionableMissing,
