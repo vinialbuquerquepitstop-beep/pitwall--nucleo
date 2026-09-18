@@ -123,6 +123,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
 
   const mismatchSignatures = {};
   const conditionPairs = {};
+  const conditionPairProvenance = {};
   const modelSummary = new Map();
   const touchModel = model => {
     if (!modelSummary.has(model)) {
@@ -153,7 +154,13 @@ function analyzeDivergences({ legacy, coreBundle }) {
       if (field === 'condition') {
         const legacyCondition = normFields(pair.legacy).condition ?? '(null)';
         const coreCondition = normFields(pair.core).condition ?? '(null)';
-        increment(conditionPairs, `${legacyCondition} -> ${coreCondition}`);
+        const pairKey = `${legacyCondition} -> ${coreCondition}`;
+        increment(conditionPairs, pairKey);
+        const conditionTrace = (pair.core.trace || []).find(trace => trace.field === 'condition');
+        const rules = Array.isArray(conditionTrace?.rules) && conditionTrace.rules.length
+          ? conditionTrace.rules.join('+')
+          : '(no-trace)';
+        increment(conditionPairProvenance, `${pairKey} | ${rules}`);
       }
       if (field === 'price') row.wrong_price_only += 1;
       else row.field_mismatches += 1;
@@ -218,6 +225,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     categories,
     mismatch_signatures: mismatchSignatures,
     condition_pairs: conditionPairs,
+    condition_pair_provenance: conditionPairProvenance,
     ambiguities_by_cause: ambiguitiesByCause,
     ambiguities_by_field: ambiguitiesByField,
     top_model_gaps: topModelGaps
