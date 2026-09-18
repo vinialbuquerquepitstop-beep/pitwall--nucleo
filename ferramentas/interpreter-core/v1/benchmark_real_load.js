@@ -699,22 +699,35 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
         between_unknown_lines: between.filter(segment =>
           (segment.role_candidates || [])[0]?.role === 'unknown'
         ).length,
-        color_offsets: []
+        color_offsets: [],
+        offset_quality: {}
       });
     }
 
     const row = groups.get(groupId);
     row.size += 1;
-    if (Number.isFinite(colorLine) && Number.isFinite(priceLine)) {
-      row.color_offsets.push(colorLine - priceLine);
-    }
+    const offset = Number.isFinite(colorLine) && Number.isFinite(priceLine)
+      ? colorLine - priceLine
+      : null;
+    if (offset != null) row.color_offsets.push(offset);
+
     const key = offerKey(offer.fields || {}, { include_supplier: true });
     const remaining = legacyCounts.get(key) || 0;
+    const qualityKey = offset == null
+      ? 'offset=unknown'
+      : 'offset=' + (offset < 0 ? 'before' : offset > 0 ? 'after' : 'same') + ':d' + Math.abs(offset);
+    if (!row.offset_quality[qualityKey]) {
+      row.offset_quality[qualityKey] = { total: 0, exact_supported: 0, surplus: 0 };
+    }
+    row.offset_quality[qualityKey].total += 1;
+
     if (remaining > 0) {
       row.exact_supported += 1;
+      row.offset_quality[qualityKey].exact_supported += 1;
       legacyCounts.set(key, remaining - 1);
     } else {
       row.surplus += 1;
+      row.offset_quality[qualityKey].surplus += 1;
     }
   }
 
@@ -722,6 +735,7 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
   const byModel = {};
   const byModelSupplier = {};
   const bySupplierDirection = {};
+  const bySupplierMixedOffset = {};
   const directionClass = offsets => {
     const hasBefore = offsets.some(value => value < 0);
     const hasAfter = offsets.some(value => value > 0);
@@ -761,12 +775,25 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
     const direction = directionClass(row.color_offsets);
     const supplierDirectionKey = 'supplier=' + row.supplier_id + '|direction=' + direction;
     add(bySupplierDirection, supplierDirectionKey);
+
+    if (direction === 'mixed') {
+      for (const [offsetKey, quality] of Object.entries(row.offset_quality || {})) {
+        const key = 'supplier=' + row.supplier_id + '|mixed|' + offsetKey;
+        if (!bySupplierMixedOffset[key]) {
+          bySupplierMixedOffset[key] = { total: 0, exact_supported: 0, surplus: 0 };
+        }
+        bySupplierMixedOffset[key].total += quality.total;
+        bySupplierMixedOffset[key].exact_supported += quality.exact_supported;
+        bySupplierMixedOffset[key].surplus += quality.surplus;
+      }
+    }
   }
   return {
     aggregate: summary,
     by_model: byModel,
     by_model_supplier: byModelSupplier,
-    by_supplier_direction: bySupplierDirection
+    by_supplier_direction: bySupplierDirection,
+    by_supplier_mixed_offset: bySupplierMixedOffset
   };
 }
 
