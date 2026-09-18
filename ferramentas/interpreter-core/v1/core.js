@@ -230,6 +230,8 @@ function extractFieldCandidates(segment, schema = {}) {
               line_number: segment.line_number,
               raw: segment.raw,
               extractor_input: extractor.input || 'segment',
+              extractor_id: extractor.id || null,
+              context_expire_on_field_declaration: extractor.context_expire_on_field_declaration || null,
               captured: match[0]
             }
           });
@@ -377,6 +379,30 @@ function buildContextTrace(segments, schema = {}) {
         boundary_id: boundary.id || null,
         fields: cleared,
         preserved_fields: Object.keys(preserved)
+      });
+    }
+
+    const declaredFields = new Set((fieldCandidates || []).map(candidate => candidate.field));
+    for (const [contextField, entry] of Object.entries(context)) {
+      if (!entry || Number(entry.source_line) === Number(segment.line_number)) continue;
+
+      const configured = entry.evidence?.context_expire_on_field_declaration;
+      const expireOnFields = Array.isArray(configured)
+        ? configured
+        : configured
+          ? [configured]
+          : [];
+
+      const matchedField = expireOnFields.find(fieldName => declaredFields.has(fieldName));
+      if (!matchedField) continue;
+
+      delete context[contextField];
+      events.push({
+        type: 'reset',
+        reason: 'scoped_context_expired',
+        field: contextField,
+        triggered_by_field: matchedField,
+        source_line: entry.source_line
       });
     }
 

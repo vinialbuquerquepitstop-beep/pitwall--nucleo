@@ -120,6 +120,18 @@
     },
     {
       "kind": "model",
+      "text": "15 128GB",
+      "normalized": null,
+      "target_id": "iphone_15_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "15 128",
+      "normalized": null,
+      "target_id": "iphone_15_128gb"
+    },
+    {
+      "kind": "model",
       "text": "iPhone 15 128",
       "normalized": null,
       "target_id": "iphone_15_128gb"

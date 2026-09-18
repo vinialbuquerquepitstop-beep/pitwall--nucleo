@@ -625,9 +625,8 @@ check('shorthand 16 Pro Max 256 sem CPO permanece desativado', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
-check('shorthands improdutivos permanecem desativados', () => {
+check('shorthands improdutivos 16e e 17e permanecem desativados', () => {
   for (const [id, header] of [
-    ['15', '15 128GB Lacrado'],
     ['16e', '16e 128GB Lacrado'],
     ['17e', '17e 256GB Lacrado']
   ]) {
@@ -645,10 +644,33 @@ check('shorthand produtivo 17 Air continua habilitado', () => {
   assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_air_256gb');
 });
 
-check('shorthand improdutivo 15 128 permanece desativado', () => {
+check('shorthand 15 128 Lacrado resolve apenas o primeiro escopo', () => {
   const result = run(
-    'apple-unproductive-shorthand-15',
-    '15 128GB Lacrado\nPreto R$ 3.799'
+    'apple-scoped-shorthand-15-128-lacrado',
+    '15 128GB Lacrado\nPreto\nAzul\nR$ 3.799\nLacrado\nBranco\nR$ 3.899'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_15_128gb'));
+  assert.ok(result.records.every(record => record.fields.capacity_gb === 128));
+  assert.ok(result.records.every(record => record.fields.condition === 'Lacrado'));
+  assert.ok(result.records.every(record => record.fields.price === 3799));
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Azul', 'Preto']
+  );
+  assert.ok(result.segments.some(segment =>
+    (segment.context_events || []).some(event =>
+      event.reason === 'scoped_context_expired' &&
+      event.field === 'model' &&
+      event.triggered_by_field === 'condition'
+    )
+  ));
+});
+
+check('shorthand 15 128 sem Lacrado no anchor permanece desativado', () => {
+  const result = run(
+    'apple-scoped-shorthand-15-128-without-lacrado',
+    '15 128GB Seminovo\nPreto R$ 3.799'
   );
   assert.strictEqual(result.records.length, 0);
 });
