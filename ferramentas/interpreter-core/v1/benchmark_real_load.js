@@ -603,6 +603,99 @@ function localHeader17256Diagnostics(bundle) {
 }
 
 
+function localHeader15128Diagnostics(bundle) {
+  const segments = bundle.segments || [];
+  const records = bundle.records || [];
+  const headers = [];
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const normalized = String(segment.normalized || '');
+    if (/iphone/i.test(normalized)) continue;
+    if (!/^[^A-Za-z0-9]{0,12}15\s+128(?:\s*GB)?(?=\D|$)/i.test(normalized)) continue;
+
+    let end = segments.length;
+    for (let j = index + 1; j < segments.length; j += 1) {
+      const next = segments[j];
+      const boundary = (next.context_events || []).some(event =>
+        event.reason === 'product_header_boundary' ||
+        event.reason === 'timestamp_boundary' ||
+        event.reason === 'domain_boundary'
+      );
+      if (boundary) { end = j; break; }
+    }
+
+    const block = segments.slice(index, end);
+    const blockLines = new Set(block.map(s => Number(s.line_number)));
+    const conditions = distinctFieldValues(segment, 'condition').map(value => JSON.parse(value));
+    const modelCandidates = (segment.field_candidates || [])
+      .filter(candidate => candidate.field === 'model')
+      .map(candidate => String(candidate.value));
+    const semanticModels = (segment.semantic_candidates || [])
+      .filter(candidate => candidate.field === 'model')
+      .map(candidate => ({ state: candidate.state, entity_id: candidate.entity_id || null }));
+
+    const priceRows = [];
+    let colorOnlyRows = 0;
+    for (const blockSegment of block) {
+      const prices = distinctFieldValues(blockSegment, 'price');
+      const colors = distinctFieldValues(blockSegment, 'color');
+      const rowConditions = distinctFieldValues(blockSegment, 'condition').map(value => JSON.parse(value));
+      if (prices.length > 0) {
+        priceRows.push({
+          line: blockSegment.line_number,
+          price_count: prices.length,
+          direct_color_count: colors.length,
+          direct_conditions: rowConditions,
+          inherited_condition: blockSegment.inherited_context?.condition
+            ? {
+                value: blockSegment.inherited_context.condition.value,
+                source_line: blockSegment.inherited_context.condition.source_line
+              }
+            : null
+        });
+      }
+      if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(blockSegment, 'color')) {
+        colorOnlyRows += 1;
+      }
+    }
+
+    const blockRecords = records.filter(record => {
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      const line = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+      return line != null && blockLines.has(line);
+    });
+
+    headers.push({
+      line: segment.line_number,
+      has_lacrado: /\blacrad[oa]s?\b/i.test(normalized),
+      has_cpo: /\bcpo\b/i.test(normalized),
+      has_seminovo: /\bseminov[oa]s?\b/i.test(normalized),
+      has_nacional: /\bnacional\b/i.test(normalized),
+      has_nf: /(?:^|\s)nf(?:\s|$)/i.test(normalized),
+      has_importado: /\bimportad[oa]s?\b/i.test(normalized),
+      has_esim: /\be\s*sim\b|\besim\b/i.test(normalized),
+      has_chip_fisico: /\bchip\s+f[ií]sico\b/i.test(normalized),
+      has_chip_virtual: /\bchip\s+virtual\b/i.test(normalized),
+      direct_conditions: conditions,
+      model_candidates: modelCandidates,
+      semantic_models: semanticModels,
+      block_segment_count: block.length,
+      price_rows: priceRows,
+      color_only_rows: colorOnlyRows,
+      materialized_records: blockRecords.length,
+      materialized_15_128: blockRecords.filter(record => record.fields?.model?.id === 'iphone_15_128gb').length
+    });
+  }
+
+  return {
+    header_count: headers.length,
+    unresolved_header_count: headers.filter(header => header.semantic_models.length === 0).length,
+    headers
+  };
+}
+
+
 function targetModelBlockDiagnostics(bundle, modelId) {
   const segments = bundle.segments || [];
   const records = bundle.records || [];
@@ -1685,6 +1778,7 @@ const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle)
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
+const localHeader15128Diagnostic = localHeader15128Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
 const target16128Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_128gb');
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
@@ -1758,6 +1852,7 @@ const summary = {
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
+  local_header_15_128_diagnostic: localHeader15128Diagnostic,
   target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic,
   target_16_128_diagnostic: target16128Diagnostic,
   target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic,
