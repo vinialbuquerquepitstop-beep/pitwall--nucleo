@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.5.0-ordered-pairing-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.5.1-context-scope-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -292,10 +292,16 @@ function buildContextTrace(segments, schema = {}) {
       ? schema.context_policy.preserve_on_anchor
       : []
   );
+  const preserveOnTimestamp = new Set(
+    Array.isArray(schema.context_policy?.preserve_on_timestamp)
+      ? schema.context_policy.preserve_on_timestamp
+      : []
+  );
   const policy = {
     reset_on_timestamp: schema.context_policy?.reset_on_timestamp !== false,
     anchor_resets_other_context: schema.context_policy?.anchor_resets_other_context !== false,
-    preserve_on_anchor: preserveOnAnchor
+    preserve_on_anchor: preserveOnAnchor,
+    preserve_on_timestamp: preserveOnTimestamp
   };
   let context = {};
 
@@ -305,9 +311,19 @@ function buildContextTrace(segments, schema = {}) {
     const fieldCandidates = extractFieldCandidates(segment, schema);
 
     if (policy.reset_on_timestamp && isTimestampLine(segment.normalized)) {
-      const cleared = Object.keys(context);
-      context = {};
-      events.push({ type: 'reset', reason: 'timestamp_boundary', fields: cleared });
+      const preserved = {};
+      const cleared = [];
+      for (const [field, value] of Object.entries(context)) {
+        if (policy.preserve_on_timestamp.has(field)) preserved[field] = value;
+        else cleared.push(field);
+      }
+      context = preserved;
+      events.push({
+        type: 'reset',
+        reason: 'timestamp_boundary',
+        fields: cleared,
+        preserved_fields: Object.keys(preserved)
+      });
     }
 
     let domainBoundaryOpened = false;
