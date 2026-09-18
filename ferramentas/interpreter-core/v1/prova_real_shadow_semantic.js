@@ -101,7 +101,28 @@ function ok(value, message) {
   eq(relaxed.metrics.exact_multiset, true, 'modo diagnostico pode ignorar cor');
 }
 
-// 4. condicao canonicaliza plural sem esconder diferenca semantica
+// 4. diferenca de cor + preco no mesmo modelo nao pode virar falso positivo de preco silencioso
+{
+  const l = legacy([legacyOffer('l1', 'iphone_17_256gb', 'Lacrado', 'Azul', 5000)]);
+  const c = core([coreRecord('c1', 'iphone_17_256gb', 'Lacrado', 'Preto', 5100)]);
+  const r = compareSemanticShadow({ legacy: l, coreBundle: c });
+  eq(r.gates.no_silent_wrong_price, true, 'identidade diferente nao e substituicao silenciosa de preco');
+  eq(r.metrics.silent_wrong_price_substitutions, 0, 'sem substituicao na mesma identidade');
+}
+
+// 5. oferta extra na mesma identidade nao e preco substituido se o preco legado continua presente
+{
+  const l = legacy([legacyOffer('l1', 'iphone_17_256gb', 'Lacrado', 'Azul', 5000)]);
+  const c = core([
+    coreRecord('c1', 'iphone_17_256gb', 'Lacrado', 'Azul', 5000),
+    coreRecord('c2', 'iphone_17_256gb', 'Lacrado', 'Azul', 5100)
+  ]);
+  const r = compareSemanticShadow({ legacy: l, coreBundle: c });
+  eq(r.gates.no_silent_wrong_price, true, 'extra deve ser tratado como extra, nao como troca silenciosa');
+  eq(r.metrics.extra_offers, 1, 'extra continua visivel');
+}
+
+// 6. condicao canonicaliza plural sem esconder diferenca semantica
 {
   const l = legacy([legacyOffer('l1', 'iphone_13_pro_128gb', 'Lacrados', 'Azul', 3000, 128)]);
   const c = core([coreRecord('c1', 'iphone_13_pro_128gb', 'Lacrado', 'Azul', 3000, 128)]);
@@ -109,7 +130,7 @@ function ok(value, message) {
   eq(r.metrics.exact_multiset, true, 'plural de condicao canonicalizado');
 }
 
-// 5. modelo a mais e modelo ausente permanecem visiveis no resumo
+// 7. modelo a mais e modelo ausente permanecem visiveis no resumo
 {
   const l = legacy([legacyOffer('l1', 'iphone_17_air_256gb', 'Lacrado', 'Gold', 5600)]);
   const c = core([coreRecord('c1', 'iphone_17e_256gb', 'Lacrado', 'Gold', 5600)]);
