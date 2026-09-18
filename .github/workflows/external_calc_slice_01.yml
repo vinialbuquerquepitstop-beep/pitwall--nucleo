@@ -1,0 +1,42 @@
+name: External Calc — Slice 01 Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-slice-01-analysis-v0
+    paths:
+      - "prototypes/external-calc-frontend-v0/**"
+      - "docs/calculadora/mocks/external-calc-workspace-v0.json"
+      - "ferramentas/gate_external_calc_slice_01.js"
+      - ".github/workflows/external_calc_slice_01.yml"
+  pull_request:
+    paths:
+      - "prototypes/external-calc-frontend-v0/**"
+      - "docs/calculadora/mocks/external-calc-workspace-v0.json"
+      - "ferramentas/gate_external_calc_slice_01.js"
+      - ".github/workflows/external_calc_slice_01.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  slice-01-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: JavaScript syntax
+        run: |
+          node --check prototypes/external-calc-frontend-v0/mock-data.js
+          node --check prototypes/external-calc-frontend-v0/app.js
+          node --check ferramentas/gate_external_calc_slice_01.js
+
+      - name: Slice 01 contract and isolation gate
+        run: node ferramentas/gate_external_calc_slice_01.js
