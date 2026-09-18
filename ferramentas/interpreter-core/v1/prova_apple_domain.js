@@ -570,6 +570,22 @@ check('shorthand fora do dominio continua sem materializar oferta', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
+check('shorthand arriscado 16 128 permanece desativado', () => {
+  const result = run(
+    'apple-safe-shorthand-exclude-16',
+    '16 128GB Lacrado\nPreto R$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
+check('shorthand arriscado 16 Pro Max 256 permanece desativado', () => {
+  const result = run(
+    'apple-safe-shorthand-exclude-16pm',
+    '16 Pro Max 256GB CPO\nPreto R$ 6.100'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
