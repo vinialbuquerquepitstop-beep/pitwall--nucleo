@@ -5170,6 +5170,201 @@ const residualAdjudicationLedgerStrictPairDominanceSimulation =
     }
   );
 
+
+function simulateSameGenerationVariantConditionGuard(bundle) {
+  const simulated = JSON.parse(JSON.stringify(bundle));
+  const segments = simulated.segments || [];
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
+  const conditionValueMap =
+    schema.fields.find(item => item.name === 'condition')?.value_map || {};
+
+  const sourceLine = (record, field) => {
+    const trace = (record.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const supplierAtSegment = segment => {
+    if (!segment) return null;
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+  const resolvedModelIds = segment => [...new Set(
+    (segment?.semantic_candidates || [])
+      .filter(candidate =>
+        candidate.field === 'model' &&
+        candidate.entity_id &&
+        (candidate.state === 'interpreted' || candidate.state === 'inferred')
+      )
+      .map(candidate => candidate.entity_id)
+  )];
+  const modelGeneration = modelId => {
+    const match = /^iphone_(\d+)/.exec(String(modelId || ''));
+    return match ? match[1] : null;
+  };
+  const modelVariantClass = modelId => {
+    const id = String(modelId || '');
+    if (/_pro_max_/.test(id)) return 'pro_max';
+    if (/_pro_/.test(id)) return 'pro';
+    if (/_air_/.test(id)) return 'air';
+    if (/^iphone_\d+e_/.test(id)) return 'e';
+    if (/_plus_/.test(id)) return 'plus';
+    if (/_mini_/.test(id)) return 'mini';
+    return id ? 'base' : null;
+  };
+  const canonicalCondition = value =>
+    conditionValueMap[value] || conditionValueMap[String(value)] || value;
+  const pathHasHardBoundary = (fromLine, toLine) => {
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return true;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    return segments.some(segment => {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) return false;
+      return (segment.context_events || []).some(event =>
+        event.reason === 'supplier_boundary' ||
+        event.reason === 'timestamp_boundary'
+      );
+    });
+  };
+  const sourceConflictsWithTargetVariant = (segment, targetModel) => {
+    const sourceModels = resolvedModelIds(segment);
+    if (!sourceModels.length || !targetModel) return false;
+    const targetGeneration = modelGeneration(targetModel);
+    const targetVariant = modelVariantClass(targetModel);
+    if (!targetGeneration || !targetVariant) return false;
+    const sourceGenerations = [...new Set(
+      sourceModels.map(modelGeneration).filter(Boolean)
+    )];
+    const sourceVariants = [...new Set(
+      sourceModels.map(modelVariantClass).filter(Boolean)
+    )];
+    return sourceGenerations.length > 0 &&
+      sourceGenerations.every(value => value === targetGeneration) &&
+      sourceVariants.length > 0 &&
+      sourceVariants.every(value => value !== targetVariant);
+  };
+
+  let candidates = 0;
+  let replaced = 0;
+  let cleared = 0;
+  const byModel = {};
+  const fallbackByCondition = {};
+
+  for (const record of simulated.records || []) {
+    const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
+    if (!conditionTrace || !(conditionTrace.rules || []).includes('context_inheritance')) continue;
+
+    const conditionLine = sourceLine(record, 'condition');
+    const priceLine = sourceLine(record, 'price');
+    if (!Number.isFinite(conditionLine) || !Number.isFinite(priceLine)) continue;
+
+    const sourceSegment = segmentByLine.get(conditionLine);
+    const targetModel = record.fields?.model?.id || null;
+    if (!sourceConflictsWithTargetVariant(sourceSegment, targetModel)) continue;
+
+    candidates += 1;
+    byModel[targetModel] = (byModel[targetModel] || 0) + 1;
+
+    const targetSupplier = record.fields?.supplier == null
+      ? null
+      : String(record.fields.supplier);
+
+    const fallbacks = [];
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!Number.isFinite(line) || line >= priceLine) continue;
+      if (line === conditionLine) continue;
+      if (pathHasHardBoundary(line, priceLine)) continue;
+
+      const sourceSupplier = supplierAtSegment(segment);
+      if (targetSupplier != null && sourceSupplier != null &&
+          String(sourceSupplier) !== targetSupplier) {
+        continue;
+      }
+      if (sourceConflictsWithTargetVariant(segment, targetModel)) continue;
+
+      const conditions = uniqueFieldCandidates(
+        segment.field_candidates || [],
+        'condition'
+      );
+      if (conditions.length !== 1) continue;
+
+      fallbacks.push({
+        line,
+        distance: priceLine - line,
+        candidate: conditions[0]
+      });
+    }
+
+    fallbacks.sort((a, b) => a.distance - b.distance || b.line - a.line);
+    const fallback = fallbacks[0] || null;
+    const priorCondition = record.fields?.condition ?? null;
+
+    if (fallback) {
+      const nextCondition = canonicalCondition(fallback.candidate.value);
+      record.fields.condition = nextCondition;
+      const traceIndex = (record.trace || []).findIndex(item => item.field === 'condition');
+      if (traceIndex >= 0) {
+        record.trace[traceIndex] = {
+          ...record.trace[traceIndex],
+          chosen: nextCondition,
+          sources: [fallback.line],
+          derived_from: [fallback.line],
+          rules: ['diagnostic:variant_guard_fallback'],
+          score: fallback.candidate.score ?? record.trace[traceIndex].score ?? null
+        };
+      }
+      replaced += 1;
+      const key = String(priorCondition ?? 'null') + '->' + String(nextCondition ?? 'null');
+      fallbackByCondition[key] = (fallbackByCondition[key] || 0) + 1;
+    } else {
+      record.fields.condition = null;
+      record.trace = (record.trace || []).filter(item => item.field !== 'condition');
+      cleared += 1;
+      const key = String(priorCondition ?? 'null') + '->null';
+      fallbackByCondition[key] = (fallbackByCondition[key] || 0) + 1;
+    }
+  }
+
+  return {
+    bundle: simulated,
+    candidates,
+    replaced,
+    cleared,
+    by_model: byModel,
+    fallback_by_condition: fallbackByCondition
+  };
+}
+
+const conditionSameGenerationVariantGuard =
+  simulateSameGenerationVariantConditionGuard(coreBundle);
+const conditionSameGenerationVariantGuardReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: conditionSameGenerationVariantGuard.bundle,
+  options: { include_supplier: true }
+});
+const conditionSameGenerationVariantGuardLedger =
+  buildResidualAdjudicationLedger(
+    conditionSameGenerationVariantGuardReport,
+    conditionSameGenerationVariantGuard.bundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true
+    }
+  );
+
 function exactSupportedConditionTopologyDiagnostics(bundle) {
   const legacyCounts = new Map();
   for (const offer of legacySupplierAware?.offers || []) {
@@ -7707,6 +7902,36 @@ const summary = {
   residual_adjudication_ledger: residualAdjudicationLedger,
   residual_adjudication_ledger_strict_pair_dominance_simulation: residualAdjudicationLedgerStrictPairDominanceSimulation,
   condition_confidence_horizon_simulations: conditionConfidenceHorizonDiagnostics,
+  condition_same_generation_variant_guard_simulation: {
+    candidates: conditionSameGenerationVariantGuard.candidates,
+    replaced: conditionSameGenerationVariantGuard.replaced,
+    cleared: conditionSameGenerationVariantGuard.cleared,
+    by_model: conditionSameGenerationVariantGuard.by_model,
+    fallback_by_condition: conditionSameGenerationVariantGuard.fallback_by_condition,
+    core_offers: conditionSameGenerationVariantGuardReport.metrics.core_offers,
+    matched_offers: conditionSameGenerationVariantGuardReport.metrics.matched_offers,
+    missing_offers: conditionSameGenerationVariantGuardReport.metrics.missing_offers,
+    extra_offers: conditionSameGenerationVariantGuardReport.metrics.extra_offers,
+    agreement_ratio: conditionSameGenerationVariantGuardReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price:
+      conditionSameGenerationVariantGuardReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution:
+      conditionSameGenerationVariantGuardReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price:
+      conditionSameGenerationVariantGuardReport.gates.no_silent_wrong_price,
+    price_attribution_resolved:
+      conditionSameGenerationVariantGuardReport.gates.price_attribution_resolved,
+    exact_multiset:
+      conditionSameGenerationVariantGuardReport.gates.exact_multiset,
+    actionable_residual:
+      conditionSameGenerationVariantGuardLedger?.actionable?.total_residual ?? null,
+    actionable_missing:
+      conditionSameGenerationVariantGuardLedger?.actionable?.missing ?? null,
+    actionable_extra:
+      conditionSameGenerationVariantGuardLedger?.actionable?.extra ?? null,
+    ledger_integrity:
+      conditionSameGenerationVariantGuardLedger?.integrity?.pass === true
+  },
   exact_supported_condition_topology_diagnostic: exactSupportedConditionTopologyDiagnostic,
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
