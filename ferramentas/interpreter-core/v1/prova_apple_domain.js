@@ -739,4 +739,39 @@ check('supressao de emissao nao bloqueia linha com moeda textual', () => {
   assert.strictEqual(result.records[0].fields.price, 5999);
 });
 
+
+check('supressao por distancia herdada bloqueia preco duas linhas apos modelo', () => {
+  const result = run(
+    'apple-distance-two-record-suppression',
+    'iPhone 15 128GB Lacrado\nobservação\nR$ 5.999 no pix'
+  );
+  const priceSegment = result.segments.find(segment => segment.raw.includes('5.999'));
+  assert.ok(priceSegment);
+  assert.strictEqual(priceSegment.role_candidates?.[0]?.role, 'price_line');
+  assert.strictEqual(priceSegment.inherited_context?.model?.source_line, 1);
+  assert.strictEqual(priceSegment.line_number - priceSegment.inherited_context.model.source_line, 2);
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(item => item.cause === 'record_emission_suppressed'));
+});
+
+check('supressao por distancia herdada preserva preco adjacente ao modelo', () => {
+  const result = run(
+    'apple-distance-one-record-preserved',
+    'iPhone 15 128GB Lacrado\nR$ 5.999 no pix'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_15_128gb');
+  assert.strictEqual(result.records[0].fields.price, 5999);
+});
+
+check('supressao por distancia herdada preserva linha com cor direta', () => {
+  const result = run(
+    'apple-distance-two-color-preserved',
+    'iPhone 15 128GB Lacrado\nobservação\nR$ 5.999 Preto'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5999);
+});
+
 console.log(`PASSOU: ${ok} assercoes Apple`);
