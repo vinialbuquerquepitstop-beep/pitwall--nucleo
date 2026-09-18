@@ -4337,6 +4337,103 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       (remainingExtraConditionTopology[signature] || 0) + 1;
   }
 
+  const remainingPairEvidence = {};
+  {
+    const usedExtraForEvidence = new Set();
+    for (const missingIndex of remainingMissingIndexes) {
+      const expected = norm(missing[missingIndex]);
+      let best = null;
+      for (const extraIndex of remainingExtraIndexes) {
+        if (usedExtraForEvidence.has(extraIndex)) continue;
+        const actual = norm(extras[extraIndex]);
+        if (actual.model !== expected.model) continue;
+        const diffs = diffFields(expected, actual);
+        if (!best || diffs.length < best.diffs.length || (
+          diffs.length === best.diffs.length && extraIndex < best.extraIndex
+        )) {
+          best = { extraIndex, diffs, actual };
+        }
+      }
+      if (!best) continue;
+      usedExtraForEvidence.add(best.extraIndex);
+
+      const record = extraRecords[best.extraIndex];
+      if (!record) continue;
+      const priceLine = sourceLine(record, 'price');
+      const actualFieldLocal = field => {
+        if (field === 'price') {
+          const trace = (record.trace || []).find(item => item.field === 'price');
+          return Number.isFinite(priceLine) && (trace?.rules || []).includes('direct_extraction');
+        }
+        if (field === 'supplier') {
+          const line = sourceLine(record, 'supplier');
+          const boundaries = pathBoundaries(line, priceLine);
+          return Number.isFinite(line) &&
+            !boundaries.has('supplier') &&
+            !boundaries.has('timestamp');
+        }
+        if (field === 'color') return isLocalField(record, 'color', priceLine, 3);
+        if (field === 'condition') return isLocalField(record, 'condition', priceLine, 6);
+        return true;
+      };
+
+      const expectedFieldLocal = field => {
+        if (!Number.isFinite(priceLine)) return false;
+        if (field === 'price') {
+          return segments.some(segment =>
+            supplierAt(segment) === expected.supplier &&
+            Number(segment.line_number) === priceLine &&
+            (segment.field_candidates || []).some(candidate =>
+              candidate.field === 'price' && Number(candidate.value) === expected.price
+            )
+          );
+        }
+        if (field === 'supplier') {
+          return supplierAt(segmentByLine.get(priceLine)) === expected.supplier;
+        }
+        const maxDistance = field === 'color' ? 3 : 6;
+        const expectedValue = expected[field];
+        if (expectedValue == null) return true;
+        return segments.some(segment => {
+          const line = Number(segment.line_number);
+          if (!Number.isFinite(line) || Math.abs(priceLine - line) > maxDistance) return false;
+          const boundaries = pathBoundaries(line, priceLine);
+          if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+          if (supplierAt(segment) !== expected.supplier) return false;
+          return (segment.field_candidates || []).some(candidate =>
+            candidateMatchesExpected(candidate, field, expectedValue)
+          );
+        });
+      };
+
+      const evidenceParts = [];
+      let coreWins = 0;
+      let legacyWins = 0;
+      let ties = 0;
+      for (const field of best.diffs) {
+        const coreLocal = actualFieldLocal(field);
+        const legacyLocal = expectedFieldLocal(field);
+        if (coreLocal && !legacyLocal) coreWins += 1;
+        else if (!coreLocal && legacyLocal) legacyWins += 1;
+        else ties += 1;
+        evidenceParts.push(
+          field + ':core=' + (coreLocal ? 'local' : 'nonlocal') +
+          ':legacy=' + (legacyLocal ? 'local' : 'nonlocal')
+        );
+      }
+
+      const signature = [
+        'model=' + expected.model,
+        'diffs=' + best.diffs.slice().sort().join('+'),
+        'core_wins=' + coreWins,
+        'legacy_wins=' + legacyWins,
+        'ties=' + ties,
+        ...evidenceParts
+      ].join('|');
+      remainingPairEvidence[signature] = (remainingPairEvidence[signature] || 0) + 1;
+    }
+  }
+
   const remainingPairSignatures = {};
   const usedRemainingExtra = new Set();
   for (const missingIndex of remainingMissingIndexes) {
@@ -4397,6 +4494,9 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
       extra_condition_topology: Object.entries(remainingExtraConditionTopology)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      remaining_pair_evidence: Object.entries(remainingPairEvidence)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
     },
