@@ -682,6 +682,10 @@ const summary = {
   silent_wrong_price_identities: report.metrics.silent_wrong_price_identities,
   silent_wrong_price_by_model: report.metrics.silent_wrong_price_by_model,
   silent_wrong_price_surplus_trace_by_rule: report.metrics.silent_wrong_price_surplus_trace_by_rule,
+  silent_wrong_price_supplier_cardinality_by_model: report.metrics.silent_wrong_price_supplier_cardinality_by_model,
+  silent_wrong_price_single_supplier_identity: report.metrics.silent_wrong_price_single_supplier_identity,
+  silent_wrong_price_multi_supplier_identity: report.metrics.silent_wrong_price_multi_supplier_identity,
+  silent_wrong_price_unknown_supplier_identity: report.metrics.silent_wrong_price_unknown_supplier_identity,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
