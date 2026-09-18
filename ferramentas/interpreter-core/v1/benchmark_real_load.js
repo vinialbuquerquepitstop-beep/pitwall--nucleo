@@ -2233,14 +2233,25 @@ function adjudicatedResidualSummary() {
   const unsupportedPureCondition =
     sourceUnsupportedLegacyPureConditionDiagnostic
       ?.source_unsupported_legacy_condition_residuals || 0;
+  const contradictedPriceSupplier =
+    priceSupplierResidualEvidenceDiagnostic
+      ?.source_contradicted_legacy_price_supplier_residuals || 0;
 
   const actionableMissing = Math.max(
     0,
-    rawMissing - contradictedMissing - contradictedPureSupplier - unsupportedPureCondition
+    rawMissing
+      - contradictedMissing
+      - contradictedPureSupplier
+      - unsupportedPureCondition
+      - contradictedPriceSupplier
   );
   const actionableExtra = Math.max(
     0,
-    rawExtra - contradictedPureSupplier - sourceSupportedCoreOnlyFullOffers - unsupportedPureCondition
+    rawExtra
+      - contradictedPureSupplier
+      - sourceSupportedCoreOnlyFullOffers
+      - unsupportedPureCondition
+      - contradictedPriceSupplier
   );
 
   return {
@@ -2253,7 +2264,8 @@ function adjudicatedResidualSummary() {
       source_contradicted_legacy_missing: contradictedMissing,
       source_contradicted_legacy_supplier_pairs: contradictedPureSupplier,
       source_supported_core_only_full_offers: sourceSupportedCoreOnlyFullOffers,
-      source_unsupported_legacy_pure_condition_pairs: unsupportedPureCondition
+      source_unsupported_legacy_pure_condition_pairs: unsupportedPureCondition,
+      source_contradicted_legacy_price_supplier_pairs: contradictedPriceSupplier
     },
     actionable: {
       missing: actionableMissing,
