@@ -742,11 +742,30 @@ function pureColorResidualTopologyDiagnostics(reportSupplierAware, bundle) {
       for (const candidate of segment.field_candidates || []) {
         if (candidate.field !== 'color') continue;
         if (canonicalColor(candidate.value) !== expectedColor) continue;
+        const fieldNames = [...new Set(
+          (segment.field_candidates || []).map(item => item.field).filter(Boolean)
+        )].sort();
+        const otherFields = fieldNames.filter(name => name !== 'color');
+        const topRole = segment.role_candidates?.[0]?.role || 'unknown';
+        const normalized = String(segment.normalized || '').trim();
+        const captured = String(candidate.evidence?.captured || candidate.value || '');
+        const lowerNormalized = normalized.toLocaleLowerCase('pt-BR');
+        const lowerCaptured = captured.toLocaleLowerCase('pt-BR');
+        const capturedIndex = lowerCaptured ? lowerNormalized.indexOf(lowerCaptured) : -1;
+        const leftover = capturedIndex >= 0
+          ? (normalized.slice(0, capturedIndex) + ' ' + normalized.slice(capturedIndex + captured.length)).trim()
+          : normalized;
+        const leftoverTokens = leftover
+          ? leftover.split(/\s+/).filter(Boolean).length
+          : 0;
         candidates.push({
           line,
           direction: line < recordLine ? 'before' : line > recordLine ? 'after' : 'same',
           distance: Math.abs(recordLine - line),
-          field_only: isFieldOnlySegment(segment, 'color')
+          field_only: isFieldOnlySegment(segment, 'color'),
+          other_fields: otherFields,
+          top_role: topRole,
+          leftover_tokens: leftoverTokens
         });
       }
     }
@@ -777,6 +796,9 @@ function pureColorResidualTopologyDiagnostics(reportSupplierAware, bundle) {
       'core=' + (coreColor || 'null'),
       'nearest_same_supplier=' + (nearest ? nearest.direction + ':d' + nearest.distance : 'none'),
       'nearest_field_only=' + (nearest ? (nearest.field_only ? 'yes' : 'no') : 'unknown'),
+      'nearest_other_fields=' + (nearest ? (nearest.other_fields.length ? nearest.other_fields.join(',') : 'none') : 'unknown'),
+      'nearest_role=' + (nearest ? nearest.top_role : 'unknown'),
+      'nearest_leftover_tokens=' + (nearest ? nearest.leftover_tokens : 'unknown'),
       'boundaries=' + (boundaryKinds.size ? [...boundaryKinds].sort().join('+') : 'none'),
       'model_anchors_between=' + modelAnchorCount
     ].join('|');
