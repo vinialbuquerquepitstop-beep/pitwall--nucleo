@@ -238,6 +238,34 @@ check('alias e canonico juntos nao duplicam oferta', () => {
   assert.strictEqual(result.records[0].fields.color, 'Preto');
 });
 
+check('modelo resolve com emoji colado em iPhone', () => {
+  const result = run(
+    'apple-model-emoji-separator',
+    'iPhone📱16 128gb Lacrado\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_128gb');
+  assert.strictEqual(result.records[0].fields.price, 3999);
+});
+
+check('modelo resolve com separador pipe antes da capacidade', () => {
+  const result = run(
+    'apple-model-pipe-separator',
+    'iPhone 15 | 128gb Lacrado\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_15_128gb');
+});
+
+check('modelo resolve com bullet antes da capacidade', () => {
+  const result = run(
+    'apple-model-bullet-separator',
+    'iPhone 17 • 256GB Lacrado\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
