@@ -583,6 +583,7 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         }
       };
 
+      const countsEqual = sources.length === targets.length;
       const groupToNextByExtractor =
         policy.fallback_group_to_next_trigger_by_anchor_extractor || {};
       const groupToNext =
@@ -603,7 +604,6 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         continue;
       }
 
-      const countsEqual = sources.length === targets.length;
       if (countsEqual) {
         const pairCount = sources.length;
         if (policy.require_adjacent_rows === true) {
