@@ -353,13 +353,24 @@ function buildContextTrace(segments, schema = {}) {
     }
 
     if (boundaryOpened) {
-      const cleared = Object.keys(context);
-      context = {};
+      const preserveFields = new Set(
+        Array.isArray(boundaryOpened.preserve_fields)
+          ? boundaryOpened.preserve_fields
+          : []
+      );
+      const preserved = {};
+      const cleared = [];
+      for (const [field, value] of Object.entries(context)) {
+        if (preserveFields.has(field)) preserved[field] = value;
+        else cleared.push(field);
+      }
+      context = preserved;
       events.push({
         type: 'reset',
         reason: boundaryOpened.context_boundary_reason || 'domain_boundary',
         field: boundaryOpened.name,
-        fields: cleared
+        fields: cleared,
+        preserved_fields: Object.keys(preserved)
       });
     }
 
