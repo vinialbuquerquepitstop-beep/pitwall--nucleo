@@ -205,7 +205,8 @@
           "non_field_only_roles": [
             "product_header"
           ],
-          "min_leftover_tokens": 2
+          "min_leftover_tokens": 2,
+          "require_unique_adjacent_trigger": true
         }
       }
     },
@@ -448,7 +449,7 @@
     "adjacent_color_pairing": {
       "version": "v1",
       "status": "enabled_after_real_corpus_simulation",
-      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture."
+      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture; a competing price immediately before the color forces abstention."
     }
   }
 }
