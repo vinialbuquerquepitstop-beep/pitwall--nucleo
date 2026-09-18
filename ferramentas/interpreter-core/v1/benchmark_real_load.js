@@ -557,6 +557,160 @@ function pureConditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
 const pureConditionResidualTopologyDiagnostic =
   pureConditionResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function pureColorResidualTopologyDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+
+  const identityWithoutColor = fields => JSON.stringify([
+    fields?.model?.id || null,
+    normalizeKey(fields?.supplier) || null,
+    fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+    normalizeKey(fields?.condition) || null,
+    fields?.price == null ? null : Number(fields.price)
+  ]);
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+  const segments = bundle.segments || [];
+  const colorField = schema.fields.find(field => field.name === 'color') || {};
+  const valueMap = colorField.value_map || {};
+  const canonicalColor = value => normalizeKey(valueMap[value] || valueMap[String(value)] || value) || null;
+
+  const signatures = {};
+  const expectedCounts = {};
+  let cases = 0;
+  let coreNull = 0;
+  let coreDifferent = 0;
+  let unresolvedCoreRecord = 0;
+
+  for (const miss of missing) {
+    const missFields = miss.fields || {};
+    const expectedColor = canonicalColor(missFields.color);
+    if (!expectedColor) continue;
+    const identity = identityWithoutColor(missFields);
+
+    let matchIndex = -1;
+    for (let index = 0; index < extras.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      if (identityWithoutColor(extras[index].fields || {}) !== identity) continue;
+      const coreColor = canonicalColor(extras[index].fields?.color);
+      if (coreColor === expectedColor) continue;
+      matchIndex = index;
+      break;
+    }
+    if (matchIndex < 0) continue;
+
+    usedExtra.add(matchIndex);
+    cases += 1;
+    expectedCounts[expectedColor] = (expectedCounts[expectedColor] || 0) + 1;
+    const extra = extras[matchIndex];
+    const coreColor = canonicalColor(extra.fields?.color);
+    if (coreColor == null) coreNull += 1;
+    else coreDifferent += 1;
+
+    const extraKey = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const consumed = consumedCore.get(extraKey) || 0;
+    const record = bucket[consumed] || null;
+    consumedCore.set(extraKey, consumed + 1);
+    if (!record) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const modelTrace = (record.trace || []).find(item => item.field === 'model');
+    const recordLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+    if (!Number.isFinite(recordLine)) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const supplier = missFields.supplier || null;
+    const candidates = [];
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      const segmentSupplier =
+        segment?.inherited_context?.supplier?.value ||
+        (segment.field_candidates || []).find(candidate => candidate.field === 'supplier')?.value ||
+        null;
+      if (supplier == null || segmentSupplier == null) continue;
+      if (normalizeKey(segmentSupplier) !== normalizeKey(supplier)) continue;
+
+      for (const candidate of segment.field_candidates || []) {
+        if (candidate.field !== 'color') continue;
+        if (canonicalColor(candidate.value) !== expectedColor) continue;
+        candidates.push({
+          line,
+          direction: line < recordLine ? 'before' : line > recordLine ? 'after' : 'same',
+          distance: Math.abs(recordLine - line),
+          field_only: isFieldOnlySegment(segment, 'color')
+        });
+      }
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance || a.line - b.line);
+    const nearest = candidates[0] || null;
+    const boundaryKinds = new Set();
+    let modelAnchorCount = 0;
+    if (nearest) {
+      const lo = Math.min(nearest.line, recordLine);
+      const hi = Math.max(nearest.line, recordLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > lo && line <= hi)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          modelAnchorCount += 1;
+        }
+        for (const event of segment.context_events || []) {
+          if (event.reason === 'timestamp_boundary') boundaryKinds.add('timestamp');
+          if (event.reason === 'domain_boundary') boundaryKinds.add('domain');
+          if (event.reason === 'supplier_boundary') boundaryKinds.add('supplier');
+        }
+      }
+    }
+
+    const signature = [
+      'expected=' + expectedColor,
+      'core=' + (coreColor || 'null'),
+      'nearest_same_supplier=' + (nearest ? nearest.direction + ':d' + nearest.distance : 'none'),
+      'nearest_field_only=' + (nearest ? (nearest.field_only ? 'yes' : 'no') : 'unknown'),
+      'boundaries=' + (boundaryKinds.size ? [...boundaryKinds].sort().join('+') : 'none'),
+      'model_anchors_between=' + modelAnchorCount
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    core_null: coreNull,
+    core_different: coreDifferent,
+    unresolved_core_record: unresolvedCoreRecord,
+    expected_colors: expectedCounts,
+    signatures: Object.entries(signatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const pureColorResidualTopologyDiagnostic =
+  pureColorResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -1591,6 +1745,7 @@ const summary = {
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
+  pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
