@@ -1054,6 +1054,7 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
       const modelTrace = (offer.trace || []).find(trace => trace.field === 'model');
       const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
       const diffs = residualDiffsById.get(offer.core_record_id) || [];
+      const paired = residualPairById.get(offer.core_record_id) || null;
       const classification = !remainingIds.has(offer.core_record_id)
         ? 'exact'
         : residualDiffsById.has(offer.core_record_id)
@@ -1072,7 +1073,16 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
           : [],
         condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
         classification,
-        diffs
+        diffs,
+        paired_legacy: paired ? {
+          legacy_record_id: paired.legacy?.legacy_record_id || null,
+          product_index: paired.legacy?.metadata?.product_index ?? null,
+          model: normFields(paired.legacy).model,
+          capacity_gb: normFields(paired.legacy).capacity_gb,
+          condition: normFields(paired.legacy).condition,
+          color: normFields(paired.legacy).color,
+          supplier_present: Boolean(String(paired.legacy?.metadata?.supplier ?? '').trim())
+        } : null
       };
     });
 
@@ -2162,6 +2172,9 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
   const residualPairs = pairWithinModel(exactRemoval.remainingLegacy, exactRemoval.remainingCore);
   const residualDiffsById = new Map(
     (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair.diffs])
+  );
+  const residualPairById = new Map(
+    (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair])
   );
   const unpairedIds = new Set((residualPairs.unpairedCore || []).map(offer => offer.core_record_id));
 
