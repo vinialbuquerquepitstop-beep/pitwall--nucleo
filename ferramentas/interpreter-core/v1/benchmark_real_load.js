@@ -1264,6 +1264,14 @@ function whatIfScopedBase128Shorthand(rawDocument, baseSchema, baseKnowledge, le
   const classificationCounts = {};
   for (const record of addedRecords) classificationCounts[record.classification] = (classificationCounts[record.classification] || 0) + 1;
 
+  const baselineTargetBlocks = targetModelBlockDiagnostics(baseCoreBundle, targetModelId);
+  const candidateTargetBlocks = targetModelBlockDiagnostics(candidateBundle, targetModelId);
+  const baselineAnchors = new Set(
+    (baselineTargetBlocks.block_summaries || []).map(block => Number(block.anchor_line))
+  );
+  const newlyRecognizedBlocks = (candidateTargetBlocks.block_summaries || [])
+    .filter(block => !baselineAnchors.has(Number(block.anchor_line)));
+
   return {
     candidate: generation + '_128_' + condition.toLowerCase() + '_same_header',
     metrics: {
@@ -1279,7 +1287,8 @@ function whatIfScopedBase128Shorthand(rawDocument, baseSchema, baseKnowledge, le
     divergence_categories: candidateDivergence.categories,
     target_model_gap: (candidateDivergence.top_model_gaps || []).find(row => row.model === targetModelId) || null,
     added_target_record_classifications: classificationCounts,
-    added_target_records: addedRecords
+    added_target_records: addedRecords,
+    newly_recognized_target_blocks: newlyRecognizedBlocks
   };
 }
 
