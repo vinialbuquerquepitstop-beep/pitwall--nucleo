@@ -2966,6 +2966,58 @@ function whatIfResetConditionOnProductHeader(rawDocument, baseSchema, baseKnowle
   };
 }
 
+
+function whatIfConditionLineTtlMatrix(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
+  const thresholds = [8, 12, 16, 20, 24, 28, 31];
+  const candidates = [];
+
+  for (const maxLineDistance of thresholds) {
+    const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+    const conditionField = (candidateSchema.fields || []).find(field => field.name === 'condition');
+    if (!conditionField) throw new Error('what-if condition ttl: condition field ausente');
+    conditionField.context_max_line_distance = maxLineDistance;
+
+    const candidateBundle = interpretResolved({
+      document: {
+        contract_version: 'raw-document/v1',
+        document_id: `real-load-shadow-what-if-condition-ttl-${maxLineDistance}`,
+        content: rawDocument,
+        source: { kind: 'plain_text' }
+      },
+      schema: candidateSchema,
+      knowledge: JSON.parse(JSON.stringify(baseKnowledge))
+    });
+
+    const report = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+    const reportNoColor = compareSemanticShadow({
+      legacy: legacyBundle,
+      coreBundle: candidateBundle,
+      options: { include_color: false }
+    });
+    const divergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+
+    candidates.push({
+      max_line_distance: maxLineDistance,
+      metrics: {
+        core_offers: report.metrics.core_offers,
+        matched_offers: report.metrics.matched_offers,
+        missing_offers: report.metrics.missing_offers,
+        extra_offers: report.metrics.extra_offers,
+        agreement_ratio: report.metrics.agreement_ratio,
+        agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
+        no_silent_wrong_price: report.gates.no_silent_wrong_price,
+        exact_multiset: report.gates.exact_multiset
+      },
+      divergence_categories: divergence.categories
+    });
+  }
+
+  return {
+    candidate: 'condition_context_max_line_distance_matrix',
+    candidates
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -3149,6 +3201,9 @@ const confirmedWrongPriceRecordDiagnostic = confirmedWrongPriceRecordDiagnostics
 const whatIfResetConditionOnProductHeaderDiagnostic = whatIfResetConditionOnProductHeader(
   raw, schema, knowledge, canonicalReference.legacy
 );
+const whatIfConditionLineTtlMatrixDiagnostic = whatIfConditionLineTtlMatrix(
+  raw, schema, knowledge, canonicalReference.legacy
+);
 const multiPriceNearestFallbackRiskDiagnostic = multiPriceNearestFallbackRiskDiagnostics(coreBundle);
 
 const summary = {
@@ -3237,6 +3292,7 @@ const summary = {
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
   confirmed_wrong_price_record_diagnostic: confirmedWrongPriceRecordDiagnostic,
   what_if_reset_condition_on_product_header: whatIfResetConditionOnProductHeaderDiagnostic,
+  what_if_condition_line_ttl_matrix: whatIfConditionLineTtlMatrixDiagnostic,
   what_if_supplemental_adjacent_forward_product_header:
     whatIfSupplementalAdjacentForwardProductHeaderDiagnostic,
   what_if_relaxed_color_source_only: whatIfRelaxedColorSourceOnlyDiagnostic,
