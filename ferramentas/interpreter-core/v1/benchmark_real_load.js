@@ -212,6 +212,7 @@ const diagnostic = {
   mismatch_signatures: divergence.mismatch_signatures,
   condition_pairs: divergence.condition_pairs,
   condition_pair_provenance: divergence.condition_pair_provenance,
+  condition_scope_diagnostics: divergence.condition_scope_diagnostics,
   ambiguities_by_cause: divergence.ambiguities_by_cause,
   ambiguities_by_field: divergence.ambiguities_by_field,
   top_model_gaps: divergence.top_model_gaps
