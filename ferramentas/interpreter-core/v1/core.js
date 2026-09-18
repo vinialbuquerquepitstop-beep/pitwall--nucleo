@@ -1032,6 +1032,31 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
         }
       }
 
+      if (!sourceCandidate && field.derive_from_entity_attribute) {
+        const derive = field.derive_from_entity_attribute;
+        const sourceFieldName = derive.field;
+        const attributeName = derive.attribute;
+        const entityValue = sourceFieldName ? fieldsOut[sourceFieldName] : null;
+        const derivedValue = entityValue && typeof entityValue === 'object'
+          ? entityValue.attributes?.[attributeName]
+          : null;
+        if (derivedValue != null) {
+          const sourceTrace = trace.find(item => item.field === sourceFieldName);
+          sourceType = 'entity_attribute';
+          sourceCandidate = {
+            field: field.name,
+            value: derivedValue,
+            score: sourceTrace?.score ?? 1,
+            evidence: {
+              kind: 'entity_attribute',
+              source_field: sourceFieldName,
+              attribute: attributeName,
+              line_number: sourceTrace?.sources?.[0] || segment.line_number
+            }
+          };
+        }
+      }
+
       if (selected.state === 'ambiguous') {
         blocked = true;
         ambiguities.push({
@@ -1134,18 +1159,20 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
             : sourceCandidate.evidence?.line_number || segment.line_number],
           derived_from: sourceType === 'context'
             ? [segment.inherited_context[field.name].source_line]
-            : sourceType === 'anchor_context'
+            : sourceType === 'anchor_context' || sourceType === 'entity_attribute'
               ? [sourceCandidate.evidence?.line_number].filter(Boolean)
               : [],
           rules: [sourceType === 'context'
             ? 'context_inheritance'
             : sourceType === 'anchor_context'
               ? `anchor_precedence:${field.prefer_from_anchor.anchor_field}`
-              : sourceCandidate.evidence?.kind === 'nearest_unique_pair'
-                ? 'pairing:nearest_unique'
-                : sourceCandidate.evidence?.kind === 'ordered_pair'
-                  ? 'pairing:ordered'
-                  : 'direct_extraction'],
+              : sourceType === 'entity_attribute'
+                ? `entity_attribute:${field.derive_from_entity_attribute.field}.${field.derive_from_entity_attribute.attribute}`
+                : sourceCandidate.evidence?.kind === 'nearest_unique_pair'
+                  ? 'pairing:nearest_unique'
+                  : sourceCandidate.evidence?.kind === 'ordered_pair'
+                    ? 'pairing:ordered'
+                    : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
         });
