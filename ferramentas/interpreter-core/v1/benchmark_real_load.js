@@ -205,6 +205,15 @@ for (const record of adjacentColorBundle.records || []) {
   }
 
   const candidate = [...uniqueColors.values()][0];
+  const competingSegment = adjacentSegmentsByLine.get(priceLine - 2);
+  if (competingSegment) {
+    const competingPrices = (competingSegment.field_candidates || [])
+      .filter(item => item.field === 'price');
+    const competingColors = (competingSegment.field_candidates || [])
+      .filter(item => item.field === 'color');
+    if (competingPrices.length === 1 && competingColors.length === 0) continue;
+  }
+
   const sourceIsFieldOnly = isFieldOnlySegment(sourceSegment, 'color');
   const topRole = sourceSegment.role_candidates?.[0]?.role || 'unknown';
   const normalizedSource = String(sourceSegment.normalized || '').trim();
