@@ -991,6 +991,57 @@ function preferredCandidateFromAnchor(segmentsById, segment, field) {
   return candidates[0] || null;
 }
 
+function matchesRecordSuppressionRule(segment, triggerCandidate, rule = {}) {
+  if (!rule || typeof rule !== 'object') return false;
+
+  const topRole = segment.role_candidates?.[0]?.role || null;
+  const roles = Array.isArray(rule.roles) ? rule.roles : [];
+  if (roles.length && !roles.includes(topRole)) return false;
+
+  const normalized = String(segment.normalized || '');
+  const tokenCount = normalized.trim()
+    ? normalized.trim().split(/\s+/).filter(Boolean).length
+    : 0;
+  if (Number.isFinite(Number(rule.min_tokens)) && tokenCount < Number(rule.min_tokens)) return false;
+  if (Number.isFinite(Number(rule.max_tokens)) && tokenCount > Number(rule.max_tokens)) return false;
+
+  const containsAny = Array.isArray(rule.text_contains_any) ? rule.text_contains_any : [];
+  if (containsAny.length && !containsAny.some(value => normalized.includes(String(value)))) return false;
+
+  const absentPatterns = Array.isArray(rule.text_regex_absent) ? rule.text_regex_absent : [];
+  for (const pattern of absentPatterns) {
+    let regex;
+    try {
+      regex = new RegExp(pattern, rule.text_regex_flags || 'i');
+    } catch (err) {
+      throw new Error(`suppress_record_when regex invalido: ${err.message}`);
+    }
+    if (regex.test(normalized)) return false;
+  }
+
+  const candidates = segment.field_candidates || [];
+  const absentFields = Array.isArray(rule.absent_fields) ? rule.absent_fields : [];
+  if (absentFields.some(name => candidates.some(candidate => candidate.field === name))) return false;
+
+  const presentFields = Array.isArray(rule.present_fields) ? rule.present_fields : [];
+  if (presentFields.some(name => !candidates.some(candidate => candidate.field === name))) return false;
+
+  const evidencePattern = String(triggerCandidate?.evidence?.pattern || '');
+  const evidenceContainsAny = Array.isArray(rule.trigger_evidence_pattern_contains_any)
+    ? rule.trigger_evidence_pattern_contains_any
+    : [];
+  if (evidenceContainsAny.length
+      && !evidenceContainsAny.some(value => evidencePattern.includes(String(value)))) return false;
+
+  const triggerScore = Number(triggerCandidate?.score);
+  if (Number.isFinite(Number(rule.trigger_score_min))
+      && (!Number.isFinite(triggerScore) || triggerScore < Number(rule.trigger_score_min))) return false;
+  if (Number.isFinite(Number(rule.trigger_score_max))
+      && (!Number.isFinite(triggerScore) || triggerScore > Number(rule.trigger_score_max))) return false;
+
+  return true;
+}
+
 function composeRecords(segments, schema = {}, knowledge = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const fieldsByName = new Map(fields.map(f => [f.name, f]));
@@ -1024,6 +1075,43 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     }
 
     if (!triggerCandidates.length) continue;
+
+    let suppressedRecord = null;
+    for (const triggerEntry of triggerCandidates) {
+      const rules = Array.isArray(triggerEntry.field.suppress_record_when)
+        ? triggerEntry.field.suppress_record_when
+        : triggerEntry.field.suppress_record_when
+          ? [triggerEntry.field.suppress_record_when]
+          : [];
+      if (!rules.length) continue;
+
+      const matchedRuleIndex = rules.findIndex(rule =>
+        matchesRecordSuppressionRule(segment, triggerEntry.candidate, rule)
+      );
+      if (matchedRuleIndex >= 0) {
+        suppressedRecord = {
+          trigger: triggerEntry.field.name,
+          rule_index: matchedRuleIndex
+        };
+        break;
+      }
+    }
+
+    if (suppressedRecord) {
+      ambiguities.push({
+        ambiguity_id: `amb-${segment.segment_id}-record-suppressed-${suppressedRecord.trigger}`,
+        field: suppressedRecord.trigger,
+        cause: 'record_emission_suppressed',
+        raw: null,
+        candidates: [],
+        sources: [segment.line_number],
+        context: segment.inherited_context || {},
+        policy: {
+          rule_index: suppressedRecord.rule_index
+        }
+      });
+      continue;
+    }
 
     const fieldsOut = {};
     const trace = [];
@@ -1452,6 +1540,7 @@ module.exports = {
   semanticizeSegments,
   collectExpansionCandidates,
   preferredCandidateFromAnchor,
+  matchesRecordSuppressionRule,
   composeRecords,
   interpretStructural,
   interpretContextual,
