@@ -246,6 +246,54 @@ function extractFieldCandidates(segment, schema = {}) {
   }
 
   let deduped = [...byKey.values()];
+
+  const suppressionMatches = (rule, fieldName) => {
+    if (!rule || typeof rule !== 'object') return false;
+
+    const topRole = segment.role_candidates?.[0]?.role || null;
+    const roles = Array.isArray(rule.roles) ? rule.roles : [];
+    if (roles.length && !roles.includes(topRole)) return false;
+
+    const tokenCount = String(segment.normalized || '').trim()
+      ? String(segment.normalized || '').trim().split(/\s+/).filter(Boolean).length
+      : 0;
+    if (Number.isFinite(Number(rule.min_tokens)) && tokenCount < Number(rule.min_tokens)) return false;
+    if (Number.isFinite(Number(rule.max_tokens)) && tokenCount > Number(rule.max_tokens)) return false;
+
+    const text = String(segment.normalized || '');
+    const containsAny = Array.isArray(rule.text_contains_any) ? rule.text_contains_any : [];
+    if (containsAny.length && !containsAny.some(value => text.includes(String(value)))) return false;
+
+    const absentPatterns = Array.isArray(rule.text_regex_absent) ? rule.text_regex_absent : [];
+    for (const pattern of absentPatterns) {
+      let regex;
+      try {
+        regex = new RegExp(pattern, rule.text_regex_flags || 'i');
+      } catch (err) {
+        throw new Error(`suppress_when regex invalido em ${fieldName}: ${err.message}`);
+      }
+      if (regex.test(text)) return false;
+    }
+
+    const absentFields = Array.isArray(rule.absent_fields) ? rule.absent_fields : [];
+    if (absentFields.some(name => deduped.some(candidate => candidate.field === name))) return false;
+
+    const presentFields = Array.isArray(rule.present_fields) ? rule.present_fields : [];
+    if (presentFields.some(name => !deduped.some(candidate => candidate.field === name))) return false;
+
+    return true;
+  };
+
+  for (const field of fields) {
+    const rules = Array.isArray(field.suppress_when)
+      ? field.suppress_when
+      : field.suppress_when ? [field.suppress_when] : [];
+    if (!rules.length) continue;
+    if (rules.some(rule => suppressionMatches(rule, field.name))) {
+      deduped = deduped.filter(candidate => candidate.field !== field.name);
+    }
+  }
+
   for (const field of fields) {
     const preferred = Array.isArray(field.prefer_values_if_present)
       ? field.prefer_values_if_present.map(normalizeKey)
