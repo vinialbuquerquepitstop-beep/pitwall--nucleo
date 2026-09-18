@@ -124,6 +124,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
   const mismatchSignatures = {};
   const conditionPairs = {};
   const conditionPairProvenance = {};
+  const conditionScopeDiagnostics = {};
   const modelSummary = new Map();
   const touchModel = model => {
     if (!modelSummary.has(model)) {
@@ -161,6 +162,31 @@ function analyzeDivergences({ legacy, coreBundle }) {
           ? conditionTrace.rules.join('+')
           : '(no-trace)';
         increment(conditionPairProvenance, `${pairKey} | ${rules}`);
+
+        const modelTrace = (pair.core.trace || []).find(trace => trace.field === 'model');
+        const conditionSource = Array.isArray(conditionTrace?.sources) ? conditionTrace.sources[0] : null;
+        const modelSource = Array.isArray(modelTrace?.sources) ? modelTrace.sources[0] : null;
+        const recordMatch = /line-(\d+)/.exec(String(pair.core.core_record_id || ''));
+        const recordLine = recordMatch ? Number(recordMatch[1]) : null;
+        const start = Number.isFinite(Number(modelSource)) ? Number(modelSource) : recordLine;
+        const end = Number.isFinite(Number(recordLine)) ? Number(recordLine) : start;
+        const scopeSegments = (coreBundle.segments || []).filter(segment =>
+          start != null && end != null &&
+          segment.line_number >= Math.min(start, end) &&
+          segment.line_number <= Math.max(start, end)
+        );
+        const cpoInScope = scopeSegments.some(segment =>
+          (segment.field_candidates || []).some(candidate =>
+            candidate.field === 'condition' && canonicalCondition(candidate.value) === 'CPO'
+          )
+        );
+        const conditionBeforeModel =
+          conditionSource != null && modelSource != null &&
+          Number(conditionSource) < Number(modelSource);
+        increment(
+          conditionScopeDiagnostics,
+          `${pairKey} | cpo_in_scope=${cpoInScope ? 'yes' : 'no'} | condition_before_model=${conditionBeforeModel ? 'yes' : 'no'}`
+        );
       }
       if (field === 'price') row.wrong_price_only += 1;
       else row.field_mismatches += 1;
@@ -226,6 +252,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     mismatch_signatures: mismatchSignatures,
     condition_pairs: conditionPairs,
     condition_pair_provenance: conditionPairProvenance,
+    condition_scope_diagnostics: conditionScopeDiagnostics,
     ambiguities_by_cause: ambiguitiesByCause,
     ambiguities_by_field: ambiguitiesByField,
     top_model_gaps: topModelGaps
