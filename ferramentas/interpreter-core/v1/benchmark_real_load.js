@@ -2,11 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { interpretResolved, isFieldOnlySegment } = require('./core');
+const { interpretResolved, isFieldOnlySegment, uniqueFieldCandidates, normalizeKey } = require('./core');
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow, offerKey, coreOffers } = require('./semantic-shadow');
 const { analyzeDivergences } = require('./divergence-analyzer');
-const { normalizeKey } = require('./core');
 const { normalizeProfiles, applySupplierProfiles } = require('./supplier-profile-adapter');
 
 function die(message, code = 1) {
