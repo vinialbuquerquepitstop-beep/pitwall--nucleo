@@ -507,7 +507,8 @@ function localHeader17256Diagnostics(bundle) {
       }
     }
 
-    const blockLines = new Set(segments.slice(index, end).map(s => Number(s.line_number)));
+    const block = segments.slice(index, end);
+    const blockLines = new Set(block.map(s => Number(s.line_number)));
     const modelCandidates = (segment.field_candidates || [])
       .filter(candidate => candidate.field === 'model')
       .map(candidate => String(candidate.value));
@@ -517,9 +518,48 @@ function localHeader17256Diagnostics(bundle) {
         state: candidate.state,
         entity_id: candidate.entity_id || null
       }));
-    const priceSegments = segments.slice(index, end).filter(s =>
-      distinctFieldValues(s, 'price').length > 0
-    ).length;
+
+    let priceSegments = 0;
+    let singlePriceSegments = 0;
+    let multiPriceSegments = 0;
+    let priceWithDirectColor = 0;
+    let priceWithoutDirectColor = 0;
+    let colorOnlyRows = 0;
+    let colorCandidates = 0;
+    let conditionCandidateRows = 0;
+    const conditionCounts = { Lacrado: 0, Seminovo: 0, CPO: 0, other: 0 };
+
+    for (const blockSegment of block) {
+      const prices = distinctFieldValues(blockSegment, 'price');
+      const colors = distinctFieldValues(blockSegment, 'color');
+      const conditions = distinctFieldValues(blockSegment, 'condition')
+        .map(value => JSON.parse(value));
+
+      if (prices.length > 0) {
+        priceSegments += 1;
+        if (prices.length === 1) singlePriceSegments += 1;
+        else multiPriceSegments += 1;
+        if (colors.length > 0) priceWithDirectColor += 1;
+        else priceWithoutDirectColor += 1;
+      }
+
+      if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(blockSegment, 'color')) {
+        colorOnlyRows += 1;
+        colorCandidates += colors.length;
+      }
+
+      if (conditions.length > 0) {
+        conditionCandidateRows += 1;
+        for (const condition of conditions) {
+          if (Object.prototype.hasOwnProperty.call(conditionCounts, condition)) {
+            conditionCounts[condition] += 1;
+          } else {
+            conditionCounts.other += 1;
+          }
+        }
+      }
+    }
+
     const blockRecords = records.filter(record => {
       const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
       const line = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
@@ -530,9 +570,26 @@ function localHeader17256Diagnostics(bundle) {
       line: segment.line_number,
       has_lacrado: /\blacrado\b/i.test(normalized),
       has_a_plus: /\bA\+\b/i.test(normalized),
+      has_nacional: /\bnacional\b/i.test(normalized),
+      has_nf: /(?:^|\s)nf(?:\s|$)/i.test(normalized),
+      has_esim: /\be\s*sim\b|\besim\b/i.test(normalized),
+      has_importado: /\bimportad[oa]s?\b/i.test(normalized),
+      has_chip_fisico: /\bchip\s+f[ií]sico\b/i.test(normalized),
+      has_chip_virtual: /\bchip\s+virtual\b/i.test(normalized),
+      has_seminovo: /\bseminov[oa]s?\b/i.test(normalized),
+      has_cpo: /\bcpo\b/i.test(normalized),
       model_candidates: modelCandidates,
       semantic_models: semanticModels,
+      block_segment_count: block.length,
       price_segments: priceSegments,
+      single_price_segments: singlePriceSegments,
+      multi_price_segments: multiPriceSegments,
+      price_with_direct_color: priceWithDirectColor,
+      price_without_direct_color: priceWithoutDirectColor,
+      color_only_rows: colorOnlyRows,
+      color_candidates: colorCandidates,
+      condition_candidate_rows: conditionCandidateRows,
+      condition_counts: conditionCounts,
       materialized_records: blockRecords.length,
       materialized_17256: blockRecords.filter(record => record.fields?.model?.id === 'iphone_17_256gb').length
     });
@@ -540,6 +597,7 @@ function localHeader17256Diagnostics(bundle) {
 
   return {
     header_count: headers.length,
+    unresolved_header_count: headers.filter(header => header.semantic_models.length === 0).length,
     headers
   };
 }
