@@ -6,6 +6,7 @@ const { interpretResolved, isFieldOnlySegment, normalizeKey } = require('./core'
 const { adaptLegacyCalcV2 } = require('./legacy-calc-v2-adapter');
 const { compareSemanticShadow } = require('./semantic-shadow');
 const { analyzeDivergences, normFields, removeExactMatches, pairWithinModel } = require('./divergence-analyzer');
+const { applyReferenceAdjudication } = require('./reference-adjudication');
 
 function die(message, code = 1) {
   console.error(`FALHOU: ${message}`);
@@ -30,6 +31,9 @@ if (!rawPath || !legacyPath) {
 
 const schema = readJson(path.join(__dirname, 'domains', 'apple-iphone-v0.schema.json'));
 const knowledge = readJson(path.join(__dirname, 'domains', 'apple-iphone-v0.knowledge.json'));
+const referenceAdjudication = readJson(
+  path.join(__dirname, 'benchmark-reference-adjudications.v1.json')
+);
 const raw = readText(rawPath);
 const legacyBench = readJson(legacyPath);
 
@@ -42,6 +46,13 @@ const legacy = adaptLegacyCalcV2(legacyBench, knowledge);
 if (legacy.offers.length === 0) {
   die('snapshot legado nao produziu nenhuma oferta suportada pelo dominio Apple V0');
 }
+
+const canonicalReference = applyReferenceAdjudication({
+  legacyBundle: legacy,
+  knowledgeSnapshot: knowledge,
+  reference: referenceAdjudication,
+  sourceLoadId: process.env.LOAD_ID || null
+});
 
 const coreBundle = interpretResolved({
   document: {
@@ -57,6 +68,20 @@ const coreBundle = interpretResolved({
 const report = compareSemanticShadow({ legacy, coreBundle });
 const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
 const divergence = analyzeDivergences({ legacy, coreBundle });
+
+const canonicalReferenceReport = compareSemanticShadow({
+  legacy: canonicalReference.legacy,
+  coreBundle
+});
+const canonicalReferenceReportNoColor = compareSemanticShadow({
+  legacy: canonicalReference.legacy,
+  coreBundle,
+  options: { include_color: false }
+});
+const canonicalReferenceDivergence = analyzeDivergences({
+  legacy: canonicalReference.legacy,
+  coreBundle
+});
 
 function distinctFieldValues(segment, field) {
   return [...new Set(
@@ -2645,6 +2670,21 @@ const summary = {
   target_17_512_residual_locator: target17512ResidualLocatorDiagnostic,
   target_17_512_unsupported_raw_model_adjudication: target17512UnsupportedRawModelAdjudication,
   combined_reference_adjudication: combinedReferenceAdjudication,
+  canonical_reference_v1: {
+    status: 'canonical_reference_v1',
+    raw_metrics_preserved: true,
+    audit: canonicalReference.audit,
+    metrics: {
+      legacy_supported_offers: canonicalReference.legacy.offers.length,
+      matched_offers: canonicalReferenceReport.metrics.matched_offers,
+      missing_offers: canonicalReferenceReport.metrics.missing_offers,
+      extra_offers: canonicalReferenceReport.metrics.extra_offers,
+      agreement_ratio: canonicalReferenceReport.metrics.agreement_ratio,
+      agreement_ratio_without_color: canonicalReferenceReportNoColor.metrics.agreement_ratio
+    },
+    divergence_categories: canonicalReferenceDivergence.categories,
+    top_model_gaps: canonicalReferenceDivergence.top_model_gaps
+  },
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
