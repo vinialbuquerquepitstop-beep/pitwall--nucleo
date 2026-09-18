@@ -678,6 +678,9 @@ const summary = {
   agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
   exact_multiset_without_color: reportNoColor.gates.exact_multiset,
   no_silent_wrong_price: report.gates.no_silent_wrong_price,
+  confirmed_silent_wrong_price: report.metrics.confirmed_silent_wrong_price,
+  unresolved_price_attribution: report.metrics.unresolved_price_attribution,
+  price_attribution_resolved: report.gates.price_attribution_resolved,
   silent_wrong_price_substitutions: report.metrics.silent_wrong_price_substitutions,
   silent_wrong_price_identities: report.metrics.silent_wrong_price_identities,
   silent_wrong_price_by_model: report.metrics.silent_wrong_price_by_model,
@@ -689,6 +692,7 @@ const summary = {
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
+    report.gates.price_attribution_resolved === true &&
     report.gates.exact_multiset === true,
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
