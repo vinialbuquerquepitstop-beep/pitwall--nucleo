@@ -3,7 +3,7 @@
 const { canonicalCondition } = require('./semantic-shadow');
 const { normalizeKey } = require('./core');
 
-const ANALYZER_VERSION = 'divergence-analyzer/0.3.0';
+const ANALYZER_VERSION = 'divergence-analyzer/0.4.0';
 
 function normFields(offer) {
   const f = offer?.fields || {};
@@ -87,6 +87,35 @@ function pairWithinModel(legacyOffers, coreOffers) {
 
 function increment(obj, key, n = 1) {
   obj[key] = (obj[key] || 0) + n;
+}
+
+function nearestConditionBeforeRecord(coreBundle, recordLine) {
+  if (!Number.isFinite(Number(recordLine))) return { value: null, line: null, timestamp_between: false };
+  const segments = coreBundle.segments || [];
+  let found = null;
+
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment.line_number >= Number(recordLine)) continue;
+    const values = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'condition')
+        .map(candidate => canonicalCondition(candidate.value))
+        .filter(Boolean)
+    )];
+    if (values.length === 1) {
+      found = { value: values[0], line: segment.line_number };
+      break;
+    }
+  }
+
+  if (!found) return { value: null, line: null, timestamp_between: false };
+  const timestampBetween = segments.some(segment =>
+    segment.line_number > found.line &&
+    segment.line_number < Number(recordLine) &&
+    (segment.context_events || []).some(event => event.reason === 'timestamp_boundary')
+  );
+  return { ...found, timestamp_between: timestampBetween };
 }
 
 function analyzeDivergences({ legacy, coreBundle }) {
@@ -234,10 +263,15 @@ function analyzeDivergences({ legacy, coreBundle }) {
         ? priceTrace.rules.join('+')
         : '(no-price-trace)';
       const conditionPair = `${legacyNorm.condition ?? '(null)'}->${coreNorm.condition ?? '(null)'}`;
+      const recordMatch = /line-(\d+)/.exec(String(pair.core.core_record_id || ''));
+      const recordLine = recordMatch ? Number(recordMatch[1]) : null;
+      const nearestCondition = nearestConditionBeforeRecord(coreBundle, recordLine);
+      const nearestDecl = nearestCondition.value ?? '(none)';
+      const timestampBetween = nearestCondition.timestamp_between ? 'yes' : 'no';
 
       increment(
         multiMismatchDiagnostics,
-        `${model} | ${signature} | condition=${conditionPair} | color_rule=${colorRule} | condition_rule=${conditionRule} | price_rule=${priceRule}`
+        `${model} | ${signature} | condition=${conditionPair} | nearest_decl=${nearestDecl} | timestamp_after_decl=${timestampBetween} | color_rule=${colorRule} | condition_rule=${conditionRule} | price_rule=${priceRule}`
       );
     } else {
       categories.exact_matches += 1;
@@ -313,5 +347,6 @@ module.exports = {
   removeExactMatches,
   fieldDiffs,
   pairWithinModel,
+  nearestConditionBeforeRecord,
   analyzeDivergences
 };
