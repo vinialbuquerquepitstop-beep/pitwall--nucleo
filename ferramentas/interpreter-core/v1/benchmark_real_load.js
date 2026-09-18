@@ -1815,6 +1815,66 @@ function targetModelBoundaryDiagnostics(bundle, modelId) {
   };
 }
 
+
+function crossModelResidualDiagnostics(legacyBundle, coreBundle, legacyModelId) {
+  const coreOffers = (coreBundle.records || []).map(record => ({
+    fields: record.fields || {},
+    core_record_id: record.record_id,
+    trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const base = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const paired = pairWithinModel(base.remainingLegacy, base.remainingCore);
+  const residualLegacy = (paired.unpairedLegacy || []).filter(offer =>
+    normFields(offer).model === legacyModelId
+  );
+
+  const matches = residualLegacy.map(legacy => {
+    const target = normFields(legacy);
+    const candidates = coreOffers.filter(core => {
+      const n = normFields(core);
+      return n.model !== target.model &&
+        n.capacity_gb === target.capacity_gb &&
+        n.condition === target.condition &&
+        n.color === target.color &&
+        n.price === target.price;
+    }).map(core => {
+      const priceTrace = (core.trace || []).find(trace => trace.field === 'price');
+      const modelTrace = (core.trace || []).find(trace => trace.field === 'model');
+      return {
+        core_record_id: core.core_record_id,
+        core_model: normFields(core).model,
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+        model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null
+      };
+    });
+
+    return {
+      legacy_record_id: legacy.legacy_record_id || null,
+      product_index: legacy.metadata?.product_index ?? null,
+      condition: target.condition ?? '(null)',
+      color: target.color ?? '(null)',
+      candidate_count: candidates.length,
+      candidates
+    };
+  });
+
+  const byCoreModel = {};
+  for (const row of matches) {
+    for (const candidate of row.candidates) {
+      byCoreModel[candidate.core_model] = (byCoreModel[candidate.core_model] || 0) + 1;
+    }
+  }
+
+  return {
+    legacy_model_id: legacyModelId,
+    residual_count: residualLegacy.length,
+    residuals_with_cross_model_exact_match: matches.filter(row => row.candidate_count > 0).length,
+    by_core_model: byCoreModel,
+    matches
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1896,6 +1956,9 @@ const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreB
 const target16256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_256gb');
 const target16256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_256gb');
 const target16256BoundaryDiagnostic = targetModelBoundaryDiagnostics(coreBundle, 'iphone_16_256gb');
+const target16256CrossModelDiagnostic = crossModelResidualDiagnostics(
+  legacy, coreBundle, 'iphone_16_256gb'
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -1973,6 +2036,7 @@ const summary = {
   target_16_256_diagnostic: target16256Diagnostic,
   target_16_256_pair_diagnostic: target16256PairDiagnostic,
   target_16_256_boundary_diagnostic: target16256BoundaryDiagnostic,
+  target_16_256_cross_model_diagnostic: target16256CrossModelDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
