@@ -194,4 +194,40 @@ check('novo anchor nao deixa capacidade antiga contaminar registro seguinte', ()
   assert.strictEqual(result.records[1].fields.model.id, 'model-beta20');
 });
 
+
+check('boundary configurada pode ceder ao anchor valido', () => {
+  const schema = JSON.parse(JSON.stringify(genericSchema));
+  schema.context_policy = {
+    ...(schema.context_policy || {}),
+    preserve_on_anchor: ['capacity']
+  };
+  schema.fields.push({
+    name: '_product_boundary',
+    type: 'string',
+    required: false,
+    context_inheritable: false,
+    context_anchor: false,
+    context_boundary: true,
+    skip_if_anchor_present: true,
+    extractors: [{
+      kind: 'regex',
+      pattern: '^DEVICE\\s+',
+      flags: 'i',
+      group: 0,
+      transform: 'trim',
+      score: 1
+    }]
+  });
+
+  const segments = buildContextTrace(
+    segmentDocument(raw('fixture-boundary-anchor', '256GB\nDEVICE ALPHA16\n6999')),
+    schema
+  );
+
+  assert.ok(!segments[1].context_events.some(e => e.reason === 'domain_boundary'));
+  assert.strictEqual(segments[1].context_after.model.value, 'ALPHA16');
+  assert.strictEqual(segments[1].context_after.capacity.value, 256);
+  assert.strictEqual(segments[2].inherited_context.capacity.value, 256);
+});
+
 console.log(`PASSOU: ${ok} assercoes`);
