@@ -678,6 +678,9 @@ const summary = {
   agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
   exact_multiset_without_color: reportNoColor.gates.exact_multiset,
   no_silent_wrong_price: report.gates.no_silent_wrong_price,
+  silent_wrong_price_substitutions: report.metrics.silent_wrong_price_substitutions,
+  silent_wrong_price_identities: report.metrics.silent_wrong_price_identities,
+  silent_wrong_price_by_model: report.metrics.silent_wrong_price_by_model,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
