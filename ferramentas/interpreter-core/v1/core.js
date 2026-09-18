@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.6.0-message-dedup-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.5.1-context-scope-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -223,7 +223,6 @@ function extractFieldCandidates(segment, schema = {}) {
             evidence: {
               kind: 'regex',
               pattern: extractor.pattern,
-              extractor_id: extractor.id || null,
               match_mode: matchMode,
               occurrence: occurrence + 1,
               match_index: match.index,
@@ -503,18 +502,10 @@ function applyOrderedFieldPairing(segments, schema = {}) {
 
   const blocks = [];
   let blockStart = null;
-  let blockAnchorExtractorId = null;
 
   const closeBlock = end => {
-    if (blockStart != null && end > blockStart) {
-      blocks.push({
-        start: blockStart,
-        end,
-        anchor_extractor_id: blockAnchorExtractorId
-      });
-    }
+    if (blockStart != null && end > blockStart) blocks.push([blockStart, end]);
     blockStart = null;
-    blockAnchorExtractorId = null;
   };
 
   for (let index = 0; index < out.length; index += 1) {
@@ -524,14 +515,12 @@ function applyOrderedFieldPairing(segments, schema = {}) {
     );
     if (hardBoundary) closeBlock(index);
 
-    const anchorCandidates = (segment.field_candidates || []).filter(candidate =>
-      anchorNames.has(candidate.field)
+    const hasAnchor = [...anchorNames].some(name =>
+      uniqueFieldCandidates(segment.field_candidates || [], name).length > 0
     );
-    if (anchorCandidates.length > 0) {
+    if (hasAnchor) {
       closeBlock(index);
       blockStart = index;
-      blockAnchorExtractorId =
-        anchorCandidates.find(candidate => candidate.evidence?.extractor_id)?.evidence?.extractor_id || null;
     }
   }
   closeBlock(out.length);
@@ -543,8 +532,7 @@ function applyOrderedFieldPairing(segments, schema = {}) {
     const triggerField = policy?.field;
     if (!triggerField) continue;
 
-    for (const block of blocks) {
-      const { start, end } = block;
+    for (const [start, end] of blocks) {
       const sources = [];
       const targets = [];
 
@@ -607,13 +595,8 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
         if (!ranked.length) continue;
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
-        const perExtractor = policy.fallback_max_distance_by_anchor_extractor || {};
-        const scopedMaxDistance =
-          block.anchor_extractor_id && perExtractor[block.anchor_extractor_id] != null
-            ? Number(perExtractor[block.anchor_extractor_id])
-            : Number(policy.fallback_max_distance);
-        if (Number.isFinite(scopedMaxDistance)
-            && ranked[0].distance > scopedMaxDistance) continue;
+        if (Number.isFinite(Number(policy.fallback_max_distance))
+            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
         appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
@@ -1142,74 +1125,6 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
   return { records, ambiguities, learningProposals };
 }
 
-function getNestedValue(obj, path) {
-  return String(path || '').split('.').reduce((value, key) => (
-    value == null ? undefined : value[key]
-  ), obj);
-}
-
-function recordSourceLine(record) {
-  const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
-  const fromPrice = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : NaN;
-  if (Number.isFinite(fromPrice)) return fromPrice;
-  const match = /line-(\d+)/.exec(String(record.record_id || ''));
-  return match ? Number(match[1]) : null;
-}
-
-function messageBlockByLine(segments) {
-  const map = new Map();
-  let block = 0;
-  for (const segment of segments || []) {
-    if ((segment.context_events || []).some(event => event.reason === 'timestamp_boundary')) {
-      block += 1;
-    }
-    map.set(Number(segment.line_number), block);
-  }
-  return map;
-}
-
-function dedupeRecordsWithinMessageBlock(records, segments, policy = {}) {
-  if (!policy || policy.enabled !== true) return records;
-  const keyFields = Array.isArray(policy.key_fields) ? policy.key_fields : [];
-  if (!keyFields.length) return records;
-
-  const blockByLine = messageBlockByLine(segments);
-  const chosenIndexByKey = new Map();
-  const keep = new Set();
-
-  for (let index = 0; index < (records || []).length; index += 1) {
-    const record = records[index];
-    const sourceLine = recordSourceLine(record);
-    const block = sourceLine == null ? null : blockByLine.get(sourceLine);
-    const values = keyFields.map(path => getNestedValue(record.fields || {}, path));
-
-    if (block == null || values.some(value => value == null || value === '')) {
-      keep.add(index);
-      continue;
-    }
-
-    const key = JSON.stringify([block, ...values]);
-    const priorIndex = chosenIndexByKey.get(key);
-    if (priorIndex == null) {
-      chosenIndexByKey.set(key, index);
-      continue;
-    }
-
-    const priorRecord = records[priorIndex];
-    const priorLine = recordSourceLine(priorRecord);
-    const keepLatest = policy.keep !== 'earliest';
-    const replace = keepLatest
-      ? sourceLine >= priorLine
-      : sourceLine < priorLine;
-
-    if (replace) chosenIndexByKey.set(key, index);
-  }
-
-  for (const index of chosenIndexByKey.values()) keep.add(index);
-
-  return (records || []).filter((_, index) => keep.has(index));
-}
-
 function makeBaseBundle(request, segments, warnings) {
   const { document, schema = {}, knowledge = null } = request;
   const invalid = [];
@@ -1296,13 +1211,8 @@ function interpretResolved(request) {
   const paired = applyOrderedFieldPairing(contextual, request.schema || {});
   const segments = semanticizeSegments(paired, request.schema || {}, request.knowledge || {});
   const composed = composeRecords(segments, request.schema || {}, request.knowledge || {});
-  const dedupedRecords = dedupeRecordsWithinMessageBlock(
-    composed.records,
-    segments,
-    request.schema?.record_dedup || {}
-  );
   const bundle = makeBaseBundle(request, segments, ['shadow_mode_resolver', 'no_persistence', 'no_operational_price_write']);
-  bundle.records = dedupedRecords;
+  bundle.records = composed.records;
   bundle.ambiguities.push(...composed.ambiguities);
   bundle.learning_proposals = composed.learningProposals;
   bundle.metrics.n_records = bundle.records.length;
@@ -1335,10 +1245,6 @@ module.exports = {
   collectExpansionCandidates,
   preferredCandidateFromAnchor,
   composeRecords,
-  getNestedValue,
-  recordSourceLine,
-  messageBlockByLine,
-  dedupeRecordsWithinMessageBlock,
   interpretStructural,
   interpretContextual,
   interpretResolved
