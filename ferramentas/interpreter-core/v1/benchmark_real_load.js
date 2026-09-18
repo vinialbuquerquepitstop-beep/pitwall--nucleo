@@ -2001,6 +2001,98 @@ function crossConditionResidualDiagnostics(legacyBundle, coreBundle, modelId) {
   };
 }
 
+
+function locateResidualOffersInSegments(legacyBundle, coreBundle, modelId) {
+  const coreOffers = (coreBundle.records || []).map(record => ({
+    fields: record.fields || {},
+    core_record_id: record.record_id,
+    trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const exact = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const residualLegacy = (exact.remainingLegacy || []).filter(offer =>
+    normFields(offer).model === modelId
+  );
+
+  const segments = coreBundle.segments || [];
+
+  const rows = residualLegacy.map(legacy => {
+    const ln = normFields(legacy);
+    const candidateSegments = [];
+
+    for (const segment of segments) {
+      const prices = distinctFieldValues(segment, 'price')
+        .map(value => Number(JSON.parse(value)))
+        .filter(Number.isFinite);
+      if (!prices.includes(ln.price)) continue;
+
+      const colors = distinctFieldValues(segment, 'color')
+        .map(value => normalizeKey(JSON.parse(value)))
+        .filter(Boolean);
+
+      const colorMatchesDirect = ln.color != null && colors.includes(ln.color);
+      const nearbyColors = [];
+      if (!colorMatchesDirect && ln.color != null) {
+        const index = segments.indexOf(segment);
+        for (let delta = -3; delta <= 3; delta += 1) {
+          if (delta === 0) continue;
+          const neighbor = segments[index + delta];
+          if (!neighbor) continue;
+          const neighborColors = distinctFieldValues(neighbor, 'color')
+            .map(value => normalizeKey(JSON.parse(value)))
+            .filter(Boolean);
+          if (neighborColors.includes(ln.color)) nearbyColors.push({
+            line: neighbor.line_number,
+            distance: Math.abs(delta)
+          });
+        }
+      }
+
+      if (!colorMatchesDirect && !nearbyColors.length) continue;
+
+      const directModels = (segment.semantic_candidates || [])
+        .filter(candidate =>
+          candidate.field === 'model' &&
+          (candidate.state === 'interpreted' || candidate.state === 'inferred')
+        )
+        .map(candidate => candidate.entity_id)
+        .filter(Boolean);
+
+      candidateSegments.push({
+        line: segment.line_number,
+        direct_color_match: colorMatchesDirect,
+        nearby_color_lines: nearbyColors,
+        direct_models: directModels,
+        inherited_model_source_line: Number.isFinite(Number(segment.inherited_context?.model?.source_line))
+          ? Number(segment.inherited_context.model.source_line)
+          : null,
+        inherited_model_value: segment.inherited_context?.model?.value ?? null,
+        inherited_condition: segment.inherited_context?.condition?.value ?? null,
+        inherited_condition_source_line: Number.isFinite(Number(segment.inherited_context?.condition?.source_line))
+          ? Number(segment.inherited_context.condition.source_line)
+          : null,
+        context_event_reasons: (segment.context_events || []).map(event => event.reason).filter(Boolean)
+      });
+    }
+
+    return {
+      legacy_record_id: legacy.legacy_record_id || null,
+      product_index: legacy.metadata?.product_index ?? null,
+      condition: ln.condition,
+      color: ln.color,
+      candidate_segment_count: candidateSegments.length,
+      candidate_segments: candidateSegments
+    };
+  });
+
+  return {
+    model_id: modelId,
+    residual_count: rows.length,
+    located_residual_count: rows.filter(row => row.candidate_segment_count > 0).length,
+    rows
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -2097,6 +2189,9 @@ const target17512CrossModelDiagnostic = crossModelResidualDiagnostics(
 const target17512CrossConditionDiagnostic = crossConditionResidualDiagnostics(
   legacy, coreBundle, 'iphone_17_512gb'
 );
+const target17512ResidualLocatorDiagnostic = locateResidualOffersInSegments(
+  legacy, coreBundle, 'iphone_17_512gb'
+);
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -2191,6 +2286,7 @@ const summary = {
   target_17_512_boundary_diagnostic: target17512BoundaryDiagnostic,
   target_17_512_cross_model_diagnostic: target17512CrossModelDiagnostic,
   target_17_512_cross_condition_diagnostic: target17512CrossConditionDiagnostic,
+  target_17_512_residual_locator: target17512ResidualLocatorDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
