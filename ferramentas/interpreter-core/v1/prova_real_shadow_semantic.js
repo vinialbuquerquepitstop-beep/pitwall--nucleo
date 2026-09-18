@@ -135,6 +135,23 @@ function ok(value, message) {
   eq(r.gates.no_silent_wrong_price, true, 'gate de preco fica verde embora exact_multiset continue falso');
 }
 
+// 6. cor ausente com preco conhecido em variantes coloridas e identidade subespecificada, nao wrong price
+{
+  const l = legacy([
+    legacyOffer('l1', 'iphone_15_128gb', 'Seminovo', null, 2700, 128),
+    legacyOffer('l2', 'iphone_15_128gb', 'Seminovo', 'Azul', 2650, 128),
+    legacyOffer('l3', 'iphone_15_128gb', 'Seminovo', 'Rosa', 2650, 128)
+  ]);
+  const c = core([
+    coreRecord('c1', 'iphone_15_128gb', 'Seminovo', null, 2650, 128)
+  ]);
+  const r = compareSemanticShadow({ legacy: l, coreBundle: c });
+  eq(r.metrics.exact_multiset, false, 'registro sem cor continua divergente no multiconjunto');
+  eq(r.metrics.confirmed_wrong_price_offers, 0, 'preco conhecido em variantes coloridas nao e wrong price confirmado');
+  eq(r.metrics.under_specified_color_price_reference_offers, 1, 'classifica identidade sem cor como subespecificada');
+  eq(r.gates.no_silent_wrong_price, true, 'gate de preco fica verde sem esconder divergencia semantica');
+}
+
 // 6. cor pode ser ignorada explicitamente para diagnostico, nunca por default
 {
   const l = legacy([legacyOffer('l1', 'iphone_15_128gb', 'Seminovo', 'Azul', 2650, 128)]);
