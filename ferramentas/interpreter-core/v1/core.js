@@ -673,7 +673,22 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       }
     }
 
-    if (policy.adjacent_unique_before_trigger === true) {
+    const adjacentPolicy = policy.adjacent_unique_before_trigger;
+    const adjacentEnabled =
+      adjacentPolicy === true ||
+      (adjacentPolicy && typeof adjacentPolicy === 'object' && adjacentPolicy.enabled === true);
+
+    if (adjacentEnabled) {
+      const adjacentConfig = adjacentPolicy === true ? {} : adjacentPolicy;
+      const allowedNonFieldOnlyRoles = new Set(
+        Array.isArray(adjacentConfig.non_field_only_roles)
+          ? adjacentConfig.non_field_only_roles
+          : []
+      );
+      const minLeftoverTokens = Number.isFinite(Number(adjacentConfig.min_leftover_tokens))
+        ? Number(adjacentConfig.min_leftover_tokens)
+        : 0;
+
       for (const [start, end] of blocks) {
         for (let targetIndex = Math.max(start + 1, 1); targetIndex < end; targetIndex += 1) {
           const targetSegment = out[targetIndex];
@@ -701,6 +716,30 @@ function applyOrderedFieldPairing(segments, schema = {}) {
           if (sourceCandidates.length !== 1 || sourceTriggerCandidates.length !== 0) continue;
 
           const candidate = sourceCandidates[0];
+          const sourceIsFieldOnly = isFieldOnlySegment(sourceSegment, field.name);
+
+          if (!sourceIsFieldOnly) {
+            const topRole = sourceSegment.role_candidates?.[0]?.role || 'unknown';
+            if (!allowedNonFieldOnlyRoles.has(topRole)) continue;
+
+            const normalizedSource = String(sourceSegment.normalized || '').trim();
+            const capturedSource = String(candidate.evidence?.captured || candidate.value || '');
+            const normalizedLower = normalizedSource.toLocaleLowerCase('pt-BR');
+            const capturedLower = capturedSource.toLocaleLowerCase('pt-BR');
+            const capturedIndex = capturedLower ? normalizedLower.indexOf(capturedLower) : -1;
+            const leftover = capturedIndex >= 0
+              ? (
+                  normalizedSource.slice(0, capturedIndex) +
+                  ' ' +
+                  normalizedSource.slice(capturedIndex + capturedSource.length)
+                ).trim()
+              : normalizedSource;
+            const leftoverTokens = leftover
+              ? leftover.split(/\s+/).filter(Boolean).length
+              : 0;
+            if (leftoverTokens < minLeftoverTokens) continue;
+          }
+
           targetSegment.field_candidates.push({
             ...candidate,
             score: Math.min(1, (candidate.score ?? 0.7) * 0.995),
