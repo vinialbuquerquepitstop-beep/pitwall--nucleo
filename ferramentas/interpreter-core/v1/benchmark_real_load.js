@@ -4530,11 +4530,15 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      options.includeStrongMixed === true ||
-      options.includeAllFullyLocalCoreOnly === true ||
-      options.includeAllFullyLocalCoreOnlyLate === true
-        ? 'residual-adjudication-ledger/v2'
-        : 'residual-adjudication-ledger/v1',
+      options.includeSourceUnsupportedMissing === true
+        ? 'residual-adjudication-ledger/v3'
+        : (
+            options.includeStrongMixed === true ||
+            options.includeAllFullyLocalCoreOnly === true ||
+            options.includeAllFullyLocalCoreOnlyLate === true
+              ? 'residual-adjudication-ledger/v2'
+              : 'residual-adjudication-ledger/v1'
+          ),
     raw: {
       missing: missing.length,
       extra: extras.length
@@ -4591,7 +4595,8 @@ const residualAdjudicationLedger =
     coreBundle,
     {
       includeStrongMixed: true,
-      includeAllFullyLocalCoreOnlyLate: true
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true
     }
   );
 
@@ -7003,7 +7008,7 @@ const summary = {
   source_adjudicated_exact:
     residualAdjudicationLedger?.integrity?.pass === true &&
     residualAdjudicationLedger?.actionable?.total_residual === 0,
-  promotion_basis: 'source_adjudicated_ledger_v2',
+  promotion_basis: 'source_adjudicated_ledger_v3',
   promotion_ready:
     (reportSupplierAware?.gates?.no_silent_wrong_price ?? report.gates.no_silent_wrong_price) === true &&
     (reportSupplierAware?.gates?.price_attribution_resolved ?? report.gates.price_attribution_resolved) === true &&
