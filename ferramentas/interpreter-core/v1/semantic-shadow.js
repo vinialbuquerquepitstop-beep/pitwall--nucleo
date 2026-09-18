@@ -100,6 +100,66 @@ function summarizeFieldMismatch(legacyOffers, interpretedOffers) {
   return summary;
 }
 
+function priceIdentityKey(fields, options = {}) {
+  const includeColor = options.include_color !== false;
+  return JSON.stringify([
+    fields.model?.id || null,
+    fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+    canonicalCondition(fields.condition),
+    includeColor ? normalizeKey(fields.color) || null : undefined
+  ]);
+}
+
+function priceSubstitutionDiagnostics(legacyOffers, interpretedOffers, options = {}) {
+  const group = offers => {
+    const byIdentity = new Map();
+    for (const offer of offers || []) {
+      const fields = offer.fields || {};
+      const key = priceIdentityKey(fields, options);
+      if (!byIdentity.has(key)) byIdentity.set(key, new Map());
+      const price = fields.price == null || !Number.isFinite(Number(fields.price))
+        ? null
+        : Number(fields.price);
+      const counts = byIdentity.get(key);
+      counts.set(price, (counts.get(price) || 0) + 1);
+    }
+    return byIdentity;
+  };
+
+  const left = group(legacyOffers);
+  const right = group(interpretedOffers);
+  const identities = new Set([...left.keys(), ...right.keys()]);
+  let substitutions = 0;
+  let identitiesWithSubstitution = 0;
+
+  for (const identity of identities) {
+    if (!left.has(identity) || !right.has(identity)) continue;
+    const legacyPrices = left.get(identity);
+    const corePrices = right.get(identity);
+    const prices = new Set([...legacyPrices.keys(), ...corePrices.keys()]);
+    let missing = 0;
+    let extra = 0;
+
+    for (const price of prices) {
+      const l = legacyPrices.get(price) || 0;
+      const r = corePrices.get(price) || 0;
+      if (l > r) missing += l - r;
+      if (r > l) extra += r - l;
+    }
+
+    const replaced = Math.min(missing, extra);
+    if (replaced > 0) {
+      substitutions += replaced;
+      identitiesWithSubstitution += 1;
+    }
+  }
+
+  return {
+    substitutions,
+    identities_with_substitution: identitiesWithSubstitution
+  };
+}
+
 function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
   if (!legacy || legacy.contract_version !== 'legacy-semantic-offers/v1') {
     throw new Error('legacy invalido: legacy-semantic-offers/v1 esperado');
@@ -112,6 +172,7 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
   const coreN = interpreted.length;
   const denominator = Math.max(legacyN, coreN, 1);
   const exact = diff.missing.length === 0 && diff.extra.length === 0;
+  const priceDiagnostic = priceSubstitutionDiagnostics(legacy.offers, interpreted, options);
 
   return {
     contract_version: 'semantic-shadow-report/v1',
@@ -126,10 +187,12 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       exact_multiset: exact,
       agreement_ratio: Math.round((diff.matched / denominator) * 10000) / 10000,
       core_ambiguities: Array.isArray(coreBundle.ambiguities) ? coreBundle.ambiguities.length : 0,
-      core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0
+      core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0,
+      silent_wrong_price_substitutions: priceDiagnostic.substitutions,
+      silent_wrong_price_identities: priceDiagnostic.identities_with_substitution
     },
     gates: {
-      no_silent_wrong_price: diff.extra.every(x => !diff.missing.some(y => y.fields?.model?.id === x.fields?.model?.id && y.fields?.price !== x.fields?.price)),
+      no_silent_wrong_price: priceDiagnostic.substitutions === 0,
       exact_multiset: exact
     },
     missing: diff.missing,
@@ -145,5 +208,7 @@ module.exports = {
   offerKey,
   countOffers,
   diffCounts,
+  priceIdentityKey,
+  priceSubstitutionDiagnostics,
   compareSemanticShadow
 };
