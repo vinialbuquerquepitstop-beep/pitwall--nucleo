@@ -309,6 +309,10 @@ function buildContextTrace(segments, schema = {}) {
       ? schema.context_policy.preserve_on_timestamp
       : []
   );
+  const preserveOnAnchorMaxAgeLines = (
+    schema.context_policy?.preserve_on_anchor_max_age_lines &&
+    typeof schema.context_policy.preserve_on_anchor_max_age_lines === 'object'
+  ) ? schema.context_policy.preserve_on_anchor_max_age_lines : {};
   const structuralBoundaries = Array.isArray(schema.context_policy?.structural_boundaries)
     ? schema.context_policy.structural_boundaries
     : [];
@@ -317,6 +321,7 @@ function buildContextTrace(segments, schema = {}) {
     anchor_resets_other_context: schema.context_policy?.anchor_resets_other_context !== false,
     preserve_on_anchor: preserveOnAnchor,
     preserve_on_timestamp: preserveOnTimestamp,
+    preserve_on_anchor_max_age_lines: preserveOnAnchorMaxAgeLines,
     structural_boundaries: structuralBoundaries
   };
   let context = {};
@@ -413,8 +418,30 @@ function buildContextTrace(segments, schema = {}) {
       const preserved = {};
       const cleared = [];
       for (const [field, value] of Object.entries(context)) {
-        if (policy.preserve_on_anchor.has(field)) preserved[field] = value;
-        else cleared.push(field);
+        if (!policy.preserve_on_anchor.has(field)) {
+          cleared.push(field);
+          continue;
+        }
+
+        const configuredMaxAge = Number(policy.preserve_on_anchor_max_age_lines?.[field]);
+        const hasMaxAge = Number.isFinite(configuredMaxAge) && configuredMaxAge >= 0;
+        const sourceLine = Number(value?.source_line);
+        const age = Number.isFinite(sourceLine) ? segment.line_number - sourceLine : null;
+
+        if (hasMaxAge && (age == null || age > configuredMaxAge)) {
+          cleared.push(field);
+          events.push({
+            type: 'context_expired',
+            reason: 'anchor_preserve_max_age',
+            field,
+            source_line: Number.isFinite(sourceLine) ? sourceLine : null,
+            age_lines: age,
+            max_age_lines: configuredMaxAge
+          });
+          continue;
+        }
+
+        preserved[field] = value;
       }
       context = preserved;
       events.push({
