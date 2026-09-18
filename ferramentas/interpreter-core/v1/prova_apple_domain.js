@@ -641,25 +641,6 @@ check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () =
   assert.strictEqual(result.records.length, 0);
 });
 
-check('17 256 nacional NF local resolve sem palavra iPhone', () => {
-  const result = run(
-    'apple-local-17-256-nacional',
-    '17 256 CHIP VIRTUAL+CHIP FÍSICO LACRADO NACIONAL NF\nVerde\nPreto\nLavanda\nR$ 5.299'
-  );
-  assert.strictEqual(result.records.length, 3);
-  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_17_256gb'));
-  assert.ok(result.records.every(record => record.fields.price === 5299));
-  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Lavanda','Preto','Verde']);
-});
-
-check('17 256 eSIM importado local permanece sem resolver', () => {
-  const result = run(
-    'apple-local-17-256-esim-disabled',
-    '17 256 eSIM lacrado importado\nLavanda\nPreto\nR$ 5.199\nVerde\nAzul\nR$ 5.099'
-  );
-  assert.strictEqual(result.records.length, 0);
-});
-
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));

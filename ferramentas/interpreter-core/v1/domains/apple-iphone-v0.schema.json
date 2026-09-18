@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.1-17-256-nacional-shadow",
+  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -44,15 +44,6 @@
           "group": 1,
           "transform": "trim",
           "score": 0.91
-        },
-        {
-          "id": "supported_shorthand_17_256_nacional_v1",
-          "kind": "regex",
-          "pattern": "^[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=[^\\r\\n]*\\blacrado\\b)(?=[^\\r\\n]*\\b(?:nacional|nf)\\b)",
-          "flags": "i",
-          "group": 1,
-          "transform": "trim",
-          "score": 0.94
         }
       ]
     },
@@ -395,12 +386,7 @@
         "iphone_16e_128gb",
         "iphone_17e_256gb"
       ],
-      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled",
-      "local_17_256_nacional": {
-        "rule": "enable local 17 256 only when the same header contains Lacrado and Nacional/NF",
-        "excludes": "eSIM/importado headers remain unresolved",
-        "rationale": "real-load blocks with Nacional/NF have one price group; eSIM/importado blocks contain multiple price groups and caused wrong-price regressions"
-      }
+      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled"
     },
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
