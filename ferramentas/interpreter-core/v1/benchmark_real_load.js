@@ -2533,8 +2533,9 @@ function adjudicatedResidualSummary() {
     },
     policy: {
       raw_metrics_unchanged: true,
-      does_not_affect_promotion_gate: true,
-      categories_are_evidence_based_and_disjoint_by_construction: true
+      promotion_uses_actionable_residual: true,
+      categories_are_evidence_based_and_disjoint_by_construction: true,
+      mixed_evidence_not_counted_without_overlap_proof: true
     }
   };
 }
