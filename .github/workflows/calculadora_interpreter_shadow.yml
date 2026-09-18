@@ -16,6 +16,7 @@ on:
   push:
     branches:
       - feat/calculadora-interpretador-real-shadow-v0
+      - exp/calculadora-16-promax-256-shorthand-v1
     paths:
       - 'ferramentas/interpreter-core/v1/**'
       - '.github/workflows/calculadora_interpreter_shadow.yml'
