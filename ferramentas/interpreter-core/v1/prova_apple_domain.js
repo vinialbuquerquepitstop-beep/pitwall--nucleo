@@ -692,7 +692,7 @@ check('pareamento adjacente habilitado nao pula linha intermediaria', () => {
 check('supressao de emissao preserva trigger para parsing mas nao cria oferta', () => {
   const result = run(
     'apple-record-emission-suppression',
-    'iPhone 17e 256GB Lacrado\n💰 condição especial de hoje no estoque 5999'
+    'iPhone 17e 256GB Lacrado\ncondição especial de hoje no estoque 💰5999'
   );
   const priceSegment = result.segments.find(segment => segment.raw.includes('5999'));
   assert.ok(priceSegment);
@@ -722,7 +722,7 @@ check('supressao de emissao preserva trigger para parsing mas nao cria oferta', 
 check('supressao de emissao nao bloqueia linha com cor direta', () => {
   const result = run(
     'apple-record-emission-color-signal',
-    'iPhone 17e 256GB Lacrado\n💰 Preto condição especial de hoje 5999'
+    'iPhone 17e 256GB Lacrado\nPreto condição especial de hoje 💰5999'
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.model.id, 'iphone_17e_256gb');
@@ -733,7 +733,7 @@ check('supressao de emissao nao bloqueia linha com cor direta', () => {
 check('supressao de emissao nao bloqueia linha com moeda textual', () => {
   const result = run(
     'apple-record-emission-currency-signal',
-    'iPhone 17e 256GB Lacrado\n💰 condição especial de hoje por R$ 5999'
+    'iPhone 17e 256GB Lacrado\ncondição especial de hoje por 💰R$ 5999'
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.price, 5999);
