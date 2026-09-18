@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.6.0",
+  "schema_version": "0.6.1",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -155,13 +155,21 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "offer_expansion": {
-      "version": "v1",
+      "version": "v1.1",
       "fields": [
         "color"
       ],
       "rule": "multiple distinct direct color candidates + one unambiguous price => one record per color",
       "safety": "cross-line expansion requires multiple distinct colors contiguous immediately before one unambiguous price; prior price, timestamp and model anchors bound the scan",
-      "ablation": "multi_only_contiguous"
+      "status": "shadow_candidate_validated_on_real_load",
+      "real_load_delta": {
+        "baseline_agreement_ratio": 0.2541,
+        "candidate_agreement_ratio": 0.2873,
+        "baseline_matched_offers": 46,
+        "candidate_matched_offers": 52,
+        "baseline_wrong_price_only": 2,
+        "candidate_wrong_price_only": 0
+      }
     }
   }
 }
