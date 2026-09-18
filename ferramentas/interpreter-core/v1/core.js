@@ -589,14 +589,22 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       if (policy.require_equal_rows !== false && policy.fallback_unique_nearest !== true) continue;
       if (policy.fallback_unique_nearest !== true) continue;
 
+      const hasMultiTriggerSegment = out.slice(start, end).some(blockSegment =>
+        uniqueFieldCandidates(blockSegment.field_candidates || [], triggerField).length > 1
+      );
+      const configuredMaxDistance = hasMultiTriggerSegment &&
+          Number.isFinite(Number(policy.fallback_max_distance_when_multi_trigger))
+        ? Number(policy.fallback_max_distance_when_multi_trigger)
+        : Number(policy.fallback_max_distance);
+
       for (const source of sources) {
         const ranked = targets
           .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
           .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
         if (!ranked.length) continue;
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
-        if (Number.isFinite(Number(policy.fallback_max_distance))
-            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
+        if (Number.isFinite(configuredMaxDistance)
+            && ranked[0].distance > configuredMaxDistance) continue;
         appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
