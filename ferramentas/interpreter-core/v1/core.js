@@ -672,6 +672,50 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         appendCandidates(proposal.source, proposal.target, 'nearest_unique_pair');
       }
     }
+
+    if (policy.adjacent_unique_before_trigger === true) {
+      for (const [start, end] of blocks) {
+        for (let targetIndex = Math.max(start + 1, 1); targetIndex < end; targetIndex += 1) {
+          const targetSegment = out[targetIndex];
+          const triggerCandidates = uniqueFieldCandidates(
+            targetSegment.field_candidates || [],
+            triggerField
+          );
+          const existingFieldCandidates = uniqueFieldCandidates(
+            targetSegment.field_candidates || [],
+            field.name
+          );
+          if (triggerCandidates.length !== 1 || existingFieldCandidates.length !== 0) continue;
+
+          const sourceIndex = targetIndex - 1;
+          if (sourceIndex < start) continue;
+          const sourceSegment = out[sourceIndex];
+          const sourceCandidates = uniqueFieldCandidates(
+            sourceSegment.field_candidates || [],
+            field.name
+          );
+          const sourceTriggerCandidates = uniqueFieldCandidates(
+            sourceSegment.field_candidates || [],
+            triggerField
+          );
+          if (sourceCandidates.length !== 1 || sourceTriggerCandidates.length !== 0) continue;
+
+          const candidate = sourceCandidates[0];
+          targetSegment.field_candidates.push({
+            ...candidate,
+            score: Math.min(1, (candidate.score ?? 0.7) * 0.995),
+            evidence: {
+              ...(candidate.evidence || {}),
+              kind: 'adjacent_unique_pair',
+              paired_field: field.name,
+              trigger_field: triggerField,
+              source_line: sourceSegment.line_number,
+              target_line: targetSegment.line_number
+            }
+          });
+        }
+      }
+    }
   }
 
   return out;
@@ -1168,11 +1212,13 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
               ? `anchor_precedence:${field.prefer_from_anchor.anchor_field}`
               : sourceType === 'entity_attribute'
                 ? `entity_attribute:${field.derive_from_entity_attribute.field}.${field.derive_from_entity_attribute.attribute}`
-                : sourceCandidate.evidence?.kind === 'nearest_unique_pair'
-                  ? 'pairing:nearest_unique'
-                  : sourceCandidate.evidence?.kind === 'ordered_pair'
-                    ? 'pairing:ordered'
-                    : 'direct_extraction'],
+                : sourceCandidate.evidence?.kind === 'adjacent_unique_pair'
+                  ? 'pairing:adjacent_unique'
+                  : sourceCandidate.evidence?.kind === 'nearest_unique_pair'
+                    ? 'pairing:nearest_unique'
+                    : sourceCandidate.evidence?.kind === 'ordered_pair'
+                      ? 'pairing:ordered'
+                      : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
         });
@@ -1194,13 +1240,15 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
               chosen: candidate.value,
               sources: [candidate.evidence?.line_number || segment.line_number],
               derived_from: [],
-              rules: [candidate.evidence?.kind === 'nearest_unique_pair'
-                ? 'record_expansion:pairing_nearest_unique'
-                : candidate.evidence?.kind === 'ordered_pair'
-                  ? 'record_expansion:pairing_ordered'
-                  : recordExpansion.source === 'block'
-                    ? 'record_expansion:block_inheritance'
-                    : 'record_expansion:direct_extraction'],
+              rules: [candidate.evidence?.kind === 'adjacent_unique_pair'
+                ? 'record_expansion:pairing_adjacent_unique'
+                : candidate.evidence?.kind === 'nearest_unique_pair'
+                  ? 'record_expansion:pairing_nearest_unique'
+                  : candidate.evidence?.kind === 'ordered_pair'
+                    ? 'record_expansion:pairing_ordered'
+                    : recordExpansion.source === 'block'
+                      ? 'record_expansion:block_inheritance'
+                      : 'record_expansion:direct_extraction'],
               alternatives: [],
               score: candidate.score ?? null
             }
