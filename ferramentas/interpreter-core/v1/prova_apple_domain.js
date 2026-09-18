@@ -325,6 +325,32 @@ check('preco com emoji de dinheiro e separador decimal e reconhecido', () => {
   assert.strictEqual(result.records[0].fields.price, 3999.9);
 });
 
+check('CPO do modelo nao e sobrescrito por linha descritiva Lacrado', () => {
+  const result = run(
+    'apple-cpo-sticky',
+    'iPhone 13 Pro 128GB (CPO)\nImportado | eSIM + Chip físico\nLacrado\nPreto | Gold | Branco\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record => record.fields.condition === 'CPO'));
+  assert.ok(result.segments.some(segment =>
+    segment.context_events?.some(event =>
+      event.reason === 'sticky_value' &&
+      event.current_value === 'CPO' &&
+      event.rejected_value === 'Lacrado'
+    )
+  ));
+});
+
+check('CPO nao vaza para o modelo seguinte', () => {
+  const result = run(
+    'apple-cpo-anchor-scope',
+    'iPhone 13 Pro 128GB (CPO)\nLacrado\nPreto R$ 3.999\niPhone 15 128GB\nAzul R$ 4.499'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.strictEqual(result.records[1].fields.condition, undefined);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
