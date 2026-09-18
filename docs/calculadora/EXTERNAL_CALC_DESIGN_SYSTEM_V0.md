@@ -1,5 +1,13 @@
 # EXTERNAL CALC — DESIGN SYSTEM V0
 
+> **SUPERSEDED VISUAL FOUNDATION — NÃO USAR PARA NOVAS PÁGINAS**
+>
+> Em 18/09/2026, o usuário escolheu uma nova referência visual do Stitch como base para extração do Design System.
+> O vocabulário visual canônico candidato passa a estar em:
+> `docs/calculadora/design/EXTERNAL_CALC_STITCH_VISUAL_CONTRACT_V1.json`.
+>
+> Este documento permanece apenas como registro histórico da primeira fundação visual. Ele não deve orientar novas telas nem sobrescrever a referência selecionada.
+
 Data: 18/09/2026  
 Status: fundação visual executável derivada da Overview + Slice 01  
 Branch: `feat/external-calc-slice-01-analysis-v0`
