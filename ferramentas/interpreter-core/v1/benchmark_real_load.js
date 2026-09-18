@@ -4031,6 +4031,37 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
+  // 7. SIMULATION ONLY: after pair adjudications have consumed their exact
+  // instances, classify any remaining Core-only extras with complete local evidence.
+  // This ordering preserves pair evidence instead of starving it with extra-only claims.
+  if (options.includeAllFullyLocalCoreOnlyLate === true) {
+    for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
+      if (claimedExtra.has(extraIndex)) continue;
+      const record = extraRecords[extraIndex];
+      if (!record) continue;
+
+      const priceLine = sourceLine(record, 'price');
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const supplierLine = sourceLine(record, 'supplier');
+      const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+
+      const fullyLocal =
+        Number.isFinite(priceLine) &&
+        (priceTrace?.rules || []).includes('direct_extraction') &&
+        isLocalField(record, 'model', priceLine, 6) &&
+        modelSemanticallySupportsRecord(record, priceLine) &&
+        isLocalField(record, 'color', priceLine, 3) &&
+        isLocalField(record, 'condition', priceLine, 6) &&
+        Number.isFinite(supplierLine) &&
+        !supplierBoundaries.has('supplier') &&
+        !supplierBoundaries.has('timestamp');
+
+      if (fullyLocal) {
+        claim('source_supported_core_only_full_offers_late', null, extraIndex);
+      }
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -4121,6 +4152,23 @@ const residualAdjudicationLedgerCombinedSimulation =
     {
       includeAllFullyLocalCoreOnly: true,
       includeStrongMixed: true
+    }
+  );
+
+const residualAdjudicationLedgerLateFullLocalSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    { includeAllFullyLocalCoreOnlyLate: true }
+  );
+
+const residualAdjudicationLedgerLateCombinedSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true
     }
   );
 
@@ -6371,6 +6419,8 @@ const summary = {
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
   residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
+  residual_adjudication_ledger_late_full_local_simulation: residualAdjudicationLedgerLateFullLocalSimulation,
+  residual_adjudication_ledger_late_combined_simulation: residualAdjudicationLedgerLateCombinedSimulation,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
