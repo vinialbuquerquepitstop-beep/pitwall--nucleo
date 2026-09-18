@@ -565,8 +565,7 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
     mismatch_signatures: Object.entries(signatures)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
-    by_model: byModel,
-    source_identity_by_target_model: sourceIdentityByTargetModel
+    by_model: byModel
   };
 }
 
@@ -5289,7 +5288,8 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
     shapes: Object.entries(shapes)
       .sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))
       .reduce((acc,[k,v])=>{acc[k]=v; return acc;},{}),
-    by_model: byModel
+    by_model: byModel,
+    source_identity_by_target_model: sourceIdentityByTargetModel
   };
 }
 
