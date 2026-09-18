@@ -242,6 +242,31 @@
           "transform": "number",
           "score": 0.97
         }
+      ],
+      "suppress_record_when": [
+        {
+          "roles": [
+            "product_header"
+          ],
+          "min_tokens": 6,
+          "text_contains_any": [
+            "💰",
+            "💵"
+          ],
+          "text_regex_absent": [
+            "(?:R\\$|\\$)"
+          ],
+          "absent_fields": [
+            "model",
+            "color"
+          ],
+          "trigger_evidence_pattern_contains_any": [
+            "💰",
+            "💵"
+          ],
+          "trigger_score_min": 0.995,
+          "trigger_score_max": 0.995
+        }
       ]
     },
     {
@@ -450,6 +475,10 @@
       "version": "v1",
       "status": "enabled_after_real_corpus_simulation",
       "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture; a competing price immediately before the color forces abstention."
+    },
+    "record_emission_suppression": {
+      "version": "v1",
+      "rule": "preserve price candidate for pairing/context but suppress final offer emission for guarded long money-emoji product headers"
     }
   }
 }
