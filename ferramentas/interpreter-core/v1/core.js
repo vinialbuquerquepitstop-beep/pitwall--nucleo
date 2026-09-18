@@ -232,6 +232,10 @@ function extractFieldCandidates(segment, schema = {}) {
               extractor_input: extractor.input || 'segment',
               extractor_id: extractor.id || null,
               context_expire_on_field_declaration: extractor.context_expire_on_field_declaration || null,
+              context_expire_after_record_trigger: extractor.context_expire_after_record_trigger === true,
+              record_require_fields: Array.isArray(extractor.record_require_fields)
+                ? extractor.record_require_fields
+                : [],
               captured: match[0]
             }
           });
@@ -484,6 +488,23 @@ function buildContextTrace(segments, schema = {}) {
     const inheritedContext = {};
     for (const [field, value] of Object.entries(contextAfter)) {
       if (value.source_line !== segment.line_number) inheritedContext[field] = value;
+    }
+
+    const triggerFields = fields.filter(field => field.record_trigger).map(field => field.name);
+    const hasRecordTrigger = triggerFields.some(fieldName =>
+      uniqueFieldCandidates(fieldCandidates, fieldName).length > 0
+    );
+    if (hasRecordTrigger) {
+      for (const [contextField, entry] of Object.entries(contextAfter)) {
+        if (entry?.evidence?.context_expire_after_record_trigger !== true) continue;
+        delete context[contextField];
+        events.push({
+          type: 'reset',
+          reason: 'scoped_context_expired_after_record_trigger',
+          field: contextField,
+          source_line: entry.source_line
+        });
+      }
     }
 
     return {
@@ -887,6 +908,7 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     let blocked = false;
     let inferred = false;
     let recordExpansion = null;
+    const scopedRecordRequirements = new Set();
 
     const directByField = new Map();
     for (const candidate of segment.field_candidates || []) {
@@ -1021,6 +1043,13 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
         continue;
       }
 
+      const requiredRecordFields = Array.isArray(sourceCandidate.evidence?.record_require_fields)
+        ? sourceCandidate.evidence.record_require_fields
+        : [];
+      for (const requiredField of requiredRecordFields) {
+        if (requiredField) scopedRecordRequirements.add(String(requiredField));
+      }
+
       let resolved;
       if (field.resolver?.kind === 'entity') {
         if (sourceType === 'context') {
@@ -1107,6 +1136,24 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
                   : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
+        });
+      }
+    }
+
+    if (!blocked && scopedRecordRequirements.size > 0) {
+      const availableFields = new Set(Object.keys(fieldsOut));
+      if (recordExpansion?.field?.name) availableFields.add(recordExpansion.field.name);
+      const missingRequired = [...scopedRecordRequirements].filter(fieldName => !availableFields.has(fieldName));
+      if (missingRequired.length > 0) {
+        blocked = true;
+        ambiguities.push({
+          ambiguity_id: `amb-${segment.segment_id}-scoped-record-requirements`,
+          field: 'record',
+          cause: 'scoped_record_requirements_missing',
+          raw: segment.raw,
+          candidates: missingRequired,
+          sources: [segment.line_number],
+          context: segment.inherited_context || {}
         });
       }
     }

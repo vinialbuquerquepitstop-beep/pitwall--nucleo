@@ -617,6 +617,36 @@ check('shorthand 16 128 sem Lacrado no anchor permanece desativado', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
+check('shorthand bare 16 Pro Max usa apenas primeiro trigger com cor', () => {
+  const result = run(
+    'apple-shorthand-16pm-first-trigger-color',
+    'Seminovos\n16 Pro Max 256GB\nPreto\nR$ 6.100\nR$ 6.200'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 6100);
+  assert.ok(result.segments.some(segment =>
+    (segment.context_events || []).some(event =>
+      event.reason === 'scoped_context_expired_after_record_trigger' &&
+      event.field === 'model'
+    )
+  ));
+});
+
+check('shorthand bare 16 Pro Max se abstem quando primeiro trigger nao tem cor', () => {
+  const result = run(
+    'apple-shorthand-16pm-first-trigger-no-color',
+    'Seminovos\n16 Pro Max 256GB\nR$ 6.100'
+  );
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(ambiguity =>
+    ambiguity.cause === 'scoped_record_requirements_missing'
+  ));
+});
+
 check('shorthand 16 Pro Max 256 sem CPO permanece desativado', () => {
   const result = run(
     'apple-safe-shorthand-exclude-16pm-without-cpo',

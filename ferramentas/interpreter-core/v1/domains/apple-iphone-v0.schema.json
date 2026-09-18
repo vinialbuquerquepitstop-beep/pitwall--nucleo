@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.9-15-128-lacrado-scoped",
+  "schema_version": "0.10.0-exp-16pm-first-trigger-color",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -81,6 +81,17 @@
           "transform": "trim",
           "score": 0.91,
           "context_expire_on_field_declaration": "condition"
+        },
+        {
+          "id": "supported_shorthand_16_promax_first_trigger_color_v1",
+          "kind": "regex",
+          "pattern": "^(?!.*\\b(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)\\b)[^A-Za-z0-9]{0,12}(16\\s+Pro\\s+Max\\s+256\\s*(?:GB)?)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.91,
+          "context_expire_after_record_trigger": true,
+          "record_require_fields": ["color"]
         }
       ]
     },
@@ -147,6 +158,15 @@
           "id": "supported_shorthand_capacity_15_128_lacrado_scoped_v1",
           "kind": "regex",
           "pattern": "^[^A-Za-z0-9]{0,12}15\\s+(128)(?:\\s*GB)?(?=.*\\bLacrad[oa]s?\\b)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        },
+        {
+          "id": "supported_shorthand_capacity_16_promax_first_trigger_color_v1",
+          "kind": "regex",
+          "pattern": "^(?!.*\\b(?:Lacrad[oa]s?|CPO|Seminov[oa]s?|Nacional|Importad[oa]s?|NF|e\\s*SIM|eSIM)\\b)[^A-Za-z0-9]{0,12}16\\s+Pro\\s+Max\\s+(256)(?:\\s*GB)?(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "integer",
@@ -462,7 +482,7 @@
       ],
       "scoped_exceptions": {
         "iphone_16_128gb": "enabled only when the same header declares Lacrado",
-        "iphone_16_pro_max_256gb": "enabled only when the same header declares CPO",
+        "iphone_16_pro_max_256gb": "enabled when same header declares CPO; experimental bare form requires color on the first trigger and expires model context after that trigger",
         "iphone_17_256gb": "enabled only when the same header declares Importado and eSIM",
         "iphone_15_128gb": "experimental: Lacrado same-header shorthand expires model context on the next condition declaration"
       },
