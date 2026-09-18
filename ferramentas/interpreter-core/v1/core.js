@@ -1026,6 +1026,26 @@ function matchesRecordSuppressionRule(segment, triggerCandidate, rule = {}) {
   const presentFields = Array.isArray(rule.present_fields) ? rule.present_fields : [];
   if (presentFields.some(name => !candidates.some(candidate => candidate.field === name))) return false;
 
+  const inheritedDistance = rule.inherited_source_distance;
+  if (inheritedDistance && typeof inheritedDistance === 'object') {
+    const sourceField = inheritedDistance.field;
+    const entry = sourceField ? segment.inherited_context?.[sourceField] : null;
+    const sourceLine = Number(entry?.source_line);
+    const targetLine = Number(segment.line_number);
+    if (!Number.isFinite(sourceLine) || !Number.isFinite(targetLine)) return false;
+
+    const signedDistance = targetLine - sourceLine;
+    const direction = inheritedDistance.direction || 'any';
+    if (direction === 'before' && signedDistance <= 0) return false;
+    if (direction === 'after' && signedDistance >= 0) return false;
+
+    const distance = Math.abs(signedDistance);
+    if (Number.isFinite(Number(inheritedDistance.min))
+        && distance < Number(inheritedDistance.min)) return false;
+    if (Number.isFinite(Number(inheritedDistance.max))
+        && distance > Number(inheritedDistance.max)) return false;
+  }
+
   const evidencePattern = String(triggerCandidate?.evidence?.pattern || '');
   const evidenceContainsAny = Array.isArray(rule.trigger_evidence_pattern_contains_any)
     ? rule.trigger_evidence_pattern_contains_any
