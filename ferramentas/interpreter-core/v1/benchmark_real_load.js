@@ -847,6 +847,157 @@ function pureColorResidualTopologyDiagnostics(reportSupplierAware, bundle) {
 const pureColorResidualTopologyDiagnostic =
   pureColorResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function pureSupplierResidualTopologyDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+
+  const identityWithoutSupplier = fields => JSON.stringify([
+    fields?.model?.id || null,
+    fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+    normalizeKey(fields?.condition) || null,
+    normalizeKey(fields?.color) || null,
+    fields?.price == null ? null : Number(fields.price)
+  ]);
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+  const segments = bundle.segments || [];
+
+  const signatures = {};
+  let cases = 0;
+  let unresolvedCoreRecord = 0;
+
+  const nearestSupplierLine = (supplier, priceLine) => {
+    const rows = [];
+    for (const segment of segments) {
+      const direct = uniqueFieldCandidates(segment.field_candidates || [], 'supplier');
+      if (!direct.some(candidate => String(candidate.value) === String(supplier))) continue;
+      const line = Number(segment.line_number);
+      rows.push({
+        line,
+        distance: Math.abs(priceLine - line),
+        direction: line < priceLine ? 'before' : line > priceLine ? 'after' : 'same'
+      });
+    }
+    return rows.sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+  };
+
+  for (const miss of missing) {
+    const expectedSupplier = miss.fields?.supplier || null;
+    if (expectedSupplier == null) continue;
+    const identity = identityWithoutSupplier(miss.fields || {});
+
+    let matchIndex = -1;
+    for (let index = 0; index < extras.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      if (identityWithoutSupplier(extras[index].fields || {}) !== identity) continue;
+      const actualSupplier = extras[index].fields?.supplier || null;
+      if (String(actualSupplier) === String(expectedSupplier)) continue;
+      matchIndex = index;
+      break;
+    }
+    if (matchIndex < 0) continue;
+
+    usedExtra.add(matchIndex);
+    cases += 1;
+    const extra = extras[matchIndex];
+    const actualSupplier = extra.fields?.supplier || null;
+    const extraKey = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const consumed = consumedCore.get(extraKey) || 0;
+    const record = bucket[consumed] || null;
+    consumedCore.set(extraKey, consumed + 1);
+    if (!record) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const supplierTrace = (record.trace || []).find(item => item.field === 'supplier');
+    const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : null;
+    const actualSupplierLine = Array.isArray(supplierTrace?.sources) && supplierTrace.sources.length
+      ? Number(supplierTrace.sources[0])
+      : null;
+
+    if (!Number.isFinite(priceLine)) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const expectedNearest = nearestSupplierLine(expectedSupplier, priceLine);
+    const actualNearest = nearestSupplierLine(actualSupplier, priceLine);
+    const actualTraceDistance = Number.isFinite(actualSupplierLine)
+      ? Math.abs(priceLine - actualSupplierLine)
+      : null;
+
+    const betweenBoundaryKinds = (fromLine, toLine) => {
+      if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return 'unknown';
+      const lo = Math.min(fromLine, toLine);
+      const hi = Math.max(fromLine, toLine);
+      const kinds = new Set();
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > lo && line <= hi)) continue;
+        for (const event of segment.context_events || []) {
+          if (event.reason === 'supplier_boundary') kinds.add('supplier');
+          if (event.reason === 'timestamp_boundary') kinds.add('timestamp');
+          if (event.reason === 'domain_boundary') kinds.add('domain');
+        }
+      }
+      return kinds.size ? [...kinds].sort().join('+') : 'none';
+    };
+
+    const expectedDescriptor = expectedNearest
+      ? expectedNearest.direction + ':d' + expectedNearest.distance
+      : 'none';
+    const actualDescriptor = actualNearest
+      ? actualNearest.direction + ':d' + actualNearest.distance
+      : 'none';
+    const expectedCloser = expectedNearest && actualNearest
+      ? expectedNearest.distance < actualNearest.distance
+        ? 'expected'
+        : expectedNearest.distance > actualNearest.distance
+          ? 'actual'
+          : 'tie'
+      : 'unknown';
+
+    const signature = [
+      'expected_nearest=' + expectedDescriptor,
+      'actual_nearest=' + actualDescriptor,
+      'actual_trace_distance=' + (actualTraceDistance == null ? 'unknown' : actualTraceDistance),
+      'closer=' + expectedCloser,
+      'expected_path_boundaries=' + (expectedNearest ? betweenBoundaryKinds(expectedNearest.line, priceLine) : 'unknown'),
+      'actual_path_boundaries=' + (Number.isFinite(actualSupplierLine) ? betweenBoundaryKinds(actualSupplierLine, priceLine) : 'unknown')
+    ].join('|');
+
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    unresolved_core_record: unresolvedCoreRecord,
+    signatures: Object.entries(signatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const pureSupplierResidualTopologyDiagnostic =
+  pureSupplierResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -1882,6 +2033,7 @@ const summary = {
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
+  pure_supplier_residual_topology_diagnostic: pureSupplierResidualTopologyDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
