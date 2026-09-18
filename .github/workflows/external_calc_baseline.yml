@@ -34,6 +34,9 @@ jobs:
       - name: Core proof
         run: node ferramentas/interpreter-core/v1/prova_core.js
 
+      - name: CLI independent proof
+        run: node ferramentas/interpreter-core/v1/prova_cli.js
+
       - name: Apple domain proof
         run: node ferramentas/interpreter-core/v1/prova_apple_domain.js
 
