@@ -1,0 +1,61 @@
+name: External Calc — Baseline Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/external-calc-v0
+    paths:
+      - 'ferramentas/interpreter-core/v1/**'
+      - '.github/workflows/external_calc_baseline.yml'
+      - 'docs/calculadora/EXTERNAL_CALC_V0_EXECUTION.md'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/interpreter-core/v1/**'
+      - '.github/workflows/external_calc_baseline.yml'
+      - 'docs/calculadora/EXTERNAL_CALC_V0_EXECUTION.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-baseline-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  interpreter-baseline:
+    name: Interpreter baseline — local only
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Runtime
+        run: node --version
+
+      - name: Core proof
+        run: node ferramentas/interpreter-core/v1/prova_core.js
+
+      - name: Apple domain proof
+        run: node ferramentas/interpreter-core/v1/prova_apple_domain.js
+
+      - name: Shadow comparator proof
+        run: node ferramentas/interpreter-core/v1/prova_shadow_comparator.js
+
+      - name: Divergence analyzer proof
+        run: node ferramentas/interpreter-core/v1/prova_divergence_analyzer.js
+
+      - name: Offer Expansion V1 proof
+        run: node ferramentas/interpreter-core/v1/prova_offer_expansion_v1.js
+
+      - name: Real Shadow semantic proof
+        run: node ferramentas/interpreter-core/v1/prova_real_shadow_semantic.js
