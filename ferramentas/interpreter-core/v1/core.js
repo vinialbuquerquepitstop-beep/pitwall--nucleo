@@ -583,6 +583,26 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         }
       };
 
+      const groupToNextByExtractor =
+        policy.fallback_group_to_next_trigger_by_anchor_extractor || {};
+      const groupToNext =
+        block.anchor_extractor_id &&
+        groupToNextByExtractor[block.anchor_extractor_id] === true;
+
+      if (!countsEqual && groupToNext) {
+        let previousTargetIndex = start - 1;
+        for (const target of targets) {
+          const groupedSources = sources.filter(source =>
+            source.index > previousTargetIndex && source.index < target.index
+          );
+          for (const source of groupedSources) {
+            appendCandidates(source, target, 'forward_group_pair');
+          }
+          previousTargetIndex = target.index;
+        }
+        continue;
+      }
+
       const countsEqual = sources.length === targets.length;
       if (countsEqual) {
         const pairCount = sources.length;
@@ -1087,6 +1107,8 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
                 ? 'pairing:nearest_unique'
                 : sourceCandidate.evidence?.kind === 'ordered_pair'
                   ? 'pairing:ordered'
+                  : sourceCandidate.evidence?.kind === 'forward_group_pair'
+                    ? 'pairing:forward_group'
                   : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
@@ -1113,6 +1135,8 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
                 ? 'record_expansion:pairing_nearest_unique'
                 : candidate.evidence?.kind === 'ordered_pair'
                   ? 'record_expansion:pairing_ordered'
+                  : candidate.evidence?.kind === 'forward_group_pair'
+                    ? 'record_expansion:pairing_forward_group'
                   : recordExpansion.source === 'block'
                     ? 'record_expansion:block_inheritance'
                     : 'record_expansion:direct_extraction'],
