@@ -764,10 +764,17 @@ function collectExpansionCandidates(segments, segmentIndex, fieldName, schema = 
     const segment = segments[index];
     const candidates = segment.field_candidates || [];
 
-    const hasPriorTrigger = [...triggerNames].some(name =>
-      uniqueFieldCandidates(candidates, name).length > 0
+    const priorTriggerCounts = [...triggerNames].map(name =>
+      uniqueFieldCandidates(candidates, name).length
     );
-    if (hasPriorTrigger) break;
+    const hasPriorTrigger = priorTriggerCounts.some(count => count > 0);
+    const hasPriorMultiTrigger = priorTriggerCounts.some(count => count > 1);
+    if (hasPriorTrigger) {
+      if (fieldConfig.expand_records_block_abort_on_prior_multi_trigger === true && hasPriorMultiTrigger) {
+        return { source: 'none', candidates: [] };
+      }
+      break;
+    }
 
     const hasTimestampBoundary = (segment.context_events || []).some(
       event => event.reason === 'timestamp_boundary'

@@ -193,6 +193,7 @@
       "expand_records": true,
       "expand_records_block_mode": "multi_only",
       "expand_records_block_strategy": "contiguous_before_trigger",
+      "expand_records_block_abort_on_prior_multi_trigger": true,
       "value_map": {
         "Black": "Preto",
         "Blue": "Azul",
