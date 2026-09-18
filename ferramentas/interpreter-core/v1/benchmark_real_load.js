@@ -672,6 +672,8 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
       ).length;
 
       groups.set(groupId, {
+        model_id: offer.fields?.model?.id || '(unknown)',
+        supplier_id: offer.fields?.supplier || '(unknown)',
         size: 0,
         exact_supported: 0,
         surplus: 0,
@@ -713,6 +715,8 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
   }
 
   const summary = {};
+  const byModel = {};
+  const byModelSupplier = {};
   for (const row of groups.values()) {
     const signature = [
       'distance=' + row.distance,
@@ -727,13 +731,24 @@ function supplierAwareExpansionGroupDiagnostics(legacyBundle, coreBundleInput) {
       'between_condition=' + (row.between_has_condition ? 'yes' : 'no'),
       'between_unknown=' + row.between_unknown_lines
     ].join('|');
-    if (!summary[signature]) summary[signature] = { groups: 0, offers: 0, exact_supported: 0, surplus: 0 };
-    summary[signature].groups += 1;
-    summary[signature].offers += row.size;
-    summary[signature].exact_supported += row.exact_supported;
-    summary[signature].surplus += row.surplus;
+
+    const add = (bucket, key) => {
+      if (!bucket[key]) bucket[key] = { groups: 0, offers: 0, exact_supported: 0, surplus: 0 };
+      bucket[key].groups += 1;
+      bucket[key].offers += row.size;
+      bucket[key].exact_supported += row.exact_supported;
+      bucket[key].surplus += row.surplus;
+    };
+
+    add(summary, signature);
+    add(byModel, row.model_id + ' | ' + signature);
+    add(byModelSupplier, row.model_id + ' | supplier=' + row.supplier_id + ' | ' + signature);
   }
-  return summary;
+  return {
+    aggregate: summary,
+    by_model: byModel,
+    by_model_supplier: byModelSupplier
+  };
 }
 
 function supplierAwarePairingTraceDiagnostics(legacyBundle, coreBundleInput) {
