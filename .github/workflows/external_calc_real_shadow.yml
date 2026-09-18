@@ -1,6 +1,12 @@
 name: External Calc — Real Shadow Gate
 
 on:
+  push:
+    branches:
+      - feat/external-calc-v0
+    paths:
+      - 'ferramentas/interpreter-core/v1/**'
+      - '.github/workflows/external_calc_real_shadow.yml'
   pull_request:
     branches:
       - audit/external-calc-baseline-r2
@@ -9,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: external-calc-real-shadow-${{ github.event.pull_request.number }}
+  group: external-calc-real-shadow-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
