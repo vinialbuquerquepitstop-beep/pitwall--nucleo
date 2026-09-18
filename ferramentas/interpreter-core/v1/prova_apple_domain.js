@@ -598,6 +598,31 @@ check('shorthands com extras no run103 permanecem desativados', () => {
   }
 });
 
+check('shorthand produtivo 17 Air continua habilitado', () => {
+  const result = run(
+    'apple-productive-shorthand-17air',
+    '17 Air 256GB Lacrado\nAzul R$ 5.499'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_air_256gb');
+});
+
+check('shorthand improdutivo 15 128 permanece desativado', () => {
+  const result = run(
+    'apple-unproductive-shorthand-15',
+    '15 128GB Lacrado\nPreto R$ 3.799'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
+check('shorthand improdutivo 17e permanece desativado', () => {
+  const result = run(
+    'apple-unproductive-shorthand-17e',
+    '17e 256GB Lacrado\nBranco R$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
