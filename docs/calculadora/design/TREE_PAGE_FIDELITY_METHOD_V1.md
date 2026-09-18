@@ -28,27 +28,62 @@ A fidelidade do Tree nasceu de redução progressiva de liberdade. Primeiro a op
 
 ## Aplicação ao External Calc
 
-O novo export do Stitch deve ser tratado como visual canon candidate. Ele altera a direção visual para dark-first e define com clareza shell, densidade e composição da página Analyze. Ele não substitui os contratos já definidos do External Calc.
+O último export escolhido pelo usuário deve ser tratado como **referência visual global**, não como contrato de uma página específica.
 
-### O que o export define visualmente
+Embora o mock exibido no render contenha conteúdo semelhante a uma tela de análise, isso é apenas o conteúdo usado pela referência. A extração canônica deve separar:
 
-- canvas `#0b0f17`;
-- sidebar `#111827` com 240px;
-- panel `#161f2e`;
-- Inter 400/500/600/700;
-- page frame de 32px e max-width de 1280px;
-- top grid 7/5;
-- bottom grid 8/4;
-- azul = ação/seleção/inferência;
-- emerald = pronto/interpretado;
-- amber = ambiguidade;
-- tabela como protagonista operacional;
-- status global sticky no topo;
-- metadados técnicos em mono.
+```text
+VOCABULÁRIO VISUAL GLOBAL
+≠
+SEMÂNTICA DA TELA MOSTRADA NO MOCK
+```
 
-### O que o export NÃO autoriza remover
+O arquivo `EXTERNAL_CALC_STITCH_VISUAL_CONTRACT_V1.json` registra essa separação explicitamente.
 
-O export não mostra `InvalidPanel`, `EvidenceDrawer`, `idle`, `partial`, `empty` e a composição completa de `failed/retry`. Esses requisitos continuam existindo porque vêm do contrato do produto. A próxima iteração visual deve expressá-los usando a mesma linguagem, não apagá-los para igualar a screenshot.
+### O que a referência define visualmente
+
+- direção dark technical command center;
+- canvas em torno de `#080b11`;
+- sidebar/header em torno de `#0d121d`, com 240px no desktop;
+- painéis operacionais escuros translúcidos;
+- Inter como família principal observada no render;
+- frame de página com 32px;
+- grid de 12 colunas com gaps de 24px;
+- azul para ação/seleção/informação;
+- emerald para sucesso/confirmação;
+- amber para revisão/alerta;
+- rose/red para erro/inválido;
+- metadados técnicos em mono;
+- glow restrito a estados e ações de maior ênfase;
+- tabelas, painéis técnicos e blocos contextuais como padrões reutilizáveis.
+
+### Regra de escopo
+
+A referência **não autoriza** copiar como padrão global:
+
+- entidades, contagens ou textos do mock;
+- o fluxo Entrada → Interpretação → Revisão;
+- os labels Slice 02 / Slice 03;
+- os spans 7/5 e 8/4 como regra universal;
+- o seletor de estado de teste como componente de produto;
+- qualquer semântica específica da tela mostrada.
+
+Esses elementos só entram numa página futura quando o `PAGE_SPEC.json` daquela página exigir.
+
+### Conflito no pacote
+
+O `DESIGN.md` do pacote descreve um sistema claro chamado COMMERCIAL AI — Intelligence OS, com Geist + JetBrains Mono. Isso conflita com o render e o HTML dark escolhidos como referência.
+
+Pelo método da Tree, a precedência adotada é:
+
+```text
+RENDER APROVADO
+→ HTML RENDERIZADO
+→ TOKENS NORMALIZADOS
+→ METADATA NÃO CONFLITANTE
+```
+
+Portanto, o `DESIGN.md` não substitui o visual dark onde houver conflito.
 
 ## Pipeline por página
 
@@ -135,12 +170,14 @@ Isso evita dois extremos: Design System rígido que não evolui e Design System 
 
 ## Próximo gate recomendado
 
-Antes de declarar este novo dark-first como Design System canônico:
+Antes de declarar esta referência como Design System canônico:
 
-1. completar no Stitch os estados e componentes obrigatórios ausentes;
-2. aprovar visualmente a Analyze como tela calibradora junto da Overview;
-3. extrair novamente o JSON final;
-4. normalizar tokens/componentes;
-5. aplicar na implementação;
-6. comparar render vs referência;
+1. aceitar formalmente esta referência como `Golden Visual Reference`;
+2. normalizar os tokens e padrões do JSON;
+3. separar primitives globais de padrões opcionais de página;
+4. produzir o Design System canônico;
+5. criar cada nova tela a partir de `PAGE_SPEC.json`;
+6. comparar a implementação contra esta referência em proporção, densidade, tipografia, superfícies, estados e anatomia de componentes;
 7. somente então executar `DESIGN CANON FREEZE`.
+
+Não é necessário transformar a tela mostrada no mock na tela calibradora do produto. A referência pode funcionar apenas como fonte de linguagem visual global.
