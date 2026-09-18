@@ -544,4 +544,42 @@ check('cabecalho compacto PM resolve via conhecimento de dominio', () => {
   assert.strictEqual(result.records[0].fields.price, 4799);
 });
 
+
+check('modelo iPhone nao suportado quebra contexto anterior', () => {
+  const result = run(
+    'apple-context-boundary-unsupported-canonical',
+    'iPhone 17 256GB Lacrado\nPreto R$ 5.299\niPhone 14 128GB\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  const boundary = result.segments.find(segment =>
+    segment.raw.includes('iPhone 14 128GB')
+  );
+  assert.ok(boundary.context_events.some(event => event.reason === 'domain_boundary'));
+});
+
+check('modelo abreviado nao suportado quebra contexto anterior', () => {
+  const result = run(
+    'apple-context-boundary-unsupported-bare',
+    '17 256GB Lacrado\nPreto R$ 5.299\n14 128GB\nR$ 3.999'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  const boundary = result.segments.find(segment => segment.raw.trim() === '14 128GB');
+  assert.ok(boundary.context_events.some(event => event.reason === 'domain_boundary'));
+});
+
+check('linha de preco colorida nao vira fronteira de modelo', () => {
+  const result = run(
+    'apple-context-boundary-no-false-positive',
+    '17 256GB Lacrado\nPreto R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  const priceSegment = result.segments.find(segment => segment.raw.includes('5.299'));
+  assert.ok(!priceSegment.context_events.some(event => event.reason === 'domain_boundary'));
+});
+
 console.log(`PASSOU: ${ok} assercoes Apple`);
