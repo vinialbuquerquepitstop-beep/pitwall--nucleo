@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
+  "schema_version": "0.10.0-message-dedup-shadow",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -391,6 +391,21 @@
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
       "safety": "extractor is anchored to line start and only runs on shorthand families currently enabled"
+    },
+    "message_local_supersession": {
+      "source": "17 256 Quality/Cristiano local-header evidence",
+      "rule": "within one WhatsApp message block, repeated offers with the same model+color+condition collapse to the latest occurrence",
+      "safety": "requires all key fields; no cross-message dedup; shadow only"
     }
+  },
+  "record_dedup": {
+    "enabled": true,
+    "within": "timestamp_message_block",
+    "key_fields": [
+      "model.id",
+      "color",
+      "condition"
+    ],
+    "keep": "latest"
   }
 }
