@@ -30,6 +30,13 @@ function isTimestampLine(line) {
     || /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b/.test(line);
 }
 
+function stripMessagePrefix(line) {
+  const t = normalizeLine(line);
+  return t
+    .replace(/^\s*\[[^\]]{4,40}\]\s*[^:]{1,60}:\s*/, '')
+    .replace(/^\s*\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?::\d{2})?\s*[-–—]\s*[^:]{1,60}:\s*/, '');
+}
+
 function scoreRoles(line) {
   const roles = [];
   const t = normalizeLine(line);
@@ -186,15 +193,19 @@ function extractFieldCandidates(segment, schema = {}) {
           throw new Error(`extractor regex invalido em ${field.name}: ${err.message}`);
         }
 
+        const inputText = extractor.input === 'message_body'
+          ? stripMessagePrefix(segment.normalized)
+          : segment.normalized;
+
         const matches = [];
         if (matchMode === 'all') {
           let match;
-          while ((match = regex.exec(segment.normalized)) !== null) {
+          while ((match = regex.exec(inputText)) !== null) {
             matches.push(match);
             if (match[0] === '') regex.lastIndex += 1;
           }
         } else {
-          const match = regex.exec(segment.normalized);
+          const match = regex.exec(inputText);
           if (match) matches.push(match);
         }
 
@@ -218,6 +229,7 @@ function extractFieldCandidates(segment, schema = {}) {
               segment_id: segment.segment_id,
               line_number: segment.line_number,
               raw: segment.raw,
+              extractor_input: extractor.input || 'segment',
               captured: match[0]
             }
           });
@@ -1174,6 +1186,7 @@ module.exports = {
   normalizeLine,
   normalizeKey,
   isTimestampLine,
+  stripMessagePrefix,
   scoreRoles,
   segmentDocument,
   parseGenericNumber,
