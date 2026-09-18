@@ -527,6 +527,8 @@ function localHeader17256Diagnostics(bundle) {
     let colorOnlyRows = 0;
     let colorCandidates = 0;
     const colorRows = [];
+    const structuralRows = [];
+    const priceRows = [];
     let conditionCandidateRows = 0;
     const conditionCounts = { Lacrado: 0, Seminovo: 0, CPO: 0, other: 0 };
 
@@ -536,12 +538,36 @@ function localHeader17256Diagnostics(bundle) {
       const conditions = distinctFieldValues(blockSegment, 'condition')
         .map(value => JSON.parse(value));
 
+      structuralRows.push({
+        line: blockSegment.line_number,
+        model_candidates: distinctFieldValues(blockSegment, 'model').map(value => JSON.parse(value)),
+        capacity_candidates: distinctFieldValues(blockSegment, 'capacity_gb').map(value => JSON.parse(value)),
+        condition_candidates: conditions,
+        color_count: colors.length,
+        price_count: prices.length,
+        context_event_reasons: (blockSegment.context_events || []).map(event => event.reason || event.type).filter(Boolean),
+        inherited_model_source_line: blockSegment.inherited_context?.model?.source_line || null,
+        inherited_condition_source_line: blockSegment.inherited_context?.condition?.source_line || null
+      });
+
       if (prices.length > 0) {
         priceSegments += 1;
         if (prices.length === 1) singlePriceSegments += 1;
         else multiPriceSegments += 1;
         if (colors.length > 0) priceWithDirectColor += 1;
         else priceWithoutDirectColor += 1;
+        priceRows.push({
+          line: blockSegment.line_number,
+          price_count: prices.length,
+          direct_color_count: colors.length,
+          direct_conditions: conditions,
+          inherited_condition: blockSegment.inherited_context?.condition
+            ? {
+                value: blockSegment.inherited_context.condition.value,
+                source_line: blockSegment.inherited_context.condition.source_line
+              }
+            : null
+        });
       }
 
       if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(blockSegment, 'color')) {
@@ -591,6 +617,8 @@ function localHeader17256Diagnostics(bundle) {
       color_candidates: colorCandidates,
       condition_candidate_rows: conditionCandidateRows,
       condition_counts: conditionCounts,
+      price_rows: priceRows,
+      structural_rows: structuralRows,
       materialized_records: blockRecords.length,
       materialized_17256: blockRecords.filter(record => record.fields?.model?.id === 'iphone_17_256gb').length
     });
