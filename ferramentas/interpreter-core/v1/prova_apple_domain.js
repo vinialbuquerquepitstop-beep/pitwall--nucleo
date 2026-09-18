@@ -542,6 +542,34 @@ check('linha de preco nao abre product header boundary', () => {
   ));
 });
 
+check('shorthand suportado resolve dentro de product boundary', () => {
+  const result = run(
+    'apple-boundary-shorthand-supported',
+    '🍎17 256GB Lacrado\nAzul R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('produto desconhecido depois de shorthand encerra contexto e impede vazamento', () => {
+  const result = run(
+    'apple-boundary-shorthand-no-bleed',
+    '17 256GB Lacrado\nAzul R$ 5.299\n15 256GB Lacrado\nPreto R$ 4.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('shorthand fora do dominio continua sem materializar oferta', () => {
+  const result = run(
+    'apple-boundary-shorthand-unsupported',
+    '15 256GB Lacrado\nPreto R$ 4.299'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
