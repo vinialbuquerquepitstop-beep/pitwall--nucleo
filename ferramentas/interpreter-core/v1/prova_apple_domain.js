@@ -477,6 +477,31 @@ check('fallback vizinho unico se abstem quando distancia passa de tres linhas', 
   assert.ok(result.records.every(record => record.fields.color === undefined));
 });
 
+check('catalogo real: Azul Profundo e Citrus entram como cores validas', () => {
+  const azulProfundo = run(
+    'apple-color-azul-profundo',
+    'iPhone 17 256GB Azul Profundo Lacrado R$ 5.299'
+  );
+  assert.strictEqual(azulProfundo.records.length, 1);
+  assert.strictEqual(azulProfundo.records[0].fields.color, 'Azul Profundo');
+
+  const citrus = run(
+    'apple-color-citrus',
+    'iPhone 17 256GB Cítrus Lacrado R$ 5.299'
+  );
+  assert.strictEqual(citrus.records.length, 1);
+  assert.strictEqual(citrus.records[0].fields.color, 'Cítrus');
+});
+
+check('catalogo real: Purple canoniza para Lilas', () => {
+  const result = run(
+    'apple-color-purple-catalog',
+    'iPhone 17 256GB Purple Lacrado R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Lilás');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
