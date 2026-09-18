@@ -231,7 +231,30 @@ function extractFieldCandidates(segment, schema = {}) {
     const prior = byKey.get(key);
     if (!prior || candidate.score > prior.score) byKey.set(key, candidate);
   }
-  return [...byKey.values()].sort((a, b) => b.score - a.score);
+
+  let deduped = [...byKey.values()];
+  for (const field of fields) {
+    const preferred = Array.isArray(field.prefer_values_if_present)
+      ? field.prefer_values_if_present.map(normalizeKey)
+      : [];
+    if (!preferred.length) continue;
+
+    const candidates = deduped.filter(candidate => candidate.field === field.name);
+    const preferredCandidate = candidates
+      .filter(candidate => preferred.includes(normalizeKey(candidate.value)))
+      .sort((a, b) =>
+        preferred.indexOf(normalizeKey(a.value)) - preferred.indexOf(normalizeKey(b.value)) ||
+        b.score - a.score
+      )[0];
+
+    if (!preferredCandidate) continue;
+    const chosenKey = normalizeKey(preferredCandidate.value);
+    deduped = deduped.filter(candidate =>
+      candidate.field !== field.name || normalizeKey(candidate.value) === chosenKey
+    );
+  }
+
+  return deduped.sort((a, b) => b.score - a.score);
 }
 
 function cloneContext(context) {
