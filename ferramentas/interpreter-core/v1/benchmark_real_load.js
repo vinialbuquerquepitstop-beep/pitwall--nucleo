@@ -1085,7 +1085,6 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
       const modelTrace = (offer.trace || []).find(trace => trace.field === 'model');
       const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
       const diffs = residualDiffsById.get(offer.core_record_id) || [];
-      const paired = residualPairById.get(offer.core_record_id) || null;
       const classification = !remainingIds.has(offer.core_record_id)
         ? 'exact'
         : residualDiffsById.has(offer.core_record_id)
@@ -2217,6 +2216,7 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
       const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
       const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
       const diffs = residualDiffsById.get(offer.core_record_id) || [];
+      const paired = residualPairById.get(offer.core_record_id) || null;
       const classification = !remainingIds.has(offer.core_record_id)
         ? 'exact'
         : residualDiffsById.has(offer.core_record_id)
@@ -2233,7 +2233,16 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
         condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
         color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : [],
         classification,
-        diffs
+        diffs,
+        paired_legacy: paired ? {
+          legacy_record_id: paired.legacy?.legacy_record_id || null,
+          product_index: paired.legacy?.metadata?.product_index ?? null,
+          model: normFields(paired.legacy).model,
+          capacity_gb: normFields(paired.legacy).capacity_gb,
+          condition: normFields(paired.legacy).condition,
+          color: normFields(paired.legacy).color,
+          supplier_present: Boolean(String(paired.legacy?.metadata?.supplier ?? '').trim())
+        } : null
       };
     });
 
