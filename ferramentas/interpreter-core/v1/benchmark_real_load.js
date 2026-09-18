@@ -344,6 +344,56 @@ function scopedRejectedColorPairingDiagnostics(bundle) {
   };
 }
 
+function classifyScopedRejectedColorCandidates(bundle, legacyBundle) {
+  const diagnostic = scopedRejectedColorPairingDiagnostics(bundle);
+  const segments = bundle.segments || [];
+  const byLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+  const counts = { exact_full: 0, exact_without_condition: 0, price_conflict_same_identity: 0, no_match: 0 };
+  const byModel = {};
+
+  const bump = (model, kind) => {
+    counts[kind] += 1;
+    if (!byModel[model]) byModel[model] = { exact_full: 0, exact_without_condition: 0, price_conflict_same_identity: 0, no_match: 0 };
+    byModel[model][kind] += 1;
+  };
+
+  for (const row of diagnostic.rows || []) {
+    if (!row.conservative_candidate) continue;
+    const source = byLine.get(Number(row.line));
+    const nearest = [row.previous_price, row.next_price].filter(Boolean)
+      .sort((a, b) => Number(a.distance) - Number(b.distance));
+    const target = nearest[0] ? byLine.get(Number(nearest[0].line)) : null;
+    if (!source || !target) { bump(row.model, 'no_match'); continue; }
+
+    const colors = distinctFieldValues(source, 'color').map(value => normalizeKey(JSON.parse(value))).filter(Boolean);
+    const prices = distinctFieldValues(target, 'price').map(value => Number(JSON.parse(value))).filter(Number.isFinite);
+    if (colors.length !== 1 || prices.length !== 1) { bump(row.model, 'no_match'); continue; }
+
+    const directConditions = distinctFieldValues(target, 'condition').map(value => JSON.parse(value));
+    const conditionValue = directConditions.length === 1
+      ? directConditions[0]
+      : target.inherited_context?.condition?.value ?? null;
+    const condition = normFields({ fields: { condition: conditionValue } }).condition;
+
+    const related = (legacyBundle.offers || []).filter(offer => {
+      const n = normFields(offer);
+      return n.model === row.model && n.color === colors[0];
+    });
+    const samePrice = related.filter(offer => normFields(offer).price === prices[0]);
+    if (samePrice.some(offer => normFields(offer).condition === condition)) {
+      bump(row.model, 'exact_full');
+    } else if (samePrice.length > 0) {
+      bump(row.model, 'exact_without_condition');
+    } else if (related.some(offer => normFields(offer).condition === condition)) {
+      bump(row.model, 'price_conflict_same_identity');
+    } else {
+      bump(row.model, 'no_match');
+    }
+  }
+
+  return { conservative_candidates: Object.values(counts).reduce((a, b) => a + b, 0), counts, by_model: byModel };
+}
+
 function orderedPairFallbackDiagnostics(bundle) {
   const segments = bundle.segments || [];
   const blocks = [];
@@ -2732,6 +2782,9 @@ const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const rejectedColorSourceDiagnostic = rejectedColorSourceDiagnostics(coreBundle);
 const scopedRejectedColorPairingDiagnostic = scopedRejectedColorPairingDiagnostics(coreBundle);
+const classifiedScopedRejectedColorDiagnostic = classifyScopedRejectedColorCandidates(
+  coreBundle, canonicalReference.legacy
+);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
@@ -2860,6 +2913,7 @@ const summary = {
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
   rejected_color_source_diagnostic: rejectedColorSourceDiagnostic,
   scoped_rejected_color_pairing_diagnostic: scopedRejectedColorPairingDiagnostic,
+  classified_scoped_rejected_color_diagnostic: classifiedScopedRejectedColorDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
