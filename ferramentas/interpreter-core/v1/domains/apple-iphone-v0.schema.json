@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.4",
+  "schema_version": "0.8.5",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -225,7 +225,7 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "offer_expansion": {
-      "version": "v1.1",
+      "version": "v1.2",
       "fields": [
         "color"
       ],
@@ -234,11 +234,23 @@
       "status": "shadow_candidate_validated_on_real_load",
       "real_load_delta": {
         "baseline_agreement_ratio": 0.2541,
-        "candidate_agreement_ratio": 0.2873,
+        "v11_agreement_ratio": 0.3757,
+        "v12_agreement_ratio": 0.5138,
         "baseline_matched_offers": 46,
-        "candidate_matched_offers": 52,
-        "baseline_wrong_price_only": 2,
-        "candidate_wrong_price_only": 0
+        "v11_matched_offers": 68,
+        "v12_matched_offers": 93,
+        "baseline_missing_offers": 135,
+        "v12_missing_offers": 88,
+        "baseline_extra_offers": 43,
+        "v12_extra_offers": 21,
+        "v12_wrong_price_only": 0,
+        "v12_core_offers": 114
+      },
+      "v12_safety": {
+        "ordered_pairing": "equal-count color-only rows pair by order inside a model block",
+        "nearest_fallback": "count mismatch may use only a uniquely nearest bare price within 3 lines",
+        "ties": "abstain",
+        "distance_ge_4": "abstain"
       }
     },
     "color_canonicalization": {
