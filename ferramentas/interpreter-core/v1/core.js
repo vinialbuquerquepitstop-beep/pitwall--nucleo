@@ -217,7 +217,8 @@ function extractFieldCandidates(segment, schema = {}) {
               match_index: match.index,
               segment_id: segment.segment_id,
               line_number: segment.line_number,
-              raw: segment.raw
+              raw: segment.raw,
+              captured: match[0]
             }
           });
         }
@@ -395,6 +396,24 @@ function buildContextTrace(segments, schema = {}) {
   });
 }
 
+function isFieldOnlySegment(segment, fieldName) {
+  const candidates = uniqueFieldCandidates(segment.field_candidates || [], fieldName);
+  if (!candidates.length) return false;
+
+  let remainder = String(segment.normalized || '');
+  for (const candidate of candidates) {
+    const captured = candidate.evidence?.captured;
+    if (!captured) return false;
+    const index = remainder.toLocaleLowerCase('pt-BR').indexOf(
+      String(captured).toLocaleLowerCase('pt-BR')
+    );
+    if (index < 0) continue;
+    remainder = remainder.slice(0, index) + ' ' + remainder.slice(index + String(captured).length);
+  }
+
+  return normalizeKey(remainder) === '';
+}
+
 function applyOrderedFieldPairing(segments, schema = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const pairFields = fields.filter(field => field.pair_by_order_with_trigger);
@@ -448,7 +467,9 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         const triggerCandidates = uniqueFieldCandidates(segment.field_candidates || [], triggerField);
 
         if (sourceCandidates.length > 0 && triggerCandidates.length === 0) {
-          sources.push({ index, candidates: sourceCandidates });
+          if (policy.require_source_only !== true || isFieldOnlySegment(segment, field.name)) {
+            sources.push({ index, candidates: sourceCandidates });
+          }
         }
         if (triggerCandidates.length === 1 && sourceCandidates.length === 0) {
           targets.push({ index, candidate: triggerCandidates[0] });
@@ -1114,6 +1135,7 @@ module.exports = {
   extractFieldCandidates,
   uniqueFieldCandidates,
   buildContextTrace,
+  isFieldOnlySegment,
   applyOrderedFieldPairing,
   buildKnowledgeIndex,
   resolveEntityCandidate,
