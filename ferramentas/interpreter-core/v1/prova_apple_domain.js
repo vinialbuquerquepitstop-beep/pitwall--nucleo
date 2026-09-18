@@ -633,35 +633,12 @@ check('shorthand low-risk sem GB herda capacidade correta do cabecalho', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
-check('shorthand 17 256 volta com capacidade e pairing local protegido', () => {
+check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () => {
   const result = run(
-    'apple-shorthand-17-256-safe',
+    'apple-shorthand-bare-capacity-disabled-17-256',
     '17 256 Lacrado\nAzul R$ 5.299'
   );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-  assert.strictEqual(result.records[0].fields.color, 'Azul');
-  assert.strictEqual(result.records[0].fields.price, 5299);
-});
-
-check('shorthand limita nearest pairing a uma linha', () => {
-  const result = run(
-    'apple-shorthand-nearest-distance-cap',
-    '17 256 Lacrado\nPreto\nOBS\nR$ 5.299\nR$ 5.399'
-  );
-  assert.strictEqual(result.records.length, 2);
-  assert.ok(result.records.every(record => record.fields.color === undefined));
-});
-
-check('modelo canonico mantem nearest pairing global ate tres linhas', () => {
-  const result = run(
-    'apple-canonical-nearest-distance-cap',
-    'iPhone 17 256GB Lacrado\nPreto\nOBS\nR$ 5.299\nR$ 5.399'
-  );
-  assert.strictEqual(result.records.length, 2);
-  assert.strictEqual(result.records[0].fields.color, 'Preto');
-  assert.strictEqual(result.records[0].fields.price, 5299);
+  assert.strictEqual(result.records.length, 0);
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
