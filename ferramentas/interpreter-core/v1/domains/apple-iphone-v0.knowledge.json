@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "created_at": null,
   "entities": [
     {
@@ -216,18 +216,6 @@
     },
     {
       "kind": "model",
-      "text": "16 128GB",
-      "normalized": null,
-      "target_id": "iphone_16_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 128",
-      "normalized": null,
-      "target_id": "iphone_16_128gb"
-    },
-    {
-      "kind": "model",
       "text": "16 256GB",
       "normalized": null,
       "target_id": "iphone_16_256gb"
@@ -249,18 +237,6 @@
       "text": "16 Pro 256",
       "normalized": null,
       "target_id": "iphone_16_pro_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro Max 256GB",
-      "normalized": null,
-      "target_id": "iphone_16_pro_max_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "16 Pro Max 256",
-      "normalized": null,
-      "target_id": "iphone_16_pro_max_256gb"
     },
     {
       "kind": "model",
@@ -334,9 +310,12 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "supported_header_shorthand": {
-      "source": "real-load structural diagnostic",
-      "mode": "with-product-header-boundary-v1",
-      "aliases_added": 22
+      "source": "run100 wrong_price ablation",
+      "mode": "safe-models-only",
+      "excluded_models": [
+        "iphone_16_128gb",
+        "iphone_16_pro_max_256gb"
+      ]
     }
   }
 }
