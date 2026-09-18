@@ -205,6 +205,24 @@ for (const record of adjacentColorBundle.records || []) {
   }
 
   const candidate = [...uniqueColors.values()][0];
+  const sourceIsFieldOnly = isFieldOnlySegment(sourceSegment, 'color');
+  const topRole = sourceSegment.role_candidates?.[0]?.role || 'unknown';
+  const normalizedSource = String(sourceSegment.normalized || '').trim();
+  const capturedSource = String(candidate.evidence?.captured || candidate.value || '');
+  const normalizedLower = normalizedSource.toLocaleLowerCase('pt-BR');
+  const capturedLower = capturedSource.toLocaleLowerCase('pt-BR');
+  const capturedIndex = capturedLower ? normalizedLower.indexOf(capturedLower) : -1;
+  const leftoverSource = capturedIndex >= 0
+    ? (normalizedSource.slice(0, capturedIndex) + ' ' + normalizedSource.slice(capturedIndex + capturedSource.length)).trim()
+    : normalizedSource;
+  const leftoverTokenCount = leftoverSource
+    ? leftoverSource.split(/\s+/).filter(Boolean).length
+    : 0;
+  const sourceShapeAllowed =
+    sourceIsFieldOnly ||
+    (topRole === 'product_header' && leftoverTokenCount >= 2);
+  if (!sourceShapeAllowed) continue;
+
   record.fields.color = candidate.value;
   record.trace = Array.isArray(record.trace) ? record.trace : [];
   record.trace.push({
