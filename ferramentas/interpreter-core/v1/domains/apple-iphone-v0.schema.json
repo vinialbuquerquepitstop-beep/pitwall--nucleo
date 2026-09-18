@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.3-local-17-256-forward-group",
+  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -44,15 +44,6 @@
           "group": 1,
           "transform": "trim",
           "score": 0.91
-        },
-        {
-          "id": "supported_shorthand_17_256_lacrado_v1",
-          "kind": "regex",
-          "pattern": "^[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=[^\\r\\n]*\\blacrado\\b)",
-          "flags": "i",
-          "group": 1,
-          "transform": "trim",
-          "score": 0.93
         }
       ]
     },
@@ -169,13 +160,7 @@
         "require_adjacent_rows": false,
         "require_source_only": true,
         "fallback_unique_nearest": true,
-        "fallback_max_distance": 3,
-        "fallback_max_distance_by_anchor_extractor": {
-          "supported_shorthand_17_256_lacrado_v1": 1
-        },
-        "fallback_group_to_next_trigger_by_anchor_extractor": {
-          "supported_shorthand_17_256_lacrado_v1": true
-        }
+        "fallback_max_distance": 3
       }
     },
     {
@@ -401,34 +386,11 @@
         "iphone_16e_128gb",
         "iphone_17e_256gb"
       ],
-      "bare_capacity_policy": "17 256 is enabled only when local Lacrado evidence is present; nearest fallback is capped to distance 1 for that extractor"
+      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled"
     },
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
       "safety": "extractor is anchored to line start and only runs on shorthand families currently enabled"
-    },
-    "message_local_supersession": {
-      "source": "17 256 Quality/Cristiano local-header evidence",
-      "rule": "within one WhatsApp message block, repeated offers with the same model+color+condition collapse to the latest occurrence",
-      "safety": "requires all key fields; no cross-message dedup; shadow only"
-    },
-    "local_header_17_256": {
-      "source": "real-load Quality/Cristiano block evidence",
-      "rule": "resolve shorthand 17 256 only when same header contains Lacrado",
-      "pairing": "within this anchor, color-only rows between the previous price and the next price bind forward to that next price",
-      "excludes": "A+/seminovo shorthand headers without Lacrado",
-      "safety": "scoped to extractor supported_shorthand_17_256_lacrado_v1; no global pairing change",
-      "mode": "shadow"
     }
-  },
-  "record_dedup": {
-    "enabled": true,
-    "within": "timestamp_message_block",
-    "key_fields": [
-      "model.id",
-      "color",
-      "condition"
-    ],
-    "keep": "latest"
   }
 }
