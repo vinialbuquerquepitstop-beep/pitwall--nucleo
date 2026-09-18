@@ -214,7 +214,8 @@
         "require_adjacent_rows": false,
         "require_source_only": true,
         "fallback_unique_nearest": true,
-        "fallback_max_distance": 3
+        "fallback_max_distance": 3,
+        "fallback_max_distance_when_multi_trigger": 2
       }
     },
     {
