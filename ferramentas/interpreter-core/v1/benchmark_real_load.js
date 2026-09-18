@@ -504,6 +504,136 @@ function pureModelResidualTopologyDiagnostics(reportSupplierAware) {
 const pureModelResidualTopologyDiagnostic =
   pureModelResidualTopologyDiagnostics(reportSupplierAware);
 
+function pureModelResidualEvidenceDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier || null,
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const sameExceptModel = (a, b) =>
+    a.model !== b.model &&
+    a.supplier === b.supplier &&
+    a.capacity === b.capacity &&
+    a.condition === b.condition &&
+    a.color === b.color &&
+    a.price === b.price;
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumed = new Map();
+  const segmentByLine = new Map(
+    (bundle.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+
+  const signatures = {};
+  let cases = 0;
+  let explicitProMax = 0;
+  let explicitPro = 0;
+  let inferredModelTrace = 0;
+
+  for (const miss of missing) {
+    const expected = norm(miss);
+    let chosen = -1;
+    for (let index = 0; index < extras.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      const actual = norm(extras[index]);
+      if (!sameExceptModel(expected, actual)) continue;
+      chosen = index;
+      break;
+    }
+    if (chosen < 0) continue;
+    usedExtra.add(chosen);
+    cases += 1;
+
+    const extra = extras[chosen];
+    const extraKey = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const offset = consumed.get(extraKey) || 0;
+    const record = bucket[offset] || null;
+    consumed.set(extraKey, offset + 1);
+    if (!record) continue;
+
+    const modelTrace = (record.trace || []).find(item => item.field === 'model');
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+      ? Number(modelTrace.sources[0])
+      : null;
+    const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : null;
+    const segment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+    const normalized = String(segment?.normalized || '');
+    const proMax = /\bpro\s*max\b/i.test(normalized);
+    const pro = /\bpro\b/i.test(normalized);
+    const iphone = /\biphone\b/i.test(normalized);
+    const generation16 = /\b16\b/i.test(normalized);
+    const capacity256 = /\b256(?:\s*gb)?\b/i.test(normalized);
+    const directModelCount = (segment?.field_candidates || [])
+      .filter(candidate => candidate.field === 'model').length;
+    const semanticIds = [...new Set(
+      (segment?.semantic_candidates || [])
+        .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+        .map(candidate => candidate.entity_id)
+    )].sort();
+
+    if (proMax) explicitProMax += 1;
+    if (pro) explicitPro += 1;
+    if ((modelTrace?.rules || []).some(rule => String(rule).includes('alias') || String(rule).includes('inferred'))) {
+      inferredModelTrace += 1;
+    }
+
+    const signature = [
+      'expected=' + expected.model,
+      'core=' + norm(extra).model,
+      'role=' + (segment?.role_candidates?.[0]?.role || 'unknown'),
+      'explicit_pro_max=' + (proMax ? 'yes' : 'no'),
+      'explicit_pro=' + (pro ? 'yes' : 'no'),
+      'explicit_iphone=' + (iphone ? 'yes' : 'no'),
+      'generation16=' + (generation16 ? 'yes' : 'no'),
+      'capacity256=' + (capacity256 ? 'yes' : 'no'),
+      'direct_model_candidates=' + directModelCount,
+      'semantic_ids=' + (semanticIds.join(',') || 'none'),
+      'model_rule=' + ((modelTrace?.rules || []).join('+') || 'none'),
+      'model_to_price_distance=' + (
+        Number.isFinite(modelLine) && Number.isFinite(priceLine)
+          ? Math.abs(priceLine - modelLine)
+          : 'unknown'
+      )
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    explicit_pro_max: explicitProMax,
+    explicit_pro: explicitPro,
+    inferred_model_trace: inferredModelTrace,
+    signatures
+  };
+}
+
+const pureModelResidualEvidenceDiagnostic =
+  pureModelResidualEvidenceDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -2662,6 +2792,7 @@ const summary = {
   supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
   pure_model_residual_topology_diagnostic: pureModelResidualTopologyDiagnostic,
+  pure_model_residual_evidence_diagnostic: pureModelResidualEvidenceDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
