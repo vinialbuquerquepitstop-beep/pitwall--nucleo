@@ -888,13 +888,6 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     for (const trigger of triggers) {
       const selected = selectUniqueCandidate(segment.field_candidates || [], trigger.name);
       if (selected.state === 'unique') triggerCandidates.push({ field: trigger, candidate: selected.candidate });
-      const requiredRecordFields = Array.isArray(sourceCandidate?.evidence?.record_require_fields)
-        ? sourceCandidate.evidence.record_require_fields
-        : [];
-      for (const requiredField of requiredRecordFields) {
-        if (requiredField) scopedRecordRequirements.add(String(requiredField));
-      }
-
       if (selected.state === 'ambiguous') {
         ambiguities.push({
           ambiguity_id: `amb-${segment.segment_id}-${trigger.name}`,
@@ -1048,6 +1041,13 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
           });
         }
         continue;
+      }
+
+      const requiredRecordFields = Array.isArray(sourceCandidate.evidence?.record_require_fields)
+        ? sourceCandidate.evidence.record_require_fields
+        : [];
+      for (const requiredField of requiredRecordFields) {
+        if (requiredField) scopedRecordRequirements.add(String(requiredField));
       }
 
       let resolved;
