@@ -1720,6 +1720,78 @@ function multiPriceNearestFallbackRiskDiagnostics(bundle) {
   };
 }
 
+
+function targetModelBoundaryDiagnostics(bundle, modelId) {
+  const segments = bundle.segments || [];
+  const anchors = [];
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const directTarget = (segment.semantic_candidates || []).some(candidate =>
+      candidate.field === 'model' &&
+      candidate.entity_id === modelId &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred')
+    );
+    if (!directTarget) continue;
+
+    const rows = [];
+    let lostAt = null;
+    for (let cursor = index; cursor < segments.length && cursor <= index + 24; cursor += 1) {
+      const row = segments[cursor];
+      const inheritedModelSource = Number(row.inherited_context?.model?.source_line);
+      const afterModelSource = Number(row.context_after?.model?.source_line);
+      const modelCandidates = (row.field_candidates || [])
+        .filter(candidate => candidate.field === 'model')
+        .map(candidate => String(candidate.value));
+      const semanticModels = (row.semantic_candidates || [])
+        .filter(candidate => candidate.field === 'model')
+        .map(candidate => ({
+          state: candidate.state,
+          entity_id: candidate.entity_id || null
+        }));
+      const eventReasons = (row.context_events || []).map(event => event.reason).filter(Boolean);
+
+      rows.push({
+        line: row.line_number,
+        model_candidates: modelCandidates,
+        semantic_models: semanticModels,
+        condition_candidates: distinctFieldValues(row, 'condition').map(value => JSON.parse(value)),
+        color_count: distinctFieldValues(row, 'color').length,
+        price_count: distinctFieldValues(row, 'price').length,
+        inherited_model_source_line: Number.isFinite(inheritedModelSource) ? inheritedModelSource : null,
+        context_after_model_source_line: Number.isFinite(afterModelSource) ? afterModelSource : null,
+        context_event_reasons: eventReasons
+      });
+
+      if (cursor > index && !lostAt) {
+        const hadTargetBefore = Number(row.context_before?.model?.source_line) === Number(segment.line_number);
+        const hasTargetAfter = Number(row.context_after?.model?.source_line) === Number(segment.line_number);
+        if (hadTargetBefore && !hasTargetAfter) {
+          lostAt = {
+            line: row.line_number,
+            event_reasons: eventReasons
+          };
+        }
+      }
+
+      if (cursor > index && modelCandidates.length > 0) break;
+      if (lostAt && cursor >= index + 4) break;
+    }
+
+    anchors.push({
+      anchor_line: segment.line_number,
+      rows,
+      first_context_loss: lostAt
+    });
+  }
+
+  return {
+    model_id: modelId,
+    anchor_count: anchors.length,
+    anchors
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1800,6 +1872,7 @@ const target16128Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
 const target16256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_256gb');
 const target16256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_256gb');
+const target16256BoundaryDiagnostic = targetModelBoundaryDiagnostics(coreBundle, 'iphone_16_256gb');
 const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 const whatIf16ProMaxCpoDiagnostic = whatIf16ProMaxShorthand(
   raw,
@@ -1876,6 +1949,7 @@ const summary = {
   target_16_pro_max_256_pair_diagnostic: target16ProMax256PairDiagnostic,
   target_16_256_diagnostic: target16256Diagnostic,
   target_16_256_pair_diagnostic: target16256PairDiagnostic,
+  target_16_256_boundary_diagnostic: target16256BoundaryDiagnostic,
   what_if_16_pro_max_256_shorthand: whatIf16ProMaxDiagnostic,
   what_if_16_pro_max_256_cpo_same_header: whatIf16ProMaxCpoDiagnostic,
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
