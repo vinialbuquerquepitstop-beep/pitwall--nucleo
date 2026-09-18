@@ -3060,6 +3060,77 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
 
 
 
+
+function colorOnlyMismatchDiagnostics(legacyBundle, coreBundle) {
+  const coreOffers = (coreBundle.records || [])
+    .map(record => ({
+      fields: record.fields || {},
+      core_record_id: record.record_id,
+      trace: record.trace || []
+    }))
+    .filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const exactRemoval = removeExactMatches(legacyBundle.offers || [], coreOffers);
+  const residual = pairWithinModel(exactRemoval.remainingLegacy, exactRemoval.remainingCore);
+  const segments = coreBundle.segments || [];
+  const segmentByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+
+  const rows = [];
+  for (const pair of residual.pairs || []) {
+    if (!Array.isArray(pair.diffs) || pair.diffs.length !== 1 || pair.diffs[0] !== 'color') continue;
+    const cn = normFields(pair.core);
+    const ln = normFields(pair.legacy);
+    const colorTrace = (pair.core.trace || []).find(trace => trace.field === 'color');
+    const priceTrace = (pair.core.trace || []).find(trace => trace.field === 'price');
+    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+    const priceSegment = Number.isFinite(priceLine) ? segmentByLine.get(priceLine) : null;
+    const segmentIndex = priceSegment
+      ? segments.findIndex(segment => Number(segment.line_number) === priceLine)
+      : -1;
+
+    const nearbyColorCandidates = [];
+    if (segmentIndex >= 0) {
+      for (let offset = -3; offset <= 3; offset += 1) {
+        if (offset === 0) continue;
+        const segment = segments[segmentIndex + offset];
+        if (!segment) continue;
+        const colors = distinctFieldValues(segment, 'color')
+          .map(value => JSON.parse(value))
+          .filter(Boolean);
+        if (!colors.length) continue;
+        nearbyColorCandidates.push({
+          line: Number(segment.line_number),
+          offset,
+          role: segment.role_candidates?.[0]?.role || null,
+          reason: segment.role_candidates?.[0]?.reason || null,
+          colors
+        });
+      }
+    }
+
+    rows.push({
+      core_record_id: pair.core.core_record_id,
+      legacy_record_id: pair.legacy.legacy_record_id || null,
+      model: cn.model,
+      capacity_gb: cn.capacity_gb,
+      condition: cn.condition,
+      legacy_color: ln.color ?? null,
+      core_color: cn.color ?? null,
+      price_line: Number.isFinite(priceLine) ? priceLine : null,
+      core_color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : [],
+      core_color_rules: colorTrace?.rules || [],
+      price_segment_role: priceSegment?.role_candidates?.[0]?.role || null,
+      price_segment_reason: priceSegment?.role_candidates?.[0]?.reason || null,
+      nearby_color_candidates: nearbyColorCandidates
+    });
+  }
+
+  return {
+    color_only_mismatch_count: rows.length,
+    rows
+  };
+}
+
 function whatIfResetConditionOnProductHeader(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
   const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
   const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
@@ -3232,6 +3303,9 @@ const scopedRejectedColorPairingDiagnostic = scopedRejectedColorPairingDiagnosti
 const classifiedScopedRejectedColorDiagnostic = classifyScopedRejectedColorCandidates(
   coreBundle, canonicalReference.legacy
 );
+const canonicalColorOnlyMismatchDiagnostic = colorOnlyMismatchDiagnostics(
+  canonicalReference.legacy, coreBundle
+);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
@@ -3387,6 +3461,7 @@ const summary = {
   rejected_color_source_diagnostic: rejectedColorSourceDiagnostic,
   scoped_rejected_color_pairing_diagnostic: scopedRejectedColorPairingDiagnostic,
   classified_scoped_rejected_color_diagnostic: classifiedScopedRejectedColorDiagnostic,
+  canonical_color_only_mismatch_diagnostic: canonicalColorOnlyMismatchDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
