@@ -436,13 +436,16 @@ check('pareamento ordinal expande varias cores da mesma linha para o mesmo preco
   assert.ok(result.records.every(r => r.fields.price === 5299));
 });
 
-check('pareamento ordinal se abstém quando contagens de linhas diferem', () => {
+check('contagens diferentes usam apenas o vizinho unico seguro', () => {
   const result = run(
     'apple-ordered-pairing-count-mismatch',
     'iPhone 17 256GB Lacrado\nPreto\nR$ 5.299\nR$ 5.399'
   );
   assert.strictEqual(result.records.length, 2);
-  assert.ok(result.records.every(record => record.fields.color === undefined));
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  assert.strictEqual(result.records[1].fields.color, undefined);
+  assert.strictEqual(result.records[1].fields.price, 5399);
 });
 
 check('fallback vizinho unico pareia cor quando contagens diferem', () => {
