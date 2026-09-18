@@ -326,19 +326,24 @@ function buildContextTrace(segments, schema = {}) {
       });
     }
 
-    let domainBoundaryOpened = false;
+    let boundaryOpened = null;
     for (const field of boundaries) {
       const candidates = fieldCandidates.filter(candidate => candidate.field === field.name);
       if (candidates.length > 0) {
-        domainBoundaryOpened = true;
+        boundaryOpened = field;
         break;
       }
     }
 
-    if (domainBoundaryOpened) {
+    if (boundaryOpened) {
       const cleared = Object.keys(context);
       context = {};
-      events.push({ type: 'reset', reason: 'domain_boundary', fields: cleared });
+      events.push({
+        type: 'reset',
+        reason: boundaryOpened.context_boundary_reason || 'domain_boundary',
+        field: boundaryOpened.name,
+        fields: cleared
+      });
     }
 
     let anchorOpened = false;
@@ -452,7 +457,7 @@ function applyOrderedFieldPairing(segments, schema = {}) {
   for (let index = 0; index < out.length; index += 1) {
     const segment = out[index];
     const hardBoundary = (segment.context_events || []).some(event =>
-      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary'
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary' || event.reason === 'supplier_boundary'
     );
     if (hardBoundary) closeBlock(index);
 
