@@ -1,0 +1,179 @@
+{
+  "$schema": "external-calc/design-system/v1",
+  "name": "EXTERNAL_CALC_DESIGN_SYSTEM_V1",
+  "version": "1.0.0",
+  "status": "canonical_candidate",
+  "scope": "External Calc visual foundation and page-construction contract",
+  "provenance": {
+    "normalized_from": [
+      {"artifact": "EXTERNAL_CALC_STITCH_VISUAL_CONTRACT_V1.json", "commit": "8685fa4ec08438cf9bfeb3986bdb1a9ecd9d8674"},
+      {"artifact": "TREE_PAGE_FIDELITY_METHOD_V1.json", "commit": "32123122dec540d47ca039c2078cdf15039a5895"}
+    ],
+    "source_render": {"width_px": 1600, "height_px": 1280, "theme": "dark"},
+    "normalization_rule": "The approved render governs visual fidelity. Product contracts govern entities, behavior, permissions and domain semantics. Page-specific labels from the visual export are not promoted into global Design System semantics."
+  },
+  "governance": {
+    "source_of_truth_precedence": ["approved_render", "rendered_html_structure", "canonical_design_system", "reusable_implementation_components", "generator_metadata_or_one_off_values"],
+    "runtime_source_of_truth_after_implementation": ["github_repository", "design_tokens", "reusable_components", "frontend_documentation"],
+    "anti_drift_rules": [
+      "Do not copy generated one-off values when a canonical token exists.",
+      "Do not modify shell or global density to solve a local page problem.",
+      "Do not create a near-duplicate component for a small page-local variation.",
+      "Do not let visual absence erase required product states.",
+      "Do not use Stitch to redefine entities, flows, permissions or business rules.",
+      "Do not declare a page complete before fidelity and operational gates pass."
+    ],
+    "new_pattern_budget": {
+      "default": 0,
+      "allowed_when": ["required domain behavior cannot be expressed with current components", "page archetype is genuinely new", "accessibility or responsiveness requires a distinct pattern", "operational evidence shows the current pattern fails"],
+      "promotion_flow": ["document_need", "design_candidate", "audit_against_canon", "implement", "promote_after_page_gate"]
+    }
+  },
+  "foundations": {
+    "color": {
+      "raw": {
+        "brand": {"50": "#f0f7ff", "100": "#e0effe", "500": "#1d6bf3", "600": "#2563eb", "700": "#1d4ed8"},
+        "surface": {"canvas": "#0b0f17", "sidebar": "#111827", "panel": "#161f2e", "deep_input": "#0b0f17", "select": "#0d1420", "metadata_tag": "#1e293b"},
+        "framework_references": {
+          "blue": ["blue-400", "blue-500", "blue-600"],
+          "emerald": ["emerald-400", "emerald-500"],
+          "amber": ["amber-100", "amber-300", "amber-400", "amber-500"],
+          "slate_text": ["slate-100", "slate-200", "slate-300", "slate-400", "slate-500"],
+          "slate_border": ["slate-700", "slate-800"]
+        }
+      },
+      "usage": {
+        "blue": "active navigation, inferred state, primary action and selected/filter emphasis",
+        "emerald": "ready, interpreted and success states",
+        "amber": "ambiguity and review-required states",
+        "slate": "shell, surfaces, hierarchy and neutral metadata"
+      }
+    },
+    "typography": {
+      "family": {"primary": "Inter", "fallbacks": ["-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"]},
+      "weights": [400, 500, 600, 700],
+      "scale": {
+        "micro_label": {"size_px": 11, "transform": "uppercase", "tracking": "wider"},
+        "metadata": {"size_px_range": [10, 11]},
+        "body_small": {"size_px": 12},
+        "nav_body": {"size_px": 14},
+        "section_title": {"size_px_range": [16, 18]},
+        "metric": {"size_px": 24}
+      },
+      "mono_policy": {
+        "allowed_for": ["filenames", "run_ids", "offer_ids", "engine_tags", "schema_tags", "raw_list_preview", "technical_evidence"],
+        "forbidden_for": ["primary_scores", "ordinary_ui_copy", "navigation"]
+      }
+    },
+    "spacing": {"observed_px": [2, 14, 16, 20, 24, 32], "page_frame_px": 32, "grid_gap_px": 24, "panel_padding_px": 20, "sidebar_padding_px": 20, "table_cell_x_px": 16, "table_row_y_px": 14, "status_bar_y_px": 14},
+    "radius": {"panel_px": 12, "control_px": 8, "nav_item": "6-8px observed range", "status_badge": "pill/full"},
+    "border": {"default": "slate-800", "control": "slate-700", "row_divider": "slate-800/80", "ambiguity": "amber-500/25 plus 4px amber left accent"},
+    "depth": {"panel_shadow": "shadow-lg shadow-black/20", "primary_action_shadow": "blue at 20-25% opacity", "status_glow": "emerald only for live/ready dots", "rule": "Prefer surface contrast and borders over heavy elevation."},
+    "density": {"mode": "compact_operational", "principle": "High information density without decorative dashboard widgets."},
+    "responsive": {"desktop_shell": "row", "mobile_base_shell": "column", "primary_breakpoint_reference": "lg", "rule": "Preserve hierarchy and action reachability; do not collapse semantics when layout collapses."}
+  },
+  "semantic_tokens": {
+    "color": {
+      "background": {"canvas": "{foundations.color.raw.surface.canvas}", "sidebar": "{foundations.color.raw.surface.sidebar}", "panel": "{foundations.color.raw.surface.panel}", "inset": "{foundations.color.raw.surface.deep_input}", "control": "{foundations.color.raw.surface.select}", "tag": "{foundations.color.raw.surface.metadata_tag}"},
+      "action": {"primary": "{foundations.color.raw.brand.600}", "primary_hover": "blue-500", "selected_surface": "blue-600/15", "selected_border": "blue-500/20", "selected_text": "blue-400"},
+      "status": {
+        "success": {"text": "emerald-400", "surface": "emerald-500/15", "border": "emerald-500/30"},
+        "inferred": {"text": "blue-400", "surface": "blue-500/15", "border": "blue-500/30"},
+        "review": {"text": "amber-300", "surface": "amber-500/15", "border": "amber-500/30"},
+        "invalid": {"state": "required_but_not_visually_calibrated"},
+        "failure": {"state": "required_but_not_visually_calibrated"}
+      },
+      "text": {"primary": "slate-100", "secondary": "slate-300", "muted": "slate-400", "subtle": "slate-500"},
+      "border": {"default": "slate-800", "control": "slate-700"}
+    },
+    "space": {"page": "{foundations.spacing.page_frame_px}px", "grid": "{foundations.spacing.grid_gap_px}px", "panel": "{foundations.spacing.panel_padding_px}px", "cell_x": "{foundations.spacing.table_cell_x_px}px", "row_y": "{foundations.spacing.table_row_y_px}px"},
+    "shape": {"panel": "{foundations.radius.panel_px}px", "control": "{foundations.radius.control_px}px", "pill": "9999px"}
+  },
+  "shell": {
+    "app_shell": {"desktop": {"display": "flex", "direction": "row"}, "mobile": {"direction": "column"}, "canvas": "{semantic_tokens.color.background.canvas}"},
+    "sidebar": {
+      "width_px": 240,
+      "padding_px": 20,
+      "min_height": "100vh",
+      "surface": "{semantic_tokens.color.background.sidebar}",
+      "regions": ["brand", "navigation", "optional_environment_or_dev_status"],
+      "active_item": {"surface": "{semantic_tokens.color.action.selected_surface}", "border": "{semantic_tokens.color.action.selected_border}", "text": "{semantic_tokens.color.action.selected_text}"},
+      "inactive_item": {"text": "slate-400", "hover_text": "slate-200", "hover_surface": "slate-800/50"}
+    },
+    "top_status_bar": {"position": "sticky", "top": 0, "padding_x_px": 32, "padding_y_px": 14, "surface": "{semantic_tokens.color.background.sidebar}", "border": "{semantic_tokens.color.border.default}", "anatomy": ["status_context", "supporting_copy", "compact_progress_or_context_pills"]},
+    "page_frame": {"padding_px": 32, "max_width_px": 1280, "vertical_gap_px": 32},
+    "grids": {
+      "primary_split": {"columns": 12, "gap_px": 24, "left_span": 7, "right_span": 5, "breakpoint": "lg"},
+      "secondary_split": {"columns": 12, "gap_px": 24, "left_span": 8, "right_span": 4, "breakpoint": "lg"}
+    }
+  },
+  "primitives": {
+    "Surface": {"variants": ["panel", "inset", "control", "tag"], "rule": "Use semantic background tokens; no arbitrary page-local surface hex."},
+    "Button": {"variants": {"primary": {"surface": "{semantic_tokens.color.action.primary}", "hover": "{semantic_tokens.color.action.primary_hover}", "text": "white", "radius": "{semantic_tokens.shape.control}", "shadow": "{foundations.depth.primary_action_shadow}"}, "secondary": {"surface": "slate-800/80", "border": "slate-700", "text": "slate-300", "radius": "{semantic_tokens.shape.control}"}}},
+    "Badge": {"shape": "{semantic_tokens.shape.pill}", "variants": ["neutral", "success", "inferred", "review"], "rule": "Status meaning must map to the same token family across all pages."},
+    "Tabs": {"container_surface": "{semantic_tokens.color.background.sidebar}", "container_border": "{semantic_tokens.color.border.default}", "container_padding_px": 2, "active_surface": "{semantic_tokens.color.background.tag}", "active_text": "{semantic_tokens.color.text.primary}", "inactive_text": "{semantic_tokens.color.text.muted}"},
+    "StatusDot": {"variants": ["neutral", "ready"], "ready": {"color": "emerald-500", "glow": "{foundations.depth.status_glow}"}},
+    "Metric": {"value": {"size_px": 24, "weight": 700}, "label": {"size_px": 12, "color": "{semantic_tokens.color.text.muted}"}},
+    "TechnicalText": {"font": "monospace", "size_px_range": [10, 12], "usage": "{foundations.typography.mono_policy.allowed_for}"},
+    "Divider": {"color": "{semantic_tokens.color.border.default}", "weight_px": 1}
+  },
+  "components": {
+    "Panel": {"surface": "{semantic_tokens.color.background.panel}", "border": "{semantic_tokens.color.border.default}", "radius": "{semantic_tokens.shape.panel}", "padding": "{semantic_tokens.space.panel}", "shadow": "{foundations.depth.panel_shadow}"},
+    "FilterTabs": {"uses": ["Tabs"], "role": "compact dataset/state filtering"},
+    "DataTable": {"surface": "{semantic_tokens.color.background.panel}", "header_surface": "#111827B3", "header_typography": {"size_px": 11, "transform": "uppercase", "color": "slate-400"}, "row_padding_y_px": 14, "cell_padding_x_px": 16, "divider": "slate-800/80", "hover": "slate-800/30", "alignment": {"text": "left", "numeric": "right"}},
+    "MetricGrid": {"default_columns": 2, "uses": ["Metric"]},
+    "StepPill": {"shape": "compact pill", "role": "progress/context only", "rule": "Do not turn progress into decorative gamification."},
+    "WarningCallout": {"surface": "amber-500/10", "border": "amber-500/25", "accent_left_px": 4, "accent": "amber-500", "radius": "right 12px", "padding_px": 16},
+    "RawPreview": {"surface": "{semantic_tokens.color.background.inset}", "font": "monospace", "font_size_px": 12, "height_px": 176, "overflow": "scroll"}
+  },
+  "page_patterns": {
+    "OperationalWorkspace": {
+      "intent": "Dense operational page with input/context above and primary data/review below.",
+      "regions": [
+        {"name": "top_left", "grid": "primary_split.left", "role": "input_or_primary_context"},
+        {"name": "top_right", "grid": "primary_split.right", "role": "summary_or_state"},
+        {"name": "bottom_left", "grid": "secondary_split.left", "role": "primary_operational_dataset"},
+        {"name": "bottom_right", "grid": "secondary_split.right", "role": "review_exceptions_or_secondary_actions"}
+      ],
+      "visual_priority": ["operational_status", "source_or_primary_context", "summary", "primary_dataset", "review_or_exceptions"]
+    },
+    "ReviewRail": {"intent": "Keep exceptions visible beside the primary dataset without competing with it.", "default_span": 4, "emphasis": "semantic warning, restrained surface"},
+    "StickyOperationalHeader": {"intent": "Keep run/state context and next-stage progress visible during long operational pages."}
+  },
+  "domain_components": {
+    "VendorInputPanel": {"extends": "Panel", "anatomy": ["header", "source_input", "raw_preview", "source_metadata", "actions"], "uses": ["RawPreview", "Button"]},
+    "InterpretationSummary": {"extends": "Panel", "anatomy": ["title", "metrics_2x2", "technical_metadata_tags"], "uses": ["MetricGrid", "TechnicalText", "Badge"]},
+    "OffersTable": {"extends": "DataTable", "canonical_columns": ["status", "model", "condition", "color", "supplier", "price"], "role": "primary interpreted dataset"},
+    "OfferStatusBadge": {"extends": "Badge", "mappings": {"interpreted": "success", "inferred": "inferred"}},
+    "AmbiguityPanel": {"extends": "WarningCallout", "anatomy": ["field_label", "raw_unresolved_value", "cause", "source"]},
+    "EvidenceTrace": {"status": "required_by_product_contract_not_present_in_reference", "purpose": "Expose score/reason/signal/evidence/source or equivalent interpretation trace.", "visual_constraint": "Must use existing panel, typography, border and technical metadata language before introducing new primitives."},
+    "InvalidRecord": {"status": "required_by_product_contract_not_present_in_reference", "visual_constraint": "Do not remove invalid state because it is absent from the reference. Calibrate danger semantics before implementation."},
+    "ProcessingState": {"status": "required_by_product_contract_not_fully_present_in_reference", "visual_constraint": "Preserve shell and layout footprint to avoid reflow drift."},
+    "EmptyState": {"status": "required_by_product_contract_not_present_in_reference", "visual_constraint": "Remain operational and restrained; no decorative illustration requirement."},
+    "FailureRetryState": {"status": "required_by_product_contract_not_present_in_reference", "visual_constraint": "Use a dedicated failure semantic token after calibration; retry remains an explicit action."}
+  },
+  "state_contract": {
+    "required_page_states": ["idle", "processing", "ready", "partial", "empty", "failed_retry", "invalid", "evidence_visible"],
+    "calibrated_from_reference": ["ready", "interpreted", "inferred", "ambiguity"],
+    "pending_visual_calibration": ["idle", "processing", "partial", "empty", "failed_retry", "invalid", "evidence_visible"]
+  },
+  "fidelity_gate": {
+    "method": "pass_fail_by_dimension",
+    "dimensions": {
+      "shell": "same navigation frame, canvas behavior and content-width logic",
+      "geometry": "spacing and size deviations identified and corrected",
+      "typography": "family, weight, size and line-height follow tokens",
+      "density": "information volume per region follows page pattern",
+      "semantics": "same state uses same treatment everywhere",
+      "components": "same anatomy; no page-local clone",
+      "responsive": "hierarchy and action reachability preserved"
+    },
+    "completion_rule": "Differences are corrected or explicitly documented as page-specific requirements before the slice gate passes."
+  },
+  "implementation_contract": {
+    "default_formula": "PAGE = shell + page_pattern + primitives + reusable_components + domain_components + page_specific_data_and_state_contract",
+    "first_implementation_order": ["tokens", "AppShell", "Sidebar", "TopStatusBar", "PageFrame", "Panel", "Button", "Badge", "Tabs", "DataTable", "OperationalWorkspace", "domain_components_needed_by_first_page"],
+    "next_artifact": "PAGE_SPEC_V1.json for the first canonical page",
+    "golden_reference_rule": "Compare implementation against the approved render by proportion, padding, gap, size, typography, density, borders, alignment, contrast and component anatomy."
+  }
+}
