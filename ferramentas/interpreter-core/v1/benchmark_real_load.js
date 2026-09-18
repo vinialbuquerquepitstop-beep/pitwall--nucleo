@@ -602,6 +602,150 @@ function localHeader17256Diagnostics(bundle) {
   };
 }
 
+
+function targetModelBlockDiagnostics(bundle, modelId) {
+  const segments = bundle.segments || [];
+  const records = bundle.records || [];
+  const blocks = [];
+  let current = null;
+
+  const close = end => {
+    if (current && end > current.start) blocks.push({ ...current, end });
+    current = null;
+  };
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const hardBoundary = (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary'
+    );
+    if (hardBoundary) close(index);
+
+    const semanticModels = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model'
+    );
+    const hasModelCandidate = (segment.field_candidates || []).some(candidate =>
+      candidate.field === 'model'
+    );
+
+    if (hasModelCandidate) {
+      close(index);
+      const resolved = semanticModels.find(candidate =>
+        (candidate.state === 'interpreted' || candidate.state === 'inferred') && candidate.entity_id
+      );
+      if (resolved?.entity_id === modelId) {
+        current = {
+          start: index,
+          anchor_line: segment.line_number
+        };
+      }
+    }
+  }
+  close(segments.length);
+
+  const blockSummaries = [];
+  const totals = {
+    blocks: blocks.length,
+    price_segments: 0,
+    single_price_segments: 0,
+    multi_price_segments: 0,
+    price_with_direct_color: 0,
+    price_without_direct_color: 0,
+    color_only_rows: 0,
+    color_candidates: 0,
+    direct_condition_rows: 0,
+    materialized_records: 0,
+    materialized_conditions: {}
+  };
+
+  for (const block of blocks) {
+    const slice = segments.slice(block.start, block.end);
+    const blockLines = new Set(slice.map(segment => Number(segment.line_number)));
+    let priceSegments = 0;
+    let singlePriceSegments = 0;
+    let multiPriceSegments = 0;
+    let priceWithDirectColor = 0;
+    let priceWithoutDirectColor = 0;
+    let colorOnlyRows = 0;
+    let colorCandidates = 0;
+    let directConditionRows = 0;
+    const directConditions = {};
+
+    for (const segment of slice) {
+      const prices = distinctFieldValues(segment, 'price');
+      const colors = distinctFieldValues(segment, 'color');
+      const conditions = distinctFieldValues(segment, 'condition').map(value => JSON.parse(value));
+
+      if (prices.length > 0) {
+        priceSegments += 1;
+        if (prices.length === 1) singlePriceSegments += 1;
+        else multiPriceSegments += 1;
+        if (colors.length > 0) priceWithDirectColor += 1;
+        else priceWithoutDirectColor += 1;
+      }
+
+      if (colors.length > 0 && prices.length === 0 && isFieldOnlySegment(segment, 'color')) {
+        colorOnlyRows += 1;
+        colorCandidates += colors.length;
+      }
+
+      if (conditions.length > 0) {
+        directConditionRows += 1;
+        for (const condition of conditions) {
+          const key = condition == null ? '(null)' : String(condition);
+          directConditions[key] = (directConditions[key] || 0) + 1;
+        }
+      }
+    }
+
+    const blockRecords = records.filter(record => {
+      if (record.fields?.model?.id !== modelId) return false;
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      const line = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+      return line != null && blockLines.has(line);
+    });
+
+    const materializedConditions = {};
+    for (const record of blockRecords) {
+      const key = record.fields?.condition == null ? '(null)' : String(record.fields.condition);
+      materializedConditions[key] = (materializedConditions[key] || 0) + 1;
+      totals.materialized_conditions[key] = (totals.materialized_conditions[key] || 0) + 1;
+    }
+
+    totals.price_segments += priceSegments;
+    totals.single_price_segments += singlePriceSegments;
+    totals.multi_price_segments += multiPriceSegments;
+    totals.price_with_direct_color += priceWithDirectColor;
+    totals.price_without_direct_color += priceWithoutDirectColor;
+    totals.color_only_rows += colorOnlyRows;
+    totals.color_candidates += colorCandidates;
+    totals.direct_condition_rows += directConditionRows;
+    totals.materialized_records += blockRecords.length;
+
+    blockSummaries.push({
+      anchor_line: block.anchor_line,
+      block_segment_count: slice.length,
+      price_segments: priceSegments,
+      single_price_segments: singlePriceSegments,
+      multi_price_segments: multiPriceSegments,
+      price_with_direct_color: priceWithDirectColor,
+      price_without_direct_color: priceWithoutDirectColor,
+      color_only_rows: colorOnlyRows,
+      color_candidates: colorCandidates,
+      direct_condition_rows: directConditionRows,
+      direct_conditions: directConditions,
+      materialized_records: blockRecords.length,
+      materialized_conditions: materializedConditions
+    });
+  }
+
+  return {
+    model_id: modelId,
+    ...totals,
+    block_summaries: blockSummaries
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -676,6 +820,7 @@ const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle)
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
+const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -706,7 +851,8 @@ const summary = {
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
-  local_header_17_256_diagnostic: localHeader17256Diagnostic
+  local_header_17_256_diagnostic: localHeader17256Diagnostic,
+  target_16_pro_max_256_diagnostic: target16ProMax256Diagnostic
 };
 
 const diagnostic = {
