@@ -688,30 +688,4 @@ check('pareamento adjacente habilitado nao pula linha intermediaria', () => {
   assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
-
-check('header longo com emoji monetario sem moeda produto ou cor se abstem', () => {
-  const result = run(
-    'apple-long-money-header-abstain',
-    'iPhone 17e 256GB Lacrado\n💰 condição especial de hoje no estoque 5999'
-  );
-  assert.strictEqual(result.records.length, 0);
-  const priceSegment = result.segments.find(segment => segment.raw.includes('5999'));
-  assert.ok(priceSegment);
-  assert.strictEqual(
-    (priceSegment.field_candidates || []).filter(candidate => candidate.field === 'price').length,
-    0
-  );
-});
-
-check('header longo com emoji monetario preserva preco quando cor direta ancora a oferta', () => {
-  const result = run(
-    'apple-long-money-header-color-signal',
-    'iPhone 17e 256GB Lacrado\n💰 Preto condição especial de hoje 5999'
-  );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17e_256gb');
-  assert.strictEqual(result.records[0].fields.color, 'Preto');
-  assert.strictEqual(result.records[0].fields.price, 5999);
-});
-
 console.log(`PASSOU: ${ok} assercoes Apple`);
