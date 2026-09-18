@@ -208,6 +208,36 @@ check('Offer Expansion V1.1 nao atravessa timestamp', () => {
   assert.ok(result.ambiguities.some(a => a.field === 'model' && a.cause === 'required_field_missing'));
 });
 
+check('cores equivalentes sao canonizadas pelo schema', () => {
+  const result = run(
+    'apple-color-map',
+    'iPhone 17 256GB Black Blue White Lacrado R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Branco', 'Preto']);
+});
+
+check('cores Apple proprias continuam distintas', () => {
+  const result = run(
+    'apple-color-distinct',
+    'iPhone 17 256GB Jet Black Space Black Midnight Lacrado R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.deepStrictEqual(
+    result.records.map(r => r.fields.color).sort(),
+    ['Jet Black', 'Midnight', 'Space Black']
+  );
+});
+
+check('alias e canonico juntos nao duplicam oferta', () => {
+  const result = run(
+    'apple-color-dedupe',
+    'iPhone 17 256GB Black Preto Lacrado R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
