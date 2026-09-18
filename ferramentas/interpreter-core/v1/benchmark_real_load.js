@@ -681,6 +681,7 @@ const summary = {
   silent_wrong_price_substitutions: report.metrics.silent_wrong_price_substitutions,
   silent_wrong_price_identities: report.metrics.silent_wrong_price_identities,
   silent_wrong_price_by_model: report.metrics.silent_wrong_price_by_model,
+  silent_wrong_price_surplus_trace_by_rule: report.metrics.silent_wrong_price_surplus_trace_by_rule,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
