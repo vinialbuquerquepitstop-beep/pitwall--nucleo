@@ -4675,7 +4675,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   return {
     version:
       options.includeStrictPairDominance === true
-        ? 'residual-adjudication-ledger/v4-simulation'
+        ? 'residual-adjudication-ledger/v4'
         : options.includeSourceUnsupportedMissing === true
           ? 'residual-adjudication-ledger/v3'
         : (
@@ -4742,7 +4742,8 @@ const residualAdjudicationLedger =
     {
       includeStrongMixed: true,
       includeAllFullyLocalCoreOnlyLate: true,
-      includeSourceUnsupportedMissing: true
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true
     }
   );
 
@@ -7181,7 +7182,7 @@ const summary = {
   source_adjudicated_exact:
     residualAdjudicationLedger?.integrity?.pass === true &&
     residualAdjudicationLedger?.actionable?.total_residual === 0,
-  promotion_basis: 'source_adjudicated_ledger_v3',
+  promotion_basis: 'source_adjudicated_ledger_v4',
   promotion_ready:
     (reportSupplierAware?.gates?.no_silent_wrong_price ?? report.gates.no_silent_wrong_price) === true &&
     (reportSupplierAware?.gates?.price_attribution_resolved ?? report.gates.price_attribution_resolved) === true &&
