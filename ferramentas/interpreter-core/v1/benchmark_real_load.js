@@ -178,6 +178,7 @@ function orderedPairFallbackDiagnostics(bundle) {
   let mismatchBarePriceRows = 0;
   let uniqueNearestColorRows = 0;
   let tiedNearestColorRows = 0;
+  const uniqueNearestByDirectionDistance = {};
 
   for (const block of blocks) {
     const colors = [];
@@ -209,8 +210,15 @@ function orderedPairFallbackDiagnostics(bundle) {
         .map(price => Math.abs(price.index - color.index))
         .sort((a, b) => a - b);
       if (!distances.length) continue;
-      if (distances.length === 1 || distances[0] < distances[1]) uniqueNearestColorRows += 1;
-      else tiedNearestColorRows += 1;
+      if (distances.length === 1 || distances[0] < distances[1]) {
+        uniqueNearestColorRows += 1;
+        const nearest = prices
+          .map(price => ({ price, distance: Math.abs(price.index - color.index) }))
+          .sort((a, b) => a.distance - b.distance || a.price.index - b.price.index)[0];
+        const direction = nearest.price.index > color.index ? 'before_price' : 'after_price';
+        const key = `${direction}|distance=${nearest.distance}`;
+        uniqueNearestByDirectionDistance[key] = (uniqueNearestByDirectionDistance[key] || 0) + 1;
+      } else tiedNearestColorRows += 1;
     }
   }
 
@@ -220,7 +228,8 @@ function orderedPairFallbackDiagnostics(bundle) {
     mismatch_color_rows: mismatchColorRows,
     mismatch_bare_price_rows: mismatchBarePriceRows,
     unique_nearest_color_rows: uniqueNearestColorRows,
-    tied_nearest_color_rows: tiedNearestColorRows
+    tied_nearest_color_rows: tiedNearestColorRows,
+    unique_nearest_by_direction_distance: uniqueNearestByDirectionDistance
   };
 }
 
