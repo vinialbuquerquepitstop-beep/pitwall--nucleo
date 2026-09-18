@@ -91,7 +91,9 @@
           "transform": "trim",
           "score": 0.91,
           "context_expire_after_record_trigger": true,
-          "record_require_fields": ["color"]
+          "record_require_fields": [
+            "color"
+          ]
         },
         {
           "id": "supported_shorthand_16_128_first_trigger_guard_v1",
@@ -102,7 +104,10 @@
           "transform": "trim",
           "score": 0.91,
           "context_expire_after_record_trigger": true,
-          "record_require_fields": ["condition", "color"]
+          "record_require_fields": [
+            "condition",
+            "color"
+          ]
         }
       ]
     },
@@ -274,7 +279,12 @@
         "require_source_only": true,
         "fallback_unique_nearest": true,
         "fallback_max_distance": 3,
-        "fallback_max_distance_when_multi_trigger": 2
+        "fallback_max_distance_when_multi_trigger": 2,
+        "supplemental_adjacent_forward": {
+          "source_role": "product_header",
+          "source_reason": "mixed-alpha-numeric-short-line",
+          "require_non_source_only": true
+        }
       }
     },
     {
