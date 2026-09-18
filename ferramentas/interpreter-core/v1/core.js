@@ -459,6 +459,12 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       if (policy.require_equal_rows !== false && sources.length !== targets.length) continue;
 
       const pairCount = Math.min(sources.length, targets.length);
+      if (policy.require_adjacent_rows === true) {
+        const allAdjacent = Array.from({ length: pairCount }, (_, pairIndex) =>
+          targets[pairIndex]?.index === sources[pairIndex]?.index + 1
+        ).every(Boolean);
+        if (!allAdjacent) continue;
+      }
       for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
         const source = sources[pairIndex];
         const target = targets[pairIndex];
