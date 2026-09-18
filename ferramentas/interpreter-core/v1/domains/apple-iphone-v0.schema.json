@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.9",
+  "schema_version": "0.8.10",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -266,6 +266,27 @@
           ],
           "trigger_score_min": 0.995,
           "trigger_score_max": 0.995
+        },
+        {
+          "roles": [
+            "price_line"
+          ],
+          "min_tokens": 3,
+          "max_tokens": 5,
+          "text_contains_any": [
+            "R$",
+            "$"
+          ],
+          "absent_fields": [
+            "model",
+            "color"
+          ],
+          "inherited_source_distance": {
+            "field": "model",
+            "min": 2,
+            "max": 2,
+            "direction": "before"
+          }
         }
       ]
     },
@@ -477,8 +498,11 @@
       "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture; a competing price immediately before the color forces abstention."
     },
     "record_emission_suppression": {
-      "version": "v1",
-      "rule": "preserve price candidate for pairing/context but suppress final offer emission for guarded long money-emoji product headers"
+      "version": "v2",
+      "rules": [
+        "preserve money-emoji long-header triggers for pairing while suppressing guarded final emission",
+        "suppress short textual-currency price lines inheriting model exactly two lines above when no direct model/color anchors the line"
+      ]
     }
   }
 }
