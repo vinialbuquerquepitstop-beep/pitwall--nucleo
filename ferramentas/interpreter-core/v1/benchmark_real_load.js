@@ -2151,23 +2151,50 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
   const divergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
 
   const baseIds = new Set((baseCoreBundle.records || []).map(record => record.record_id));
-  const added = (candidateBundle.records || [])
-    .filter(record => record.fields?.model?.id === targetModelId && !baseIds.has(record.record_id))
-    .map(record => {
-      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
-      const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
-      const conditionTrace = (record.trace || []).find(trace => trace.field === 'condition');
-      const colorTrace = (record.trace || []).find(trace => trace.field === 'color');
+  const candidateCoreOffers = (candidateBundle.records || []).map(record => ({
+    fields: record.fields || {},
+    core_record_id: record.record_id,
+    trace: record.trace || []
+  })).filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const exactRemoval = removeExactMatches(legacyBundle.offers || [], candidateCoreOffers);
+  const remainingIds = new Set((exactRemoval.remainingCore || []).map(offer => offer.core_record_id));
+  const residualPairs = pairWithinModel(exactRemoval.remainingLegacy, exactRemoval.remainingCore);
+  const residualDiffsById = new Map(
+    (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair.diffs])
+  );
+  const unpairedIds = new Set((residualPairs.unpairedCore || []).map(offer => offer.core_record_id));
+
+  const added = candidateCoreOffers
+    .filter(offer => offer.fields?.model?.id === targetModelId && !baseIds.has(offer.core_record_id))
+    .map(offer => {
+      const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+      const modelTrace = (offer.trace || []).find(trace => trace.field === 'model');
+      const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
+      const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
+      const diffs = residualDiffsById.get(offer.core_record_id) || [];
+      const classification = !remainingIds.has(offer.core_record_id)
+        ? 'exact'
+        : residualDiffsById.has(offer.core_record_id)
+          ? (diffs.length === 1 && diffs[0] === 'price' ? 'wrong_price_only' : 'field_mismatch')
+          : unpairedIds.has(offer.core_record_id)
+            ? 'extra'
+            : 'residual_unclassified';
       return {
-        core_record_id: record.record_id,
+        core_record_id: offer.core_record_id,
         price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
         model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
-        condition: normFields({fields:record.fields}).condition ?? '(null)',
-        color: normFields({fields:record.fields}).color ?? '(null)',
+        condition: normFields(offer).condition ?? '(null)',
+        color: normFields(offer).color ?? '(null)',
         condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
-        color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : []
+        color_source_lines: Array.isArray(colorTrace?.sources) ? colorTrace.sources.map(Number) : [],
+        classification,
+        diffs
       };
     });
+
+  const classificationCounts = {};
+  for (const row of added) classificationCounts[row.classification] = (classificationCounts[row.classification] || 0) + 1;
 
   return {
     candidate: '17_256_bare_unqualified_header',
@@ -2182,6 +2209,7 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
     divergence_categories: divergence.categories,
     target_model_gap: (divergence.top_model_gaps || []).find(row => row.model === targetModelId) || null,
     added_target_record_count: added.length,
+    added_target_record_classifications: classificationCounts,
     added_target_records: added
   };
 }
