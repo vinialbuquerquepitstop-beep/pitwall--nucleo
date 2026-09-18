@@ -552,6 +552,19 @@ check('shorthand low-risk resolve dentro de product boundary', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
+check('shorthand explicito 16 Pro Max 256 resolve sem token iPhone', () => {
+  const result = run(
+    'apple-shorthand-16-promax-256',
+    '🍎16 Pro Max 256GB Lacrado\nPreto R$ 6.699'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.condition, 'Lacrado');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 6699);
+});
+
 check('produto desconhecido depois de shorthand encerra contexto e impede vazamento', () => {
   const result = run(
     'apple-boundary-shorthand-no-bleed',
