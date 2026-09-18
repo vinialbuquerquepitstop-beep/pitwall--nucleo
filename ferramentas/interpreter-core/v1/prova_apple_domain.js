@@ -647,7 +647,7 @@ check('capacidade direta tem precedencia sobre derivacao por entidade', () => {
 check('capacidade generica de pareamento adjacente recupera cor quando explicitamente habilitada', () => {
   const adjacentSchema = JSON.parse(JSON.stringify(schema));
   const colorField = adjacentSchema.fields.find(field => field.name === 'color');
-  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = true;
+  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = { enabled: true, non_field_only_roles: ['product_header'], min_leftover_tokens: 2 };
 
   const result = interpretResolved({
     document: {
@@ -670,7 +670,7 @@ check('capacidade generica de pareamento adjacente recupera cor quando explicita
 check('pareamento adjacente habilitado nao pula linha intermediaria', () => {
   const adjacentSchema = JSON.parse(JSON.stringify(schema));
   const colorField = adjacentSchema.fields.find(field => field.name === 'color');
-  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = true;
+  colorField.pair_by_order_with_trigger.adjacent_unique_before_trigger = { enabled: true, non_field_only_roles: ['product_header'], min_leftover_tokens: 2 };
 
   const result = interpretResolved({
     document: {
