@@ -1323,7 +1323,10 @@ function whatIfScopedBase128Shorthand(rawDocument, baseSchema, baseKnowledge, le
     id: 'what_if_' + generation + '_128_' + condition.toLowerCase() + '_model',
     kind: 'regex',
     pattern: '^[^A-Za-z0-9]{0,12}(' + generation + '\\s+128\\s*(?:GB)?)(?=.*\\b' + conditionPattern + '\\b)',
-    flags: 'i', group: 1, transform: 'trim', score: 0.91
+    flags: 'i', group: 1, transform: 'trim', score: 0.91,
+    context_expire_on_field_declaration: options.expire_model_on_condition_declaration === true
+      ? ['condition']
+      : null
   }];
 
   capacityField.extractors = [...(capacityField.extractors || []), {
@@ -1405,7 +1408,7 @@ function whatIfScopedBase128Shorthand(rawDocument, baseSchema, baseKnowledge, le
     .filter(block => !baselineAnchors.has(Number(block.anchor_line)));
 
   return {
-    candidate: generation + '_128_' + condition.toLowerCase() + '_same_header',
+    candidate: options.candidate || generation + '_128_' + condition.toLowerCase() + '_same_header',
     metrics: {
       core_offers: candidateReport.metrics.core_offers,
       matched_offers: candidateReport.metrics.matched_offers,
@@ -2065,6 +2068,16 @@ const whatIf15Base128LacradoDiagnostic = whatIfScopedBase128Shorthand(
   raw, schema, knowledge, legacy, coreBundle,
   { generation: '15', target_model_id: 'iphone_15_128gb', condition: 'Lacrado' }
 );
+const whatIf15Base128LacradoScopedDiagnostic = whatIfScopedBase128Shorthand(
+  raw, schema, knowledge, legacy, coreBundle,
+  {
+    candidate: '15_128_lacrado_same_header_until_next_condition',
+    generation: '15',
+    target_model_id: 'iphone_15_128gb',
+    condition: 'Lacrado',
+    expire_model_on_condition_declaration: true
+  }
+);
 const whatIf15Base128SeminovoDiagnostic = whatIfScopedBase128Shorthand(
   raw, schema, knowledge, legacy, coreBundle,
   { generation: '15', target_model_id: 'iphone_15_128gb', condition: 'Seminovo' }
@@ -2125,6 +2138,7 @@ const summary = {
   what_if_16_128_shorthand: whatIf16Base128Diagnostic,
   what_if_16_128_lacrado_same_header: whatIf16Base128LacradoDiagnostic,
   what_if_15_128_lacrado_same_header: whatIf15Base128LacradoDiagnostic,
+  what_if_15_128_lacrado_scoped_until_next_condition: whatIf15Base128LacradoScopedDiagnostic,
   what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic,
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
