@@ -752,6 +752,205 @@ function missingPriceSourceTopologyDiagnostics(reportSupplierAware, bundle) {
 const missingPriceSourceTopologyDiagnostic =
   missingPriceSourceTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function missingOnlyModelAnchorEvidenceDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  ).filter(item => item.fields?.model?.id === 'iphone_16_256gb');
+
+  const records = coreOffers(bundle);
+  const segmentByLine = new Map(
+    (bundle.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+  const signatures = {};
+  let cases = 0;
+  let allCandidateRecordsExplicitProMax = 0;
+  let candidateRecords = 0;
+
+  for (const item of missing) {
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!Number.isFinite(price)) continue;
+    cases += 1;
+
+    const sameSupplierPriceRecords = records.filter(record =>
+      String(record.fields?.supplier ?? '') === supplier &&
+      Number(record.fields?.price) === price
+    );
+
+    const local = [];
+    for (const record of sameSupplierPriceRecords) {
+      candidateRecords += 1;
+      const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+      const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+      const segment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+      const normalized = String(segment?.normalized || '');
+      const semanticModels = [...new Set(
+        (segment?.semantic_candidates || [])
+          .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+          .map(candidate => candidate.entity_id)
+      )].sort();
+      const explicitProMax = /\bpro\s*max\b/i.test(normalized);
+      if (explicitProMax) allCandidateRecordsExplicitProMax += 1;
+
+      local.push([
+        'emitted_model=' + (record.fields?.model?.id || 'unknown'),
+        'explicit_pro_max=' + (explicitProMax ? 'yes' : 'no'),
+        'direct_model_candidates=' + (segment?.field_candidates || []).filter(candidate => candidate.field === 'model').length,
+        'semantic_models=' + (semanticModels.join(',') || 'none'),
+        'model_rule=' + ((modelTrace?.rules || []).join('+') || 'none')
+      ].join('|'));
+    }
+
+    const signature = [
+      'expected=iphone_16_256gb',
+      'same_supplier_price_records=' + sameSupplierPriceRecords.length,
+      'records=' + (local.join(' || ') || 'none')
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    candidate_records: candidateRecords,
+    candidate_records_explicit_pro_max: allCandidateRecordsExplicitProMax,
+    all_candidate_records_explicit_pro_max:
+      candidateRecords > 0 && candidateRecords === allCandidateRecordsExplicitProMax,
+    signatures
+  };
+}
+
+const missingOnlyModelAnchorEvidenceDiagnostic =
+  missingOnlyModelAnchorEvidenceDiagnostics(reportSupplierAware, coreBundle);
+
+function missing17_512CompositionDiagnostics(reportSupplierAware, bundle, schemaInput) {
+  if (!reportSupplierAware) return null;
+
+  const missing = (reportSupplierAware.missing || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  ).filter(item => item.fields?.model?.id === 'iphone_17_512gb');
+
+  const priceField = (schemaInput.fields || []).find(field => field.name === 'price') || {};
+  const suppressionRules = Array.isArray(priceField.suppress_record_when)
+    ? priceField.suppress_record_when
+    : priceField.suppress_record_when ? [priceField.suppress_record_when] : [];
+  const segments = bundle.segments || [];
+  const segmentByLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
+  const records = coreOffers(bundle);
+  const ambiguities = bundle.ambiguities || [];
+
+  const signatures = {};
+  let cases = 0;
+  let matchingPriceSegments = 0;
+  let suppressedPriceSegments = 0;
+  let inheritedModel17_512 = 0;
+  let otherInheritedModel = 0;
+
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+
+  for (const item of missing) {
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!Number.isFinite(price)) continue;
+    cases += 1;
+
+    const priceSegments = segments.filter(segment =>
+      supplierAt(segment) === supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === price
+      )
+    );
+
+    const states = [];
+    for (const segment of priceSegments) {
+      matchingPriceSegments += 1;
+      const priceCandidate = (segment.field_candidates || []).find(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === price
+      );
+      const matchedRules = suppressionRules
+        .map((rule, index) => matchesRecordSuppressionRule(segment, priceCandidate, rule) ? index : -1)
+        .filter(index => index >= 0);
+      if (matchedRules.length) suppressedPriceSegments += 1;
+
+      const inheritedRaw = segment.inherited_context?.model || null;
+      const inheritedSourceLine = Number(inheritedRaw?.source_line);
+      const inheritedSourceSegment = Number.isFinite(inheritedSourceLine)
+        ? segmentByLine.get(inheritedSourceLine)
+        : null;
+      const semanticModels = [...new Set(
+        (inheritedSourceSegment?.semantic_candidates || [])
+          .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+          .map(candidate => candidate.entity_id)
+      )].sort();
+
+      if (semanticModels.includes('iphone_17_512gb')) inheritedModel17_512 += 1;
+      else otherInheritedModel += 1;
+
+      const line = Number(segment.line_number);
+      const emittedFromLine = records.filter(record =>
+        (record.trace || []).some(trace =>
+          trace.field === 'price' &&
+          Array.isArray(trace.sources) &&
+          trace.sources.map(Number).includes(line)
+        )
+      );
+      const lineAmbiguities = [...new Set(
+        ambiguities
+          .filter(ambiguity =>
+            Array.isArray(ambiguity.sources) &&
+            ambiguity.sources.map(Number).includes(line)
+          )
+          .map(ambiguity => ambiguity.cause)
+      )].sort();
+
+      states.push([
+        'role=' + (segment.role_candidates?.[0]?.role || 'unknown'),
+        'matched_suppression_rules=' + (matchedRules.join(',') || 'none'),
+        'inherited_model_source_distance=' + (
+          Number.isFinite(inheritedSourceLine)
+            ? Math.abs(line - inheritedSourceLine)
+            : 'unknown'
+        ),
+        'inherited_semantic_models=' + (semanticModels.join(',') || 'none'),
+        'emitted_records=' + emittedFromLine.length,
+        'emitted_models=' + ([...new Set(emittedFromLine.map(record => record.fields?.model?.id || 'unknown'))].sort().join(',') || 'none'),
+        'ambiguities=' + (lineAmbiguities.join(',') || 'none')
+      ].join('|'));
+    }
+
+    const signature = [
+      'price_segments=' + priceSegments.length,
+      'states=' + (states.join(' || ') || 'none')
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    matching_price_segments: matchingPriceSegments,
+    suppressed_price_segments: suppressedPriceSegments,
+    inherited_model_17_512: inheritedModel17_512,
+    other_inherited_model: otherInheritedModel,
+    signatures
+  };
+}
+
+const missing17_512CompositionDiagnostic =
+  missing17_512CompositionDiagnostics(reportSupplierAware, coreBundle, schema);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -2912,6 +3111,8 @@ const summary = {
   pure_model_residual_topology_diagnostic: pureModelResidualTopologyDiagnostic,
   pure_model_residual_evidence_diagnostic: pureModelResidualEvidenceDiagnostic,
   missing_price_source_topology_diagnostic: missingPriceSourceTopologyDiagnostic,
+  missing_only_model_anchor_evidence_diagnostic: missingOnlyModelAnchorEvidenceDiagnostic,
+  missing_17_512_composition_diagnostic: missing17_512CompositionDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
