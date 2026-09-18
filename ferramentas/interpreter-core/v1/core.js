@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.4.1-offer-expansion-block-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.5.0-ordered-pairing-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -393,6 +393,96 @@ function buildContextTrace(segments, schema = {}) {
       context_events: events
     };
   });
+}
+
+function applyOrderedFieldPairing(segments, schema = {}) {
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const pairFields = fields.filter(field => field.pair_by_order_with_trigger);
+  if (!pairFields.length) return segments;
+
+  const anchorNames = new Set(fields.filter(field => field.context_anchor).map(field => field.name));
+  const out = segments.map(segment => ({
+    ...segment,
+    field_candidates: [...(segment.field_candidates || [])]
+  }));
+
+  const blocks = [];
+  let blockStart = null;
+
+  const closeBlock = end => {
+    if (blockStart != null && end > blockStart) blocks.push([blockStart, end]);
+    blockStart = null;
+  };
+
+  for (let index = 0; index < out.length; index += 1) {
+    const segment = out[index];
+    const hardBoundary = (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' || event.reason === 'domain_boundary'
+    );
+    if (hardBoundary) closeBlock(index);
+
+    const hasAnchor = [...anchorNames].some(name =>
+      uniqueFieldCandidates(segment.field_candidates || [], name).length > 0
+    );
+    if (hasAnchor) {
+      closeBlock(index);
+      blockStart = index;
+    }
+  }
+  closeBlock(out.length);
+
+  for (const field of pairFields) {
+    const policy = typeof field.pair_by_order_with_trigger === 'string'
+      ? { field: field.pair_by_order_with_trigger }
+      : field.pair_by_order_with_trigger;
+    const triggerField = policy?.field;
+    if (!triggerField) continue;
+
+    for (const [start, end] of blocks) {
+      const sources = [];
+      const targets = [];
+
+      for (let index = start; index < end; index += 1) {
+        const segment = out[index];
+        const sourceCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
+        const triggerCandidates = uniqueFieldCandidates(segment.field_candidates || [], triggerField);
+
+        if (sourceCandidates.length > 0 && triggerCandidates.length === 0) {
+          sources.push({ index, candidates: sourceCandidates });
+        }
+        if (triggerCandidates.length === 1 && sourceCandidates.length === 0) {
+          targets.push({ index, candidate: triggerCandidates[0] });
+        }
+      }
+
+      if (!sources.length || !targets.length) continue;
+      if (policy.require_equal_rows !== false && sources.length !== targets.length) continue;
+
+      const pairCount = Math.min(sources.length, targets.length);
+      for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+        const source = sources[pairIndex];
+        const target = targets[pairIndex];
+        const targetSegment = out[target.index];
+
+        for (const candidate of source.candidates) {
+          targetSegment.field_candidates.push({
+            ...candidate,
+            score: Math.min(1, (candidate.score ?? 0.7) * 0.99),
+            evidence: {
+              ...(candidate.evidence || {}),
+              kind: 'ordered_pair',
+              paired_field: field.name,
+              trigger_field: triggerField,
+              source_line: out[source.index].line_number,
+              target_line: targetSegment.line_number
+            }
+          });
+        }
+      }
+    }
+  }
+
+  return out;
 }
 
 function buildKnowledgeIndex(knowledge = {}) {
@@ -990,7 +1080,8 @@ function interpretResolved(request) {
   const started = Date.now();
   const structural = segmentDocument(request.document);
   const contextual = buildContextTrace(structural, request.schema || {});
-  const segments = semanticizeSegments(contextual, request.schema || {}, request.knowledge || {});
+  const paired = applyOrderedFieldPairing(contextual, request.schema || {});
+  const segments = semanticizeSegments(paired, request.schema || {}, request.knowledge || {});
   const composed = composeRecords(segments, request.schema || {}, request.knowledge || {});
   const bundle = makeBaseBundle(request, segments, ['shadow_mode_resolver', 'no_persistence', 'no_operational_price_write']);
   bundle.records = composed.records;
@@ -1017,6 +1108,7 @@ module.exports = {
   extractFieldCandidates,
   uniqueFieldCandidates,
   buildContextTrace,
+  applyOrderedFieldPairing,
   buildKnowledgeIndex,
   resolveEntityCandidate,
   semanticizeSegments,
