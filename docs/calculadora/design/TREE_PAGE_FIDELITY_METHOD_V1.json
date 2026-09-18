@@ -1,0 +1,37 @@
+{
+  "$schema": "tree/page-fidelity-method/v1",
+  "method_version": "TREE_PAGE_FIDELITY_METHOD_V1",
+  "purpose": "Reproduce the visual fidelity achieved in Tree while keeping product semantics, behavior and security authoritative.",
+  "tree_principles_applied": [
+    "frontend is consequence of semantic/operational foundation, not the source of product meaning",
+    "prove one calibration screen before extracting a Design System",
+    "Stitch is a visual laboratory, not the source of product entities/flows/permissions",
+    "approved render has precedence over conflicting generator metadata for visual decisions",
+    "after visual approval, GitHub + normalized tokens + reusable components become executable source of truth",
+    "fidelity is measured systematically, not by 'looks close'",
+    "new pages reuse shell/density/language and extend the system only when a real domain need requires it"
+  ],
+  "pipeline": [
+    {"stage":0,"name":"SEMANTIC PRECONDITION","inputs":["Product Model","Canonical Screen contract","Core Flow","Business Rules","Permission rules","required UI states"],"output":"PAGE_SEMANTIC_CONTRACT","gate":"No visual generation until the page owner, entities, actions, states and next transitions are known."},
+    {"stage":1,"name":"CALIBRATION SCREEN","inputs":["Brandbook","product engineering","canonical screen contract"],"output":"one mother/calibration screen","gate":"Screen resolves shell, density, hierarchy, surfaces, tables/lists, status language and brand translation."},
+    {"stage":2,"name":"VISUAL ITERATION","inputs":["calibration screen versions"],"output":"approved render","audit_dimensions":["composition","density","semantics","hierarchy","belonging","comprehension","brand fidelity"],"reject_if":["generic dashboard feel","container/border excess","accent overuse","decorative widgets","microtext excess","visual language detached from operation"]},
+    {"stage":3,"name":"JSON EXTRACTION","inputs":["approved render","rendered HTML/export"],"output":"VISUAL_CONTRACT.json","extract":["tokens","shell","layout geometry","typography","component anatomy","semantic statuses","page archetype","responsive rules"],"rule":"Record visual gaps separately from product gaps. Never let extraction erase semantic requirements."},
+    {"stage":4,"name":"NORMALIZATION","inputs":["VISUAL_CONTRACT.json"],"output":"DESIGN_SYSTEM + GOLDEN_REFERENCE","actions":["deduplicate one-off values","name semantic tokens","promote stable patterns to primitives/components","separate domain components from generic primitives","define archetypes"],"gate":"A new page can be composed mostly from existing tokens/components without redrawing the product language."},
+    {"stage":5,"name":"PAGE SPEC","inputs":["canonical screen contract","Design System","relevant flow/rules"],"output":"PAGE_SPEC.json","must_define":["page archetype","layout regions","entities by region","component mapping","actions","states","permissions","data source","navigation context","new-pattern budget"]},
+    {"stage":6,"name":"IMPLEMENTATION","inputs":["PAGE_SPEC.json","Design System components"],"output":"real frontend page","rule":"Reuse AppShell, spacing, density, typography and existing components first. Introduce a new primitive only with a documented domain or UX need."},
+    {"stage":7,"name":"FIDELITY AUDIT","inputs":["implemented page","Golden Reference / approved page reference"],"output":"FIDELITY_REPORT","measure":["proportion","padding","gaps","height","width","line-height","font weight","density","borders","alignment","contrast","component anatomy","semantic status consistency"],"gate":"No accumulated drift. Differences are either corrected or explicitly documented as page-specific requirements."},
+    {"stage":8,"name":"REAL SLICE GATE","inputs":["page implementation","real data/service when authorized"],"output":"approved vertical slice","validate":["functional","data","semantics","permissions","RLS/isolation","auditability","states","design","quality","real operation"]},
+    {"stage":9,"name":"CONSOLIDATION","inputs":["approved slice","fidelity report"],"output":"updated reusable system","actions":["promote legitimate new pattern","update token/component docs","add visual regression/reference fixture","freeze decisions that now have evidence"],"gate":"Next page starts from the updated system, not from a fresh Stitch invention."}
+  ],
+  "page_creation_rule": {
+    "default":"NEW PAGE = existing archetype + existing shell + existing primitives + domain components + page-specific data/state contract",
+    "new_pattern_allowed_only_when":["a required domain behavior cannot be expressed by current components","the page archetype is genuinely new","accessibility/responsiveness demands a distinct pattern","operational evidence shows the current pattern fails"],
+    "new_pattern_process":"document need -> design candidate -> audit against canon -> implement -> promote only after page gate"
+  },
+  "fidelity_scoring_without_subjective_ranking": {
+    "note":"Use pass/fail tolerances by dimension rather than an aesthetic score.",
+    "dimensions":{"shell":"same navigation frame, canvas behavior and content width logic","geometry":"spacing/size deviations identified and corrected","typography":"family/weight/size/line-height hierarchy matches tokens","density":"information volume per region matches archetype","semantics":"same state uses same visual treatment everywhere","components":"same component anatomy; no page-local clone","responsive":"breakpoints preserve hierarchy and action reachability"}
+  },
+  "artifacts_per_page":["PAGE_SEMANTIC_CONTRACT","PAGE_SPEC.json","implementation","FIDELITY_REPORT","slice gate result","component/token updates only when evidence warrants"],
+  "anti_drift_rules":["Do not ask Stitch to invent a page from only a name.","Do not copy Tailwind classes from a generated page as the final Design System without normalization.","Do not change shell or global density to solve a local page problem.","Do not create a near-duplicate component because one page needs a small variant.","Do not use screenshots as long-term implementation source after components/tokens are versioned.","Do not treat a visually absent state as a nonexistent product state.","Do not declare page complete before operational and fidelity gates pass."]
+}
