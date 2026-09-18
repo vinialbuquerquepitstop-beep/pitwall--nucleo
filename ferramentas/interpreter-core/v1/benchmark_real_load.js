@@ -4062,6 +4062,76 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
+  // 8. SIMULATION ONLY: a legacy missing offer is source-unsupported when its
+  // own expected supplier+price locus cannot support the required model or the
+  // expected non-inheritable color inside the same safe locality used by Core.
+  // Condition is deliberately excluded because it may be section-scoped.
+  if (options.includeSourceUnsupportedMissing === true) {
+    const conditionMap = schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalForField = (field, value) => {
+      if (value == null) return null;
+      if (field === 'condition') {
+        return normalizeKey(conditionMap[value] || conditionMap[String(value)] || value) || null;
+      }
+      return normalizeKey(value) || null;
+    };
+
+    for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+      if (claimedMissing.has(missingIndex)) continue;
+      const expected = norm(missing[missingIndex]);
+
+      const priceSegments = segments.filter(segment =>
+        String(supplierAt(segment) ?? '') === String(expected.supplier ?? '') &&
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === expected.price
+        )
+      );
+
+      let modelSupported = false;
+      let colorSupported = expected.color == null;
+
+      for (const priceSegment of priceSegments) {
+        const priceLine = Number(priceSegment.line_number);
+
+        const localModel = segments.some(segment => {
+          const line = Number(segment.line_number);
+          if (!Number.isFinite(line) || line > priceLine || priceLine - line > 6) return false;
+          const boundaries = pathBoundaries(line, priceLine);
+          if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+          return (segment.semantic_candidates || []).some(candidate =>
+            candidate.field === 'model' &&
+            candidate.entity_id === expected.model &&
+            (candidate.state === 'interpreted' || candidate.state === 'inferred')
+          );
+        });
+        if (localModel) modelSupported = true;
+
+        if (expected.color != null) {
+          const localColor = segments.some(segment => {
+            const line = Number(segment.line_number);
+            if (!Number.isFinite(line) || Math.abs(priceLine - line) > 3) return false;
+            const boundaries = pathBoundaries(line, priceLine);
+            if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+            return (segment.field_candidates || []).some(candidate =>
+              candidate.field === 'color' &&
+              canonicalForField('color', candidate.value) === canonicalForField('color', expected.color)
+            );
+          });
+          if (localColor) colorSupported = true;
+        }
+      }
+
+      const unsupported =
+        priceSegments.length === 0 ||
+        !modelSupported ||
+        !colorSupported;
+
+      if (unsupported) {
+        claim('source_unsupported_legacy_required_or_color_missing', missingIndex, null);
+      }
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -4563,6 +4633,17 @@ const residualAdjudicationLedgerLateCombinedSimulation =
     {
       includeStrongMixed: true,
       includeAllFullyLocalCoreOnlyLate: true
+    }
+  );
+
+const residualAdjudicationLedgerSourceSupportSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true
     }
   );
 
@@ -6815,6 +6896,7 @@ const summary = {
   residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
   residual_adjudication_ledger_late_full_local_simulation: residualAdjudicationLedgerLateFullLocalSimulation,
   residual_adjudication_ledger_late_combined_simulation: residualAdjudicationLedgerLateCombinedSimulation,
+  residual_adjudication_ledger_source_support_simulation: residualAdjudicationLedgerSourceSupportSimulation,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
