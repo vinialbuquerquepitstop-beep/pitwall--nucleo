@@ -300,6 +300,85 @@ const conditionDomainGuardReport = compareSemanticShadow({
   options: { include_supplier: true }
 });
 
+// Post-composition confidence-horizon simulations for inherited condition.
+// These never alter segmentation, pairing, price, model, supplier, or color.
+const conditionConfidenceHorizonPolicies = [
+  { id: 'domain_d48_a4', max_distance: 48, max_model_anchors: 4 },
+  { id: 'domain_d36_a4', max_distance: 36, max_model_anchors: 4 },
+  { id: 'domain_d24_a3', max_distance: 24, max_model_anchors: 3 },
+  { id: 'domain_d18_a2', max_distance: 18, max_model_anchors: 2 },
+  { id: 'domain_d12_a1', max_distance: 12, max_model_anchors: 1 },
+  { id: 'domain_d8_a1', max_distance: 8, max_model_anchors: 1 }
+];
+
+const conditionConfidenceHorizonSimulations = conditionConfidenceHorizonPolicies.map(policy => {
+  const bundle = JSON.parse(JSON.stringify(coreBundle));
+  const segments = bundle.segments || [];
+  let cleared = 0;
+  const clearedByModel = {};
+
+  const pathShape = (fromLine, toLine) => {
+    const out = { domain: false, model_anchors: 0 };
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+        out.model_anchors += 1;
+      }
+      if ((segment.context_events || []).some(event => event.reason === 'domain_boundary')) {
+        out.domain = true;
+      }
+    }
+    return out;
+  };
+
+  for (const record of bundle.records || []) {
+    if (record?.fields?.condition == null) continue;
+    const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
+    if (!conditionTrace || !(conditionTrace.rules || []).includes('context_inheritance')) continue;
+
+    const conditionLine = Array.isArray(conditionTrace.sources) && conditionTrace.sources.length
+      ? Number(conditionTrace.sources[0])
+      : null;
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const modelTrace = (record.trace || []).find(item => item.field === 'model');
+    const targetLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+    if (!Number.isFinite(conditionLine) || !Number.isFinite(targetLine)) continue;
+
+    const distance = Math.abs(targetLine - conditionLine);
+    const shape = pathShape(conditionLine, targetLine);
+
+    // Conservative horizon: crossing a domain boundary is necessary, and both
+    // distance and intervening model-anchor thresholds must be exceeded.
+    const lowConfidence =
+      shape.domain &&
+      distance > policy.max_distance &&
+      shape.model_anchors > policy.max_model_anchors;
+    if (!lowConfidence) continue;
+
+    const modelId = record.fields?.model?.id || '(unknown)';
+    clearedByModel[modelId] = (clearedByModel[modelId] || 0) + 1;
+    record.fields.condition = null;
+    record.trace = (record.trace || []).filter(item => item.field !== 'condition');
+    cleared += 1;
+  }
+
+  const report = compareSemanticShadow({
+    legacy: legacySupplierAware,
+    coreBundle: bundle,
+    options: { include_supplier: true }
+  });
+
+  return { policy, bundle, report, cleared, cleared_by_model: clearedByModel };
+});
+
 const longHeaderFallbackPriceBundle = JSON.parse(JSON.stringify(coreBundle));
 const longHeaderSegments = new Map(
   (longHeaderFallbackPriceBundle.segments || []).map(segment => [Number(segment.line_number), segment])
@@ -4759,6 +4838,37 @@ const residualAdjudicationLedgerStrictPairDominanceSimulation =
     }
   );
 
+const conditionConfidenceHorizonDiagnostics = conditionConfidenceHorizonSimulations.map(sim => {
+  const ledger = buildResidualAdjudicationLedger(
+    sim.report,
+    sim.bundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true
+    }
+  );
+  return {
+    policy: sim.policy,
+    cleared_conditions: sim.cleared,
+    cleared_by_model: sim.cleared_by_model,
+    core_offers: sim.report.metrics.core_offers,
+    matched_offers: sim.report.metrics.matched_offers,
+    missing_offers: sim.report.metrics.missing_offers,
+    extra_offers: sim.report.metrics.extra_offers,
+    agreement_ratio: sim.report.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: sim.report.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: sim.report.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: sim.report.gates.no_silent_wrong_price,
+    price_attribution_resolved: sim.report.gates.price_attribution_resolved,
+    actionable_residual: ledger?.actionable?.total_residual ?? null,
+    actionable_missing: ledger?.actionable?.missing ?? null,
+    actionable_extra: ledger?.actionable?.extra ?? null,
+    ledger_integrity: ledger?.integrity?.pass === true
+  };
+});
+
 const residualAdjudicationLedgerStrongMixedSimulation =
   buildResidualAdjudicationLedger(
     reportSupplierAware,
@@ -7056,6 +7166,7 @@ const summary = {
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
   residual_adjudication_ledger_strict_pair_dominance_simulation: residualAdjudicationLedgerStrictPairDominanceSimulation,
+  condition_confidence_horizon_simulations: conditionConfidenceHorizonDiagnostics,
   residual_adjudication_ledger_strong_mixed_simulation: residualAdjudicationLedgerStrongMixedSimulation,
   residual_adjudication_ledger_all_full_local_simulation: residualAdjudicationLedgerAllFullLocalSimulation,
   residual_adjudication_ledger_combined_simulation: residualAdjudicationLedgerCombinedSimulation,
