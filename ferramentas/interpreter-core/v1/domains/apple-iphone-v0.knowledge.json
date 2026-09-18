@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.7.2",
+  "version": "0.7.1-low-risk-shorthand",
   "created_at": null,
   "entities": [
     {
@@ -204,18 +204,6 @@
     },
     {
       "kind": "model",
-      "text": "15 128GB",
-      "normalized": null,
-      "target_id": "iphone_15_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "15 128",
-      "normalized": null,
-      "target_id": "iphone_15_128gb"
-    },
-    {
-      "kind": "model",
       "text": "16 256GB",
       "normalized": null,
       "target_id": "iphone_16_256gb"
@@ -240,30 +228,6 @@
     },
     {
       "kind": "model",
-      "text": "16e 128GB",
-      "normalized": null,
-      "target_id": "iphone_16e_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "16e 128",
-      "normalized": null,
-      "target_id": "iphone_16e_128gb"
-    },
-    {
-      "kind": "model",
-      "text": "17e 256GB",
-      "normalized": null,
-      "target_id": "iphone_17e_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17e 256",
-      "normalized": null,
-      "target_id": "iphone_17e_256gb"
-    },
-    {
-      "kind": "model",
       "text": "17 Air 256GB",
       "normalized": null,
       "target_id": "iphone_17_air_256gb"
@@ -273,18 +237,6 @@
       "text": "17 Air 256",
       "normalized": null,
       "target_id": "iphone_17_air_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 256GB",
-      "normalized": null,
-      "target_id": "iphone_17_256gb"
-    },
-    {
-      "kind": "model",
-      "text": "17 256",
-      "normalized": null,
-      "target_id": "iphone_17_256gb"
     },
     {
       "kind": "model",
@@ -310,12 +262,15 @@
       "ferramentas/prova_calc_catalogo.sql"
     ],
     "supported_header_shorthand": {
-      "source": "run100 wrong_price ablation",
-      "mode": "safe-models-only",
-      "excluded_models": [
-        "iphone_16_128gb",
-        "iphone_16_pro_max_256gb"
-      ]
+      "source": "run103 per-model missing/extra ablation",
+      "allowlist": [
+        "iphone_13_pro_128gb",
+        "iphone_16_256gb",
+        "iphone_16_pro_256gb",
+        "iphone_17_air_256gb",
+        "iphone_17_512gb"
+      ],
+      "policy": "keep shorthand aliases only for zero-extra models"
     }
   }
 }
