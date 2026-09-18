@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.6",
+  "schema_version": "0.9.0",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -35,6 +35,14 @@
           "group": 1,
           "transform": "trim",
           "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,8}((?:(?:16e|17e|1[1-8]|XR)(?:\\s*(?:mini|Plus|Pro(?:\\s*Max)?|Promax|PM|P|Air))?)\\s*(?:64|128|256|512|1024|2048)\\s*(?:GB|TB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9
         }
       ]
     },
@@ -332,6 +340,12 @@
       "safety": "equal-count color-only blocks pair by order; count-mismatch fallback requires a uniquely nearest bare price within 3 lines; ties or distance >= 4 abstain",
       "fallback": "when row counts differ, a color-only row may pair only to a uniquely nearest bare-price row; distance ties abstain",
       "fallback_max_distance": 3
+    },
+    "model_shorthand_boundary": {
+      "mode": "shadow",
+      "rule": "all shorthand iPhone-like model headers open a model anchor; only explicit V0 aliases resolve, unsupported shorthand remains unresolved and blocks context inheritance",
+      "source": "real-load relaxed-header diagnostic + legacy modelo_desconhecido boundary behavior",
+      "safety": "unsupported shorthand resets model context instead of inheriting the prior supported model"
     }
   }
 }
