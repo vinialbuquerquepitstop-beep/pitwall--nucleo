@@ -1319,6 +1319,88 @@ function surplusPriceSourceShapeDiagnostics(legacyBundle, coreBundleInput) {
 const surplusPriceSourceShapeDiagnostic =
   surplusPriceSourceShapeDiagnostics(legacySupplierAware, coreBundle);
 
+function priceSourceShapeSupportDiagnostics(legacyBundle, coreBundleInput) {
+  const legacyCounts = new Map();
+  for (const offer of legacyBundle?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const segmentsByLine = new Map(
+    (coreBundleInput.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+  const coreByKey = new Map();
+  for (const offer of coreOffers(coreBundleInput)) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(offer);
+  }
+
+  const shapeOf = offer => {
+    const priceTrace = (offer.trace || []).find(item => item.field === 'price');
+    const modelTrace = (offer.trace || []).find(item => item.field === 'model');
+    const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : null;
+    const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+      ? Number(modelTrace.sources[0])
+      : null;
+    const segment = Number.isFinite(priceLine) ? segmentsByLine.get(priceLine) : null;
+    const normalized = String(segment?.normalized || '');
+    const fields = new Set((segment?.field_candidates || []).map(candidate => candidate.field));
+    const tokenCount = normalized.trim() ? normalized.trim().split(/\s+/).filter(Boolean).length : 0;
+    return [
+      'role=' + (segment?.role_candidates?.[0]?.role || 'unknown'),
+      'currency=' + (/R\$|\$/.test(normalized) ? 'yes' : 'no'),
+      'numeric_only=' + (/^[^A-Za-zÀ-ÿ]*[0-9][0-9.,\s]*$/.test(normalized) ? 'yes' : 'no'),
+      'price_candidates=' + (segment?.field_candidates || []).filter(candidate => candidate.field === 'price').length,
+      'has_color=' + (fields.has('color') ? 'yes' : 'no'),
+      'has_model=' + (fields.has('model') ? 'yes' : 'no'),
+      'tokens=' + (tokenCount <= 2 ? '0-2' : tokenCount <= 5 ? '3-5' : '6+'),
+      'model_distance=' + (
+        Number.isFinite(priceLine) && Number.isFinite(modelLine)
+          ? Math.abs(priceLine - modelLine)
+          : 'unknown'
+      )
+    ].join('|');
+  };
+
+  const rows = {};
+  const ensure = shape => {
+    if (!rows[shape]) rows[shape] = { supported: 0, surplus: 0 };
+    return rows[shape];
+  };
+
+  for (const [key, offers] of coreByKey.entries()) {
+    const supportedSlots = Math.min(legacyCounts.get(key) || 0, offers.length);
+    for (let i = 0; i < offers.length; i += 1) {
+      const row = ensure(shapeOf(offers[i]));
+      if (i < supportedSlots) row.supported += 1;
+      else row.surplus += 1;
+    }
+  }
+
+  const ordered = Object.entries(rows)
+    .filter(([, value]) => value.surplus > 0)
+    .sort((a, b) =>
+      (a[1].supported === 0 ? -1 : 1) - (b[1].supported === 0 ? -1 : 1) ||
+      b[1].surplus - a[1].surplus ||
+      a[0].localeCompare(b[0])
+    );
+
+  return {
+    surplus_only_shapes: ordered
+      .filter(([, value]) => value.supported === 0)
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+    mixed_shapes: ordered
+      .filter(([, value]) => value.supported > 0)
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const priceSourceShapeSupportDiagnostic =
+  priceSourceShapeSupportDiagnostics(legacySupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -2358,6 +2440,7 @@ const summary = {
   exact_surplus_provenance_diagnostic: exactSurplusProvenanceDiagnostic,
   e_model_surplus_source_diagnostic: eModelSurplusSourceDiagnostic,
   surplus_price_source_shape_diagnostic: surplusPriceSourceShapeDiagnostic,
+  price_source_shape_support_diagnostic: priceSourceShapeSupportDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
