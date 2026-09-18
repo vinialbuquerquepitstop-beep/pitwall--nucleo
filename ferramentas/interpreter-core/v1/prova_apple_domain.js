@@ -633,12 +633,15 @@ check('shorthand low-risk sem GB herda capacidade correta do cabecalho', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
-check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () => {
+check('shorthand 17 256 local com Lacrado e cap de pareamento permanece habilitado', () => {
   const result = run(
-    'apple-shorthand-bare-capacity-disabled-17-256',
+    'apple-shorthand-local-17-256',
     '17 256 Lacrado\nAzul R$ 5.299'
   );
-  assert.strictEqual(result.records.length, 0);
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
 check('supersessao local mantem a oferta mais recente da mesma cor no mesmo bloco', () => {
