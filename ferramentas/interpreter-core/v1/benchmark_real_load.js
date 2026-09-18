@@ -405,6 +405,158 @@ function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
 const conditionResidualTopologyDiagnostic =
   conditionResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
 
+function pureConditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+
+  const identityWithoutCondition = fields => JSON.stringify([
+    fields?.model?.id || null,
+    normalizeKey(fields?.supplier) || null,
+    fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+    normalizeKey(fields?.color) || null,
+    fields?.price == null ? null : Number(fields.price)
+  ]);
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+  const segments = bundle.segments || [];
+  const conditionField = schema.fields.find(field => field.name === 'condition') || {};
+  const valueMap = conditionField.value_map || {};
+  const canonicalConditionValue = value => normalizeKey(valueMap[value] || valueMap[String(value)] || value) || null;
+
+  const signatures = {};
+  const expectedCounts = {};
+  let cases = 0;
+  let coreNull = 0;
+  let coreDifferent = 0;
+  let unresolvedCoreRecord = 0;
+
+  for (const miss of missing) {
+    const missFields = miss.fields || {};
+    const expectedCondition = canonicalConditionValue(missFields.condition);
+    if (!expectedCondition) continue;
+    const identity = identityWithoutCondition(missFields);
+
+    let matchIndex = -1;
+    for (let index = 0; index < extras.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      if (identityWithoutCondition(extras[index].fields || {}) !== identity) continue;
+      const coreCondition = canonicalConditionValue(extras[index].fields?.condition);
+      if (coreCondition === expectedCondition) continue;
+      matchIndex = index;
+      break;
+    }
+    if (matchIndex < 0) continue;
+
+    usedExtra.add(matchIndex);
+    cases += 1;
+    expectedCounts[expectedCondition] = (expectedCounts[expectedCondition] || 0) + 1;
+    const extra = extras[matchIndex];
+    const coreCondition = canonicalConditionValue(extra.fields?.condition);
+    if (coreCondition == null) coreNull += 1;
+    else coreDifferent += 1;
+
+    const extraKey = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const consumed = consumedCore.get(extraKey) || 0;
+    const record = bucket[consumed] || null;
+    consumedCore.set(extraKey, consumed + 1);
+    if (!record) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const sourceLines = (record.trace || [])
+      .flatMap(item => Array.isArray(item.sources) ? item.sources : [])
+      .map(Number)
+      .filter(Number.isFinite);
+    const recordLine = sourceLines.length ? Math.max(...sourceLines) : null;
+    if (!Number.isFinite(recordLine)) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const supplier = missFields.supplier || null;
+    const candidates = [];
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      const segmentSupplier =
+        segment?.inherited_context?.supplier?.value ||
+        (segment.field_candidates || []).find(candidate => candidate.field === 'supplier')?.value ||
+        null;
+      const sameSupplier = supplier == null || segmentSupplier == null
+        ? false
+        : normalizeKey(segmentSupplier) === normalizeKey(supplier);
+      if (!sameSupplier) continue;
+
+      for (const candidate of segment.field_candidates || []) {
+        if (candidate.field !== 'condition') continue;
+        if (canonicalConditionValue(candidate.value) !== expectedCondition) continue;
+        candidates.push({
+          line,
+          direction: line < recordLine ? 'before' : line > recordLine ? 'after' : 'same',
+          distance: Math.abs(recordLine - line)
+        });
+      }
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance || a.line - b.line);
+    const nearest = candidates[0] || null;
+    const boundaryKinds = new Set();
+    let anchorCount = 0;
+    if (nearest) {
+      const lo = Math.min(nearest.line, recordLine);
+      const hi = Math.max(nearest.line, recordLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > lo && line <= hi)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          anchorCount += 1;
+        }
+        for (const event of segment.context_events || []) {
+          if (event.reason === 'timestamp_boundary') boundaryKinds.add('timestamp');
+          if (event.reason === 'domain_boundary') boundaryKinds.add('domain');
+          if (event.reason === 'supplier_boundary') boundaryKinds.add('supplier');
+        }
+      }
+    }
+
+    const signature = [
+      'expected=' + expectedCondition,
+      'core=' + (coreCondition || 'null'),
+      'nearest_same_supplier=' + (nearest ? nearest.direction + ':d' + nearest.distance : 'none'),
+      'boundaries=' + (boundaryKinds.size ? [...boundaryKinds].sort().join('+') : 'none'),
+      'model_anchors_between=' + anchorCount
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    cases,
+    core_null: coreNull,
+    core_different: coreDifferent,
+    unresolved_core_record: unresolvedCoreRecord,
+    expected_conditions: expectedCounts,
+    signatures: Object.entries(signatures)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const pureConditionResidualTopologyDiagnostic =
+  pureConditionResidualTopologyDiagnostics(reportSupplierAware, coreBundle);
+
 function distinctFieldValues(segment, field) {
   return [...new Set(
     (segment.field_candidates || [])
@@ -1438,6 +1590,7 @@ const summary = {
   supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
+  pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   condition_timestamp_preservation_simulation: {
     core_offers: conditionTimestampReport.metrics.core_offers,
     matched_offers: conditionTimestampReport.metrics.matched_offers,
