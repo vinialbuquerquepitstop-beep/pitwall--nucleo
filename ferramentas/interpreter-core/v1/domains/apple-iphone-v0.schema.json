@@ -89,7 +89,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "\\\\b(Black\\\\s+Ocean\\\\s+Band|Black\\\\s+Titanium|Blue\\\\s+Anatel|Orange\\\\s+Anatel|Silver\\\\s+Anatel|Jet\\\\s+Black|Space\\\\s+Black|Space\\\\s+Gray|Rosa\\\\s+Blush|Rose\\\\s+Gold|Sky\\\\s+Blue|Azul\\\\s+Anatel|Laranja\\\\s+Anatel|Amarelo|Azul|Black|Blue|Branco|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Verde|Vermelho|White|Ultramarine|Pacific\\\\s+Blue|Purple)\\\\b",
+          "pattern": "\\b(Black\\s+Ocean\\s+Band|Black\\s+Titanium|Blue\\s+Anatel|Orange\\s+Anatel|Silver\\s+Anatel|Jet\\s+Black|Space\\s+Black|Space\\s+Gray|Rosa\\s+Blush|Rose\\s+Gold|Sky\\s+Blue|Azul\\s+Anatel|Laranja\\s+Anatel|Amarelo|Azul|Black|Blue|Branco|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Verde|Vermelho|White|Ultramarine|Pacific\\s+Blue|Purple)\\b",
           "flags": "i",
           "group": 1,
           "transform": "trim",
