@@ -2311,6 +2311,33 @@ function whatIf17256BareUnqualifiedHeader(rawDocument, baseSchema, baseKnowledge
 }
 
 
+function whatIfRelaxedColorSourceOnly(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
+  const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
+  const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
+  const colorField = (candidateSchema.fields || []).find(field => field.name === 'color');
+  if (!colorField?.pair_by_order_with_trigger) throw new Error('what-if relaxed color source-only: policy ausente');
+  colorField.pair_by_order_with_trigger.require_source_only = false;
+  const candidateBundle = interpretResolved({
+    document: { contract_version: 'raw-document/v1', document_id: 'real-load-shadow-what-if-relaxed-color-source-only', content: rawDocument, source: { kind: 'plain_text' } },
+    schema: candidateSchema,
+    knowledge: candidateKnowledge
+  });
+  const report = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle });
+  const reportNoColor = compareSemanticShadow({ legacy: legacyBundle, coreBundle: candidateBundle, options: { include_color: false } });
+  const divergence = analyzeDivergences({ legacy: legacyBundle, coreBundle: candidateBundle });
+  return {
+    candidate: 'relaxed_color_source_only',
+    metrics: {
+      core_offers: report.metrics.core_offers, matched_offers: report.metrics.matched_offers,
+      missing_offers: report.metrics.missing_offers, extra_offers: report.metrics.extra_offers,
+      agreement_ratio: report.metrics.agreement_ratio, agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
+      no_silent_wrong_price: report.gates.no_silent_wrong_price, exact_multiset: report.gates.exact_multiset
+    },
+    divergence_categories: divergence.categories,
+    top_model_gaps: divergence.top_model_gaps
+  };
+}
+
 function simulateUnsupportedRawModelExclusionAdjudication(
   legacyBundle,
   coreBundle,
@@ -2621,6 +2648,9 @@ const whatIf17256BareUnqualifiedDiagnostic = whatIf17256BareUnqualifiedHeader(
 const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
   legacy, coreBundle
 );
+const whatIfRelaxedColorSourceOnlyDiagnostic = whatIfRelaxedColorSourceOnly(
+  raw, schema, knowledge, legacy
+);
 const multiPriceNearestFallbackRiskDiagnostic = multiPriceNearestFallbackRiskDiagnostics(coreBundle);
 
 const summary = {
@@ -2695,6 +2725,7 @@ const summary = {
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
   what_if_17_256_bare_unqualified_header: whatIf17256BareUnqualifiedDiagnostic,
   invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
+  what_if_relaxed_color_source_only: whatIfRelaxedColorSourceOnlyDiagnostic,
   multi_price_nearest_fallback_risk: multiPriceNearestFallbackRiskDiagnostic
 };
 
