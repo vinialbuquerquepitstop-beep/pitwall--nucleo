@@ -329,18 +329,49 @@ function scopedRejectedColorPairingDiagnostics(bundle) {
       reason: topRole?.reason || null,
       previous_price: prev ? { line: prev.line, distance: prev.distance } : null,
       next_price: nextPrice ? { line: nextPrice.line, distance: nextPrice.distance } : null,
+      chosen_target_line: conservative && nearest[0] ? nearest[0].line : null,
       unique_nearest: uniqueNearest,
       crossed_condition: crossedCondition,
       conservative_candidate: conservative
     });
   }
 
+  const targetUse = {};
+  for (const row of rows) {
+    if (!row.conservative_candidate || row.chosen_target_line == null) continue;
+    const key = `${row.model}|${row.chosen_target_line}`;
+    targetUse[key] = (targetUse[key] || 0) + 1;
+  }
+
+  const strictRows = rows.map(row => {
+    const key = row.chosen_target_line == null ? null : `${row.model}|${row.chosen_target_line}`;
+    const strict = row.conservative_candidate && key != null && targetUse[key] === 1;
+    return {
+      ...row,
+      target_source_count: key == null ? 0 : targetUse[key] || 0,
+      strict_one_to_one_candidate: strict
+    };
+  });
+
+  const strictByModel = {};
+  let strictOneToOneCandidates = 0;
+  for (const row of strictRows) {
+    if (!row.strict_one_to_one_candidate) continue;
+    strictOneToOneCandidates += 1;
+    strictByModel[row.model] = (strictByModel[row.model] || 0) + 1;
+  }
+
   return {
     rejected_color_rows_in_active_model: totalInActiveModel,
     conservative_pair_candidates: conservativeCandidates,
+    strict_one_to_one_candidates: strictOneToOneCandidates,
     by_model: byModel,
     conservative_by_model: safeByModel,
-    rows
+    strict_one_to_one_by_model: strictByModel,
+    duplicate_target_groups: Object.fromEntries(
+      Object.entries(targetUse).filter(([, count]) => count > 1)
+    ),
+    rows: strictRows
   };
 }
 
