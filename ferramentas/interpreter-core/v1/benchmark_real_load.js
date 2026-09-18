@@ -463,6 +463,25 @@ function supplierBoundaryDiagnostics(bundle) {
   return out;
 }
 
+function conditionDistributionDiagnostics(legacyBundle, coreBundle) {
+  const count = offers => {
+    const out = {};
+    for (const offer of offers || []) {
+      const model = offer?.fields?.model?.id;
+      if (!model) continue;
+      const condition = offer?.fields?.condition == null ? '(null)' : String(offer.fields.condition);
+      out[model] = out[model] || {};
+      out[model][condition] = (out[model][condition] || 0) + 1;
+    }
+    return out;
+  };
+
+  return {
+    legacy: count(legacyBundle?.offers || []),
+    core: count((coreBundle?.records || []).map(record => ({ fields: record.fields || {} })))
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -535,6 +554,7 @@ const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreB
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
+const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -563,7 +583,8 @@ const summary = {
   relaxed_supported_header_diagnostic: relaxedSupportedHeaderDiagnostic,
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
-  supplier_boundary_diagnostic: supplierBoundaryDiagnostic
+  supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
+  condition_distribution_diagnostic: conditionDistributionDiagnostic
 };
 
 const diagnostic = {
