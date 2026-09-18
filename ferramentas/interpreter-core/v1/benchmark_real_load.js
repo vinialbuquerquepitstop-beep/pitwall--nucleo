@@ -153,6 +153,22 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
 
   let paired = 0;
   let unpairedMissing = 0;
+  const fieldDirections = {
+    supplier: {},
+    capacity: {},
+    condition: {},
+    color: {},
+    price: {}
+  };
+  const addDirection = (field, left, right) => {
+    const classify = value => value == null || value === '' ? 'null' : 'value';
+    const direction =
+      classify(left) === 'null' && classify(right) === 'value' ? 'legacy_null_core_value' :
+      classify(left) === 'value' && classify(right) === 'null' ? 'legacy_value_core_null' :
+      classify(left) === 'value' && classify(right) === 'value' ? 'both_values_different' :
+      'both_null';
+    fieldDirections[field][direction] = (fieldDirections[field][direction] || 0) + 1;
+  };
 
   for (const miss of missing) {
     const model = norm(miss).model;
@@ -174,6 +190,11 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
 
     usedExtra.add(best.index);
     paired += 1;
+    const core = extra[best.index];
+    const a = norm(miss);
+    const b = norm(core);
+    for (const field of best.diffs) addDirection(field, a[field], b[field]);
+
     const signature = best.diffs.length ? best.diffs.slice().sort().join('+') : 'exact_residual';
     signatures[signature] = (signatures[signature] || 0) + 1;
     if (!byModel[model]) byModel[model] = {};
@@ -184,6 +205,7 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
     paired_residuals: paired,
     unpaired_missing: unpairedMissing,
     unpaired_extra: extra.length - usedExtra.size,
+    field_directionality: fieldDirections,
     mismatch_signatures: Object.entries(signatures)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
