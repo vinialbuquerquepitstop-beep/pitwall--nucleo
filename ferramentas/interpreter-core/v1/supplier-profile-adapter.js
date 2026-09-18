@@ -146,9 +146,17 @@ function applySupplierProfiles(schema, input) {
   preserve.add('supplier');
   out.context_policy.preserve_on_anchor = Array.from(preserve);
 
+  const preserveOnTimestamp = new Set(
+    Array.isArray(out.context_policy.preserve_on_timestamp)
+      ? out.context_policy.preserve_on_timestamp
+      : []
+  );
+  preserveOnTimestamp.add('supplier');
+  out.context_policy.preserve_on_timestamp = Array.from(preserveOnTimestamp);
+
   out.metadata = Object.assign({}, out.metadata || {}, {
     supplier_profile_adapter: {
-      version: 'supplier-profile-adapter/0.1.0',
+      version: 'supplier-profile-adapter/0.2.0',
       profile_count: profiles.length,
       term_count: alternatives.length
     }
