@@ -502,6 +502,43 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
 });
 
+check('cabecalho suportado sem palavra iPhone resolve 17 256', () => {
+  const result = run(
+    'apple-safe-shorthand-17',
+    '🍎17 256GB Lacrado\nAzul R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('cabecalho suportado sem palavra iPhone resolve 16 Pro Max 256', () => {
+  const result = run(
+    'apple-safe-shorthand-16pm',
+    '📱16 PRO MAX 256GB CPO\nPreto R$ 6.100'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+});
+
+check('shorthand fora do dominio V0 continua nao resolvido', () => {
+  const result = run(
+    'apple-safe-shorthand-unsupported',
+    '15 256GB Lacrado\nPreto R$ 4.299'
+  );
+  assert.strictEqual(result.records.length, 0);
+  assert.ok(result.ambiguities.some(a => a.field === 'model'));
+});
+
+check('shorthand nao captura MacBook por numeros de memoria e armazenamento', () => {
+  const result = run(
+    'apple-safe-shorthand-mac',
+    'MacBook Air M5 13 16/512GB\nR$ 6.999'
+  );
+  assert.strictEqual(result.records.length, 0);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
