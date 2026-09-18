@@ -623,6 +623,17 @@ check('shorthand improdutivo 17e permanece desativado', () => {
   assert.strictEqual(result.records.length, 0);
 });
 
+check('shorthand sem GB herda capacidade correta do cabecalho', () => {
+  const result = run(
+    'apple-shorthand-bare-capacity',
+    '17 256 Lacrado\nAzul R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
