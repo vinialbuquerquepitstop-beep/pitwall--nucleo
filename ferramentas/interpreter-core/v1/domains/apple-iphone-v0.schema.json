@@ -233,6 +233,9 @@
     "preserve_on_anchor": [
       "condition"
     ],
+    "preserve_on_anchor_max_age_lines": {
+      "condition": 100
+    },
     "structural_boundaries": [
       {
         "id": "iphone_product_header_v1",
