@@ -4652,6 +4652,167 @@ const residualAdjudicationLedgerSourceSupportSimulation =
     }
   );
 
+
+function postCompositionConditionConfidenceHorizonSimulation(bundle) {
+  if (!reportSupplierAware || !bundle) return null;
+
+  const firstSource = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const recordLine = record => {
+    const priceLine = firstSource(record, 'price');
+    if (Number.isFinite(priceLine)) return priceLine;
+    const match = /line-(\d+)/.exec(String(record?.record_id || ''));
+    return match ? Number(match[1]) : null;
+  };
+  const inheritedConditionAge = record => {
+    const trace = (record?.trace || []).find(item => item.field === 'condition');
+    const rules = Array.isArray(trace?.rules) ? trace.rules : [];
+    if (!rules.includes('context_inheritance')) return null;
+    const source = firstSource(record, 'condition');
+    const target = recordLine(record);
+    if (!Number.isFinite(source) || !Number.isFinite(target)) return null;
+    return Math.abs(target - source);
+  };
+
+  const ages = (bundle.records || [])
+    .map(record => inheritedConditionAge(record))
+    .filter(Number.isFinite);
+  const ageHistogram = {};
+  for (const age of ages) ageHistogram[age] = (ageHistogram[age] || 0) + 1;
+
+  const observed = [...new Set(ages)].sort((a, b) => a - b);
+  const horizons = [...new Set([0, 1, 2, 3, 4, 5, 6, 8, 10, 12, ...observed])]
+    .filter(value => Number.isFinite(value) && value >= 0)
+    .sort((a, b) => a - b);
+
+  const baselineConfirmed =
+    Number(reportSupplierAware.metrics?.confirmed_silent_wrong_price || 0);
+  const baselineUnresolved =
+    Number(reportSupplierAware.metrics?.unresolved_price_attribution || 0);
+  const baselineResidual =
+    Number(residualAdjudicationLedger?.actionable?.total_residual || 0);
+
+  const rows = [];
+  for (const horizon of horizons) {
+    const simulated = JSON.parse(JSON.stringify(bundle));
+    let suppressed = 0;
+    const suppressedByModel = {};
+
+    for (const record of simulated.records || []) {
+      if (record?.fields?.condition == null) continue;
+      const age = inheritedConditionAge(record);
+      if (!Number.isFinite(age) || age <= horizon) continue;
+
+      const model = record?.fields?.model?.id || '(unknown)';
+      record.fields.condition = null;
+      suppressed += 1;
+      suppressedByModel[model] = (suppressedByModel[model] || 0) + 1;
+    }
+
+    const simulatedReport = compareSemanticShadow({
+      legacy: legacySupplierAware,
+      coreBundle: simulated,
+      options: { include_supplier: true }
+    });
+    const simulatedLedger = buildResidualAdjudicationLedger(
+      simulatedReport,
+      simulated,
+      {
+        includeStrongMixed: true,
+        includeAllFullyLocalCoreOnlyLate: true,
+        includeSourceUnsupportedMissing: true
+      }
+    );
+
+    const confirmed =
+      Number(simulatedReport.metrics?.confirmed_silent_wrong_price || 0);
+    const unresolved =
+      Number(simulatedReport.metrics?.unresolved_price_attribution || 0);
+    const actionable =
+      Number(simulatedLedger?.actionable?.total_residual || 0);
+
+    rows.push({
+      horizon_lines: horizon,
+      suppressed_inherited_conditions: suppressed,
+      suppressed_by_model: suppressedByModel,
+      matched_offers: simulatedReport.metrics?.matched_offers ?? null,
+      missing_offers: simulatedReport.metrics?.missing_offers ?? null,
+      extra_offers: simulatedReport.metrics?.extra_offers ?? null,
+      agreement_ratio: simulatedReport.metrics?.agreement_ratio ?? null,
+      actionable_residual: actionable,
+      resolved_vs_baseline: baselineResidual - actionable,
+      p0_price: {
+        confirmed_silent_wrong_price: confirmed,
+        unresolved_price_attribution: unresolved,
+        preserved_0_0: confirmed === 0 && unresolved === 0
+      }
+    });
+  }
+
+  const safeRows = rows.filter(row => row.p0_price.preserved_0_0);
+  const bestSafe = safeRows.slice().sort((a, b) =>
+    (b.resolved_vs_baseline - a.resolved_vs_baseline) ||
+    ((b.matched_offers || 0) - (a.matched_offers || 0)) ||
+    (a.suppressed_inherited_conditions - b.suppressed_inherited_conditions) ||
+    (b.horizon_lines - a.horizon_lines)
+  )[0] || null;
+
+  const frontier = [];
+  let prior = null;
+  for (const row of rows) {
+    const key = [
+      row.matched_offers,
+      row.missing_offers,
+      row.extra_offers,
+      row.actionable_residual,
+      row.p0_price.confirmed_silent_wrong_price,
+      row.p0_price.unresolved_price_attribution
+    ].join('|');
+    if (key !== prior || [3, 6, 8, 10, 12].includes(row.horizon_lines)) {
+      frontier.push(row);
+      prior = key;
+    }
+  }
+
+  return {
+    contract_version: 'condition-postcompose-confidence-horizon-simulation/v1',
+    mode: 'diagnostic_only_post_composition',
+    invariants: {
+      pairing_unchanged: true,
+      context_engine_unchanged: true,
+      record_count_unchanged: true,
+      model_unchanged: true,
+      price_unchanged: true,
+      mutation: 'condition=null only when trace includes context_inheritance and age_lines > horizon'
+    },
+    baseline: {
+      matched_offers: reportSupplierAware.metrics?.matched_offers ?? null,
+      missing_offers: reportSupplierAware.metrics?.missing_offers ?? null,
+      extra_offers: reportSupplierAware.metrics?.extra_offers ?? null,
+      agreement_ratio: reportSupplierAware.metrics?.agreement_ratio ?? null,
+      actionable_residual: baselineResidual,
+      p0_price: {
+        confirmed_silent_wrong_price: baselineConfirmed,
+        unresolved_price_attribution: baselineUnresolved,
+        preserved_0_0: baselineConfirmed === 0 && baselineUnresolved === 0
+      }
+    },
+    inherited_condition_records: ages.length,
+    inherited_condition_age_histogram: Object.entries(ageHistogram)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+    best_safe_horizon: bestSafe,
+    frontier
+  };
+}
+
+const conditionPostcomposeConfidenceHorizonSimulation =
+  postCompositionConditionConfidenceHorizonSimulation(coreBundle);
+
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
   const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
@@ -6902,6 +7063,7 @@ const summary = {
   residual_adjudication_ledger_late_full_local_simulation: residualAdjudicationLedgerLateFullLocalSimulation,
   residual_adjudication_ledger_late_combined_simulation: residualAdjudicationLedgerLateCombinedSimulation,
   residual_adjudication_ledger_source_support_simulation: residualAdjudicationLedgerSourceSupportSimulation,
+  condition_postcompose_confidence_horizon_simulation: conditionPostcomposeConfidenceHorizonSimulation,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
