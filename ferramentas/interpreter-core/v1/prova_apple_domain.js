@@ -659,12 +659,30 @@ check('shorthand low-risk sem GB herda capacidade correta do cabecalho', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
-check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () => {
+check('shorthand 17 256 Importado eSIM resolve apenas no recorte validado', () => {
   const result = run(
+    'apple-shorthand-17-256-importado-esim',
+    '17 256GB Lacrado Importado eSIM\nLavanda Preto Verde\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_17_256gb'));
+  assert.ok(result.records.every(record => record.fields.capacity_gb === 256));
+  assert.ok(result.records.every(record => record.fields.condition === 'Lacrado'));
+  assert.ok(result.records.every(record => record.fields.price === 5299));
+});
+
+check('shorthand 17 256 generico permanece desativado por excesso de extras', () => {
+  const withGb = run(
+    'apple-shorthand-generic-disabled-17-256-gb',
+    '17 256GB Lacrado\nAzul R$ 5.299'
+  );
+  assert.strictEqual(withGb.records.length, 0);
+
+  const bare = run(
     'apple-shorthand-bare-capacity-disabled-17-256',
     '17 256 Lacrado\nAzul R$ 5.299'
   );
-  assert.strictEqual(result.records.length, 0);
+  assert.strictEqual(bare.records.length, 0);
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {

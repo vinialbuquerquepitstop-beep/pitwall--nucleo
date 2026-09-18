@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.7-16-128-lacrado-shorthand",
+  "schema_version": "0.9.8-17-256-importado-esim-shorthand",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -62,6 +62,15 @@
           "group": 1,
           "transform": "trim",
           "score": 0.91
+        },
+        {
+          "id": "supported_shorthand_17_256_importado_esim_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=.*\\bImportad[oa]s?\\b)(?=.*(?:\\be\\s*sim\\b|\\besim\\b))",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.91
         }
       ]
     },
@@ -110,6 +119,15 @@
           "id": "supported_shorthand_capacity_16_128_lacrado_v1",
           "kind": "regex",
           "pattern": "^[^A-Za-z0-9]{0,12}16\\s+(128)(?:\\s*GB)?(?=.*\\bLacrad[oa]s?\\b)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        },
+        {
+          "id": "supported_shorthand_capacity_17_256_importado_esim_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}17\\s+(256)(?:\\s*GB)?(?=.*\\bImportad[oa]s?\\b)(?=.*(?:\\be\\s*sim\\b|\\besim\\b))",
           "flags": "i",
           "group": 1,
           "transform": "integer",
@@ -422,7 +440,12 @@
         "iphone_16e_128gb",
         "iphone_17e_256gb"
       ],
-      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled"
+      "scoped_exceptions": {
+        "iphone_16_128gb": "enabled only when the same header declares Lacrado",
+        "iphone_16_pro_max_256gb": "enabled only when the same header declares CPO",
+        "iphone_17_256gb": "enabled only when the same header declares Importado and eSIM"
+      },
+      "bare_capacity_policy": "generic bare 17 256 remains disabled; the Importado + eSIM same-header exception is enabled"
     },
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
