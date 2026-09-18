@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "created_at": null,
   "entities": [
     {
@@ -90,6 +90,142 @@
       "label": "iPhone 17e 256GB",
       "attributes": {
         "categoria": "iPhone"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "all_imports",
+      "label": "All imports",
+      "attributes": {
+        "praca": "São João de Meriti — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "br10",
+      "label": "BR10",
+      "attributes": {
+        "praca": "Irajá — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "cristiano",
+      "label": "Cristiano",
+      "attributes": {
+        "praca": "Méier — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "davi_fabio",
+      "label": "Davi/Fábio",
+      "attributes": {
+        "praca": "Bangu — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "dg_jacarepagua",
+      "label": "DG Jacarepaguá",
+      "attributes": {
+        "praca": "Taquara — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "five_cell",
+      "label": "Five Cell",
+      "attributes": {
+        "praca": "Caxias — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "fmata",
+      "label": "FMATA",
+      "attributes": {
+        "praca": "Centro — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "joao_telles",
+      "label": "João Telles",
+      "attributes": {
+        "praca": "Bangu — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "junior",
+      "label": "Júnior",
+      "attributes": {
+        "praca": "Recreio — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "lbr_importados",
+      "label": "LBR Importados",
+      "attributes": {
+        "praca": "Centro — Niterói/RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "m_apple",
+      "label": "M Apple",
+      "attributes": {
+        "praca": "Campo Grande — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "mp_imports",
+      "label": "MP Imports",
+      "attributes": {
+        "praca": "Campo Grande — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "quality",
+      "label": "Quality",
+      "attributes": {
+        "praca": "Barra da Tijuca — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "rafael",
+      "label": "Rafael",
+      "attributes": {
+        "praca": "Barra da Tijuca — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "raposa",
+      "label": "Raposa",
+      "attributes": {
+        "praca": "Niterói — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "real_comercio",
+      "label": "Real Comércio",
+      "attributes": {
+        "praca": "Centro — RJ"
+      }
+    },
+    {
+      "kind": "supplier",
+      "id": "revel",
+      "label": "Revel",
+      "attributes": {
+        "praca": "Nova Iguaçu — RJ"
       }
     }
   ],
@@ -189,6 +325,144 @@
       "text": "iPhone 16 Promax 256",
       "normalized": null,
       "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "supplier",
+      "text": "🇺🇸 APARELHOS SEMINOVOS🇺🇸",
+      "normalized": null,
+      "target_id": "junior"
+    },
+    {
+      "kind": "supplier",
+      "text": "All imports, fornecedor novo",
+      "normalized": null,
+      "target_id": "all_imports"
+    },
+    {
+      "kind": "supplier",
+      "text": "ATACADO BR10",
+      "normalized": null,
+      "target_id": "br10"
+    },
+    {
+      "kind": "supplier",
+      "text": "ATACADO E REVENDA DA RAPOSA",
+      "normalized": null,
+      "target_id": "raposa"
+    },
+    {
+      "kind": "supplier",
+      "text": "ATENÇÃO! NÃO TROCAMOS APARELHO SEM OS SELOS",
+      "normalized": null,
+      "target_id": "mp_imports"
+    },
+    {
+      "kind": "supplier",
+      "text": "Br 10, iraja",
+      "normalized": null,
+      "target_id": "br10"
+    },
+    {
+      "kind": "supplier",
+      "text": "Charles revel",
+      "normalized": null,
+      "target_id": "revel"
+    },
+    {
+      "kind": "supplier",
+      "text": "davi fabio",
+      "normalized": null,
+      "target_id": "davi_fabio"
+    },
+    {
+      "kind": "supplier",
+      "text": "Dg JPA",
+      "normalized": null,
+      "target_id": "dg_jacarepagua"
+    },
+    {
+      "kind": "supplier",
+      "text": "Fábio Fmata",
+      "normalized": null,
+      "target_id": "fmata"
+    },
+    {
+      "kind": "supplier",
+      "text": "Fábio Sousa davi Sobral",
+      "normalized": null,
+      "target_id": "davi_fabio"
+    },
+    {
+      "kind": "supplier",
+      "text": "Fábio souza",
+      "normalized": null,
+      "target_id": "davi_fabio"
+    },
+    {
+      "kind": "supplier",
+      "text": "IPHONE NEW LACRADO NA CAIXA",
+      "normalized": null,
+      "target_id": "fmata"
+    },
+    {
+      "kind": "supplier",
+      "text": "JT Telles",
+      "normalized": null,
+      "target_id": "joao_telles"
+    },
+    {
+      "kind": "supplier",
+      "text": "Júnior recreio",
+      "normalized": null,
+      "target_id": "junior"
+    },
+    {
+      "kind": "supplier",
+      "text": "Lista nova, fornecedor João Telles",
+      "normalized": null,
+      "target_id": "joao_telles"
+    },
+    {
+      "kind": "supplier",
+      "text": "MELHOR DE CAXIAS",
+      "normalized": null,
+      "target_id": "five_cell"
+    },
+    {
+      "kind": "supplier",
+      "text": "Raphael Barra",
+      "normalized": null,
+      "target_id": "rafael"
+    },
+    {
+      "kind": "supplier",
+      "text": "Raphael barra da Tijuca",
+      "normalized": null,
+      "target_id": "rafael"
+    },
+    {
+      "kind": "supplier",
+      "text": "Recreio",
+      "normalized": null,
+      "target_id": "junior"
+    },
+    {
+      "kind": "supplier",
+      "text": "REVEL IMPORTS",
+      "normalized": null,
+      "target_id": "revel"
+    },
+    {
+      "kind": "supplier",
+      "text": "SWAP GRADE A / IPHONE STOCK (VITRINE)",
+      "normalized": null,
+      "target_id": "fmata"
+    },
+    {
+      "kind": "supplier",
+      "text": "TABELA ATUALIZADA",
+      "normalized": null,
+      "target_id": "mp_imports"
     }
   ],
   "semantic_rules": [],
@@ -200,6 +474,12 @@
       "supabase/migrations/20260908_calc_catalogo_semente.sql",
       "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
       "ferramentas/prova_calc_catalogo.sql"
-    ]
+    ],
+    "supplier_snapshot": {
+      "source": "public.calc_fornecedor + public.calc_alias read-only snapshot",
+      "active_suppliers": 17,
+      "aliases": 23,
+      "captured_for": "supplier-context-boundary-v1-shadow"
+    }
   }
 }
