@@ -4673,6 +4673,28 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
           : sourceGenerations.every(value => value !== targetGeneration)
             ? 'no'
             : 'mixed';
+    const modelVariantClass = modelId => {
+      const id = String(modelId || '');
+      if (/_pro_max_/.test(id)) return 'pro_max';
+      if (/_pro_/.test(id)) return 'pro';
+      if (/_air_/.test(id)) return 'air';
+      if (/^iphone_\d+e_/.test(id)) return 'e';
+      if (/_plus_/.test(id)) return 'plus';
+      if (/_mini_/.test(id)) return 'mini';
+      return id ? 'base' : null;
+    };
+    const targetVariantClass = modelVariantClass(recordModelId);
+    const sourceVariantClasses = [...new Set(
+      sourceModelIds.map(modelVariantClass).filter(Boolean)
+    )];
+    const sourceVariantMatch =
+      sourceVariantClasses.length === 0 || targetVariantClass == null
+        ? 'none'
+        : sourceVariantClasses.every(value => value === targetVariantClass)
+          ? 'yes'
+          : sourceVariantClasses.every(value => value !== targetVariantClass)
+            ? 'no'
+            : 'mixed';
     const conditionSourceSupplier = conditionSourceSegment
       ? supplierAt(conditionSourceSegment)
       : null;
@@ -4690,6 +4712,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
       'source_model_match=' + sourceModelMatch,
       'source_generation_match=' + sourceGenerationMatch,
+      'source_variant_match=' + sourceVariantMatch,
       'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
       'source_supplier_match=' + sourceSupplierMatch,
       'distance=' + (distance ?? 'none'),
@@ -5266,6 +5289,28 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
             : sourceGenerations.every(value => value !== targetGeneration)
               ? 'no'
               : 'mixed';
+      const modelVariantClass = modelId => {
+        const id = String(modelId || '');
+        if (/_pro_max_/.test(id)) return 'pro_max';
+        if (/_pro_/.test(id)) return 'pro';
+        if (/_air_/.test(id)) return 'air';
+        if (/^iphone_\d+e_/.test(id)) return 'e';
+        if (/_plus_/.test(id)) return 'plus';
+        if (/_mini_/.test(id)) return 'mini';
+        return id ? 'base' : null;
+      };
+      const targetVariantClass = modelVariantClass(model);
+      const sourceVariantClasses = [...new Set(
+        sourceModelIds.map(modelVariantClass).filter(Boolean)
+      )];
+      const sourceVariantMatch =
+        sourceVariantClasses.length === 0 || targetVariantClass == null
+          ? 'none'
+          : sourceVariantClasses.every(value => value === targetVariantClass)
+            ? 'yes'
+            : sourceVariantClasses.every(value => value !== targetVariantClass)
+              ? 'no'
+              : 'mixed';
       const directSourceSuppliers = [...new Set(
         (conditionSourceSegment?.field_candidates || [])
           .filter(candidate => candidate.field === 'supplier')
@@ -5289,6 +5334,7 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
         'source_model=' + (conditionSourceFields.has('model') ? 'yes' : 'no'),
         'source_model_match=' + sourceModelMatch,
         'source_generation_match=' + sourceGenerationMatch,
+        'source_variant_match=' + sourceVariantMatch,
         'source_supplier=' + (conditionSourceFields.has('supplier') ? 'yes' : 'no'),
         'source_supplier_match=' + sourceSupplierMatch,
         'distance=' + distanceBucket(distance),
@@ -5301,6 +5347,7 @@ function exactSupportedConditionTopologyDiagnostics(bundle) {
         'source_role=' + conditionSourceRole,
         'source_model_match=' + sourceModelMatch,
         'source_generation_match=' + sourceGenerationMatch,
+        'source_variant_match=' + sourceVariantMatch,
         'source_supplier_match=' + sourceSupplierMatch,
         'distance=' + distanceBucket(distance),
         'anchors=' + anchorBucket(path.model_anchors),
