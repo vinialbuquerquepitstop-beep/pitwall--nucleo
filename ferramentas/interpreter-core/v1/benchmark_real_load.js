@@ -821,7 +821,7 @@ function targetModelPairDiagnostics(legacyBundle, coreBundle, modelId) {
 }
 
 
-function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle) {
+function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyBundle, baseCoreBundle) {
   const candidateSchema = JSON.parse(JSON.stringify(baseSchema));
   const candidateKnowledge = JSON.parse(JSON.stringify(baseKnowledge));
 
@@ -889,6 +889,63 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
   const targetGap = (candidateDivergence.top_model_gaps || [])
     .find(row => row.model === 'iphone_16_pro_max_256gb') || null;
 
+  const candidateCoreOffers = (candidateBundle.records || [])
+    .map(record => ({
+      fields: record.fields || {},
+      core_record_id: record.record_id,
+      trace: record.trace || []
+    }))
+    .filter(offer => offer.fields?.model?.id && Number.isFinite(Number(offer.fields?.price)));
+
+  const baseRecordIds = new Set((baseCoreBundle.records || []).map(record => record.record_id));
+  const exactRemoval = removeExactMatches(legacyBundle.offers || [], candidateCoreOffers);
+  const remainingIds = new Set((exactRemoval.remainingCore || []).map(offer => offer.core_record_id));
+  const residualPairs = pairWithinModel(exactRemoval.remainingLegacy, exactRemoval.remainingCore);
+  const residualDiffsById = new Map(
+    (residualPairs.pairs || []).map(pair => [pair.core.core_record_id, pair.diffs])
+  );
+  const unpairedIds = new Set((residualPairs.unpairedCore || []).map(offer => offer.core_record_id));
+
+  const addedRecords = candidateCoreOffers
+    .filter(offer =>
+      offer.fields?.model?.id === 'iphone_16_pro_max_256gb' &&
+      !baseRecordIds.has(offer.core_record_id)
+    )
+    .map(offer => {
+      const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+      const modelTrace = (offer.trace || []).find(trace => trace.field === 'model');
+      const conditionTrace = (offer.trace || []).find(trace => trace.field === 'condition');
+      const diffs = residualDiffsById.get(offer.core_record_id) || [];
+      const classification = !remainingIds.has(offer.core_record_id)
+        ? 'exact'
+        : residualDiffsById.has(offer.core_record_id)
+          ? (diffs.length === 1 && diffs[0] === 'price' ? 'wrong_price_only' : 'field_mismatch')
+          : unpairedIds.has(offer.core_record_id)
+            ? 'extra'
+            : 'residual_unclassified';
+      return {
+        core_record_id: offer.core_record_id,
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+        model_source_line: Array.isArray(modelTrace?.sources) ? Number(modelTrace.sources[0]) : null,
+        condition: offer.fields?.condition ?? '(null)',
+        color: offer.fields?.color ?? '(null)',
+        condition_source_lines: Array.isArray(conditionTrace?.sources)
+          ? conditionTrace.sources.map(Number)
+          : [],
+        condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
+        classification,
+        diffs
+      };
+    });
+
+  const baselineTargetBlocks = targetModelBlockDiagnostics(baseCoreBundle, 'iphone_16_pro_max_256gb');
+  const candidateTargetBlocks = targetModelBlockDiagnostics(candidateBundle, 'iphone_16_pro_max_256gb');
+  const baselineAnchors = new Set(
+    (baselineTargetBlocks.block_summaries || []).map(block => Number(block.anchor_line))
+  );
+  const newlyRecognizedBlocks = (candidateTargetBlocks.block_summaries || [])
+    .filter(block => !baselineAnchors.has(Number(block.anchor_line)));
+
   return {
     candidate: 'explicit_16_pro_max_256_shorthand',
     metrics: {
@@ -902,7 +959,9 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
       exact_multiset: candidateReport.gates.exact_multiset
     },
     divergence_categories: candidateDivergence.categories,
-    target_model_gap: targetGap
+    target_model_gap: targetGap,
+    added_target_records: addedRecords,
+    newly_recognized_target_blocks: newlyRecognizedBlocks
   };
 }
 
@@ -982,7 +1041,7 @@ const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy,
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
 const target16ProMax256Diagnostic = targetModelBlockDiagnostics(coreBundle, 'iphone_16_pro_max_256gb');
 const target16ProMax256PairDiagnostic = targetModelPairDiagnostics(legacy, coreBundle, 'iphone_16_pro_max_256gb');
-const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy);
+const whatIf16ProMaxDiagnostic = whatIf16ProMaxShorthand(raw, schema, knowledge, legacy, coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
