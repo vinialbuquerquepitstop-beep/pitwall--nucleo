@@ -1103,16 +1103,7 @@ function whatIf16ProMaxShorthand(rawDocument, baseSchema, baseKnowledge, legacyB
           : [],
         condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : [],
         classification,
-        diffs,
-        paired_legacy: paired ? {
-          legacy_record_id: paired.legacy?.legacy_record_id || null,
-          product_index: paired.legacy?.metadata?.product_index ?? null,
-          model: normFields(paired.legacy).model,
-          capacity_gb: normFields(paired.legacy).capacity_gb,
-          condition: normFields(paired.legacy).condition,
-          color: normFields(paired.legacy).color,
-          supplier_present: Boolean(String(paired.legacy?.metadata?.supplier ?? '').trim())
-        } : null
+        diffs
       };
     });
 
