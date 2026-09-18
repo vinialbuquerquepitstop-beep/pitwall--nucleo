@@ -462,7 +462,8 @@ function applyOrderedFieldPairing(segments, schema = {}) {
   const anchorNames = new Set(fields.filter(field => field.context_anchor).map(field => field.name));
   const out = segments.map(segment => ({
     ...segment,
-    field_candidates: [...(segment.field_candidates || [])]
+    field_candidates: [...(segment.field_candidates || [])],
+    pairing_ambiguities: [...(segment.pairing_ambiguities || [])]
   }));
 
   const blocks = [];
@@ -490,6 +491,57 @@ function applyOrderedFieldPairing(segments, schema = {}) {
   }
   closeBlock(out.length);
 
+  const collectRows = (start, end, field, triggerField, policy) => {
+    const sources = [];
+    const targets = [];
+    for (let index = start; index < end; index += 1) {
+      const segment = out[index];
+      const sourceCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
+      const triggerCandidates = uniqueFieldCandidates(segment.field_candidates || [], triggerField);
+
+      if (sourceCandidates.length > 0 && triggerCandidates.length === 0) {
+        if (policy.require_source_only !== true || isFieldOnlySegment(segment, field.name)) {
+          sources.push({ index, candidates: sourceCandidates });
+        }
+      }
+      if (triggerCandidates.length === 1 && sourceCandidates.length === 0) {
+        targets.push({ index, candidate: triggerCandidates[0] });
+      }
+    }
+    return { sources, targets };
+  };
+
+  const supplierForBlock = (start, end) => {
+    for (let index = start; index < end; index += 1) {
+      const inherited = out[index]?.inherited_context?.supplier?.value;
+      if (inherited != null && inherited !== '') return String(inherited);
+      const direct = uniqueFieldCandidates(out[index]?.field_candidates || [], 'supplier');
+      if (direct.length === 1) return String(direct[0].value);
+    }
+    return null;
+  };
+
+  const nearestProposals = (sources, targets, policy) => {
+    const proposals = [];
+    for (const source of sources) {
+      const ranked = targets
+        .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
+        .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
+      if (!ranked.length) continue;
+      if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
+      if (Number.isFinite(Number(policy.fallback_max_distance))
+          && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
+      const target = ranked[0].target;
+      proposals.push({
+        source,
+        target,
+        distance: ranked[0].distance,
+        direction: source.index < target.index ? 'before' : source.index > target.index ? 'after' : 'same'
+      });
+    }
+    return proposals;
+  };
+
   for (const field of pairFields) {
     const policy = typeof field.pair_by_order_with_trigger === 'string'
       ? { field: field.pair_by_order_with_trigger }
@@ -497,25 +549,46 @@ function applyOrderedFieldPairing(segments, schema = {}) {
     const triggerField = policy?.field;
     if (!triggerField) continue;
 
-    for (const [start, end] of blocks) {
-      const sources = [];
-      const targets = [];
+    const guard = policy.fallback_supplier_direction_guard;
+    const supplierEvidence = new Map();
 
-      for (let index = start; index < end; index += 1) {
-        const segment = out[index];
-        const sourceCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
-        const triggerCandidates = uniqueFieldCandidates(segment.field_candidates || [], triggerField);
+    if (guard && policy.fallback_unique_nearest === true) {
+      for (const [start, end] of blocks) {
+        const { sources, targets } = collectRows(start, end, field, triggerField, policy);
+        if (!sources.length || !targets.length || sources.length === targets.length) continue;
 
-        if (sourceCandidates.length > 0 && triggerCandidates.length === 0) {
-          if (policy.require_source_only !== true || isFieldOnlySegment(segment, field.name)) {
-            sources.push({ index, candidates: sourceCandidates });
-          }
+        const supplier = supplierForBlock(start, end);
+        if (!supplier) continue;
+
+        const proposals = nearestProposals(sources, targets, policy);
+        if (!proposals.length) continue;
+        const directions = new Set(proposals.map(proposal => proposal.direction).filter(x => x !== 'same'));
+        if (directions.size !== 1) continue;
+
+        const direction = [...directions][0];
+        if (!supplierEvidence.has(supplier)) {
+          supplierEvidence.set(supplier, { before: 0, after: 0 });
         }
-        if (triggerCandidates.length === 1 && sourceCandidates.length === 0) {
-          targets.push({ index, candidate: triggerCandidates[0] });
-        }
+        supplierEvidence.get(supplier)[direction] += 1;
       }
+    }
 
+    const dominantDirection = supplier => {
+      if (!guard || !supplier) return null;
+      const evidence = supplierEvidence.get(supplier);
+      if (!evidence) return null;
+      const minPureGroups = Number.isFinite(Number(guard.min_pure_groups))
+        ? Number(guard.min_pure_groups)
+        : 3;
+      const requireZeroOpposite = guard.require_zero_opposite !== false;
+
+      if (evidence.after >= minPureGroups && (!requireZeroOpposite || evidence.before === 0)) return 'after';
+      if (evidence.before >= minPureGroups && (!requireZeroOpposite || evidence.after === 0)) return 'before';
+      return null;
+    };
+
+    for (const [start, end] of blocks) {
+      const { sources, targets } = collectRows(start, end, field, triggerField, policy);
       if (!sources.length || !targets.length) continue;
 
       const appendCandidates = (source, target, kind) => {
@@ -554,15 +627,49 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       if (policy.require_equal_rows !== false && policy.fallback_unique_nearest !== true) continue;
       if (policy.fallback_unique_nearest !== true) continue;
 
-      for (const source of sources) {
-        const ranked = targets
-          .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
-          .sort((a, b) => a.distance - b.distance || a.target.index - b.target.index);
-        if (!ranked.length) continue;
-        if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
-        if (Number.isFinite(Number(policy.fallback_max_distance))
-            && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
-        appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
+      const proposals = nearestProposals(sources, targets, policy);
+      const proposalDirections = new Set(
+        proposals.map(proposal => proposal.direction).filter(direction => direction !== 'same')
+      );
+      const mixedDirections = proposalDirections.size > 1;
+      const supplier = supplierForBlock(start, end);
+      const dominant = mixedDirections ? dominantDirection(supplier) : null;
+      const maxDistance = Number.isFinite(Number(policy.fallback_max_distance))
+        ? Number(policy.fallback_max_distance)
+        : null;
+
+      for (const proposal of proposals) {
+        const guardAtMax = guard?.only_at_max_distance !== false;
+        const opposingDominant = dominant && proposal.direction !== 'same' && proposal.direction !== dominant;
+        const atGuardDistance = maxDistance == null
+          ? false
+          : guardAtMax
+            ? proposal.distance === maxDistance
+            : proposal.distance >= maxDistance;
+
+        if (opposingDominant && atGuardDistance) {
+          const targetSegment = out[proposal.target.index];
+          targetSegment.pairing_ambiguities.push({
+            ambiguity_id: `amb-${targetSegment.segment_id}-${field.name}-supplier-direction-${out[proposal.source.index].line_number}`,
+            field: field.name,
+            cause: 'pairing_supplier_direction_conflict',
+            raw: null,
+            candidates: [],
+            sources: [
+              out[proposal.source.index].line_number,
+              targetSegment.line_number
+            ],
+            context: {
+              supplier,
+              dominant_direction: dominant,
+              candidate_direction: proposal.direction,
+              distance: proposal.distance
+            }
+          });
+          continue;
+        }
+
+        appendCandidates(proposal.source, proposal.target, 'nearest_unique_pair');
       }
     }
   }
@@ -794,6 +901,9 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
 
   for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
     const segment = segments[segmentIndex];
+    if (Array.isArray(segment.pairing_ambiguities) && segment.pairing_ambiguities.length) {
+      ambiguities.push(...segment.pairing_ambiguities);
+    }
     const triggerCandidates = [];
     for (const trigger of triggers) {
       const selected = selectUniqueCandidate(segment.field_candidates || [], trigger.name);
