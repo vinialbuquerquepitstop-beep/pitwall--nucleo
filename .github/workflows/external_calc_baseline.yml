@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/calculadora-interpretador-real-shadow-v0
     paths:
       - 'ferramentas/interpreter-core/v1/**'
       - '.github/workflows/external_calc_baseline.yml'
