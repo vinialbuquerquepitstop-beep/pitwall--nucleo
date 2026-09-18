@@ -1523,6 +1523,94 @@ function invariantWrongPriceAdjudicationDiagnostics(legacyBundle, coreBundle) {
   };
 }
 
+
+function multiPriceNearestFallbackRiskDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  const blocks = [];
+  let current = null;
+
+  const close = end => {
+    if (current && end > current.start) blocks.push({ ...current, end });
+    current = null;
+  };
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const hardBoundary = (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' ||
+      event.reason === 'domain_boundary' ||
+      event.reason === 'supplier_boundary' ||
+      event.reason === 'product_header_boundary'
+    );
+    if (hardBoundary) close(index);
+
+    const directModel = (segment.semantic_candidates || []).find(candidate =>
+      candidate.field === 'model' &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+      candidate.entity_id
+    );
+    const hasModelCandidate = (segment.field_candidates || []).some(candidate => candidate.field === 'model');
+
+    if (hasModelCandidate) {
+      close(index);
+      if (directModel?.entity_id) {
+        current = {
+          start: index,
+          anchor_line: segment.line_number,
+          model_id: directModel.entity_id
+        };
+      }
+    }
+  }
+  close(segments.length);
+
+  const riskyBlocks = [];
+
+  for (const block of blocks) {
+    const slice = segments.slice(block.start, block.end);
+    const multiPriceLines = slice
+      .filter(segment => distinctFieldValues(segment, 'price').length > 1)
+      .map(segment => segment.line_number);
+
+    if (!multiPriceLines.length) continue;
+
+    const nearestTargets = [];
+    for (const segment of slice) {
+      const candidates = (segment.field_candidates || []).filter(candidate =>
+        candidate.field === 'color' &&
+        candidate.evidence?.kind === 'nearest_unique_pair'
+      );
+      if (!candidates.length) continue;
+
+      nearestTargets.push({
+        target_line: segment.line_number,
+        source_lines: [...new Set(
+          candidates
+            .map(candidate => Number(candidate.evidence?.source_line))
+            .filter(Number.isFinite)
+        )],
+        candidate_count: candidates.length,
+        target_price_count: distinctFieldValues(segment, 'price').length
+      });
+    }
+
+    if (!nearestTargets.length) continue;
+
+    riskyBlocks.push({
+      model_id: block.model_id,
+      anchor_line: block.anchor_line,
+      multi_price_lines: multiPriceLines,
+      nearest_targets: nearestTargets
+    });
+  }
+
+  return {
+    risky_block_count: riskyBlocks.length,
+    risky_target_count: riskyBlocks.reduce((n, block) => n + block.nearest_targets.length, 0),
+    risky_blocks: riskyBlocks
+  };
+}
+
 function offerExpansionDiagnostics(bundle) {
   const segments = bundle.segments || [];
   let directMultiColorSegments = 0;
@@ -1638,6 +1726,7 @@ const whatIf17256ImportadoEsimDiagnostic = whatIf17256ImportadoEsimShorthand(
 const invariantWrongPriceDiagnostic = invariantWrongPriceAdjudicationDiagnostics(
   legacy, coreBundle
 );
+const multiPriceNearestFallbackRiskDiagnostic = multiPriceNearestFallbackRiskDiagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -1679,7 +1768,8 @@ const summary = {
   what_if_15_128_lacrado_same_header: whatIf15Base128LacradoDiagnostic,
   what_if_15_128_seminovo_same_header: whatIf15Base128SeminovoDiagnostic,
   what_if_17_256_importado_esim_same_header: whatIf17256ImportadoEsimDiagnostic,
-  invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic
+  invariant_wrong_price_adjudication: invariantWrongPriceDiagnostic,
+  multi_price_nearest_fallback_risk: multiPriceNearestFallbackRiskDiagnostic
 };
 
 const diagnostic = {
