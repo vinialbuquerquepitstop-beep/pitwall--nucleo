@@ -351,6 +351,16 @@ check('CPO nao vaza para o modelo seguinte', () => {
   assert.strictEqual(result.records[1].fields.condition, undefined);
 });
 
+check('CPO prevalece sobre lacrado quando ambos aparecem na mesma linha', () => {
+  const result = run(
+    'apple-cpo-precedence',
+    'iPhone 17 256GB Preto lacrado importado CPO caixa branca R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.condition, 'CPO');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
