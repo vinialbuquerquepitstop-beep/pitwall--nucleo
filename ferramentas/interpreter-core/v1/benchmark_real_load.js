@@ -379,26 +379,31 @@ function classifyScopedRejectedColorCandidates(bundle, legacyBundle) {
   const diagnostic = scopedRejectedColorPairingDiagnostics(bundle);
   const segments = bundle.segments || [];
   const byLine = new Map(segments.map(segment => [Number(segment.line_number), segment]));
-  const counts = { exact_full: 0, exact_without_condition: 0, price_conflict_same_identity: 0, no_match: 0 };
+  const emptyCounts = () => ({ exact_full: 0, exact_without_condition: 0, price_conflict_same_identity: 0, no_match: 0 });
+  const counts = emptyCounts();
+  const strictCounts = emptyCounts();
   const byModel = {};
+  const strictByModel = {};
+  const rows = [];
 
-  const bump = (model, kind) => {
-    counts[kind] += 1;
-    if (!byModel[model]) byModel[model] = { exact_full: 0, exact_without_condition: 0, price_conflict_same_identity: 0, no_match: 0 };
-    byModel[model][kind] += 1;
+  const bump = (targetCounts, targetByModel, model, kind) => {
+    targetCounts[kind] += 1;
+    if (!targetByModel[model]) targetByModel[model] = emptyCounts();
+    targetByModel[model][kind] += 1;
   };
 
-  for (const row of diagnostic.rows || []) {
-    if (!row.conservative_candidate) continue;
+  const classify = row => {
     const source = byLine.get(Number(row.line));
-    const nearest = [row.previous_price, row.next_price].filter(Boolean)
-      .sort((a, b) => Number(a.distance) - Number(b.distance));
-    const target = nearest[0] ? byLine.get(Number(nearest[0].line)) : null;
-    if (!source || !target) { bump(row.model, 'no_match'); continue; }
+    const target = row.chosen_target_line == null ? null : byLine.get(Number(row.chosen_target_line));
+    if (!source || !target) return 'no_match';
 
-    const colors = distinctFieldValues(source, 'color').map(value => normalizeKey(JSON.parse(value))).filter(Boolean);
-    const prices = distinctFieldValues(target, 'price').map(value => Number(JSON.parse(value))).filter(Number.isFinite);
-    if (colors.length !== 1 || prices.length !== 1) { bump(row.model, 'no_match'); continue; }
+    const colors = distinctFieldValues(source, 'color')
+      .map(value => normalizeKey(JSON.parse(value)))
+      .filter(Boolean);
+    const prices = distinctFieldValues(target, 'price')
+      .map(value => Number(JSON.parse(value)))
+      .filter(Number.isFinite);
+    if (colors.length !== 1 || prices.length !== 1) return 'no_match';
 
     const directConditions = distinctFieldValues(target, 'condition').map(value => JSON.parse(value));
     const conditionValue = directConditions.length === 1
@@ -411,18 +416,38 @@ function classifyScopedRejectedColorCandidates(bundle, legacyBundle) {
       return n.model === row.model && n.color === colors[0];
     });
     const samePrice = related.filter(offer => normFields(offer).price === prices[0]);
-    if (samePrice.some(offer => normFields(offer).condition === condition)) {
-      bump(row.model, 'exact_full');
-    } else if (samePrice.length > 0) {
-      bump(row.model, 'exact_without_condition');
-    } else if (related.some(offer => normFields(offer).condition === condition)) {
-      bump(row.model, 'price_conflict_same_identity');
-    } else {
-      bump(row.model, 'no_match');
+
+    if (samePrice.some(offer => normFields(offer).condition === condition)) return 'exact_full';
+    if (samePrice.length > 0) return 'exact_without_condition';
+    if (related.some(offer => normFields(offer).condition === condition)) return 'price_conflict_same_identity';
+    return 'no_match';
+  };
+
+  for (const row of diagnostic.rows || []) {
+    if (!row.conservative_candidate) continue;
+    const classification = classify(row);
+    bump(counts, byModel, row.model, classification);
+    if (row.strict_one_to_one_candidate) {
+      bump(strictCounts, strictByModel, row.model, classification);
     }
+    rows.push({
+      model: row.model,
+      source_line: row.line,
+      target_line: row.chosen_target_line,
+      strict_one_to_one_candidate: row.strict_one_to_one_candidate === true,
+      classification
+    });
   }
 
-  return { conservative_candidates: Object.values(counts).reduce((a, b) => a + b, 0), counts, by_model: byModel };
+  return {
+    conservative_candidates: Object.values(counts).reduce((a, b) => a + b, 0),
+    counts,
+    by_model: byModel,
+    strict_one_to_one_candidates: Object.values(strictCounts).reduce((a, b) => a + b, 0),
+    strict_counts: strictCounts,
+    strict_by_model: strictByModel,
+    rows
+  };
 }
 
 function orderedPairFallbackDiagnostics(bundle) {
