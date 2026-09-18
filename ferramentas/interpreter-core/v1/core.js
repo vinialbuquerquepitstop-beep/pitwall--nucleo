@@ -1015,9 +1015,13 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
               chosen: candidate.value,
               sources: [candidate.evidence?.line_number || segment.line_number],
               derived_from: [],
-              rules: [recordExpansion.source === 'block'
-                ? 'record_expansion:block_inheritance'
-                : 'record_expansion:direct_extraction'],
+              rules: [candidate.evidence?.kind === 'nearest_unique_pair'
+                ? 'record_expansion:pairing_nearest_unique'
+                : candidate.evidence?.kind === 'ordered_pair'
+                  ? 'record_expansion:pairing_ordered'
+                  : recordExpansion.source === 'block'
+                    ? 'record_expansion:block_inheritance'
+                    : 'record_expansion:direct_extraction'],
               alternatives: [],
               score: candidate.score ?? null
             }
