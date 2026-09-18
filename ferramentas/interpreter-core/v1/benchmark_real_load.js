@@ -143,6 +143,56 @@ function iphoneModelShape(value) {
   return `${generation}|${variant}|${capacity}`;
 }
 
+function supportedBlockDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  let currentModelId = null;
+  let supportedAnchors = 0;
+  let supportedBlockPriceSegments = 0;
+  let supportedBlockSinglePriceSegments = 0;
+  let supportedBlockMultiPriceSegments = 0;
+  let supportedBlockPriceWithDirectColor = 0;
+  let supportedBlockPriceWithoutDirectColor = 0;
+
+  for (const segment of segments) {
+    if ((segment.context_events || []).some(event => event.reason === 'timestamp_boundary')) {
+      currentModelId = null;
+    }
+
+    const modelCandidates = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model'
+    );
+    if (modelCandidates.length) {
+      const resolved = modelCandidates.find(candidate =>
+        (candidate.state === 'interpreted' || candidate.state === 'inferred') && candidate.entity_id
+      );
+      currentModelId = resolved?.entity_id || null;
+      if (currentModelId) supportedAnchors += 1;
+    }
+
+    if (!currentModelId) continue;
+    const prices = distinctFieldValues(segment, 'price');
+    if (!prices.length) continue;
+
+    supportedBlockPriceSegments += 1;
+    if (prices.length === 1) supportedBlockSinglePriceSegments += 1;
+    else supportedBlockMultiPriceSegments += 1;
+
+    const colors = distinctFieldValues(segment, 'color');
+    if (colors.length) supportedBlockPriceWithDirectColor += 1;
+    else supportedBlockPriceWithoutDirectColor += 1;
+  }
+
+  return {
+    supported_anchors: supportedAnchors,
+    supported_block_price_segments: supportedBlockPriceSegments,
+    supported_block_single_price_segments: supportedBlockSinglePriceSegments,
+    supported_block_multi_price_segments: supportedBlockMultiPriceSegments,
+    supported_block_price_with_direct_color: supportedBlockPriceWithDirectColor,
+    supported_block_price_without_direct_color: supportedBlockPriceWithoutDirectColor,
+    materialized_records: (bundle.records || []).length
+  };
+}
+
 function unresolvedModelDiagnostics(bundle, knowledgeSnapshot) {
   const supportedByShape = new Map();
   for (const entity of knowledgeSnapshot.entities || []) {
@@ -244,6 +294,7 @@ function offerExpansionDiagnostics(bundle) {
 const expansionDiagnostic = offerExpansionDiagnostics(coreBundle);
 const modelContextDiagnostic = modelContextDiagnostics(coreBundle);
 const unresolvedModelDiagnostic = unresolvedModelDiagnostics(coreBundle, knowledge);
+const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
@@ -268,7 +319,8 @@ const summary = {
     report.gates.exact_multiset === true,
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
-  unresolved_model_diagnostic: unresolvedModelDiagnostic
+  unresolved_model_diagnostic: unresolvedModelDiagnostic,
+  supported_block_diagnostic: supportedBlockDiagnostic
 };
 
 const diagnostic = {
