@@ -37,6 +37,19 @@ function run(id, content) {
   });
 }
 
+function runWithSchema(id, content, schemaOverride) {
+  return interpretResolved({
+    document: {
+      contract_version: 'raw-document/v1',
+      document_id: id,
+      content,
+      source: { kind: 'plain_text' }
+    },
+    schema: schemaOverride,
+    knowledge
+  });
+}
+
 check('linha inline canonica resolve iPhone 17 256GB e preco', () => {
   const result = run('apple-1', 'iPhone 17 256GB Preto Lacrado - 7.300');
   assert.strictEqual(result.records.length, 1);
@@ -208,6 +221,28 @@ check('pareamento ordinal nao usa linha com texto extra como fonte de cor', () =
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.color, undefined);
+});
+
+check('politica opcional suplementa cor nao-pura apenas na linha imediatamente anterior ao preco', () => {
+  const candidateSchema = JSON.parse(JSON.stringify(schema));
+  const colorField = candidateSchema.fields.find(field => field.name === 'color');
+  colorField.pair_by_order_with_trigger.supplemental_adjacent_forward = {
+    source_role: 'unknown',
+    source_reason: 'no-structural-signal',
+    require_non_source_only: true
+  };
+
+  const result = runWithSchema(
+    'apple-supplemental-adjacent-forward',
+    'iPhone 17 256GB Lacrado\nPreto disponibilidade\nR$ 5.299',
+    candidateSchema
+  );
+
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+  const colorTrace = result.records[0].trace.find(trace => trace.field === 'color');
+  assert.ok(colorTrace.rules.includes('pairing:supplemental_adjacent_forward'));
 });
 
 check('Offer Expansion V1.1 nao atravessa timestamp', () => {
