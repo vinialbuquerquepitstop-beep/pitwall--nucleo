@@ -3,7 +3,7 @@
 const assert = require('assert');
 const { compareSemanticShadow } = require('./semantic-shadow');
 
-function legacyOffer(id, model, condition, color, price, capacity = 256) {
+function legacyOffer(id, model, condition, color, price, capacity = 256, supplier = 'S1') {
   return {
     legacy_record_id: id,
     fields: {
@@ -12,7 +12,8 @@ function legacyOffer(id, model, condition, color, price, capacity = 256) {
       condition,
       color,
       price
-    }
+    },
+    metadata: { supplier }
   };
 }
 
@@ -91,7 +92,24 @@ function ok(value, message) {
   eq(r.metrics.exact_multiset, false, 'nao pode parecer exato');
 }
 
-// 3. cor pode ser ignorada explicitamente para diagnostico, nunca por default
+// 3. mesma identidade em fornecedores diferentes nao prova preco silenciosamente errado
+{
+  const l = legacy([
+    legacyOffer('l1', 'iphone_16_128gb', 'Lacrado', 'Preto', 4200, 128, 'S1'),
+    legacyOffer('l2', 'iphone_16_128gb', 'Lacrado', 'Preto', 4300, 128, 'S2')
+  ]);
+  const c = core([
+    coreRecord('c1', 'iphone_16_128gb', 'Lacrado', 'Preto', 4200, 128),
+    coreRecord('c2', 'iphone_16_128gb', 'Lacrado', 'Preto', 4400, 128)
+  ]);
+  const r = compareSemanticShadow({ legacy: l, coreBundle: c });
+  eq(r.gates.no_silent_wrong_price, true, 'sem erro confirmado enquanto fornecedor nao pertence a identidade do Core');
+  eq(r.gates.price_attribution_resolved, false, 'atribuicao entre fornecedores permanece bloqueada');
+  eq(r.metrics.confirmed_silent_wrong_price, 0, 'nenhum erro confirmado em identidade multi-fornecedor');
+  eq(r.metrics.unresolved_price_attribution, 1, 'uma atribuicao de preco permanece sem resolucao');
+}
+
+// 4. cor pode ser ignorada explicitamente para diagnostico, nunca por default
 {
   const l = legacy([legacyOffer('l1', 'iphone_15_128gb', 'Seminovo', 'Azul', 2650, 128)]);
   const c = core([coreRecord('c1', 'iphone_15_128gb', 'Seminovo', 'Preto', 2650, 128)]);
