@@ -145,7 +145,7 @@ check('condicao de secao sobrevive a troca de modelo declarada pelo schema', () 
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
-  assert.strictEqual(result.records[0].fields.condition, 'SEMINOVOS');
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
   const conditionTrace = result.records[0].trace.find(t => t.field === 'condition');
   assert.deepStrictEqual(conditionTrace.derived_from, [1]);
 });
