@@ -4756,6 +4756,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   const remainingPairSignatures = {};
   const usedRemainingExtra = new Set();
+  const pairedRemainingMissing = new Set();
   for (const missingIndex of remainingMissingIndexes) {
     const expected = norm(missing[missingIndex]);
     let best = null;
@@ -4771,11 +4772,165 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       }
     }
     if (!best) continue;
+    pairedRemainingMissing.add(missingIndex);
     usedRemainingExtra.add(best.extraIndex);
     const signature = best.diffs.length
       ? best.diffs.slice().sort().join('+')
       : 'exact';
     remainingPairSignatures[signature] = (remainingPairSignatures[signature] || 0) + 1;
+  }
+
+  const unpairedMissingIndexes = remainingMissingIndexes
+    .filter(index => !pairedRemainingMissing.has(index));
+  const unpairedExtraIndexes = remainingExtraIndexes
+    .filter(index => !usedRemainingExtra.has(index));
+
+  const traceRules = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.rules) && trace.rules.length
+      ? trace.rules.map(String).join('+')
+      : 'none';
+  };
+  const distanceLabel = (fromLine, toLine) =>
+    Number.isFinite(fromLine) && Number.isFinite(toLine)
+      ? String(Math.abs(fromLine - toLine))
+      : 'none';
+  const boundariesLabel = (fromLine, toLine) => {
+    const found = pathBoundaries(fromLine, toLine);
+    return [...found].sort().join('+') || 'none';
+  };
+
+  const unpairedExtraForensics = {};
+  for (const extraIndex of unpairedExtraIndexes) {
+    const record = extraRecords[extraIndex];
+    if (!record) {
+      unpairedExtraForensics['record=unresolved'] =
+        (unpairedExtraForensics['record=unresolved'] || 0) + 1;
+      continue;
+    }
+    const model = record.fields?.model?.id || '(unknown)';
+    const priceLine = sourceLine(record, 'price');
+    const modelLine = sourceLine(record, 'model');
+    const supplierLine = sourceLine(record, 'supplier');
+    const colorLine = sourceLine(record, 'color');
+    const conditionLine = sourceLine(record, 'condition');
+    const priceSegment = Number.isFinite(priceLine) ? segmentByLine.get(priceLine) : null;
+    const modelSegment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+    const semanticExact = !!(
+      modelSegment &&
+      (modelSegment.semantic_candidates || []).some(candidate =>
+        candidate.field === 'model' &&
+        candidate.entity_id === model &&
+        (candidate.state === 'interpreted' || candidate.state === 'inferred')
+      )
+    );
+
+    const signature = [
+      'model=' + model,
+      'price_role=' + (priceSegment?.role_candidates?.[0]?.role || 'unknown'),
+      'price_rule=' + traceRules(record, 'price'),
+      'model_rule=' + traceRules(record, 'model'),
+      'model_distance=' + distanceLabel(modelLine, priceLine),
+      'model_semantic_exact=' + (semanticExact ? 'yes' : 'no'),
+      'model_boundaries=' + boundariesLabel(modelLine, priceLine),
+      'supplier_rule=' + traceRules(record, 'supplier'),
+      'supplier_distance=' + distanceLabel(supplierLine, priceLine),
+      'supplier_boundaries=' + boundariesLabel(supplierLine, priceLine),
+      'color_rule=' + traceRules(record, 'color'),
+      'color_distance=' + distanceLabel(colorLine, priceLine),
+      'color_boundaries=' + boundariesLabel(colorLine, priceLine),
+      'condition_rule=' + traceRules(record, 'condition'),
+      'condition_distance=' + distanceLabel(conditionLine, priceLine),
+      'condition_boundaries=' + boundariesLabel(conditionLine, priceLine)
+    ].join('|');
+    unpairedExtraForensics[signature] =
+      (unpairedExtraForensics[signature] || 0) + 1;
+  }
+
+  const unpairedMissingForensics = {};
+  for (const missingIndex of unpairedMissingIndexes) {
+    const expected = norm(missing[missingIndex]);
+    const sameSupplierPrice = records.filter(record =>
+      String(record.fields?.supplier ?? '') === String(expected.supplier ?? '') &&
+      Number(record.fields?.price) === expected.price
+    );
+    const sameModelSupplierPrice = sameSupplierPrice.filter(record =>
+      record.fields?.model?.id === expected.model
+    );
+    const sameModelSupplierPriceColor = sameModelSupplierPrice.filter(record =>
+      canonicalExpectedValue('color', record.fields?.color) ===
+        canonicalExpectedValue('color', expected.color)
+    );
+    const sameModelSupplierPriceCondition = sameModelSupplierPrice.filter(record =>
+      canonicalExpectedValue('condition', record.fields?.condition) ===
+        canonicalExpectedValue('condition', expected.condition)
+    );
+
+    const priceSegments = segments.filter(segment =>
+      supplierAt(segment) === expected.supplier &&
+      (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'price' && Number(candidate.value) === expected.price
+      )
+    );
+
+    let nearestExpectedModelDistance = null;
+    let modelLocalAtPrice = false;
+    let colorLocalAtPrice = expected.color == null;
+    let conditionLocalAtPrice = expected.condition == null;
+
+    for (const priceSegment of priceSegments) {
+      const priceLine = Number(priceSegment.line_number);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line)) continue;
+        const distance = Math.abs(priceLine - line);
+        const boundaries = pathBoundaries(line, priceLine);
+        const safePath =
+          !boundaries.has('domain') &&
+          !boundaries.has('supplier') &&
+          !boundaries.has('timestamp');
+
+        const expectedModelHere = (segment.semantic_candidates || []).some(candidate =>
+          candidate.field === 'model' &&
+          candidate.entity_id === expected.model &&
+          (candidate.state === 'interpreted' || candidate.state === 'inferred')
+        );
+        if (expectedModelHere) {
+          nearestExpectedModelDistance = nearestExpectedModelDistance == null
+            ? distance
+            : Math.min(nearestExpectedModelDistance, distance);
+          if (line <= priceLine && distance <= 6 && safePath) modelLocalAtPrice = true;
+        }
+
+        if (distance <= 3 && safePath &&
+            (segment.field_candidates || []).some(candidate =>
+              candidateMatchesExpected(candidate, 'color', expected.color)
+            )) {
+          colorLocalAtPrice = true;
+        }
+        if (distance <= 6 && safePath &&
+            (segment.field_candidates || []).some(candidate =>
+              candidateMatchesExpected(candidate, 'condition', expected.condition)
+            )) {
+          conditionLocalAtPrice = true;
+        }
+      }
+    }
+
+    const signature = [
+      'model=' + expected.model,
+      'price_loci=' + priceSegments.length,
+      'same_supplier_price_core=' + sameSupplierPrice.length,
+      'same_model_supplier_price_core=' + sameModelSupplierPrice.length,
+      'same_msp_color_core=' + sameModelSupplierPriceColor.length,
+      'same_msp_condition_core=' + sameModelSupplierPriceCondition.length,
+      'nearest_expected_model_distance=' + (nearestExpectedModelDistance ?? 'none'),
+      'model_local=' + (modelLocalAtPrice ? 'yes' : 'no'),
+      'color_local=' + (colorLocalAtPrice ? 'yes' : 'no'),
+      'condition_local=' + (conditionLocalAtPrice ? 'yes' : 'no')
+    ].join('|');
+    unpairedMissingForensics[signature] =
+      (unpairedMissingForensics[signature] || 0) + 1;
   }
 
   return {
@@ -4823,6 +4978,16 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
       remaining_pair_evidence: Object.entries(remainingPairEvidence)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      unpaired_counts: {
+        missing: unpairedMissingIndexes.length,
+        extra: unpairedExtraIndexes.length
+      },
+      unpaired_missing_forensics: Object.entries(unpairedMissingForensics)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {}),
+      unpaired_extra_forensics: Object.entries(unpairedExtraForensics)
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
         .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
     },
