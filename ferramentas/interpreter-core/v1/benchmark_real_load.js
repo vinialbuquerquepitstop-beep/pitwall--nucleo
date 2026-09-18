@@ -2909,6 +2909,19 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
             event_reasons: [...new Set((item.context_events || []).map(event => event.reason).filter(Boolean))].sort()
           }));
 
+      const sameModelPriceReferences = (legacyBundle.offers || [])
+        .map(offer => ({ raw: offer, normalized: normFields(offer) }))
+        .filter(item =>
+          item.normalized.model === identity.model &&
+          item.normalized.capacity_gb === identity.capacity_gb &&
+          Number(item.normalized.price) === Number(normalized.price)
+        )
+        .map(item => ({
+          condition: item.normalized.condition ?? null,
+          color: item.normalized.color ?? null,
+          supplier_present: Boolean(item.raw?.supplier || item.raw?.fornecedor || item.raw?.fields?.supplier)
+        }));
+
       rows.push({
         record_id: record.record_id,
         identity,
@@ -2926,7 +2939,8 @@ function confirmedWrongPriceRecordDiagnostics(report, legacyBundle, coreBundle) 
         inherited_condition_source_line: segment?.inherited_context?.condition?.source_line ?? null,
         previous_segment: neighbor(-1),
         next_segment: neighbor(1),
-        context_path: contextPath
+        context_path: contextPath,
+        same_model_capacity_same_core_price_references: sameModelPriceReferences
       });
     }
   }
