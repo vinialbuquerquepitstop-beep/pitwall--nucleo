@@ -443,6 +443,67 @@ function supplierAwareResidualDiagnostics(reportSupplierAware) {
 
 const supplierAwareResidualDiagnostic = supplierAwareResidualDiagnostics(reportSupplierAware);
 
+function pureModelResidualTopologyDiagnostics(reportSupplierAware) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extra = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier || null,
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+
+  const sameExceptModel = (a, b) =>
+    a.model !== b.model &&
+    a.supplier === b.supplier &&
+    a.capacity === b.capacity &&
+    a.condition === b.condition &&
+    a.color === b.color &&
+    a.price === b.price;
+
+  const pairs = {};
+  let cases = 0;
+  for (const miss of missing) {
+    const a = norm(miss);
+    let chosen = -1;
+    for (let index = 0; index < extra.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      const b = norm(extra[index]);
+      if (!sameExceptModel(a, b)) continue;
+      chosen = index;
+      break;
+    }
+    if (chosen < 0) continue;
+    usedExtra.add(chosen);
+    cases += 1;
+    const b = norm(extra[chosen]);
+    const key = String(a.model) + ' -> ' + String(b.model);
+    pairs[key] = (pairs[key] || 0) + 1;
+  }
+
+  return {
+    cases,
+    model_pairs: Object.entries(pairs)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .reduce((acc, [key, value]) => { acc[key] = value; return acc; }, {})
+  };
+}
+
+const pureModelResidualTopologyDiagnostic =
+  pureModelResidualTopologyDiagnostics(reportSupplierAware);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -2600,6 +2661,7 @@ const summary = {
   supplierless_context_diagnostic: supplierlessContextDiagnostic,
   supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_residual_diagnostic: supplierAwareResidualDiagnostic,
+  pure_model_residual_topology_diagnostic: pureModelResidualTopologyDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
