@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.9",
+  "schema_version": "0.8.9-audit",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -200,7 +200,7 @@
           "require_zero_opposite": true,
           "only_at_max_distance": true
         },
-        "adjacent_unique_before_trigger": true
+        "adjacent_unique_before_trigger": false
       }
     },
     {
@@ -441,7 +441,8 @@
     },
     "adjacent_color_pairing": {
       "version": "v1",
-      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block when the target still has no color."
+      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block when the target still has no color.",
+      "status": "audit_only_disabled"
     }
   }
 }
