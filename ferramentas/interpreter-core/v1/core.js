@@ -554,7 +554,6 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       if (policy.require_equal_rows !== false && policy.fallback_unique_nearest !== true) continue;
       if (policy.fallback_unique_nearest !== true) continue;
 
-      const proposals = [];
       for (const source of sources) {
         const ranked = targets
           .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
@@ -563,22 +562,7 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
         if (Number.isFinite(Number(policy.fallback_max_distance))
             && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
-        proposals.push({ source, target: ranked[0].target, distance: ranked[0].distance });
-      }
-
-      const proposalsByTarget = new Map();
-      for (const proposal of proposals) {
-        if (!proposalsByTarget.has(proposal.target.index)) {
-          proposalsByTarget.set(proposal.target.index, []);
-        }
-        proposalsByTarget.get(proposal.target.index).push(proposal);
-      }
-
-      for (const competing of proposalsByTarget.values()) {
-        competing.sort((a, b) => a.distance - b.distance || a.source.index - b.source.index);
-        if (competing.length > 1 && competing[0].distance === competing[1].distance) continue;
-        const winner = competing[0];
-        appendCandidates(winner.source, winner.target, 'nearest_unique_pair');
+        appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
       }
     }
   }
