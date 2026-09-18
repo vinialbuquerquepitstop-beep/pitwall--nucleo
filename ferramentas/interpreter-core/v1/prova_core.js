@@ -263,23 +263,3 @@ check('boundary pode preservar campos declarados', () => {
 });
 
 console.log(`PASSOU: ${ok} assercoes`);
-,
-      flags: 'i',
-      group: 0,
-      transform: 'trim',
-      score: 1
-    }]
-  });
-
-  const segments = buildContextTrace(
-    segmentDocument(raw('fixture-boundary-preserve', '256GB\nSECTION\n6999')),
-    schema
-  );
-
-  assert.ok(segments[1].context_events.some(e => e.reason === 'domain_boundary'));
-  assert.deepStrictEqual(segments[1].context_events[0].preserved_fields, ['capacity']);
-  assert.strictEqual(segments[1].context_after.capacity.value, 256);
-  assert.strictEqual(segments[2].inherited_context.capacity.value, 256);
-});
-
-console.log(`PASSOU: ${ok} assercoes`);
