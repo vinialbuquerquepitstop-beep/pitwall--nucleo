@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.9-audit",
+  "schema_version": "0.8.9",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -200,7 +200,13 @@
           "require_zero_opposite": true,
           "only_at_max_distance": true
         },
-        "adjacent_unique_before_trigger": false
+        "adjacent_unique_before_trigger": {
+          "enabled": true,
+          "non_field_only_roles": [
+            "product_header"
+          ],
+          "min_leftover_tokens": 2
+        }
       }
     },
     {
@@ -441,8 +447,8 @@
     },
     "adjacent_color_pairing": {
       "version": "v1",
-      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block when the target still has no color.",
-      "status": "audit_only_disabled"
+      "status": "enabled_after_real_corpus_simulation",
+      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture."
     }
   }
 }
