@@ -3,7 +3,7 @@
 const { canonicalCondition } = require('./semantic-shadow');
 const { normalizeKey } = require('./core');
 
-const ANALYZER_VERSION = 'divergence-analyzer/0.1.0';
+const ANALYZER_VERSION = 'divergence-analyzer/0.2.0';
 
 function normFields(offer) {
   const f = offer?.fields || {};
@@ -125,6 +125,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
   const conditionPairs = {};
   const conditionPairProvenance = {};
   const conditionScopeDiagnostics = {};
+  const wrongPriceDiagnostics = {};
   const modelSummary = new Map();
   const touchModel = model => {
     if (!modelSummary.has(model)) {
@@ -188,8 +189,29 @@ function analyzeDivergences({ legacy, coreBundle }) {
           `${pairKey} | cpo_in_scope=${cpoInScope ? 'yes' : 'no'} | condition_before_model=${conditionBeforeModel ? 'yes' : 'no'}`
         );
       }
-      if (field === 'price') row.wrong_price_only += 1;
-      else row.field_mismatches += 1;
+      if (field === 'price') {
+        row.wrong_price_only += 1;
+        const colorTrace = (pair.core.trace || []).find(trace => trace.field === 'color');
+        const priceTrace = (pair.core.trace || []).find(trace => trace.field === 'price');
+        const colorSource = Array.isArray(colorTrace?.sources) ? Number(colorTrace.sources[0]) : null;
+        const priceSource = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+        const delta =
+          Number.isFinite(colorSource) && Number.isFinite(priceSource)
+            ? priceSource - colorSource
+            : null;
+        const direction = delta == null ? 'unknown' : delta > 0 ? 'color_before_price' : delta < 0 ? 'color_after_price' : 'same_line';
+        const distance = delta == null ? 'unknown' : Math.abs(delta);
+        const colorRule = Array.isArray(colorTrace?.rules) && colorTrace.rules.length
+          ? colorTrace.rules.join('+')
+          : '(no-color-trace)';
+        const priceRule = Array.isArray(priceTrace?.rules) && priceTrace.rules.length
+          ? priceTrace.rules.join('+')
+          : '(no-price-trace)';
+        increment(
+          wrongPriceDiagnostics,
+          `${model} | ${colorRule} | ${direction} | distance=${distance} | price_rule=${priceRule}`
+        );
+      } else row.field_mismatches += 1;
     } else if (pair.diffs.length > 1) {
       categories.multi_field_mismatch += 1;
       row.field_mismatches += 1;
@@ -253,6 +275,7 @@ function analyzeDivergences({ legacy, coreBundle }) {
     condition_pairs: conditionPairs,
     condition_pair_provenance: conditionPairProvenance,
     condition_scope_diagnostics: conditionScopeDiagnostics,
+    wrong_price_diagnostics: wrongPriceDiagnostics,
     ambiguities_by_cause: ambiguitiesByCause,
     ambiguities_by_field: ambiguitiesByField,
     top_model_gaps: topModelGaps
