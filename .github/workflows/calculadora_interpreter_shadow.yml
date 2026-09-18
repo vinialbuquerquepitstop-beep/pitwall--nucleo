@@ -57,6 +57,9 @@ jobs:
       - name: Run divergence analyzer proof
         run: node ferramentas/interpreter-core/v1/prova_divergence_analyzer.js
 
+      - name: Run reference adjudication proof
+        run: node ferramentas/interpreter-core/v1/prova_reference_adjudication.js
+
   real-load-benchmark:
     name: Benchmark real — calc_parse_v2 vs Core
     needs: semantic-shadow-proof
