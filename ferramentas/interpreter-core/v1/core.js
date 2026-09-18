@@ -589,6 +589,11 @@ function applyOrderedFieldPairing(segments, schema = {}) {
       if (policy.require_equal_rows !== false && policy.fallback_unique_nearest !== true) continue;
       if (policy.fallback_unique_nearest !== true) continue;
 
+      const hasMultiTriggerSegment = out.slice(start, end).some(blockSegment =>
+        uniqueFieldCandidates(blockSegment.field_candidates || [], triggerField).length > 1
+      );
+      if (policy.fallback_block_on_multi_trigger === true && hasMultiTriggerSegment) continue;
+
       for (const source of sources) {
         const ranked = targets
           .map(target => ({ target, distance: Math.abs(target.index - source.index) }))
