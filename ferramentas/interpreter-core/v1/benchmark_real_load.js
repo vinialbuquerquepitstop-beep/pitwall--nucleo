@@ -1419,6 +1419,210 @@ function sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware
 const sourceContradictedLegacySupplierResidualDiagnostic =
   sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware, coreBundle);
 
+function priceSupplierResidualEvidenceDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const segments = bundle.segments || [];
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const diffs = (a, b) =>
+    ['supplier', 'capacity', 'condition', 'color', 'price']
+      .filter(field => a[field] !== b[field]);
+
+  const coreBuckets = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumed = new Map();
+
+  const fieldLines = (field, predicate) =>
+    segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === field && predicate(candidate.value)
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+
+  const nearest = (lines, targetLine) =>
+    lines
+      .map(line => ({ line, distance: Math.abs(line - targetLine) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+
+  const pathState = (fromLine, toLine) => {
+    const out = {
+      supplier_boundary: false,
+      timestamp_boundary: false,
+      domain_boundary: false,
+      model_anchors: 0
+    };
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+        out.model_anchors += 1;
+      }
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'supplier_boundary') out.supplier_boundary = true;
+        if (event.reason === 'timestamp_boundary') out.timestamp_boundary = true;
+        if (event.reason === 'domain_boundary') out.domain_boundary = true;
+      }
+    }
+    return out;
+  };
+
+  let cases = 0;
+  let sourceContradicted = 0;
+  let unresolvedCoreRecord = 0;
+  const signatures = {};
+
+  for (const miss of missing) {
+    const expected = norm(miss);
+    let chosen = -1;
+
+    for (let index = 0; index < extras.length; index += 1) {
+      if (usedExtra.has(index)) continue;
+      const actual = norm(extras[index]);
+      if (actual.model !== expected.model) continue;
+      const d = diffs(expected, actual);
+      if (d.length !== 2 || !d.includes('price') || !d.includes('supplier')) continue;
+      chosen = index;
+      break;
+    }
+    if (chosen < 0) continue;
+
+    usedExtra.add(chosen);
+    cases += 1;
+    const extra = extras[chosen];
+    const actual = norm(extra);
+    const key = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(key) || [];
+    const offset = consumed.get(key) || 0;
+    const record = bucket[offset] || null;
+    consumed.set(key, offset + 1);
+    if (!record) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const supplierTrace = (record.trace || []).find(item => item.field === 'supplier');
+    const actualPriceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : null;
+    const actualSupplierLine = Array.isArray(supplierTrace?.sources) && supplierTrace.sources.length
+      ? Number(supplierTrace.sources[0])
+      : null;
+    if (!Number.isFinite(actualPriceLine)) {
+      unresolvedCoreRecord += 1;
+      continue;
+    }
+
+    const expectedPriceNearest = nearest(
+      fieldLines('price', value => Number(value) === expected.price),
+      actualPriceLine
+    );
+    const expectedSupplierNearest = nearest(
+      fieldLines('supplier', value => String(value) === String(expected.supplier)),
+      actualPriceLine
+    );
+    const actualSupplierPath = pathState(actualSupplierLine, actualPriceLine);
+    const expectedSupplierPath = pathState(expectedSupplierNearest?.line, actualPriceLine);
+    const expectedPricePath = pathState(expectedPriceNearest?.line, actualPriceLine);
+
+    const actualPriceDirect =
+      (priceTrace?.rules || []).includes('direct_extraction') &&
+      Number.isFinite(actualPriceLine);
+
+    const actualSupplierLocal =
+      Number.isFinite(actualSupplierLine) &&
+      Math.abs(actualPriceLine - actualSupplierLine) <= 200 &&
+      !actualSupplierPath.supplier_boundary &&
+      !actualSupplierPath.timestamp_boundary;
+
+    const expectedPriceUnsupported =
+      !expectedPriceNearest ||
+      (
+        expectedPriceNearest.distance > 3 &&
+        (
+          expectedPricePath.model_anchors > 0 ||
+          expectedPricePath.domain_boundary ||
+          expectedPricePath.supplier_boundary ||
+          expectedPricePath.timestamp_boundary
+        )
+      );
+
+    const expectedSupplierUnsupported =
+      !expectedSupplierNearest ||
+      (
+        expectedSupplierNearest.distance > Math.abs(actualPriceLine - actualSupplierLine) &&
+        (expectedSupplierPath.supplier_boundary || expectedSupplierPath.timestamp_boundary)
+      );
+
+    const contradicted =
+      actualPriceDirect &&
+      actualSupplierLocal &&
+      expectedPriceUnsupported &&
+      expectedSupplierUnsupported;
+
+    if (contradicted) sourceContradicted += 1;
+
+    const signature = [
+      'actual_price_direct=' + (actualPriceDirect ? 'yes' : 'no'),
+      'actual_supplier_distance=' + (
+        Number.isFinite(actualSupplierLine) ? Math.abs(actualPriceLine - actualSupplierLine) : 'unknown'
+      ),
+      'actual_supplier_boundaries=' + [
+        actualSupplierPath.supplier_boundary ? 'supplier' : null,
+        actualSupplierPath.timestamp_boundary ? 'timestamp' : null,
+        actualSupplierPath.domain_boundary ? 'domain' : null
+      ].filter(Boolean).join('+'),
+      'expected_price_distance=' + (expectedPriceNearest?.distance ?? 'none'),
+      'expected_price_model_anchors=' + expectedPricePath.model_anchors,
+      'expected_supplier_distance=' + (expectedSupplierNearest?.distance ?? 'none'),
+      'expected_supplier_boundaries=' + [
+        expectedSupplierPath.supplier_boundary ? 'supplier' : null,
+        expectedSupplierPath.timestamp_boundary ? 'timestamp' : null,
+        expectedSupplierPath.domain_boundary ? 'domain' : null
+      ].filter(Boolean).join('+'),
+      'source_contradicted=' + (contradicted ? 'yes' : 'no')
+    ].join('|');
+
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    price_supplier_residuals: cases,
+    source_contradicted_legacy_price_supplier_residuals: sourceContradicted,
+    actionable_price_supplier_residuals: cases - sourceContradicted,
+    unresolved_core_record: unresolvedCoreRecord,
+    signatures
+  };
+}
+
+const priceSupplierResidualEvidenceDiagnostic =
+  priceSupplierResidualEvidenceDiagnostics(reportSupplierAware, coreBundle);
+
 function sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -4083,6 +4287,7 @@ const summary = {
   missing_17_512_anchor_shape_diagnostic: missing17_512AnchorShapeDiagnostic,
   source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
+  price_supplier_residual_evidence_diagnostic: priceSupplierResidualEvidenceDiagnostic,
   source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   source_supported_core_only_e_offer_diagnostic: sourceSupportedCoreOnlyEOfferDiagnostic,
   source_unsupported_legacy_pure_condition_diagnostic: sourceUnsupportedLegacyPureConditionDiagnostic,
