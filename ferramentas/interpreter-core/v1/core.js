@@ -262,6 +262,7 @@ function buildContextTrace(segments, schema = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const inheritable = fields.filter(f => f.context_inheritable);
   const anchors = inheritable.filter(f => f.context_anchor);
+  const boundaries = fields.filter(f => f.context_boundary === true);
   const preserveOnAnchor = new Set(
     Array.isArray(schema.context_policy?.preserve_on_anchor)
       ? schema.context_policy.preserve_on_anchor
@@ -283,6 +284,21 @@ function buildContextTrace(segments, schema = {}) {
       const cleared = Object.keys(context);
       context = {};
       events.push({ type: 'reset', reason: 'timestamp_boundary', fields: cleared });
+    }
+
+    let domainBoundaryOpened = false;
+    for (const field of boundaries) {
+      const candidates = fieldCandidates.filter(candidate => candidate.field === field.name);
+      if (candidates.length > 0) {
+        domainBoundaryOpened = true;
+        break;
+      }
+    }
+
+    if (domainBoundaryOpened) {
+      const cleared = Object.keys(context);
+      context = {};
+      events.push({ type: 'reset', reason: 'domain_boundary', fields: cleared });
     }
 
     let anchorOpened = false;
