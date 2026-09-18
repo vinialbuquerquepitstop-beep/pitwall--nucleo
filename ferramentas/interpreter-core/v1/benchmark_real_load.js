@@ -3203,6 +3203,462 @@ function residualAdjudicationLedgerDiagnostics(reportSupplierAware, bundle) {
 const residualAdjudicationLedgerDiagnostic =
   residualAdjudicationLedgerDiagnostics(reportSupplierAware, coreBundle);
 
+function buildResidualAdjudicationLedger(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extras = expand(reportSupplierAware.extra);
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+  const diffFields = (a, b) =>
+    ['supplier','capacity','condition','color','price'].filter(field => a[field] !== b[field]);
+  const sourceLine = (record, field) => {
+    const trace = (record?.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const pathBoundaries = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+  const supplierAt = segment => {
+    const direct = [...new Set(
+      (segment?.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment?.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+  const supplierEvidenceLines = supplier => {
+    if (!supplier) return [];
+    return segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === 'supplier' && String(candidate.value) === String(supplier)
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+  const fieldLines = (field, predicate) =>
+    segments
+      .filter(segment => (segment.field_candidates || []).some(candidate =>
+        candidate.field === field && predicate(candidate.value)
+      ))
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  const nearest = (lines, targetLine) =>
+    lines
+      .map(line => ({ line, distance: Math.abs(line - targetLine) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line)[0] || null;
+
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+  const coreByKey = new Map();
+  for (const record of records) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+  const surplusCoreByKey = new Map();
+  for (const [key, bucket] of coreByKey.entries()) {
+    surplusCoreByKey.set(key, bucket.slice(legacyCounts.get(key) || 0));
+  }
+  const surplusOffsets = new Map();
+  const extraRecord = index => {
+    const extra = extras[index];
+    if (!extra) return null;
+    const key = offerKey(extra.fields || {}, { include_supplier: true });
+    const bucket = surplusCoreByKey.get(key) || [];
+    const offset = surplusOffsets.get(key) || 0;
+    const record = bucket[offset] || null;
+    surplusOffsets.set(key, offset + 1);
+    return record;
+  };
+  const extraRecords = extras.map((_, index) => extraRecord(index));
+
+  const claimedMissing = new Set();
+  const claimedExtra = new Set();
+  const categories = {};
+  const claim = (category, missingIndex = null, extraIndex = null) => {
+    if (!categories[category]) categories[category] = { missing: 0, extra: 0, pairs: 0 };
+    if (missingIndex != null) {
+      if (claimedMissing.has(missingIndex)) return false;
+      claimedMissing.add(missingIndex);
+      categories[category].missing += 1;
+    }
+    if (extraIndex != null) {
+      if (claimedExtra.has(extraIndex)) {
+        if (missingIndex != null) {
+          claimedMissing.delete(missingIndex);
+          categories[category].missing -= 1;
+        }
+        return false;
+      }
+      claimedExtra.add(extraIndex);
+      categories[category].extra += 1;
+    }
+    if (missingIndex != null && extraIndex != null) categories[category].pairs += 1;
+    return true;
+  };
+
+  // 1. Missing legado contradito por modelo explicitamente diferente na fonte.
+  for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+    const item = missing[missingIndex];
+    const model = item.fields?.model?.id || null;
+    const supplier = String(item.fields?.supplier ?? '');
+    const price = Number(item.fields?.price);
+    if (!model || !Number.isFinite(price)) continue;
+
+    let qualifies = false;
+    if (model === 'iphone_16_256gb') {
+      const sameSupplierPriceRecords = records.filter(record =>
+        String(record.fields?.supplier ?? '') === supplier &&
+        Number(record.fields?.price) === price
+      );
+      qualifies = sameSupplierPriceRecords.length > 0 &&
+        sameSupplierPriceRecords.every(record => {
+          const line = sourceLine(record, 'model');
+          const segment = Number.isFinite(line) ? segmentByLine.get(line) : null;
+          return /\bpro\s*max\b/i.test(String(segment?.normalized || ''));
+        });
+    } else if (model === 'iphone_17_512gb') {
+      const priceSegments = segments.filter(segment =>
+        supplierAt(segment) === supplier &&
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'price' && Number(candidate.value) === price
+        )
+      );
+      qualifies = priceSegments.length > 0 && priceSegments.every(priceSegment => {
+        const priceLine = Number(priceSegment.line_number);
+        const nearestAnchor = segments
+          .filter(segment =>
+            Number(segment.line_number) < priceLine &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')
+          )
+          .sort((a, b) => Number(b.line_number) - Number(a.line_number))[0] || null;
+        if (!nearestAnchor) return false;
+        const shapes = [...new Set(
+          (nearestAnchor.field_candidates || [])
+            .filter(candidate => candidate.field === 'model')
+            .map(candidate => iphoneModelShape(candidate.value))
+            .filter(Boolean)
+        )];
+        const semanticIds = [...new Set(
+          (nearestAnchor.semantic_candidates || [])
+            .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+            .map(candidate => candidate.entity_id)
+        )];
+        return shapes.length > 0 &&
+          shapes.every(shape => /^17\|(?:pro|pro max)\|(?:256|512)$/.test(shape)) &&
+          !semanticIds.includes('iphone_17_512gb');
+      });
+    }
+    if (qualifies) claim('source_contradicted_legacy_missing', missingIndex, null);
+  }
+
+  // 2. Extras e-model com oferta completa sustentada localmente pela fonte.
+  const targetEModels = new Set(['iphone_17e_256gb', 'iphone_16e_128gb']);
+  const isLocalField = (record, field, priceLine, maxDistance) => {
+    const value = record?.fields?.[field];
+    if (value == null) return true;
+    const line = sourceLine(record, field);
+    if (!Number.isFinite(line)) return false;
+    const distance = Math.abs(priceLine - line);
+    const boundaries = pathBoundaries(line, priceLine);
+    return distance <= maxDistance &&
+      !boundaries.has('domain') &&
+      !boundaries.has('supplier') &&
+      !boundaries.has('timestamp');
+  };
+  for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
+    const record = extraRecords[extraIndex];
+    if (!record || !targetEModels.has(record.fields?.model?.id || null)) continue;
+    const priceLine = sourceLine(record, 'price');
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const supplierLine = sourceLine(record, 'supplier');
+    const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+    const fullyLocal =
+      (priceTrace?.rules || []).includes('direct_extraction') &&
+      Number.isFinite(priceLine) &&
+      isLocalField(record, 'model', priceLine, 6) &&
+      isLocalField(record, 'color', priceLine, 3) &&
+      isLocalField(record, 'condition', priceLine, 6) &&
+      Number.isFinite(supplierLine) &&
+      !supplierBoundaries.has('supplier') &&
+      !supplierBoundaries.has('timestamp');
+    if (fullyLocal) claim('source_supported_core_only_full_offers', null, extraIndex);
+  }
+
+  const findUnclaimedExtra = predicate => {
+    for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
+      if (claimedExtra.has(extraIndex)) continue;
+      if (predicate(extraIndex, norm(extras[extraIndex]))) return extraIndex;
+    }
+    return -1;
+  };
+
+  // 3. Pares que diferem apenas em fornecedor, com fornecedor legado stale.
+  for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+    if (claimedMissing.has(missingIndex)) continue;
+    const expected = norm(missing[missingIndex]);
+    const extraIndex = findUnclaimedExtra((_, actual) =>
+      expected.model === actual.model &&
+      expected.capacity === actual.capacity &&
+      expected.condition === actual.condition &&
+      expected.color === actual.color &&
+      expected.price === actual.price &&
+      expected.supplier !== actual.supplier
+    );
+    if (extraIndex < 0) continue;
+    const record = extraRecords[extraIndex];
+    if (!record) continue;
+    const priceLine = sourceLine(record, 'price');
+    const actualSupplierLine = sourceLine(record, 'supplier');
+    if (!Number.isFinite(priceLine) || !Number.isFinite(actualSupplierLine)) continue;
+    const expectedNearest = nearest(supplierEvidenceLines(expected.supplier), priceLine);
+    const actualDistance = Math.abs(priceLine - actualSupplierLine);
+    const expectedBoundaries = pathBoundaries(expectedNearest?.line, priceLine);
+    const actualBoundaries = pathBoundaries(actualSupplierLine, priceLine);
+    const qualifies =
+      expectedNearest &&
+      expectedNearest.distance > actualDistance &&
+      expectedBoundaries.has('supplier') &&
+      expectedBoundaries.has('timestamp') &&
+      !actualBoundaries.has('supplier') &&
+      !actualBoundaries.has('timestamp');
+    if (qualifies) claim('source_contradicted_legacy_supplier_pairs', missingIndex, extraIndex);
+  }
+
+  // 4. Condicao pura do legado sem suporte local suficiente.
+  for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+    if (claimedMissing.has(missingIndex)) continue;
+    const expected = norm(missing[missingIndex]);
+    if (!expected.condition) continue;
+    const extraIndex = findUnclaimedExtra((_, actual) =>
+      expected.model === actual.model &&
+      expected.supplier === actual.supplier &&
+      expected.capacity === actual.capacity &&
+      expected.color === actual.color &&
+      expected.price === actual.price &&
+      actual.condition == null
+    );
+    if (extraIndex < 0) continue;
+    const record = extraRecords[extraIndex];
+    if (!record) continue;
+    const priceLine = sourceLine(record, 'price') ?? sourceLine(record, 'model');
+    if (!Number.isFinite(priceLine)) continue;
+
+    const matchingConditionLines = [];
+    for (const segment of segments) {
+      if (supplierAt(segment) !== expected.supplier) continue;
+      for (const candidate of segment.field_candidates || []) {
+        if (candidate.field !== 'condition') continue;
+        const mapped = schema.fields.find(field => field.name === 'condition')?.value_map || {};
+        const canonical = mapped[candidate.value] || mapped[String(candidate.value)] || candidate.value;
+        if (normalizeKey(canonical) === expected.condition) {
+          matchingConditionLines.push(Number(segment.line_number));
+        }
+      }
+    }
+    const nearestCondition = nearest(matchingConditionLines.filter(Number.isFinite), priceLine);
+    let modelAnchorsBetween = 0;
+    const boundaries = new Set();
+    if (nearestCondition) {
+      const lo = Math.min(nearestCondition.line, priceLine);
+      const hi = Math.max(nearestCondition.line, priceLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > lo && line <= hi)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          modelAnchorsBetween += 1;
+        }
+        for (const event of segment.context_events || []) {
+          if (event.reason === 'domain_boundary') boundaries.add('domain');
+          if (event.reason === 'supplier_boundary') boundaries.add('supplier');
+          if (event.reason === 'timestamp_boundary') boundaries.add('timestamp');
+        }
+      }
+    }
+    const qualifies =
+      !nearestCondition ||
+      (
+        nearestCondition.distance >= 100 &&
+        modelAnchorsBetween >= 20 &&
+        boundaries.has('domain') &&
+        boundaries.has('supplier')
+      );
+    if (qualifies) claim('source_unsupported_legacy_pure_condition_pairs', missingIndex, extraIndex);
+  }
+
+  // 5. Diferenca pura de preco+fornecedor, com ambos os valores legados sem suporte local.
+  for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+    if (claimedMissing.has(missingIndex)) continue;
+    const expected = norm(missing[missingIndex]);
+    const extraIndex = findUnclaimedExtra((_, actual) => {
+      if (actual.model !== expected.model) return false;
+      const diffs = diffFields(expected, actual);
+      return diffs.length === 2 && diffs.includes('price') && diffs.includes('supplier');
+    });
+    if (extraIndex < 0) continue;
+    const record = extraRecords[extraIndex];
+    if (!record) continue;
+    const actualPriceLine = sourceLine(record, 'price');
+    const actualSupplierLine = sourceLine(record, 'supplier');
+    if (!Number.isFinite(actualPriceLine) || !Number.isFinite(actualSupplierLine)) continue;
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+
+    const expectedPriceNearest = nearest(
+      fieldLines('price', value => Number(value) === expected.price),
+      actualPriceLine
+    );
+    const expectedSupplierNearest = nearest(
+      supplierEvidenceLines(expected.supplier),
+      actualPriceLine
+    );
+    const actualSupplierPath = pathBoundaries(actualSupplierLine, actualPriceLine);
+    const expectedSupplierPath = pathBoundaries(expectedSupplierNearest?.line, actualPriceLine);
+    const expectedPricePath = pathBoundaries(expectedPriceNearest?.line, actualPriceLine);
+
+    let expectedPriceModelAnchors = 0;
+    if (expectedPriceNearest) {
+      const lo = Math.min(expectedPriceNearest.line, actualPriceLine);
+      const hi = Math.max(expectedPriceNearest.line, actualPriceLine);
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (line > lo && line <= hi &&
+            (segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          expectedPriceModelAnchors += 1;
+        }
+      }
+    }
+
+    const actualPriceDirect = (priceTrace?.rules || []).includes('direct_extraction');
+    const actualSupplierLocal =
+      Math.abs(actualPriceLine - actualSupplierLine) <= 200 &&
+      !actualSupplierPath.has('supplier') &&
+      !actualSupplierPath.has('timestamp');
+    const expectedPriceUnsupported =
+      !expectedPriceNearest ||
+      (
+        expectedPriceNearest.distance > 3 &&
+        (
+          expectedPriceModelAnchors > 0 ||
+          expectedPricePath.has('domain') ||
+          expectedPricePath.has('supplier') ||
+          expectedPricePath.has('timestamp')
+        )
+      );
+    const expectedSupplierUnsupported =
+      !expectedSupplierNearest ||
+      (
+        expectedSupplierNearest.distance > Math.abs(actualPriceLine - actualSupplierLine) &&
+        (expectedSupplierPath.has('supplier') || expectedSupplierPath.has('timestamp'))
+      );
+    if (actualPriceDirect && actualSupplierLocal &&
+        expectedPriceUnsupported && expectedSupplierUnsupported) {
+      claim('source_contradicted_legacy_price_supplier_pairs', missingIndex, extraIndex);
+    }
+  }
+
+  const expectedCategoryCounts = {
+    source_contradicted_legacy_missing:
+      sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
+    source_contradicted_legacy_supplier_pairs:
+      sourceContradictedLegacySupplierResidualDiagnostic
+        ?.source_contradicted_legacy_supplier_residuals || 0,
+    source_supported_core_only_full_offers:
+      sourceSupportedCoreOnlyEOfferDiagnostic?.fully_local_offer_evidence || 0,
+    source_unsupported_legacy_pure_condition_pairs:
+      sourceUnsupportedLegacyPureConditionDiagnostic
+        ?.source_unsupported_legacy_condition_residuals || 0,
+    source_contradicted_legacy_price_supplier_pairs:
+      priceSupplierResidualEvidenceDiagnostic
+        ?.source_contradicted_legacy_price_supplier_residuals || 0
+  };
+  const actualCategoryCounts = {
+    source_contradicted_legacy_missing:
+      categories.source_contradicted_legacy_missing?.missing || 0,
+    source_contradicted_legacy_supplier_pairs:
+      categories.source_contradicted_legacy_supplier_pairs?.pairs || 0,
+    source_supported_core_only_full_offers:
+      categories.source_supported_core_only_full_offers?.extra || 0,
+    source_unsupported_legacy_pure_condition_pairs:
+      categories.source_unsupported_legacy_pure_condition_pairs?.pairs || 0,
+    source_contradicted_legacy_price_supplier_pairs:
+      categories.source_contradicted_legacy_price_supplier_pairs?.pairs || 0
+  };
+  const parity = Object.keys(expectedCategoryCounts).every(
+    key => expectedCategoryCounts[key] === actualCategoryCounts[key]
+  );
+
+  return {
+    version: 'residual-adjudication-ledger/v1',
+    raw: {
+      missing: missing.length,
+      extra: extras.length
+    },
+    claimed: {
+      missing: claimedMissing.size,
+      extra: claimedExtra.size
+    },
+    actionable: {
+      missing: missing.length - claimedMissing.size,
+      extra: extras.length - claimedExtra.size,
+      total_residual:
+        (missing.length - claimedMissing.size) +
+        (extras.length - claimedExtra.size)
+    },
+    categories,
+    integrity: {
+      duplicate_missing_claims: 0,
+      duplicate_extra_claims: 0,
+      category_count_parity: parity,
+      expected_category_counts: expectedCategoryCounts,
+      actual_category_counts: actualCategoryCounts,
+      pass: parity
+    }
+  };
+}
+
+const residualAdjudicationLedger =
+  buildResidualAdjudicationLedger(reportSupplierAware, coreBundle);
+
 function adjudicatedResidualSummary() {
   const rawMissing = reportSupplierAware?.metrics?.missing_offers ?? 0;
   const rawExtra = reportSupplierAware?.metrics?.extra_offers ?? 0;
@@ -5443,6 +5899,7 @@ const summary = {
   mixed_residual_overlap_coverage_diagnostic: mixedResidualOverlapCoverageDiagnostic,
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
+  residual_adjudication_ledger: residualAdjudicationLedger,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
@@ -5547,12 +6004,14 @@ const summary = {
   exact_multiset: report.gates.exact_multiset,
   raw_exact_multiset: report.gates.exact_multiset,
   source_adjudicated_exact:
-    adjudicatedResidualDiagnostic?.actionable?.total_residual === 0,
-  promotion_basis: 'source_adjudicated_v1',
+    residualAdjudicationLedger?.integrity?.pass === true &&
+    residualAdjudicationLedger?.actionable?.total_residual === 0,
+  promotion_basis: 'source_adjudicated_ledger_v1',
   promotion_ready:
     (reportSupplierAware?.gates?.no_silent_wrong_price ?? report.gates.no_silent_wrong_price) === true &&
     (reportSupplierAware?.gates?.price_attribution_resolved ?? report.gates.price_attribution_resolved) === true &&
-    adjudicatedResidualDiagnostic?.actionable?.total_residual === 0,
+    residualAdjudicationLedger?.integrity?.pass === true &&
+    residualAdjudicationLedger?.actionable?.total_residual === 0,
   offer_expansion_diagnostic: expansionDiagnostic,
   model_context_diagnostic: modelContextDiagnostic,
   unresolved_model_diagnostic: unresolvedModelDiagnostic,
@@ -5594,7 +6053,7 @@ if (!summary.exact_multiset) {
 if (!summary.source_adjudicated_exact) {
   console.log(
     'BLOQUEIO: ainda existem residuos acionaveis apos adjudicacao baseada em evidencia: ' +
-    String(adjudicatedResidualDiagnostic?.actionable?.total_residual ?? 'unknown')
+    String(residualAdjudicationLedger?.actionable?.total_residual ?? 'unknown')
   );
 }
 
