@@ -502,6 +502,46 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
 });
 
+check('cabecalho de modelo desconhecido encerra heranca do modelo anterior', () => {
+  const result = run(
+    'apple-unknown-product-boundary',
+    'iPhone 17 256GB Lacrado\nAzul R$ 5.299\n15 256GB Lacrado\nPreto R$ 4.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_17_256gb');
+  assert.strictEqual(result.records[0].fields.price, 5299);
+});
+
+check('product header boundary preserva condicao declarada', () => {
+  const result = run(
+    'apple-product-boundary-condition',
+    'Lacrados\niPhone 17 256GB\nAzul R$ 5.299\n15 256GB\nR$ 4.299'
+  );
+  const unknownHeader = result.segments.find(segment =>
+    segment.normalized.includes('15 256GB')
+  );
+  assert.ok(unknownHeader);
+  assert.ok((unknownHeader.context_events || []).some(event =>
+    event.reason === 'product_header_boundary'
+  ));
+  assert.strictEqual(unknownHeader.context_after.condition.value, 'Lacrado');
+  assert.strictEqual(unknownHeader.context_after.model, undefined);
+});
+
+check('linha de preco nao abre product header boundary', () => {
+  const result = run(
+    'apple-product-boundary-price-guard',
+    'iPhone 17 256GB Lacrado\nAzul R$ 5.299'
+  );
+  const priceLine = result.segments.find(segment =>
+    (segment.field_candidates || []).some(candidate => candidate.field === 'price')
+  );
+  assert.ok(priceLine);
+  assert.ok(!(priceLine.context_events || []).some(event =>
+    event.reason === 'product_header_boundary'
+  ));
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
