@@ -27,6 +27,7 @@ function coreOffers(bundle) {
       capacity_gb: record.fields?.capacity_gb ?? null,
       condition: canonicalCondition(record.fields?.condition),
       color: record.fields?.color == null ? null : String(record.fields.color).trim(),
+      supplier: record.fields?.supplier == null ? null : String(record.fields.supplier).trim(),
       price: Number.isFinite(Number(record.fields?.price)) ? Number(record.fields.price) : null
     },
     trace: record.trace || []
@@ -35,11 +36,13 @@ function coreOffers(bundle) {
 
 function offerKey(fields, options = {}) {
   const includeColor = options.include_color !== false;
+  const includeSupplier = options.include_supplier === true;
   const pieces = [
     fields.model?.id || null,
     fields.capacity_gb == null ? null : Number(fields.capacity_gb),
     canonicalCondition(fields.condition),
     includeColor ? normalizeKey(fields.color) || null : undefined,
+    includeSupplier ? normalizeKey(fields.supplier) || null : undefined,
     fields.price == null ? null : Number(fields.price)
   ];
   return JSON.stringify(pieces);
@@ -102,11 +105,13 @@ function summarizeFieldMismatch(legacyOffers, interpretedOffers) {
 
 function priceIdentityKey(fields, options = {}) {
   const includeColor = options.include_color !== false;
+  const includeSupplier = options.include_supplier === true;
   return JSON.stringify([
     fields.model?.id || null,
     fields.capacity_gb == null ? null : Number(fields.capacity_gb),
     canonicalCondition(fields.condition),
-    includeColor ? normalizeKey(fields.color) || null : undefined
+    includeColor ? normalizeKey(fields.color) || null : undefined,
+    includeSupplier ? normalizeKey(fields.supplier) || null : undefined
   ]);
 }
 
@@ -263,7 +268,10 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
   return {
     contract_version: 'semantic-shadow-report/v1',
     version: SEMANTIC_SHADOW_VERSION,
-    options: { include_color: options.include_color !== false },
+    options: {
+      include_color: options.include_color !== false,
+      include_supplier: options.include_supplier === true
+    },
     metrics: {
       legacy_supported_offers: legacyN,
       core_offers: coreN,
