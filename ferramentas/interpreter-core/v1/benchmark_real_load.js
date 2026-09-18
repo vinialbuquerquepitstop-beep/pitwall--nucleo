@@ -987,6 +987,83 @@ const supplierRecordDiagnostic = (() => {
   };
 })();
 
+const supplierlessContextDiagnostic = (() => {
+  const segments = coreBundle.segments || [];
+  const supplierSetLines = [];
+  const timestampLines = [];
+
+  for (const segment of segments) {
+    for (const event of segment.context_events || []) {
+      if (event.type === 'context_set' && event.field === 'supplier') {
+        supplierSetLines.push({
+          line: Number(segment.line_number),
+          supplier: event.value
+        });
+      }
+      if (event.reason === 'timestamp_boundary') {
+        timestampLines.push(Number(segment.line_number));
+      }
+    }
+  }
+
+  const summary = {
+    total: 0,
+    with_prior_supplier: 0,
+    with_prior_supplier_and_timestamp_between: 0,
+    with_prior_supplier_without_timestamp_between: 0,
+    without_prior_supplier: 0,
+    by_model: {}
+  };
+
+  for (const record of coreBundle.records || []) {
+    if (record?.fields?.supplier != null) continue;
+    summary.total += 1;
+
+    const model = record?.fields?.model?.id || '(unknown)';
+    if (!summary.by_model[model]) {
+      summary.by_model[model] = {
+        total: 0,
+        prior_supplier_with_timestamp: 0,
+        prior_supplier_without_timestamp: 0,
+        no_prior_supplier: 0
+      };
+    }
+    summary.by_model[model].total += 1;
+
+    const traceLines = (record.trace || [])
+      .flatMap(item => Array.isArray(item.sources) ? item.sources : [])
+      .map(Number)
+      .filter(Number.isFinite);
+    const recordLine = traceLines.length ? Math.max(...traceLines) : null;
+    if (!Number.isFinite(recordLine)) {
+      summary.without_prior_supplier += 1;
+      summary.by_model[model].no_prior_supplier += 1;
+      continue;
+    }
+
+    const prior = supplierSetLines
+      .filter(item => item.line < recordLine)
+      .sort((a, b) => b.line - a.line)[0] || null;
+    if (!prior) {
+      summary.without_prior_supplier += 1;
+      summary.by_model[model].no_prior_supplier += 1;
+      continue;
+    }
+
+    summary.with_prior_supplier += 1;
+    const timestampBetween = timestampLines.some(line => line > prior.line && line < recordLine);
+    if (timestampBetween) {
+      summary.with_prior_supplier_and_timestamp_between += 1;
+      summary.by_model[model].prior_supplier_with_timestamp += 1;
+    } else {
+      summary.with_prior_supplier_without_timestamp_between += 1;
+      summary.by_model[model].prior_supplier_without_timestamp += 1;
+    }
+  }
+
+  return summary;
+})();
+
 const supplierAwareGapByModel = (() => {
   if (!reportSupplierAware) return null;
   const out = {};
@@ -1051,6 +1128,7 @@ const summary = {
   core_records_with_supplier: supplierRecordDiagnostic.records_with_supplier,
   core_records_without_supplier: supplierRecordDiagnostic.records_without_supplier,
   core_records_without_supplier_by_model: supplierRecordDiagnostic.records_without_supplier_by_model,
+  supplierless_context_diagnostic: supplierlessContextDiagnostic,
   supplier_aware_gap_by_model: supplierAwareGapByModel,
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
