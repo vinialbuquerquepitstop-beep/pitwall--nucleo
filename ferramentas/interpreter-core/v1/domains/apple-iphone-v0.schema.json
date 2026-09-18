@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.0-message-dedup-shadow",
+  "schema_version": "0.10.1-local-header-17-256",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -44,6 +44,15 @@
           "group": 1,
           "transform": "trim",
           "score": 0.91
+        },
+        {
+          "id": "supported_shorthand_17_256_lacrado_v1",
+          "kind": "regex",
+          "pattern": "^[^A-Za-z0-9]{0,12}(17\\s+256\\s*(?:GB)?)(?=[^\\r\\n]*\\blacrado\\b)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.93
         }
       ]
     },
@@ -396,6 +405,16 @@
       "source": "17 256 Quality/Cristiano local-header evidence",
       "rule": "within one WhatsApp message block, repeated offers with the same model+color+condition collapse to the latest occurrence",
       "safety": "requires all key fields; no cross-message dedup; shadow only"
+    },
+    "local_header_17_256": {
+      "source": "real-load Quality/Cristiano block evidence",
+      "rule": "resolve shorthand 17 256 only when the same header line explicitly contains Lacrado",
+      "excludes": "A+/seminovo shorthand headers without Lacrado",
+      "expected_legacy_shapes": {
+        "quality_colors": 4,
+        "cristiano_colors": 5
+      },
+      "mode": "shadow"
     }
   },
   "record_dedup": {
