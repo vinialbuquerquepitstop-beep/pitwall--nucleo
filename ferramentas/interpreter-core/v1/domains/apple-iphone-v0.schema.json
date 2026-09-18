@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.7",
+  "schema_version": "0.8.8",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -109,7 +109,11 @@
           "transform": "integer",
           "score": 0.86
         }
-      ]
+      ],
+      "derive_from_entity_attribute": {
+        "field": "model",
+        "attribute": "capacity_gb"
+      }
     },
     {
       "name": "condition",
@@ -429,6 +433,10 @@
       "min_pure_groups": 3,
       "require_zero_opposite": true,
       "safety": "schema-driven; no supplier id or model id hardcoded"
+    },
+    "capacity_derivation": {
+      "version": "v1",
+      "rule": "capacity_gb may derive from resolved model entity attribute only when direct/context value is absent"
     }
   }
 }
