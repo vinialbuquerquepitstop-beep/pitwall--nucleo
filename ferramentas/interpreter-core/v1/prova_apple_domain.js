@@ -616,12 +616,21 @@ check('capacidade direta tem precedencia sobre derivacao por entidade', () => {
     transform: 'integer',
     score: 0.99
   }];
+  const priceField = directSchema.fields.find(field => field.name === 'price');
+  priceField.extractors = [{
+    kind: 'regex',
+    pattern: 'PRICE=(7300)',
+    flags: 'i',
+    group: 1,
+    transform: 'integer',
+    score: 0.99
+  }];
 
   const result = interpretResolved({
     document: {
       contract_version: 'raw-document/v1',
       document_id: 'apple-capacity-direct-precedence',
-      content: 'iPhone 17 256GB Preto Lacrado - 7.300 CAP=128',
+      content: 'iPhone 17 256GB Preto Lacrado PRICE=7300 CAP=128',
       source: { kind: 'plain_text' }
     },
     schema: directSchema,
