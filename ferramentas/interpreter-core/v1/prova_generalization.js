@@ -269,8 +269,7 @@ check('pairing ordinal generico funciona fora do dominio Apple', () => {
     context_anchor: false,
     extractors: [{
       kind: 'regex',
-      pattern: '^(RED|BLUE)
-,
+      pattern: '^(RED|BLUE)$',
       flags: 'i',
       group: 1,
       transform: 'trim',
