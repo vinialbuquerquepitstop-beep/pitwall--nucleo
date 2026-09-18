@@ -214,6 +214,136 @@ function rejectedColorSourceDiagnostics(bundle) {
   return { rejected_color_source_rows: total, by_model: byModel, by_role_reason: byRoleReason, by_features: featureCounts };
 }
 
+
+function scopedRejectedColorPairingDiagnostics(bundle) {
+  const segments = bundle.segments || [];
+  let activeModel = null;
+  let blockStart = 0;
+  const rows = [];
+  const byModel = {};
+  const safeByModel = {};
+  let totalInActiveModel = 0;
+  let conservativeCandidates = 0;
+
+  const isHardBoundary = segment => (segment.context_events || []).some(event =>
+    event.reason === 'timestamp_boundary' ||
+    event.reason === 'domain_boundary' ||
+    event.reason === 'supplier_boundary' ||
+    event.reason === 'product_header_boundary'
+  );
+
+  const onePrice = segment => {
+    const values = distinctFieldValues(segment, 'price');
+    return values.length === 1 ? values[0] : null;
+  };
+
+  const hasCondition = segment =>
+    (segment.field_candidates || []).some(candidate => candidate.field === 'condition');
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+
+    if (isHardBoundary(segment)) {
+      activeModel = null;
+      blockStart = index;
+    }
+
+    const resolvedModels = (segment.semantic_candidates || []).filter(candidate =>
+      candidate.field === 'model' &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+      candidate.entity_id
+    );
+    if (resolvedModels.length === 1) {
+      activeModel = resolvedModels[0].entity_id;
+      blockStart = index;
+    }
+
+    const colors = distinctFieldValues(segment, 'color');
+    const prices = distinctFieldValues(segment, 'price');
+    if (!activeModel || !colors.length || prices.length || isFieldOnlySegment(segment, 'color')) continue;
+
+    totalInActiveModel += 1;
+    byModel[activeModel] = (byModel[activeModel] || 0) + 1;
+
+    const scan = direction => {
+      for (let j = index + direction; j >= blockStart && j < segments.length; j += direction) {
+        const probe = segments[j];
+        if (j !== index && isHardBoundary(probe)) break;
+
+        const probeModels = (probe.semantic_candidates || []).filter(candidate =>
+          candidate.field === 'model' &&
+          (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+          candidate.entity_id
+        );
+        if (j !== index && probeModels.length === 1 && probeModels[0].entity_id !== activeModel) break;
+
+        const p = onePrice(probe);
+        if (p != null) {
+          return {
+            line: probe.line_number,
+            distance: Math.abs(j - index),
+            price: Number(p),
+            has_condition: hasCondition(probe),
+            index: j
+          };
+        }
+      }
+      return null;
+    };
+
+    const prev = scan(-1);
+    const nextPrice = scan(1);
+    const nearest = [prev, nextPrice]
+      .filter(Boolean)
+      .sort((a, b) => a.distance - b.distance || a.index - b.index);
+    const uniqueNearest = nearest.length === 1 || (
+      nearest.length > 1 && nearest[0].distance < nearest[1].distance
+    );
+
+    let crossedCondition = false;
+    if (uniqueNearest && nearest[0]) {
+      const lo = Math.min(index, nearest[0].index);
+      const hi = Math.max(index, nearest[0].index);
+      crossedCondition = segments.slice(lo + 1, hi).some(hasCondition);
+    }
+
+    const topRole = segment.role_candidates?.[0];
+    const conservative =
+      uniqueNearest &&
+      nearest[0] &&
+      nearest[0].distance <= 2 &&
+      !crossedCondition &&
+      !nearest[0].has_condition &&
+      colors.length === 1;
+
+    if (conservative) {
+      conservativeCandidates += 1;
+      safeByModel[activeModel] = (safeByModel[activeModel] || 0) + 1;
+    }
+
+    rows.push({
+      model: activeModel,
+      line: segment.line_number,
+      color_count: colors.length,
+      role: topRole?.role || null,
+      reason: topRole?.reason || null,
+      previous_price: prev ? { line: prev.line, distance: prev.distance } : null,
+      next_price: nextPrice ? { line: nextPrice.line, distance: nextPrice.distance } : null,
+      unique_nearest: uniqueNearest,
+      crossed_condition: crossedCondition,
+      conservative_candidate: conservative
+    });
+  }
+
+  return {
+    rejected_color_rows_in_active_model: totalInActiveModel,
+    conservative_pair_candidates: conservativeCandidates,
+    by_model: byModel,
+    conservative_by_model: safeByModel,
+    rows
+  };
+}
+
 function orderedPairFallbackDiagnostics(bundle) {
   const segments = bundle.segments || [];
   const blocks = [];
@@ -2601,6 +2731,7 @@ const relaxedSupportedHeaderDiagnostic = relaxedSupportedHeaderDiagnostics(coreB
 const supportedBlockDiagnostic = supportedBlockDiagnostics(coreBundle);
 const orderedPairFallbackDiagnostic = orderedPairFallbackDiagnostics(coreBundle);
 const rejectedColorSourceDiagnostic = rejectedColorSourceDiagnostics(coreBundle);
+const scopedRejectedColorPairingDiagnostic = scopedRejectedColorPairingDiagnostics(coreBundle);
 const supplierBoundaryDiagnostic = supplierBoundaryDiagnostics(coreBundle);
 const conditionDistributionDiagnostic = conditionDistributionDiagnostics(legacy, coreBundle);
 const localHeader17256Diagnostic = localHeader17256Diagnostics(coreBundle);
@@ -2728,6 +2859,7 @@ const summary = {
   supported_block_diagnostic: supportedBlockDiagnostic,
   ordered_pair_fallback_diagnostic: orderedPairFallbackDiagnostic,
   rejected_color_source_diagnostic: rejectedColorSourceDiagnostic,
+  scoped_rejected_color_pairing_diagnostic: scopedRejectedColorPairingDiagnostic,
   supplier_boundary_diagnostic: supplierBoundaryDiagnostic,
   condition_distribution_diagnostic: conditionDistributionDiagnostic,
   local_header_17_256_diagnostic: localHeader17256Diagnostic,
