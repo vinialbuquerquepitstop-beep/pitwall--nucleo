@@ -191,10 +191,20 @@ check('pareamento ordinal permite uma cor solta quando existe um unico preco nu'
   assert.strictEqual(result.records[0].fields.price, 5299);
 });
 
-check('Offer Expansion V1.1 nao atravessa linha intermediaria sem cor', () => {
+check('pareamento ordinal atravessa nota quando a linha fonte e somente cor e o bloco e 1:1', () => {
   const result = run(
-    'apple-expansion-contiguous',
+    'apple-ordered-through-note',
     'iPhone 17 256GB Lacrado\nPreto Azul\nOBSERVACAO\nR$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 2);
+  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto']);
+  assert.ok(result.records.every(r => r.fields.price === 5299));
+});
+
+check('pareamento ordinal nao usa linha com texto extra como fonte de cor', () => {
+  const result = run(
+    'apple-ordered-source-not-pure',
+    'iPhone 17 256GB Lacrado\nPreto disponibilidade\nR$ 5.299'
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.color, undefined);
