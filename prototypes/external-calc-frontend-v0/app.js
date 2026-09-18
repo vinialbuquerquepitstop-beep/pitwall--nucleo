@@ -127,7 +127,7 @@
     els.sourceFilename.textContent = customFilename || data.document.filename || "sem arquivo";
     els.sourceKind.textContent = data.document.source_kind === "plain_text" ? "texto simples" : esc(data.document.source_kind || "entrada");
     if (customSourceText == null) els.sourceText.value = data.source_text || "";
-    els.interpret.disabled = data.document.status === "interprereting" || data.document.status === "interpreting";
+    els.interpret.disabled = data.document.status === "interpreting";
   }
 
   function renderSummary(data) {
