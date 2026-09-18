@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - audit/interpreter-ready-runtime-v1
+      - exp/calculadora-condition-postcompose-confidence-v1
     paths:
       - 'ferramentas/interpreter-core/v1/**'
       - 'docs/calculadora/INTERPRETER_READY_GATE_V1.md'
