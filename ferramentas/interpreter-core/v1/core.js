@@ -338,8 +338,13 @@ function buildContextTrace(segments, schema = {}) {
       });
     }
 
+    const anchorOpened = anchors.some(field =>
+      selectUniqueCandidate(fieldCandidates, field.name).state === 'unique'
+    );
+
     let boundaryOpened = null;
     for (const field of boundaries) {
+      if (field.skip_if_anchor_present === true && anchorOpened) continue;
       const candidates = fieldCandidates.filter(candidate => candidate.field === field.name);
       if (candidates.length > 0) {
         boundaryOpened = field;
@@ -356,15 +361,6 @@ function buildContextTrace(segments, schema = {}) {
         field: boundaryOpened.name,
         fields: cleared
       });
-    }
-
-    let anchorOpened = false;
-    for (const field of anchors) {
-      const selected = selectUniqueCandidate(fieldCandidates, field.name);
-      if (selected.state === 'unique') {
-        anchorOpened = true;
-        break;
-      }
     }
 
     if (anchorOpened && policy.anchor_resets_other_context) {
