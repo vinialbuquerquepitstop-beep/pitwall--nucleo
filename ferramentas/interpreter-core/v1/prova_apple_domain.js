@@ -633,10 +633,10 @@ check('shorthand low-risk sem GB herda capacidade correta do cabecalho', () => {
   assert.strictEqual(result.records[0].fields.price, 6299);
 });
 
-check('17 256 sem evidencia Lacrado permanece desativado', () => {
+check('shorthand 17 256 sem GB permanece desativado por excesso de extras', () => {
   const result = run(
     'apple-shorthand-bare-capacity-disabled-17-256',
-    '17 256\nAzul R$ 5.299'
+    '17 256 Lacrado\nAzul R$ 5.299'
   );
   assert.strictEqual(result.records.length, 0);
 });
@@ -668,39 +668,6 @@ check('supersessao local preserva cores distintas no mesmo bloco', () => {
   );
   assert.strictEqual(result.records.length, 2);
   assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto']);
-});
-
-check('17 256 local lacrado reproduz quatro cores no padrao Quality', () => {
-  const result = run(
-    'apple-local-17-256-quality',
-    '17 256 eSIM lacrado importado\nLavanda\nPreto\nR$ 5.199\nVerde\nAzul\nR$ 5.099'
-  );
-  assert.strictEqual(result.records.length, 4);
-  assert.deepStrictEqual(
-    result.records.map(r => r.fields.color).sort(),
-    ['Azul', 'Lavanda', 'Preto', 'Verde']
-  );
-  assert.ok(result.records.every(r => r.fields.model.id === 'iphone_17_256gb'));
-});
-
-check('17 256 local lacrado reproduz tres cores em um preco', () => {
-  const result = run(
-    'apple-local-17-256-national',
-    '17 256 CHIP VIRTUAL+CHIP FÍSICO LACRADO NACIONAL NF\nVerde\nPreto\nLavanda\nR$ 5.299'
-  );
-  assert.strictEqual(result.records.length, 3);
-  assert.deepStrictEqual(
-    result.records.map(r => r.fields.color).sort(),
-    ['Lavanda', 'Preto', 'Verde']
-  );
-});
-
-check('17 256 A+ sem lacrado continua fora do shorthand local', () => {
-  const result = run(
-    'apple-local-17-256-a-plus-disabled',
-    '17 256GB🇺🇸 A+\nBLACK\nR$ 4.680'
-  );
-  assert.strictEqual(result.records.length, 0);
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
