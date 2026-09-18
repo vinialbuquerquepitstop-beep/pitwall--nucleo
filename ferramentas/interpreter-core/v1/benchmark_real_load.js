@@ -4801,6 +4801,8 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   };
 
   const unpairedExtraForensics = {};
+  const unpairedMissingForensics = {};
+  if (options.includeUnpairedForensics === true) {
   for (const extraIndex of unpairedExtraIndexes) {
     const record = extraRecords[extraIndex];
     if (!record) {
@@ -4847,7 +4849,6 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       (unpairedExtraForensics[signature] || 0) + 1;
   }
 
-  const unpairedMissingForensics = {};
   for (const missingIndex of unpairedMissingIndexes) {
     const expected = norm(missing[missingIndex]);
     const sameSupplierPrice = records.filter(record =>
@@ -4932,6 +4933,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     unpairedMissingForensics[signature] =
       (unpairedMissingForensics[signature] || 0) + 1;
   }
+  }
 
   return {
     version:
@@ -5014,7 +5016,8 @@ const residualAdjudicationLedger =
       includeStrongMixed: true,
       includeAllFullyLocalCoreOnlyLate: true,
       includeSourceUnsupportedMissing: true,
-      includeStrictPairDominance: true
+      includeStrictPairDominance: true,
+      includeUnpairedForensics: true
     }
   );
 
