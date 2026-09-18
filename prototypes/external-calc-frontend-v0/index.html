@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>External Calc — Frontend Preparation V0</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">EC</div>
+        <div>
+          <strong>External Calc</strong>
+          <span>Frontend Preview V0</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item is-active" data-view="analysis">Analisar</button>
+        <button class="nav-item" data-view="calculator">Calcular</button>
+        <button class="nav-item" data-view="market">Mercado</button>
+        <button class="nav-item is-disabled" disabled>Histórico <small>depois</small></button>
+      </nav>
+
+      <div class="sidebar-note">
+        <span class="dot"></span>
+        Modo mock, sem Supabase e sem escrita.
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">EXTERNAL CALC</p>
+          <h1 id="page-title">Analisar lista</h1>
+        </div>
+        <button class="primary">Nova análise</button>
+      </header>
+
+      <section class="view is-visible" data-view-panel="analysis">
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">ENTRADA</p>
+                <h2>Lista do fornecedor</h2>
+              </div>
+              <span class="status neutral">Mock</span>
+            </div>
+            <textarea aria-label="Lista de fornecedor" placeholder="Cole uma lista aqui..." readonly>DEVICE ALPHA 256GB PRETO
+LACRADO
+R$ 5.200
+
+DEVICE BETA 128GB AZUL
+SEMINOVO
+R$ 3.100</textarea>
+            <div class="actions">
+              <button class="secondary">Enviar arquivo</button>
+              <button class="primary">Interpretar lista</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">RESUMO</p>
+                <h2>Interpretação concluída</h2>
+              </div>
+              <span class="status good">Pronto</span>
+            </div>
+            <div class="metrics">
+              <div><strong>2</strong><span>ofertas</span></div>
+              <div><strong>1</strong><span>interpretada</span></div>
+              <div><strong>1</strong><span>inferida</span></div>
+              <div><strong>1</strong><span>pendência</span></div>
+            </div>
+            <p class="muted">O frontend diferencia valor confirmado, inferido e ambíguo. Nenhuma ambiguidade vira confirmação automática.</p>
+          </article>
+        </div>
+
+        <article class="card table-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">OFERTAS VÁLIDAS</p>
+              <h2>O que a leitura encontrou</h2>
+            </div>
+            <button class="secondary" id="open-calculator">Abrir no cálculo</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Status</th><th>Modelo</th><th>Condição</th><th>Cor</th><th>Fornecedor</th><th>Preço</th></tr>
+              </thead>
+              <tbody id="offers-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <div class="grid two">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">PENDÊNCIAS</p>
+                <h2>Revisão humana</h2>
+              </div>
+              <span class="status warn">1 caso</span>
+            </div>
+            <div class="ambiguity">
+              <strong>Modelo não resolvido</strong>
+              <p>“Device Gamma 512”</p>
+              <span>Linha 12 · entity_unresolved</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">EVIDÊNCIA</p>
+                <h2>Trace da oferta selecionada</h2>
+              </div>
+            </div>
+            <div id="trace-list" class="trace-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" data-view-panel="calculator">
+        <div class="grid main-side">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <p class="eyebrow">CALCULADORA</p>
+                <h2 id="calc-model">Device Alpha 256GB</h2>
+              </div>
+              <span class="status good">Da análise</span>
+            </div>
+            <div class="form-grid">
+              <label>Custo<input value="5.200,00" readonly></label>
+              <label>Frete<input value="50,00" readonly></label>
+              <label>Margem<input value="800,00" readonly></label>
+              <label>Fornecedor<input value="Fornecedor A" readonly></label>
+            </div>
+            <div class="divider"></div>
+            <div class="price-block">
+              <span>Preço à vista</span>
+              <strong>R$ 6.050,00</strong>
+              <small>Lucro bruto: R$ 800,00</small>
+            </div>
+          </article>
+
+          <article class="card">
+            <p class="eyebrow">PARCELAMENTO</p>
+            <div class="installments">
+              <div><span>12x</span><strong>R$ 553,92</strong><small>Total R$ 6.647,04</small></div>
+              <div><span>18x</span><strong>R$ 390,12</strong><small>Total R$ 7.022,16</small></div>
+            </div>
+            <button class="secondary full">Copiar proposta</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" data-view-panel="market">
+        <div class="grid main-side">
+          <article class="card market-hero">
+            <p class="eyebrow">INDICADOR</p>
+            <div class="indicator">
+              <span class="status good">Abaixo do mercado</span>
+              <strong>10,19%</strong>
+              <p>abaixo da referência mediana observada</p>
+            </div>
+            <div class="market-row"><span>Preço analisado</span><strong>R$ 5.200</strong></div>
+            <div class="market-row"><span>Referência mediana</span><strong>R$ 5.790</strong></div>
+            <div class="market-row"><span>Amostra</span><strong>3 fontes</strong></div>
+          </article>
+
+          <article class="card">
+            <p class="eyebrow">EVIDÊNCIAS</p>
+            <h2>Fontes observadas</h2>
+            <div id="sources-list" class="sources"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./mock-data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
