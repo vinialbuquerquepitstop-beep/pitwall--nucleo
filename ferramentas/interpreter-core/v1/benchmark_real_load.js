@@ -1268,6 +1268,157 @@ function sourceContradictedLegacyMissingDiagnostics(reportSupplierAware, bundle)
 const sourceContradictedLegacyMissingDiagnostic =
   sourceContradictedLegacyMissingDiagnostics(reportSupplierAware, coreBundle);
 
+function sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const expand = items => (items || []).flatMap(item =>
+    Array.from({ length: Number(item.count || 0) }, () => ({ fields: item.fields || {} }))
+  );
+  const missing = expand(reportSupplierAware.missing);
+  const extra = expand(reportSupplierAware.extra);
+  const usedExtra = new Set();
+  const segments = bundle.segments || [];
+  const records = coreOffers(bundle);
+  const coreBuckets = new Map();
+
+  for (const record of records) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreBuckets.has(key)) coreBuckets.set(key, []);
+    coreBuckets.get(key).push(record);
+  }
+  const consumedCore = new Map();
+
+  const norm = offer => {
+    const fields = offer?.fields || {};
+    return {
+      model: fields.model?.id || null,
+      supplier: fields.supplier == null ? null : String(fields.supplier),
+      capacity: fields.capacity_gb == null ? null : Number(fields.capacity_gb),
+      condition: normalizeKey(fields.condition) || null,
+      color: normalizeKey(fields.color) || null,
+      price: fields.price == null ? null : Number(fields.price)
+    };
+  };
+
+  const equalExceptSupplier = (a, b) =>
+    a.model === b.model &&
+    a.capacity === b.capacity &&
+    a.condition === b.condition &&
+    a.color === b.color &&
+    a.price === b.price &&
+    a.supplier !== b.supplier;
+
+  const supplierEvidenceLines = supplier => {
+    if (!supplier) return [];
+    return segments
+      .filter(segment =>
+        (segment.field_candidates || []).some(candidate =>
+          candidate.field === 'supplier' && String(candidate.value) === supplier
+        )
+      )
+      .map(segment => Number(segment.line_number))
+      .filter(Number.isFinite);
+  };
+
+  const pathBoundaries = (fromLine, toLine) => {
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return new Set();
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    const out = new Set();
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+
+  let pureSupplierCases = 0;
+  let contradicted = 0;
+  const signatures = {};
+
+  for (const miss of missing) {
+    const expected = norm(miss);
+    let match = null;
+    for (let i = 0; i < extra.length; i += 1) {
+      if (usedExtra.has(i)) continue;
+      const actual = norm(extra[i]);
+      if (!equalExceptSupplier(expected, actual)) continue;
+      match = { index: i, actual };
+      break;
+    }
+    if (!match) continue;
+
+    usedExtra.add(match.index);
+    pureSupplierCases += 1;
+
+    const extraOffer = extra[match.index];
+    const extraKey = offerKey(extraOffer.fields || {}, { include_supplier: true });
+    const bucket = coreBuckets.get(extraKey) || [];
+    const consumed = consumedCore.get(extraKey) || 0;
+    const record = bucket[consumed] || null;
+    consumedCore.set(extraKey, consumed + 1);
+    if (!record) continue;
+
+    const supplierTrace = (record.trace || []).find(trace => trace.field === 'supplier');
+    const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+    const actualSupplierLine = Array.isArray(supplierTrace?.sources) && supplierTrace.sources.length
+      ? Number(supplierTrace.sources[0])
+      : null;
+    const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+      ? Number(priceTrace.sources[0])
+      : null;
+    if (!Number.isFinite(priceLine)) continue;
+
+    const expectedLines = supplierEvidenceLines(expected.supplier);
+    const expectedRanked = expectedLines
+      .map(line => ({ line, distance: Math.abs(priceLine - line) }))
+      .sort((a, b) => a.distance - b.distance || a.line - b.line);
+    const expectedNearest = expectedRanked[0] || null;
+    const actualDistance = Number.isFinite(actualSupplierLine)
+      ? Math.abs(priceLine - actualSupplierLine)
+      : null;
+    const actualBoundaries = pathBoundaries(actualSupplierLine, priceLine);
+    const expectedBoundaries = pathBoundaries(expectedNearest?.line, priceLine);
+
+    const qualifies =
+      expectedNearest &&
+      Number.isFinite(actualDistance) &&
+      expectedNearest.distance > actualDistance &&
+      expectedBoundaries.has('supplier') &&
+      expectedBoundaries.has('timestamp') &&
+      !actualBoundaries.has('supplier') &&
+      !actualBoundaries.has('timestamp');
+
+    if (qualifies) contradicted += 1;
+
+    const signature = [
+      'expected_distance=' + (expectedNearest?.distance ?? 'none'),
+      'actual_distance=' + (actualDistance ?? 'unknown'),
+      'expected_supplier_boundary=' + (expectedBoundaries.has('supplier') ? 'yes' : 'no'),
+      'expected_timestamp_boundary=' + (expectedBoundaries.has('timestamp') ? 'yes' : 'no'),
+      'actual_supplier_boundary=' + (actualBoundaries.has('supplier') ? 'yes' : 'no'),
+      'actual_timestamp_boundary=' + (actualBoundaries.has('timestamp') ? 'yes' : 'no'),
+      'source_contradicted=' + (qualifies ? 'yes' : 'no')
+    ].join('|');
+    signatures[signature] = (signatures[signature] || 0) + 1;
+  }
+
+  return {
+    pure_supplier_residuals: pureSupplierCases,
+    source_contradicted_legacy_supplier_residuals: contradicted,
+    actionable_pure_supplier_residuals: pureSupplierCases - contradicted,
+    signatures
+  };
+}
+
+const sourceContradictedLegacySupplierResidualDiagnostic =
+  sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3433,6 +3584,7 @@ const summary = {
   missing_17_512_anchor_topology_diagnostic: missing17_512AnchorTopologyDiagnostic,
   missing_17_512_anchor_shape_diagnostic: missing17_512AnchorShapeDiagnostic,
   source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
+  source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
