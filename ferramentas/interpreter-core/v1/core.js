@@ -562,7 +562,20 @@ function applyOrderedFieldPairing(segments, schema = {}) {
         if (ranked.length > 1 && ranked[0].distance === ranked[1].distance) continue;
         if (Number.isFinite(Number(policy.fallback_max_distance))
             && ranked[0].distance > Number(policy.fallback_max_distance)) continue;
-        appendCandidates(source, ranked[0].target, 'nearest_unique_pair');
+
+        const chosenTarget = ranked[0].target;
+        const reverseRanked = sources
+          .map(candidateSource => ({
+            source: candidateSource,
+            distance: Math.abs(chosenTarget.index - candidateSource.index)
+          }))
+          .sort((a, b) => a.distance - b.distance || a.source.index - b.source.index);
+
+        if (!reverseRanked.length) continue;
+        if (reverseRanked.length > 1 && reverseRanked[0].distance === reverseRanked[1].distance) continue;
+        if (reverseRanked[0].source.index !== source.index) continue;
+
+        appendCandidates(source, chosenTarget, 'nearest_unique_pair');
       }
     }
   }
