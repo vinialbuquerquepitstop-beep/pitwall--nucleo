@@ -3037,6 +3037,7 @@ const summary = {
   confirmed_wrong_price_offers: report.metrics.confirmed_wrong_price_offers,
   ambiguous_price_reference_offers: report.metrics.ambiguous_price_reference_offers,
   extra_at_known_reference_price_offers: report.metrics.extra_at_known_reference_price_offers,
+  price_reference_diagnostics: report.price_reference_diagnostics,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
@@ -3084,7 +3085,8 @@ const summary = {
       no_silent_wrong_price: canonicalReferenceReport.gates.no_silent_wrong_price,
       confirmed_wrong_price_offers: canonicalReferenceReport.metrics.confirmed_wrong_price_offers,
       ambiguous_price_reference_offers: canonicalReferenceReport.metrics.ambiguous_price_reference_offers,
-      extra_at_known_reference_price_offers: canonicalReferenceReport.metrics.extra_at_known_reference_price_offers
+      extra_at_known_reference_price_offers: canonicalReferenceReport.metrics.extra_at_known_reference_price_offers,
+      price_reference_diagnostics: canonicalReferenceReport.price_reference_diagnostics
     },
     divergence_categories: canonicalReferenceDivergence.categories,
     top_model_gaps: canonicalReferenceDivergence.top_model_gaps
