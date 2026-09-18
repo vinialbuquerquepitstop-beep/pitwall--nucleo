@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.10.1",
+  "schema_version": "0.7.1",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -270,8 +270,8 @@
       ]
     },
     "condition_canonicalization": {
-      "policy": "plural and singular supplier headings collapse to the same canonical condition",
-      "source": "legacy-calc-v2-adapter.js canonicalCondition"
+      "source": "ferramentas/interpreter-core/v1/legacy-calc-v2-adapter.js",
+      "policy": "plural and singular supplier labels normalize to the same semantic condition"
     },
     "price_extraction": {
       "source": "real load 6c4d3491",
