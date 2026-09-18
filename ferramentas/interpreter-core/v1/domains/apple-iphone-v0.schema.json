@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.4-shorthand-capacity",
+  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -39,7 +39,7 @@
         {
           "id": "supported_shorthand_v1",
           "kind": "regex",
-          "pattern": "^[^A-Za-z0-9]{0,12}((?:13\\s+Pro\\s+128|16\\s+256|16\\s+Pro\\s+256|17\\s+Air\\s+256|17\\s+256|17\\s+512)\\s*(?:GB)?)(?=\\D|$)",
+          "pattern": "^[^A-Za-z0-9]{0,12}((?:13\\s+Pro\\s+128|16\\s+256|16\\s+Pro\\s+256|17\\s+Air\\s+256|17\\s+512)\\s*(?:GB)?)(?=\\D|$)",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -385,7 +385,8 @@
         "iphone_16_pro_max_256gb",
         "iphone_16e_128gb",
         "iphone_17e_256gb"
-      ]
+      ],
+      "bare_capacity_policy": "bare-capacity extraction follows the same low-risk shorthand allowlist; 17 256 remains disabled"
     },
     "supported_shorthand_capacity": {
       "rule": "when a supported shorthand omits GB, capture the capacity from the same header",
