@@ -137,6 +137,93 @@ const capacityFromResolvedModelReport = compareSemanticShadow({
   coreBundle: capacityFromResolvedModelBundle,
   options: { include_supplier: true }
 });
+
+const adjacentColorBundle = JSON.parse(JSON.stringify(coreBundle));
+let adjacentColorFilled = 0;
+let adjacentColorRejectedModelConflict = 0;
+let adjacentColorRejectedBoundary = 0;
+const adjacentSegmentsByLine = new Map(
+  (adjacentColorBundle.segments || []).map(segment => [Number(segment.line_number), segment])
+);
+
+for (const record of adjacentColorBundle.records || []) {
+  if (record?.fields?.color != null) continue;
+  const priceTrace = (record.trace || []).find(item => item.field === 'price');
+  const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+    ? Number(priceTrace.sources[0])
+    : null;
+  if (!Number.isFinite(priceLine)) continue;
+
+  const sourceSegment = adjacentSegmentsByLine.get(priceLine - 1);
+  const targetSegment = adjacentSegmentsByLine.get(priceLine);
+  if (!sourceSegment || !targetSegment) continue;
+
+  const hardBoundary = [sourceSegment, targetSegment].some(segment =>
+    (segment.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' ||
+      event.reason === 'domain_boundary' ||
+      event.reason === 'supplier_boundary'
+    )
+  );
+  if (hardBoundary) {
+    adjacentColorRejectedBoundary += 1;
+    continue;
+  }
+
+  const colors = (sourceSegment.field_candidates || []).filter(candidate => candidate.field === 'color');
+  const uniqueColors = new Map();
+  for (const candidate of colors) {
+    const key = normalizeKey(candidate.value);
+    if (!key) continue;
+    const prior = uniqueColors.get(key);
+    if (!prior || (candidate.score || 0) > (prior.score || 0)) uniqueColors.set(key, candidate);
+  }
+  if (uniqueColors.size !== 1) continue;
+  if ((sourceSegment.field_candidates || []).some(candidate => candidate.field === 'price')) continue;
+
+  const semanticModels = (sourceSegment.semantic_candidates || []).filter(candidate =>
+    candidate.field === 'model' &&
+    (candidate.state === 'interpreted' || candidate.state === 'inferred') &&
+    candidate.entity_id
+  );
+  if (semanticModels.length > 0) {
+    const recordModel = record?.fields?.model?.id || null;
+    if (semanticModels.length !== 1 || semanticModels[0].entity_id !== recordModel) {
+      adjacentColorRejectedModelConflict += 1;
+      continue;
+    }
+  }
+
+  const sourceSupplier =
+    sourceSegment?.inherited_context?.supplier?.value ||
+    (sourceSegment.field_candidates || []).find(candidate => candidate.field === 'supplier')?.value ||
+    null;
+  const recordSupplier = record?.fields?.supplier || null;
+  if (sourceSupplier != null && recordSupplier != null &&
+      normalizeKey(sourceSupplier) !== normalizeKey(recordSupplier)) {
+    continue;
+  }
+
+  const candidate = [...uniqueColors.values()][0];
+  record.fields.color = candidate.value;
+  record.trace = Array.isArray(record.trace) ? record.trace : [];
+  record.trace.push({
+    field: 'color',
+    chosen: candidate.value,
+    sources: [sourceSegment.line_number],
+    derived_from: [sourceSegment.line_number],
+    rules: ['diagnostic:adjacent_unique_color_before_price'],
+    alternatives: [],
+    score: candidate.score ?? null
+  });
+  adjacentColorFilled += 1;
+}
+
+const adjacentColorReport = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: adjacentColorBundle,
+  options: { include_supplier: true }
+});
 const reportSupplierAware = supplierProfiles.length
   ? compareSemanticShadow({
       legacy: legacySupplierAware,
@@ -1770,6 +1857,21 @@ const summary = {
     no_silent_wrong_price: capacityFromResolvedModelReport.gates.no_silent_wrong_price,
     price_attribution_resolved: capacityFromResolvedModelReport.gates.price_attribution_resolved,
     exact_multiset: capacityFromResolvedModelReport.gates.exact_multiset
+  },
+  adjacent_unique_color_simulation: {
+    filled_records: adjacentColorFilled,
+    rejected_model_conflict: adjacentColorRejectedModelConflict,
+    rejected_boundary: adjacentColorRejectedBoundary,
+    core_offers: adjacentColorReport.metrics.core_offers,
+    matched_offers: adjacentColorReport.metrics.matched_offers,
+    missing_offers: adjacentColorReport.metrics.missing_offers,
+    extra_offers: adjacentColorReport.metrics.extra_offers,
+    agreement_ratio: adjacentColorReport.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: adjacentColorReport.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: adjacentColorReport.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: adjacentColorReport.gates.no_silent_wrong_price,
+    price_attribution_resolved: adjacentColorReport.gates.price_attribution_resolved,
+    exact_multiset: adjacentColorReport.gates.exact_multiset
   },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
