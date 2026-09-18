@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.9.5-shorthand-bare-capacity-safe",
+  "schema_version": "0.9.6-exp-reset-condition-on-model-anchor",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -230,9 +230,7 @@
   "context_policy": {
     "reset_on_timestamp": true,
     "anchor_resets_other_context": true,
-    "preserve_on_anchor": [
-      "condition"
-    ],
+    "preserve_on_anchor": [],
     "structural_boundaries": [
       {
         "id": "iphone_product_header_v1",
