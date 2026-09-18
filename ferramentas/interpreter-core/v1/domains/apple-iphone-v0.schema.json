@@ -97,7 +97,8 @@
           "match_mode": "all"
         }
       ],
-      "expand_records": true
+      "expand_records": true,
+      "expand_records_block_mode": "single_only"
     },
     {
       "name": "price",
@@ -158,7 +159,8 @@
         "color"
       ],
       "rule": "multiple distinct direct color candidates + one unambiguous price => one record per color",
-      "safety": "multiple prices or multiple expansion fields remain ambiguous"
+      "safety": "multiple prices or multiple expansion fields remain ambiguous",
+      "ablation": "single_only"
     }
   }
 }
