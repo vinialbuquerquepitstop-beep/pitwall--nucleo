@@ -3034,6 +3034,9 @@ const summary = {
   agreement_ratio_without_color: reportNoColor.metrics.agreement_ratio,
   exact_multiset_without_color: reportNoColor.gates.exact_multiset,
   no_silent_wrong_price: report.gates.no_silent_wrong_price,
+  confirmed_wrong_price_offers: report.metrics.confirmed_wrong_price_offers,
+  ambiguous_price_reference_offers: report.metrics.ambiguous_price_reference_offers,
+  extra_at_known_reference_price_offers: report.metrics.extra_at_known_reference_price_offers,
   exact_multiset: report.gates.exact_multiset,
   promotion_ready:
     report.gates.no_silent_wrong_price === true &&
@@ -3077,7 +3080,11 @@ const summary = {
       missing_offers: canonicalReferenceReport.metrics.missing_offers,
       extra_offers: canonicalReferenceReport.metrics.extra_offers,
       agreement_ratio: canonicalReferenceReport.metrics.agreement_ratio,
-      agreement_ratio_without_color: canonicalReferenceReportNoColor.metrics.agreement_ratio
+      agreement_ratio_without_color: canonicalReferenceReportNoColor.metrics.agreement_ratio,
+      no_silent_wrong_price: canonicalReferenceReport.gates.no_silent_wrong_price,
+      confirmed_wrong_price_offers: canonicalReferenceReport.metrics.confirmed_wrong_price_offers,
+      ambiguous_price_reference_offers: canonicalReferenceReport.metrics.ambiguous_price_reference_offers,
+      extra_at_known_reference_price_offers: canonicalReferenceReport.metrics.extra_at_known_reference_price_offers
     },
     divergence_categories: canonicalReferenceDivergence.categories,
     top_model_gaps: canonicalReferenceDivergence.top_model_gaps
