@@ -4371,6 +4371,130 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
+
+  // 10. SIMULATION ONLY: after strict dominance, allow a conservative pair
+  // adjudication when Core has multiple locally supported divergent fields,
+  // legacy has zero locally supported wins, and remaining fields are ties.
+  // This never mutates Core output; it only tests whether the residual ledger
+  // can distinguish source-supported Core pairs from weak legacy pairings.
+  if (options.includeNoLegacyWinsPartialPairDominance === true) {
+    const remainingMissing = () => missing
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !claimedMissing.has(index));
+    const remainingExtra = () => extras
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !claimedExtra.has(index));
+
+    const actualFieldLocalForPartialPair = (record, field, priceLine) => {
+      if (field === 'price') {
+        const trace = (record.trace || []).find(item => item.field === 'price');
+        return Number.isFinite(priceLine) &&
+          (trace?.rules || []).includes('direct_extraction');
+      }
+      if (field === 'supplier') {
+        const line = sourceLine(record, 'supplier');
+        const boundaries = pathBoundaries(line, priceLine);
+        return Number.isFinite(line) &&
+          !boundaries.has('supplier') &&
+          !boundaries.has('timestamp');
+      }
+      if (field === 'color') return isLocalField(record, 'color', priceLine, 3);
+      if (field === 'condition') return isLocalField(record, 'condition', priceLine, 6);
+      return false;
+    };
+
+    const conditionValueMapForPartialPair =
+      schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalPartialPairValue = (field, value) => {
+      if (value == null) return null;
+      if (field === 'condition') {
+        return normalizeKey(
+          conditionValueMapForPartialPair[value] ||
+          conditionValueMapForPartialPair[String(value)] ||
+          value
+        ) || null;
+      }
+      return normalizeKey(value) || null;
+    };
+
+    const expectedFieldLocalForPartialPair = (expected, field, priceLine) => {
+      if (!Number.isFinite(priceLine)) return false;
+      if (field === 'price') {
+        return segments.some(segment =>
+          supplierAt(segment) === expected.supplier &&
+          Number(segment.line_number) === priceLine &&
+          (segment.field_candidates || []).some(candidate =>
+            candidate.field === 'price' && Number(candidate.value) === expected.price
+          )
+        );
+      }
+      if (field === 'supplier') {
+        return supplierAt(segmentByLine.get(priceLine)) === expected.supplier;
+      }
+      if (field !== 'color' && field !== 'condition') return false;
+
+      const maxDistance = field === 'color' ? 3 : 6;
+      const expectedValue = expected[field];
+      if (expectedValue == null) return true;
+      return segments.some(segment => {
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line) || Math.abs(priceLine - line) > maxDistance) return false;
+        const boundaries = pathBoundaries(line, priceLine);
+        if (boundaries.has('domain') || boundaries.has('supplier') || boundaries.has('timestamp')) return false;
+        if (supplierAt(segment) !== expected.supplier) return false;
+        return (segment.field_candidates || []).some(candidate =>
+          candidate.field === field &&
+          canonicalPartialPairValue(field, candidate.value) ===
+            canonicalPartialPairValue(field, expectedValue)
+        );
+      });
+    };
+
+    const usedExtra = new Set();
+    for (const { item: miss, index: missingIndex } of remainingMissing()) {
+      const expected = norm(miss);
+      let best = null;
+
+      for (const { item: ex, index: extraIndex } of remainingExtra()) {
+        if (usedExtra.has(extraIndex)) continue;
+        const actual = norm(ex);
+        if (actual.model !== expected.model || actual.capacity !== expected.capacity) continue;
+        const diffs = diffFields(expected, actual);
+        if (!diffs.length || diffs.includes('capacity')) continue;
+        if (!best || diffs.length < best.diffs.length || (
+          diffs.length === best.diffs.length && extraIndex < best.extraIndex
+        )) {
+          best = { extraIndex, diffs };
+        }
+      }
+      if (!best || best.diffs.length < 3) continue;
+
+      const record = extraRecords[best.extraIndex];
+      if (!record) continue;
+      const priceLine = sourceLine(record, 'price');
+      let coreWins = 0;
+      let legacyWins = 0;
+      let ties = 0;
+
+      for (const field of best.diffs) {
+        const coreLocal = actualFieldLocalForPartialPair(record, field, priceLine);
+        const legacyLocal = expectedFieldLocalForPartialPair(expected, field, priceLine);
+        if (coreLocal && !legacyLocal) coreWins += 1;
+        else if (legacyLocal && !coreLocal) legacyWins += 1;
+        else ties += 1;
+      }
+
+      if (legacyWins !== 0 || coreWins < 2) continue;
+      if (claim(
+        'source_partial_dominance_no_legacy_wins_pair',
+        missingIndex,
+        best.extraIndex
+      )) {
+        usedExtra.add(best.extraIndex);
+      }
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -5669,6 +5793,19 @@ const conditionConfidenceHorizonDiagnostics = conditionConfidenceHorizonSimulati
     ledger_integrity: ledger?.integrity?.pass === true
   };
 });
+
+const residualAdjudicationLedgerPartialDominanceSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true
+    }
+  );
 
 const residualAdjudicationLedgerStrongMixedSimulation =
   buildResidualAdjudicationLedger(
@@ -7966,6 +8103,15 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  partial_dominance_no_legacy_wins_simulation: {
+    actionable:
+      residualAdjudicationLedgerPartialDominanceSimulation?.actionable || null,
+    categories:
+      residualAdjudicationLedgerPartialDominanceSimulation?.categories
+        ?.source_partial_dominance_no_legacy_wins_pair || null,
+    integrity:
+      residualAdjudicationLedgerPartialDominanceSimulation?.integrity?.pass === true
+  },
   residual_adjudication_ledger_strict_pair_dominance_simulation: residualAdjudicationLedgerStrictPairDominanceSimulation,
   condition_confidence_horizon_simulations: conditionConfidenceHorizonDiagnostics,
   condition_same_generation_variant_guard_simulation: {
