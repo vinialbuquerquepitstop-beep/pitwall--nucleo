@@ -435,9 +435,16 @@ function supplierBoundaryDiagnostics(bundle) {
     if (!boundary) continue;
     out.boundary_events += 1;
 
+    const supplierCandidates = (segment.field_candidates || []).filter(candidate => candidate.field === 'supplier');
     const suppliers = distinctFieldValues(segment, 'supplier');
     const supplier = suppliers.length === 1 ? JSON.parse(suppliers[0]) : '(ambiguous)';
     out.by_supplier[supplier] = (out.by_supplier[supplier] || 0) + 1;
+
+    out.by_captured_alias = out.by_captured_alias || {};
+    for (const candidate of supplierCandidates) {
+      const captured = candidate.evidence?.captured || '(unknown)';
+      out.by_captured_alias[captured] = (out.by_captured_alias[captured] || 0) + 1;
+    }
 
     const hasModel = distinctFieldValues(segment, 'model').length > 0;
     const hasPrice = distinctFieldValues(segment, 'price').length > 0;
