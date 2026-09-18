@@ -582,11 +582,37 @@ function collectExpansionCandidates(segments, segmentIndex, fieldName, schema = 
   };
 }
 
+function preferredCandidateFromAnchor(segmentsById, segment, field) {
+  const policy = field.prefer_from_anchor;
+  if (!policy || typeof policy !== 'object') return null;
+
+  const anchorField = policy.anchor_field;
+  const preferredValues = Array.isArray(policy.values) ? policy.values.map(normalizeKey) : [];
+  if (!anchorField || !preferredValues.length) return null;
+
+  const anchorContext = segment.inherited_context?.[anchorField];
+  if (!anchorContext?.source_segment_id) return null;
+
+  const anchorSegment = segmentsById.get(anchorContext.source_segment_id);
+  if (!anchorSegment) return null;
+
+  const candidates = uniqueFieldCandidates(anchorSegment.field_candidates || [], field.name)
+    .filter(candidate => preferredValues.includes(normalizeKey(candidate.value)))
+    .sort((a, b) => {
+      const ai = preferredValues.indexOf(normalizeKey(a.value));
+      const bi = preferredValues.indexOf(normalizeKey(b.value));
+      return (ai - bi) || (b.score - a.score);
+    });
+
+  return candidates[0] || null;
+}
+
 function composeRecords(segments, schema = {}, knowledge = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const fieldsByName = new Map(fields.map(f => [f.name, f]));
   const triggers = fields.filter(f => f.record_trigger);
   const knowledgeIndex = buildKnowledgeIndex(knowledge);
+  const segmentsById = new Map(segments.map(segment => [segment.segment_id, segment]));
   const records = [];
   const ambiguities = [];
   const learningProposals = [];
@@ -694,15 +720,21 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
       let sourceType = 'direct';
       let sourceCandidate = selected.candidate;
 
-      if (selected.state === 'none' && segment.inherited_context?.[field.name]) {
-        const entry = segment.inherited_context[field.name];
-        sourceType = 'context';
-        sourceCandidate = {
-          field: field.name,
-          value: entry.value,
-          score: entry.score,
-          evidence: entry.evidence
-        };
+      if (selected.state === 'none') {
+        const anchorCandidate = preferredCandidateFromAnchor(segmentsById, segment, field);
+        if (anchorCandidate) {
+          sourceType = 'anchor_context';
+          sourceCandidate = anchorCandidate;
+        } else if (segment.inherited_context?.[field.name]) {
+          const entry = segment.inherited_context[field.name];
+          sourceType = 'context';
+          sourceCandidate = {
+            field: field.name,
+            value: entry.value,
+            score: entry.score,
+            evidence: entry.evidence
+          };
+        }
       }
 
       if (selected.state === 'ambiguous') {
@@ -805,8 +837,16 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
           sources: [sourceType === 'context'
             ? segment.inherited_context[field.name].source_line
             : sourceCandidate.evidence?.line_number || segment.line_number],
-          derived_from: sourceType === 'context' ? [segment.inherited_context[field.name].source_line] : [],
-          rules: [sourceType === 'context' ? 'context_inheritance' : 'direct_extraction'],
+          derived_from: sourceType === 'context'
+            ? [segment.inherited_context[field.name].source_line]
+            : sourceType === 'anchor_context'
+              ? [sourceCandidate.evidence?.line_number].filter(Boolean)
+              : [],
+          rules: [sourceType === 'context'
+            ? 'context_inheritance'
+            : sourceType === 'anchor_context'
+              ? `anchor_precedence:${field.prefer_from_anchor.anchor_field}`
+              : 'direct_extraction'],
           alternatives: [],
           score: sourceCandidate.score ?? null
         });
@@ -971,6 +1011,7 @@ module.exports = {
   resolveEntityCandidate,
   semanticizeSegments,
   collectExpansionCandidates,
+  preferredCandidateFromAnchor,
   composeRecords,
   interpretStructural,
   interpretContextual,
