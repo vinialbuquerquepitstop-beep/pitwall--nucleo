@@ -87,6 +87,17 @@ function diagnosePriceReferences(legacyOffers, diff, options = {}) {
   let confirmedWrongPriceOffers = 0;
   let ambiguousPriceReferenceOffers = 0;
   let extraAtKnownReferencePriceOffers = 0;
+  const confirmedWrongPriceIdentities = [];
+  const ambiguousPriceReferenceIdentities = [];
+
+  const identitySummary = (fields, count, distinctReferencePrices) => ({
+    model: fields?.model?.id || null,
+    capacity_gb: fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+    condition: canonicalCondition(fields?.condition),
+    color: normalizeKey(fields?.color) || null,
+    extra_count: Number(count || 0),
+    distinct_reference_price_count: distinctReferencePrices
+  });
 
   for (const extra of diff.extra || []) {
     const fields = extra.fields || {};
@@ -103,15 +114,23 @@ function diagnosePriceReferences(legacyOffers, diff, options = {}) {
 
     if (reference.prices.size === 1) {
       confirmedWrongPriceOffers += Number(extra.count || 0);
+      confirmedWrongPriceIdentities.push(
+        identitySummary(fields, extra.count, reference.prices.size)
+      );
     } else {
       ambiguousPriceReferenceOffers += Number(extra.count || 0);
+      ambiguousPriceReferenceIdentities.push(
+        identitySummary(fields, extra.count, reference.prices.size)
+      );
     }
   }
 
   return {
     confirmed_wrong_price_offers: confirmedWrongPriceOffers,
     ambiguous_price_reference_offers: ambiguousPriceReferenceOffers,
-    extra_at_known_reference_price_offers: extraAtKnownReferencePriceOffers
+    extra_at_known_reference_price_offers: extraAtKnownReferencePriceOffers,
+    confirmed_wrong_price_identities: confirmedWrongPriceIdentities,
+    ambiguous_price_reference_identities: ambiguousPriceReferenceIdentities
   };
 }
 
