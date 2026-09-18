@@ -2,7 +2,7 @@
 
 Data: 2026-09-17
 Status: EM EXECUCAO
-Branch: `feat/external-calc-v0`
+Branch: `audit/interpreter-ready-runtime-v1`
 
 ## Objetivo do gate
 
@@ -89,11 +89,14 @@ Ela executa:
 
 1. `prova_core.js`
 2. `prova_cli.js`
-3. `prova_apple_domain.js`
-4. `prova_shadow_comparator.js`
-5. `prova_divergence_analyzer.js`
-6. `prova_offer_expansion_v1.js`
-7. `prova_real_shadow_semantic.js`
+3. `prova_generalization.js`
+4. `prova_cli.js`
+5. `prova_apple_domain.js`
+6. `prova_shadow_comparator.js`
+7. `prova_divergence_analyzer.js`
+8. `prova_offer_expansion_v1.js`
+9. `prova_supplier_profile_adapter.js`
+10. `prova_real_shadow_semantic.js`
 
 Criterio:
 
@@ -119,9 +122,15 @@ Interpreter Core
 Gate obrigatorio:
 
 ```text
-silent_wrong_price = 0
-silent_loss = 0
+supplier_aware_confirmed_silent_wrong_price = 0
+supplier_aware_unresolved_price_attribution = 0
+actionable_residual_after_source_adjudication = 0
+GATE_LOCAL = PASS
 ```
+
+O multiconjunto bruto contra o leitor legado continua sendo medido, mas nao e mais tratado como verdade absoluta quando a propria fonte contradiz o legado. Uma divergencia somente sai do conjunto acionavel quando existe evidencia estrutural/proveniencia suficiente e a categoria e registrada como adjudicada, sem alterar os dados brutos do benchmark.
+
+O gate local inclui prova sintetica nao-Apple para impedir overfitting ao corpus atual.
 
 Tambem revisar:
 
@@ -136,8 +145,9 @@ Tambem revisar:
 
 Estado:
 - [ ] corpus representativo executado
-- [ ] `silent_wrong_price = 0`
-- [ ] `silent_loss = 0`
+- [x] `supplier_aware_confirmed_silent_wrong_price = 0` no corpus atual
+- [x] `supplier_aware_unresolved_price_attribution = 0` no corpus atual
+- [ ] residuos acionaveis adjudicados = 0
 - [ ] divergencias restantes classificadas
 - [ ] erros transformados em fixtures permanentes
 
@@ -154,7 +164,7 @@ Estado atual:
 7. trocar host sem regra semantica nova — PASS estrutural
 8. registro final explica fontes — coberto pela arquitetura/testes; runtime pendente
 9. ambiguidade explicita — coberto pela arquitetura/testes; runtime pendente
-10. zero preco errado silencioso no corpus real — BLOQUEADOR
+10. zero preco errado silencioso no corpus real — PASS no corpus atual; continua requisito permanente
 11. nenhum banco no Core — PASS
 12. nenhum ramo por fornecedor no Core — PASS
 
@@ -195,9 +205,10 @@ Resultado exigido antes de Gate 02 = PASS:
 
 ```text
 GATE_LOCAL=PASS
-silent_wrong_price=0
-silent_loss=0
-divergencias conhecidas classificadas
+supplier_aware_confirmed_silent_wrong_price=0
+supplier_aware_unresolved_price_attribution=0
+actionable_residual_after_source_adjudication=0
+divergencias brutas preservadas e classificadas
 nenhuma escrita operacional
 ```
 
@@ -206,4 +217,4 @@ nenhuma escrita operacional
 `GATE 02 = NOT READY YET`
 
 Motivo:
-a independencia estrutural esta bem encaminhada e a CLI independente ja foi criada, mas ainda falta a evidencia decisiva: corpus real com zero preco silenciosamente errado e zero perda silenciosa.
+a independencia estrutural, o gate local e a seguranca de preco estao verdes no corpus atual. O bloqueio restante e reduzir a zero os residuos realmente acionaveis apos adjudicacao baseada na fonte, sem reproduzir divergencias comprovadamente erradas do leitor legado.
