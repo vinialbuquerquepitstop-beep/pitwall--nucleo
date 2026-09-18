@@ -1,6 +1,6 @@
 'use strict';
 
-const ENGINE_VERSION = 'interpreter-core/0.4.0-offer-expansion-shadow';
+const ENGINE_VERSION = 'interpreter-core/0.4.1-offer-expansion-block-shadow';
 
 function normalizeText(input) {
   return String(input ?? '')
@@ -484,6 +484,50 @@ function resolveContextEntry(entry, field, knowledgeIndex) {
   return { ...result, source_line: entry.source_line, source_segment_id: entry.source_segment_id };
 }
 
+function collectExpansionCandidates(segments, segmentIndex, fieldName, schema = {}) {
+  const current = uniqueFieldCandidates(segments[segmentIndex]?.field_candidates || [], fieldName);
+  if (current.length) return { source: 'direct', candidates: current };
+
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  const triggerNames = new Set(fields.filter(field => field.record_trigger).map(field => field.name));
+  const anchorNames = new Set(fields.filter(field => field.context_anchor).map(field => field.name));
+  const collected = [];
+
+  for (let index = segmentIndex - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    const candidates = segment.field_candidates || [];
+
+    const hasPriorTrigger = [...triggerNames].some(name =>
+      uniqueFieldCandidates(candidates, name).length > 0
+    );
+    if (hasPriorTrigger) break;
+
+    const hasTimestampBoundary = (segment.context_events || []).some(
+      event => event.reason === 'timestamp_boundary'
+    );
+    if (hasTimestampBoundary) break;
+
+    collected.push(...uniqueFieldCandidates(candidates, fieldName));
+
+    const hasAnchor = [...anchorNames].some(name =>
+      uniqueFieldCandidates(candidates, name).length > 0
+    );
+    if (hasAnchor) break;
+  }
+
+  const unique = new Map();
+  for (const candidate of collected) {
+    const key = JSON.stringify(candidate.value);
+    const prior = unique.get(key);
+    if (!prior || candidate.score > prior.score) unique.set(key, candidate);
+  }
+
+  return {
+    source: collected.length ? 'block' : 'none',
+    candidates: [...unique.values()].sort((a, b) => b.score - a.score)
+  };
+}
+
 function composeRecords(segments, schema = {}, knowledge = {}) {
   const fields = Array.isArray(schema.fields) ? schema.fields : [];
   const fieldsByName = new Map(fields.map(f => [f.name, f]));
@@ -493,7 +537,8 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
   const ambiguities = [];
   const learningProposals = [];
 
-  for (const segment of segments) {
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const segment = segments[segmentIndex];
     const triggerCandidates = [];
     for (const trigger of triggers) {
       const selected = selectUniqueCandidate(segment.field_candidates || [], trigger.name);
@@ -528,40 +573,60 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
     for (const field of fields) {
       const directCandidates = uniqueFieldCandidates(segment.field_candidates || [], field.name);
 
-      if (field.expand_records === true && directCandidates.length > 1) {
-        if (field.resolver?.kind === 'entity') {
+      if (field.expand_records === true) {
+        const expansion = collectExpansionCandidates(segments, segmentIndex, field.name, schema);
+
+        if (field.resolver?.kind === 'entity' && expansion.candidates.length > 0) {
           blocked = true;
           ambiguities.push({
             ambiguity_id: `amb-${segment.segment_id}-${field.name}-expansion-entity`,
             field: field.name,
             cause: 'record_expansion_entity_not_supported_v1',
             raw: segment.raw,
-            candidates: directCandidates,
+            candidates: expansion.candidates,
             sources: [segment.line_number],
             context: segment.inherited_context || {}
           });
           continue;
         }
 
-        if (recordExpansion) {
-          blocked = true;
-          ambiguities.push({
-            ambiguity_id: `amb-${segment.segment_id}-${field.name}-multiple-expansions`,
+        if (expansion.candidates.length > 1) {
+          if (recordExpansion) {
+            blocked = true;
+            ambiguities.push({
+              ambiguity_id: `amb-${segment.segment_id}-${field.name}-multiple-expansions`,
+              field: field.name,
+              cause: 'multiple_record_expansion_fields',
+              raw: segment.raw,
+              candidates: expansion.candidates,
+              sources: [segment.line_number],
+              context: segment.inherited_context || {}
+            });
+            continue;
+          }
+
+          recordExpansion = {
+            field,
+            candidates: expansion.candidates,
+            source: expansion.source
+          };
+          continue;
+        }
+
+        if (directCandidates.length === 0 && expansion.candidates.length === 1) {
+          const candidate = expansion.candidates[0];
+          fieldsOut[field.name] = candidate.value;
+          trace.push({
             field: field.name,
-            cause: 'multiple_record_expansion_fields',
-            raw: segment.raw,
-            candidates: directCandidates,
-            sources: [segment.line_number],
-            context: segment.inherited_context || {}
+            chosen: candidate.value,
+            sources: [candidate.evidence?.line_number || segment.line_number],
+            derived_from: [candidate.evidence?.line_number].filter(Boolean),
+            rules: ['record_expansion:block_inheritance'],
+            alternatives: [],
+            score: candidate.score ?? null
           });
           continue;
         }
-
-        recordExpansion = {
-          field,
-          candidates: directCandidates
-        };
-        continue;
       }
 
       let selected = selectUniqueCandidate(segment.field_candidates || [], field.name);
@@ -702,7 +767,9 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
               chosen: candidate.value,
               sources: [candidate.evidence?.line_number || segment.line_number],
               derived_from: [],
-              rules: ['record_expansion:direct_extraction'],
+              rules: [recordExpansion.source === 'block'
+                ? 'record_expansion:block_inheritance'
+                : 'record_expansion:direct_extraction'],
               alternatives: [],
               score: candidate.score ?? null
             }
@@ -841,6 +908,7 @@ module.exports = {
   buildKnowledgeIndex,
   resolveEntityCandidate,
   semanticizeSegments,
+  collectExpansionCandidates,
   composeRecords,
   interpretStructural,
   interpretContextual,
