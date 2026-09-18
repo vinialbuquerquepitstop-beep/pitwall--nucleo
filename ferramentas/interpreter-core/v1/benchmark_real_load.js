@@ -536,6 +536,17 @@ function localHeader17256Diagnostics(bundle) {
         .map(value => JSON.parse(value));
 
       if (prices.length > 0) {
+        priceContext.push({
+          line: segment.line_number,
+          direct_conditions: conditions,
+          inherited_condition: segment.inherited_context?.condition
+            ? {
+                value: segment.inherited_context.condition.value,
+                source_line: segment.inherited_context.condition.source_line
+              }
+            : null,
+          inherited_model_source_line: segment.inherited_context?.model?.source_line || null
+        });
         priceSegments += 1;
         if (prices.length === 1) singlePriceSegments += 1;
         else multiPriceSegments += 1;
@@ -670,6 +681,7 @@ function targetModelBlockDiagnostics(bundle, modelId) {
     let colorCandidates = 0;
     let directConditionRows = 0;
     const directConditions = {};
+    const priceContext = [];
 
     for (const segment of slice) {
       const prices = distinctFieldValues(segment, 'price');
@@ -706,10 +718,19 @@ function targetModelBlockDiagnostics(bundle, modelId) {
     });
 
     const materializedConditions = {};
+    const materializedTrace = [];
     for (const record of blockRecords) {
       const key = record.fields?.condition == null ? '(null)' : String(record.fields.condition);
       materializedConditions[key] = (materializedConditions[key] || 0) + 1;
       totals.materialized_conditions[key] = (totals.materialized_conditions[key] || 0) + 1;
+      const conditionTrace = (record.trace || []).find(trace => trace.field === 'condition');
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      materializedTrace.push({
+        price_line: Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null,
+        condition: key,
+        condition_source_lines: Array.isArray(conditionTrace?.sources) ? conditionTrace.sources.map(Number) : [],
+        condition_rules: Array.isArray(conditionTrace?.rules) ? conditionTrace.rules : []
+      });
     }
 
     totals.price_segments += priceSegments;
@@ -734,8 +755,10 @@ function targetModelBlockDiagnostics(bundle, modelId) {
       color_candidates: colorCandidates,
       direct_condition_rows: directConditionRows,
       direct_conditions: directConditions,
+      price_context: priceContext,
       materialized_records: blockRecords.length,
-      materialized_conditions: materializedConditions
+      materialized_conditions: materializedConditions,
+      materialized_trace: materializedTrace
     });
   }
 
