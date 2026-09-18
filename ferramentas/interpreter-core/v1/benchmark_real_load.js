@@ -1419,6 +1419,134 @@ function sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware
 const sourceContradictedLegacySupplierResidualDiagnostic =
   sourceContradictedLegacySupplierResidualDiagnostics(reportSupplierAware, coreBundle);
 
+function sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, bundle) {
+  if (!reportSupplierAware) return null;
+
+  const legacyCounts = new Map();
+  for (const offer of legacySupplierAware?.offers || []) {
+    const key = offerKey(offer.fields || {}, { include_supplier: true });
+    legacyCounts.set(key, (legacyCounts.get(key) || 0) + 1);
+  }
+
+  const coreByKey = new Map();
+  for (const record of coreOffers(bundle)) {
+    const key = offerKey(record.fields || {}, { include_supplier: true });
+    if (!coreByKey.has(key)) coreByKey.set(key, []);
+    coreByKey.get(key).push(record);
+  }
+
+  const segmentByLine = new Map(
+    (bundle.segments || []).map(segment => [Number(segment.line_number), segment])
+  );
+  const segments = bundle.segments || [];
+  const targetModels = new Set(['iphone_17e_256gb', 'iphone_16e_128gb']);
+
+  const boundariesBetween = (fromLine, toLine) => {
+    const out = new Set();
+    if (!Number.isFinite(fromLine) || !Number.isFinite(toLine)) return out;
+    const lo = Math.min(fromLine, toLine);
+    const hi = Math.max(fromLine, toLine);
+    for (const segment of segments) {
+      const line = Number(segment.line_number);
+      if (!(line > lo && line <= hi)) continue;
+      for (const event of segment.context_events || []) {
+        if (event.reason === 'timestamp_boundary') out.add('timestamp');
+        if (event.reason === 'domain_boundary') out.add('domain');
+        if (event.reason === 'supplier_boundary') out.add('supplier');
+      }
+    }
+    return out;
+  };
+
+  const byModel = {};
+  let surplusCases = 0;
+  let locallySourceSupported = 0;
+
+  for (const [key, records] of coreByKey.entries()) {
+    const supportedSlots = Math.min(legacyCounts.get(key) || 0, records.length);
+    for (let index = supportedSlots; index < records.length; index += 1) {
+      const record = records[index];
+      const modelId = record.fields?.model?.id || null;
+      if (!targetModels.has(modelId)) continue;
+      surplusCases += 1;
+
+      const modelTrace = (record.trace || []).find(trace => trace.field === 'model');
+      const priceTrace = (record.trace || []).find(trace => trace.field === 'price');
+      const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+        ? Number(modelTrace.sources[0])
+        : null;
+      const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+        ? Number(priceTrace.sources[0])
+        : null;
+      const modelSegment = Number.isFinite(modelLine) ? segmentByLine.get(modelLine) : null;
+      const priceSegment = Number.isFinite(priceLine) ? segmentByLine.get(priceLine) : null;
+
+      const semanticIds = [...new Set(
+        (modelSegment?.semantic_candidates || [])
+          .filter(candidate => candidate.field === 'model' && candidate.entity_id)
+          .map(candidate => candidate.entity_id)
+      )];
+      const directModelValues = (modelSegment?.field_candidates || [])
+        .filter(candidate => candidate.field === 'model')
+        .map(candidate => String(candidate.value));
+      const explicitE = directModelValues.some(value => /\b(?:16e|17e)\b/i.test(value));
+      const directPrice = (priceTrace?.rules || []).includes('direct_extraction');
+      const distance = Number.isFinite(modelLine) && Number.isFinite(priceLine)
+        ? Math.abs(priceLine - modelLine)
+        : null;
+      const boundaries = boundariesBetween(modelLine, priceLine);
+      const localSupport =
+        explicitE &&
+        semanticIds.includes(modelId) &&
+        directPrice &&
+        Number.isFinite(distance) &&
+        distance <= 6 &&
+        !boundaries.has('domain') &&
+        !boundaries.has('supplier') &&
+        !boundaries.has('timestamp');
+
+      if (!byModel[modelId]) {
+        byModel[modelId] = {
+          surplus_cases: 0,
+          locally_source_supported: 0,
+          not_locally_supported: 0,
+          signatures: {}
+        };
+      }
+      const row = byModel[modelId];
+      row.surplus_cases += 1;
+      if (localSupport) {
+        row.locally_source_supported += 1;
+        locallySourceSupported += 1;
+      } else {
+        row.not_locally_supported += 1;
+      }
+
+      const signature = [
+        'explicit_e=' + (explicitE ? 'yes' : 'no'),
+        'semantic_exact=' + (semanticIds.includes(modelId) ? 'yes' : 'no'),
+        'direct_price=' + (directPrice ? 'yes' : 'no'),
+        'distance=' + (distance ?? 'unknown'),
+        'domain_boundary=' + (boundaries.has('domain') ? 'yes' : 'no'),
+        'supplier_boundary=' + (boundaries.has('supplier') ? 'yes' : 'no'),
+        'timestamp_boundary=' + (boundaries.has('timestamp') ? 'yes' : 'no'),
+        'local_support=' + (localSupport ? 'yes' : 'no')
+      ].join('|');
+      row.signatures[signature] = (row.signatures[signature] || 0) + 1;
+    }
+  }
+
+  return {
+    surplus_e_model_cases: surplusCases,
+    locally_source_supported_model_price_cases: locallySourceSupported,
+    not_locally_source_supported_cases: surplusCases - locallySourceSupported,
+    by_model: byModel
+  };
+}
+
+const sourceSupportedCoreOnlyEModelDiagnostic =
+  sourceSupportedCoreOnlyEModelDiagnostics(reportSupplierAware, coreBundle);
+
 function conditionResidualTopologyDiagnostics(reportSupplierAware, bundle) {
   if (!reportSupplierAware) return null;
 
@@ -3585,6 +3713,7 @@ const summary = {
   missing_17_512_anchor_shape_diagnostic: missing17_512AnchorShapeDiagnostic,
   source_contradicted_legacy_missing_diagnostic: sourceContradictedLegacyMissingDiagnostic,
   source_contradicted_legacy_supplier_residual_diagnostic: sourceContradictedLegacySupplierResidualDiagnostic,
+  source_supported_core_only_e_model_diagnostic: sourceSupportedCoreOnlyEModelDiagnostic,
   condition_residual_topology_diagnostic: conditionResidualTopologyDiagnostic,
   pure_condition_residual_topology_diagnostic: pureConditionResidualTopologyDiagnostic,
   pure_color_residual_topology_diagnostic: pureColorResidualTopologyDiagnostic,
