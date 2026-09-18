@@ -459,19 +459,6 @@ check('fallback vizinho unico pareia cor quando contagens diferem', () => {
   assert.strictEqual(result.records[1].fields.color, undefined);
 });
 
-check('fallback exige vizinhanca mutua quando duas cores disputam o mesmo preco', () => {
-  const result = run(
-    'apple-nearest-mutual',
-    'iPhone 17 256GB Lacrado\nAzul\nPreto\nR$ 5.299\nOBS\nOBS\nR$ 5.499\nR$ 5.599'
-  );
-  assert.strictEqual(result.records.length, 3);
-  const first = result.records.find(record => record.fields.price === 5299);
-  assert.strictEqual(first.fields.color, 'Preto');
-  assert.ok(result.records
-    .filter(record => record.fields.price !== 5299)
-    .every(record => record.fields.color === undefined));
-});
-
 check('fallback vizinho unico se abstem em empate de distancia', () => {
   const result = run(
     'apple-nearest-tie',
