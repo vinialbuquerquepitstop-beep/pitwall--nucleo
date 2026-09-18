@@ -2,7 +2,7 @@
 
 const { normalizeKey } = require('./core');
 
-const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.3.0';
+const SEMANTIC_SHADOW_VERSION = 'semantic-shadow/0.4.0';
 
 function canonicalCondition(value) {
   const key = normalizeKey(value);
@@ -71,6 +71,7 @@ function identityKeyExceptPrice(fields, options = {}) {
 
 function diagnosePriceReferences(legacyOffers, diff, options = {}) {
   const byIdentity = new Map();
+  const byIdentityWithoutColorAndPrice = new Map();
 
   for (const offer of legacyOffers || []) {
     const fields = offer.fields || {};
@@ -82,13 +83,29 @@ function diagnosePriceReferences(legacyOffers, diff, options = {}) {
     entry.prices.add(price);
     entry.offers += 1;
     byIdentity.set(key, entry);
+
+    const noColorPriceKey = JSON.stringify([
+      fields?.model?.id || null,
+      fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+      canonicalCondition(fields?.condition),
+      price
+    ]);
+    const noColorEntry = byIdentityWithoutColorAndPrice.get(noColorPriceKey) || {
+      offers: 0,
+      colored_offers: 0
+    };
+    noColorEntry.offers += 1;
+    if (normalizeKey(fields?.color)) noColorEntry.colored_offers += 1;
+    byIdentityWithoutColorAndPrice.set(noColorPriceKey, noColorEntry);
   }
 
   let confirmedWrongPriceOffers = 0;
   let ambiguousPriceReferenceOffers = 0;
   let extraAtKnownReferencePriceOffers = 0;
+  let underSpecifiedColorPriceReferenceOffers = 0;
   const confirmedWrongPriceIdentities = [];
   const ambiguousPriceReferenceIdentities = [];
+  const underSpecifiedColorPriceReferenceIdentities = [];
 
   const identitySummary = (fields, count, distinctReferencePrices) => ({
     model: fields?.model?.id || null,
@@ -106,6 +123,25 @@ function diagnosePriceReferences(legacyOffers, diff, options = {}) {
 
     const reference = byIdentity.get(identityKeyExceptPrice(fields, options));
     if (!reference || reference.prices.size === 0) continue;
+
+    const includeColor = options.include_color !== false;
+    const coreColor = normalizeKey(fields?.color) || null;
+    if (includeColor && coreColor == null) {
+      const noColorPriceKey = JSON.stringify([
+        fields?.model?.id || null,
+        fields?.capacity_gb == null ? null : Number(fields.capacity_gb),
+        canonicalCondition(fields?.condition),
+        corePrice
+      ]);
+      const crossColorReference = byIdentityWithoutColorAndPrice.get(noColorPriceKey);
+      if (crossColorReference?.colored_offers > 0) {
+        underSpecifiedColorPriceReferenceOffers += Number(extra.count || 0);
+        underSpecifiedColorPriceReferenceIdentities.push(
+          identitySummary(fields, extra.count, reference.prices.size)
+        );
+        continue;
+      }
+    }
 
     if (reference.prices.has(corePrice)) {
       extraAtKnownReferencePriceOffers += Number(extra.count || 0);
@@ -129,8 +165,10 @@ function diagnosePriceReferences(legacyOffers, diff, options = {}) {
     confirmed_wrong_price_offers: confirmedWrongPriceOffers,
     ambiguous_price_reference_offers: ambiguousPriceReferenceOffers,
     extra_at_known_reference_price_offers: extraAtKnownReferencePriceOffers,
+    under_specified_color_price_reference_offers: underSpecifiedColorPriceReferenceOffers,
     confirmed_wrong_price_identities: confirmedWrongPriceIdentities,
-    ambiguous_price_reference_identities: ambiguousPriceReferenceIdentities
+    ambiguous_price_reference_identities: ambiguousPriceReferenceIdentities,
+    under_specified_color_price_reference_identities: underSpecifiedColorPriceReferenceIdentities
   };
 }
 
@@ -219,7 +257,8 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
       core_learning_proposals: Array.isArray(coreBundle.learning_proposals) ? coreBundle.learning_proposals.length : 0,
       confirmed_wrong_price_offers: priceReference.confirmed_wrong_price_offers,
       ambiguous_price_reference_offers: priceReference.ambiguous_price_reference_offers,
-      extra_at_known_reference_price_offers: priceReference.extra_at_known_reference_price_offers
+      extra_at_known_reference_price_offers: priceReference.extra_at_known_reference_price_offers,
+      under_specified_color_price_reference_offers: priceReference.under_specified_color_price_reference_offers
     },
     gates: {
       no_silent_wrong_price: priceReference.confirmed_wrong_price_offers === 0,
