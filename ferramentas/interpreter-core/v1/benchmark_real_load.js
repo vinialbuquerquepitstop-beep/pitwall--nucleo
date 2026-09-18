@@ -295,6 +295,50 @@ const longHeaderFallbackPriceReport = compareSemanticShadow({
   coreBundle: longHeaderFallbackPriceBundle,
   options: { include_supplier: true }
 });
+
+const inheritedModelDistance2Bundle = JSON.parse(JSON.stringify(coreBundle));
+const inheritedModelDistance2Segments = new Map(
+  (inheritedModelDistance2Bundle.segments || []).map(segment => [Number(segment.line_number), segment])
+);
+let inheritedModelDistance2Dropped = 0;
+inheritedModelDistance2Bundle.records = (inheritedModelDistance2Bundle.records || []).filter(record => {
+  const priceTrace = (record.trace || []).find(item => item.field === 'price');
+  const modelTrace = (record.trace || []).find(item => item.field === 'model');
+  const priceLine = Array.isArray(priceTrace?.sources) && priceTrace.sources.length
+    ? Number(priceTrace.sources[0])
+    : null;
+  const modelLine = Array.isArray(modelTrace?.sources) && modelTrace.sources.length
+    ? Number(modelTrace.sources[0])
+    : null;
+  if (!Number.isFinite(priceLine) || !Number.isFinite(modelLine)) return true;
+  if (priceLine - modelLine !== 2) return true;
+
+  const segment = inheritedModelDistance2Segments.get(priceLine);
+  if (!segment) return true;
+  if ((segment.role_candidates?.[0]?.role || 'unknown') !== 'price_line') return true;
+
+  const normalized = String(segment.normalized || '');
+  if (!(/R\$|\$/.test(normalized))) return true;
+  const candidates = segment.field_candidates || [];
+  if (candidates.some(candidate => candidate.field === 'model')) return true;
+  if (candidates.some(candidate => candidate.field === 'color')) return true;
+  const priceCandidates = candidates.filter(candidate => candidate.field === 'price');
+  if (priceCandidates.length !== 1) return true;
+
+  const tokenCount = normalized.trim()
+    ? normalized.trim().split(/\s+/).filter(Boolean).length
+    : 0;
+  if (tokenCount < 3 || tokenCount > 5) return true;
+
+  inheritedModelDistance2Dropped += 1;
+  return false;
+});
+
+const inheritedModelDistance2Report = compareSemanticShadow({
+  legacy: legacySupplierAware,
+  coreBundle: inheritedModelDistance2Bundle,
+  options: { include_supplier: true }
+});
 const reportSupplierAware = supplierProfiles.length
   ? compareSemanticShadow({
       legacy: legacySupplierAware,
@@ -2617,6 +2661,19 @@ const summary = {
     no_silent_wrong_price: longHeaderFallbackPriceReport.gates.no_silent_wrong_price,
     price_attribution_resolved: longHeaderFallbackPriceReport.gates.price_attribution_resolved,
     exact_multiset: longHeaderFallbackPriceReport.gates.exact_multiset
+  },
+  inherited_model_distance2_currency_price_simulation: {
+    dropped_records: inheritedModelDistance2Dropped,
+    core_offers: inheritedModelDistance2Report.metrics.core_offers,
+    matched_offers: inheritedModelDistance2Report.metrics.matched_offers,
+    missing_offers: inheritedModelDistance2Report.metrics.missing_offers,
+    extra_offers: inheritedModelDistance2Report.metrics.extra_offers,
+    agreement_ratio: inheritedModelDistance2Report.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: inheritedModelDistance2Report.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: inheritedModelDistance2Report.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: inheritedModelDistance2Report.gates.no_silent_wrong_price,
+    price_attribution_resolved: inheritedModelDistance2Report.gates.price_attribution_resolved,
+    exact_multiset: inheritedModelDistance2Report.gates.exact_multiset
   },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
