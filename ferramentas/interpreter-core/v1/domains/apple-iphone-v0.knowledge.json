@@ -1,0 +1,397 @@
+{
+  "contract_version": "knowledge-snapshot/v1",
+  "snapshot_id": "apple-iphone-shadow-v0",
+  "version": "0.5.0",
+  "created_at": null,
+  "entities": [
+    {
+      "kind": "model",
+      "id": "iphone_13_pro_128gb",
+      "label": "iPhone 13 Pro 128GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 128
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_15_128gb",
+      "label": "iPhone 15 128GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 128
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_16_128gb",
+      "label": "iPhone 16 128GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 128
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_16_256gb",
+      "label": "iPhone 16 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_16_pro_256gb",
+      "label": "iPhone 16 Pro 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_16_pro_max_256gb",
+      "label": "iPhone 16 Pro Max 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_17_256gb",
+      "label": "iPhone 17 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_17_512gb",
+      "label": "iPhone 17 512GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 512
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_17_air_256gb",
+      "label": "iPhone 17 Air 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_16e_128gb",
+      "label": "iPhone 16e 128GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 128
+      }
+    },
+    {
+      "kind": "model",
+      "id": "iphone_17e_256gb",
+      "label": "iPhone 17e 256GB",
+      "attributes": {
+        "categoria": "iPhone",
+        "capacity_gb": 256
+      }
+    }
+  ],
+  "aliases": [
+    {
+      "kind": "model",
+      "text": "iPhone Air 256GB",
+      "normalized": null,
+      "target_id": "iphone_17_air_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 13 Pro – 128GB",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 13 Pro - 128GB",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 13 Pro 128",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 15 128",
+      "normalized": null,
+      "target_id": "iphone_15_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 128",
+      "normalized": null,
+      "target_id": "iphone_16_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 256",
+      "normalized": null,
+      "target_id": "iphone_16_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 Pro 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 Pro Max 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 17 256",
+      "normalized": null,
+      "target_id": "iphone_17_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 17 512",
+      "normalized": null,
+      "target_id": "iphone_17_512gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 17 Air 256",
+      "normalized": null,
+      "target_id": "iphone_17_air_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16e 128",
+      "normalized": null,
+      "target_id": "iphone_16e_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 17e 256",
+      "normalized": null,
+      "target_id": "iphone_17e_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 Promax 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "iPhone 16 Promax 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "13 Pro 128GB",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "13 Pro 128",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "13P 128GB",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "13P 128",
+      "normalized": null,
+      "target_id": "iphone_13_pro_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "15 128GB",
+      "normalized": null,
+      "target_id": "iphone_15_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "15 128",
+      "normalized": null,
+      "target_id": "iphone_15_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 128GB",
+      "normalized": null,
+      "target_id": "iphone_16_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 128",
+      "normalized": null,
+      "target_id": "iphone_16_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 256",
+      "normalized": null,
+      "target_id": "iphone_16_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Pro 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Pro 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16P 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16P 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Pro Max 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Pro Max 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Promax 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16 Promax 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16PM 256GB",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16PM 256",
+      "normalized": null,
+      "target_id": "iphone_16_pro_max_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 256GB",
+      "normalized": null,
+      "target_id": "iphone_17_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 256",
+      "normalized": null,
+      "target_id": "iphone_17_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 512GB",
+      "normalized": null,
+      "target_id": "iphone_17_512gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 512",
+      "normalized": null,
+      "target_id": "iphone_17_512gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 Air 256GB",
+      "normalized": null,
+      "target_id": "iphone_17_air_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17 Air 256",
+      "normalized": null,
+      "target_id": "iphone_17_air_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "16e 128GB",
+      "normalized": null,
+      "target_id": "iphone_16e_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "16e 128",
+      "normalized": null,
+      "target_id": "iphone_16e_128gb"
+    },
+    {
+      "kind": "model",
+      "text": "17e 256GB",
+      "normalized": null,
+      "target_id": "iphone_17e_256gb"
+    },
+    {
+      "kind": "model",
+      "text": "17e 256",
+      "normalized": null,
+      "target_id": "iphone_17e_256gb"
+    }
+  ],
+  "semantic_rules": [],
+  "supplier_profiles": [],
+  "domain_rules": [],
+  "metadata": {
+    "mode": "shadow",
+    "source": [
+      "supabase/migrations/20260908_calc_catalogo_semente.sql",
+      "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
+      "ferramentas/prova_calc_catalogo.sql"
+    ],
+    "capacity_attributes_version": "v1"
+  }
+}

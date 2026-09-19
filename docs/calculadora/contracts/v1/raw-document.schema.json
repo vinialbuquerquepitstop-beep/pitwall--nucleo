@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitwall.local/contracts/interpreter/v1/raw-document.schema.json",
+  "title": "RawDocument",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "document_id", "content", "source"],
+  "properties": {
+    "contract_version": {"const": "raw-document/v1"},
+    "document_id": {"type": "string", "minLength": 1},
+    "content": {"type": "string"},
+    "content_hash": {"type": ["string", "null"]},
+    "encoding": {"type": "string", "default": "utf-8"},
+    "received_at": {"type": ["string", "null"], "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["plain_text", "whatsapp_txt", "whatsapp_zip", "csv", "xlsx", "clipboard", "api", "other"]},
+        "name": {"type": ["string", "null"]},
+        "mime_type": {"type": ["string", "null"]},
+        "origin_ref": {"type": ["string", "null"]}
+      }
+    },
+    "metadata": {"type": "object", "additionalProperties": true}
+  }
+}
