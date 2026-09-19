@@ -32,7 +32,10 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Calculadora
 
-- topo: `handoff_calculadora_pitwall_v20.md`
+- topo: `handoff_calculadora_pitwall_v21.md`
+- estado: Gate 02 do Interpreter Core V1 PASS / FROZEN; Ledger V8 com residual acionavel zero e branch limpa de integracao baseada no main.
+- integracao: `integrate/interpreter-core-v1`; run #185 passou gate local e corpus real.
+- proximo passo: PR para `main`; merge nao substitui automaticamente `calc_parse_v2`.
 - processo obrigatorio: `docs/calculadora/PROCESSO.md`
 
 ### Financeiro
