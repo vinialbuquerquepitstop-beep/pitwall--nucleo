@@ -2,6 +2,7 @@
 
 const API_VERSION = 'external-calc-api/v0';
 const EXECUTE_PATH = '/api/external-calc/v0/execute';
+const EXECUTION_PATH_PREFIX = '/api/external-calc/v0/executions/';
 
 const RESERVED_CLIENT_KEYS = new Set([
   'tenant_id',
@@ -89,6 +90,17 @@ function assertAuthenticatedContext(context) {
   };
 }
 
+function executionIdFromPath(path) {
+  if (!path.startsWith(EXECUTION_PATH_PREFIX)) return null;
+  const suffix = path.slice(EXECUTION_PATH_PREFIX.length);
+  if (!suffix || suffix.includes('/')) return null;
+  try {
+    return decodeURIComponent(suffix);
+  } catch {
+    return null;
+  }
+}
+
 function createExternalCalcApiV0(options = {}) {
   const authenticate = options.authenticate;
   const applicationService = options.applicationService;
@@ -107,8 +119,11 @@ function createExternalCalcApiV0(options = {}) {
       try {
         const method = String(request?.method || '').toUpperCase();
         const path = String(request?.path || '');
+        const executionId = method === 'GET' ? executionIdFromPath(path) : null;
+        const isExecute = method === 'POST' && path === EXECUTE_PATH;
+        const isLoad = method === 'GET' && executionId;
 
-        if (method !== 'POST' || path !== EXECUTE_PATH) {
+        if (!isExecute && !isLoad) {
           return json(404, {
             error: {
               code: 'NOT_FOUND',
@@ -118,6 +133,37 @@ function createExternalCalcApiV0(options = {}) {
         }
 
         const authContext = assertAuthenticatedContext(await authenticate(request));
+
+        if (isLoad) {
+          if (typeof applicationService.loadExecution !== 'function') {
+            throw new Error('applicationService.loadExecution obrigatorio');
+          }
+
+          const loaded = await applicationService.loadExecution({
+            tenant_id: authContext.tenant_id,
+            execution_id: executionId
+          });
+
+          if (!loaded) {
+            return json(404, {
+              error: {
+                code: 'EXECUTION_NOT_FOUND',
+                message: 'execucao nao encontrada'
+              }
+            });
+          }
+
+          return json(200, {
+            api_version: API_VERSION,
+            execution_id: loaded.execution_id,
+            analysis_id: loaded.analysis_id,
+            offer_id: loaded.offer_id,
+            offer_revision: loaded.offer_revision,
+            request: loaded.request,
+            result: loaded.service_result
+          });
+        }
+
         const body = normalizeBody(request.body);
         const reservedPath = findReservedClientKey(body);
 
@@ -130,7 +176,7 @@ function createExternalCalcApiV0(options = {}) {
           });
         }
 
-        const result = applicationService.executeAnalysis({
+        const result = await applicationService.executeAnalysis({
           tenant_id: authContext.tenant_id,
           request: body
         });
@@ -172,7 +218,9 @@ function createExternalCalcApiV0(options = {}) {
 module.exports = {
   API_VERSION,
   EXECUTE_PATH,
+  EXECUTION_PATH_PREFIX,
   RESERVED_CLIENT_KEYS,
   findReservedClientKey,
+  executionIdFromPath,
   createExternalCalcApiV0
 };
