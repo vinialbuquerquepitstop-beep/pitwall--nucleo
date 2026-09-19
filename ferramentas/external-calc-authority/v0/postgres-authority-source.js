@@ -119,11 +119,33 @@ function createPostgresAuthoritySource(options = {}) {
       return clone(row.c01_snapshot);
     },
 
-    async loadCalculationProfile() {
-      return parseServerJson(
-        serverConfig.calculationProfileJson,
-        'EXTCALC_CALCULATION_PROFILE_JSON'
+    async loadCalculationProfile(identity) {
+      const tenantId = assertNonEmpty(identity?.tenant_id, 'tenant_id');
+      const category = assertNonEmpty(
+        serverConfig.calculationCategory,
+        'EXTCALC_CALCULATION_CATEGORY'
       );
+
+      const params = new URLSearchParams({
+        tenant_id: `eq.${tenantId}`,
+        select: 'tenant_id,dados,atualizado_em'
+      });
+
+      const row = await selectOne(
+        `/rest/v1/calc_dados?${params.toString()}`,
+        'EXTCALC_AUTHORITY_CALC_CONFIG_LOAD_FAILED'
+      );
+
+      if (!row) throw new Error('calc_dados autoritativo nao encontrado');
+      if (row.tenant_id !== tenantId) {
+        throw new Error('calc_dados autoritativo com tenant divergente');
+      }
+
+      return buildCalculationProfileFromCalcDados({
+        category,
+        dados: row.dados,
+        updated_at: row.atualizado_em
+      });
     },
 
     async loadResearchProfile() {
