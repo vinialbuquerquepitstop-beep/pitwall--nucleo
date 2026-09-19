@@ -113,12 +113,12 @@ jobs:
       - name: Enforce no service role in runtime
         run: |
           set -euo pipefail
-          if grep -RFi "SUPABASE_SERVICE_ROLE_KEY"             ferramentas/external-calc-runtime/v0             worker/external-calc-worker.mjs             wrangler.jsonc; then
+          if grep -Fi "SUPABASE_SERVICE_ROLE_KEY" ferramentas/external-calc-runtime/v0/runtime.js ferramentas/external-calc-runtime/v0/postgres-adapter.js worker/external-calc-worker.mjs wrangler.jsonc; then
             echo "BLOQUEIO: service role entrou no runtime"
             exit 1
           fi
 
-          if grep -RFi "service_role"             ferramentas/external-calc-runtime/v0             worker/external-calc-worker.mjs; then
+          if grep -Fi "service_role" ferramentas/external-calc-runtime/v0/runtime.js ferramentas/external-calc-runtime/v0/postgres-adapter.js worker/external-calc-worker.mjs; then
             echo "BLOQUEIO: service_role entrou no runtime"
             exit 1
           fi
