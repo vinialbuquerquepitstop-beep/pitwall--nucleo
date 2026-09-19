@@ -4379,7 +4379,10 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   // This never mutates Core output; it only classifies source-supported Core
   // pairs against weak legacy pairings. The option remains toggleable so V4
   // can still be reproduced for audit comparison.
-  if (options.includeNoLegacyWinsPartialPairDominance === true) {
+  if (
+    options.includeNoLegacyWinsPartialPairDominance === true ||
+    options.includePriceOnlyDominanceNoLegacyWins === true
+  ) {
     const remainingMissing = () => missing
       .map((item, index) => ({ item, index }))
       .filter(({ index }) => !claimedMissing.has(index));
@@ -4492,12 +4495,20 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
         }
       }
 
-      if (legacyWins !== 0 || coreWins < 2 || !coreWinFields.includes('price')) continue;
-      if (claim(
-        'source_partial_dominance_no_legacy_wins_pair',
-        missingIndex,
-        best.extraIndex
-      )) {
+      if (legacyWins !== 0 || !coreWinFields.includes('price')) continue;
+
+      const qualifiesV5 =
+        options.includeNoLegacyWinsPartialPairDominance === true &&
+        coreWins >= 2;
+      const qualifiesV6 =
+        options.includePriceOnlyDominanceNoLegacyWins === true &&
+        coreWins >= 1;
+
+      if (!qualifiesV5 && !qualifiesV6) continue;
+      const category = qualifiesV5
+        ? 'source_partial_dominance_no_legacy_wins_pair'
+        : 'source_price_dominance_no_legacy_wins_pair';
+      if (claim(category, missingIndex, best.extraIndex)) {
         usedExtra.add(best.extraIndex);
       }
     }
@@ -5206,9 +5217,11 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      options.includeNoLegacyWinsPartialPairDominance === true
-        ? 'residual-adjudication-ledger/v5'
-        : options.includeStrictPairDominance === true
+      options.includePriceOnlyDominanceNoLegacyWins === true
+        ? 'residual-adjudication-ledger/v6'
+        : options.includeNoLegacyWinsPartialPairDominance === true
+          ? 'residual-adjudication-ledger/v5'
+          : options.includeStrictPairDominance === true
           ? 'residual-adjudication-ledger/v4'
           : options.includeSourceUnsupportedMissing === true
           ? 'residual-adjudication-ledger/v3'
@@ -5804,6 +5817,20 @@ const conditionConfidenceHorizonDiagnostics = conditionConfidenceHorizonSimulati
     ledger_integrity: ledger?.integrity?.pass === true
   };
 });
+
+const residualAdjudicationLedgerPriceOnlyDominanceSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true
+    }
+  );
 
 const residualAdjudicationLedgerPartialDominanceSimulation =
   buildResidualAdjudicationLedger(
@@ -8114,6 +8141,18 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  price_only_dominance_no_legacy_wins_simulation: {
+    actionable:
+      residualAdjudicationLedgerPriceOnlyDominanceSimulation?.actionable || null,
+    v5_category:
+      residualAdjudicationLedgerPriceOnlyDominanceSimulation?.categories
+        ?.source_partial_dominance_no_legacy_wins_pair || null,
+    v6_category:
+      residualAdjudicationLedgerPriceOnlyDominanceSimulation?.categories
+        ?.source_price_dominance_no_legacy_wins_pair || null,
+    integrity:
+      residualAdjudicationLedgerPriceOnlyDominanceSimulation?.integrity?.pass === true
+  },
   partial_dominance_no_legacy_wins_simulation: {
     actionable:
       residualAdjudicationLedgerPartialDominanceSimulation?.actionable || null,
