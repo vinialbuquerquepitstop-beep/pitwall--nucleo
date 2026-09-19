@@ -1,0 +1,253 @@
+name: External Calc - Interpreter Generalization Gate V1
+
+on:
+  push:
+    branches:
+      - audit/interpreter-generalization-v1
+    paths:
+      - '.github/workflows/interpreter_generalization_v1.yml'
+      - 'docs/calculadora/INTERPRETER_GENERALIZATION_GATE_V1.md'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/interpreter_generalization_v1.yml'
+      - 'docs/calculadora/INTERPRETER_GENERALIZATION_GATE_V1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interpreter-generalization-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-core:
+    name: Frozen Core regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Reconfirm frozen Interpreter Core
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js | tee /tmp/interpreter-local.log
+          grep -q '^GATE_LOCAL=PASS' /tmp/interpreter-local.log
+
+      - name: Reconfirm C01 read-only bridge
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01-local.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01-local.log
+
+  real-heldout:
+    name: Real heldout generalization gate
+    needs: frozen-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROMOTION_LOAD_ID: '6c4d3491-f85b-4015-8393-9798ab1ce758'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install PostgreSQL client 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Evaluate unseen real loads read-only
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          test -n "${SUPABASE_DB_URL:-}"
+
+          TENANT_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+              -c "select tenant_id::text
+                    from public.calc_carga
+                   where id = '$PROMOTION_LOAD_ID'::uuid
+                   limit 1"
+          )"
+          test -n "$TENANT_ID"
+
+          OWNER_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+              -c "select id::text
+                    from public.app_usuario
+                   where tenant_id = '$TENANT_ID'::uuid
+                     and ativo
+                     and papel = 'dono'
+                   order by id
+                   limit 1"
+          )"
+          test -n "$OWNER_ID"
+          CLAIMS="{\"sub\":\"$OWNER_ID\"}"
+
+          mapfile -t LOADS < <(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+              -c "select id::text
+                    from public.calc_carga
+                   where tenant_id = '$TENANT_ID'::uuid
+                     and id <> '$PROMOTION_LOAD_ID'::uuid
+                     and texto_bruto is not null
+                     and length(btrim(texto_bruto)) > 0
+                   order by id::text
+                   limit 3"
+          )
+
+          TOTAL="${#LOADS[@]}"
+          echo "HELDOUT_LOADS=$TOTAL"
+          if [ "$TOTAL" -lt 1 ]; then
+            echo "GENERALIZATION_REAL_GATE=BLOCKED"
+            echo "Motivo: nenhuma carga real heldout disponivel."
+            exit 2
+          fi
+
+          PASS=0
+          FAIL=0
+          INDEX=0
+
+          for LOAD_ID in "${LOADS[@]}"; do
+            INDEX=$((INDEX + 1))
+            PREFIX="/tmp/heldout_${INDEX}"
+
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+              -v claims="$CLAIMS" -v load_id="$LOAD_ID" <<SQL
+          \o /dev/null
+          select set_config('request.jwt.claims', :'claims', false);
+
+          \o ${PREFIX}_raw.b64
+          select encode(convert_to(texto_bruto, 'UTF8'), 'base64')
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o ${PREFIX}_legacy.b64
+          select encode(
+                   convert_to(public.calc_bench_ler(texto_bruto)::text, 'UTF8'),
+                   'base64'
+                 )
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o ${PREFIX}_suppliers.json
+          select jsonb_build_object(
+                   'contract_version', 'supplier-profiles/v1',
+                   'profiles',
+                   coalesce(
+                     (
+                       select jsonb_agg(
+                                jsonb_build_object(
+                                  'id', f.codigo,
+                                  'label', f.nome,
+                                  'aliases',
+                                  coalesce(
+                                    (
+                                      select jsonb_agg(a.texto order by length(a.texto) desc, a.texto)
+                                        from public.calc_alias a
+                                       where a.tenant_id = f.tenant_id
+                                         and a.tipo = 'fornecedor'
+                                         and a.aponta = f.codigo
+                                    ),
+                                    '[]'::jsonb
+                                  )
+                                )
+                                order by length(f.nome) desc, f.nome
+                              )
+                         from public.calc_fornecedor f
+                        where f.tenant_id = c.tenant_id
+                          and f.ativo
+                     ),
+                     '[]'::jsonb
+                   )
+                 )::text
+            from public.calc_carga c
+           where c.id = :'load_id'::uuid;
+          \o
+          SQL
+
+            test -s "${PREFIX}_raw.b64"
+            test -s "${PREFIX}_legacy.b64"
+            test -s "${PREFIX}_suppliers.json"
+
+            base64 --decode "${PREFIX}_raw.b64" > "${PREFIX}_raw.txt"
+            base64 --decode "${PREFIX}_legacy.b64" > "${PREFIX}_legacy.json"
+            node -e "JSON.parse(require('fs').readFileSync('${PREFIX}_legacy.json','utf8'));"
+            node -e "JSON.parse(require('fs').readFileSync('${PREFIX}_suppliers.json','utf8'));"
+
+            CASE_OK=1
+
+            if ! node ferramentas/interpreter-core/v1/benchmark_real_load.js \
+              "${PREFIX}_raw.txt" "${PREFIX}_legacy.json" "${PREFIX}_suppliers.json" \
+              > "${PREFIX}_benchmark.log" 2>&1; then
+              CASE_OK=0
+            fi
+
+            if ! grep -q '^PROMOTION_READY=true$' "${PREFIX}_benchmark.log"; then
+              CASE_OK=0
+            fi
+
+            if ! node ferramentas/external-calc-c01/v1/prova_real_c01_readonly.js \
+              "${PREFIX}_raw.txt" "${PREFIX}_suppliers.json" \
+              > "${PREFIX}_c01.log" 2>&1; then
+              CASE_OK=0
+            fi
+
+            if ! grep -q '^C01_REAL_READONLY_GATE=PASS$' "${PREFIX}_c01.log"; then
+              CASE_OK=0
+            fi
+
+            CANDIDATES="$(grep '^C01_REAL_CANDIDATES=' "${PREFIX}_c01.log" | tail -1 | cut -d= -f2 || true)"
+            ATTRIBUTED="$(grep '^C01_REAL_SUPPLIER_ATTRIBUTED=' "${PREFIX}_c01.log" | tail -1 | cut -d= -f2 || true)"
+
+            if [ -z "$CANDIDATES" ] || [ -z "$ATTRIBUTED" ] || [ "$CANDIDATES" != "$ATTRIBUTED" ]; then
+              CASE_OK=0
+            fi
+
+            if [ "$CASE_OK" -eq 1 ]; then
+              PASS=$((PASS + 1))
+              echo "HELDOUT_CASE_${INDEX}=PASS candidates=$CANDIDATES supplier_attributed=$ATTRIBUTED"
+            else
+              FAIL=$((FAIL + 1))
+              echo "HELDOUT_CASE_${INDEX}=FAIL candidates=${CANDIDATES:-unknown} supplier_attributed=${ATTRIBUTED:-unknown}"
+              grep -E '^(PROMOTION_READY|C01_REAL_)=' "${PREFIX}_benchmark.log" "${PREFIX}_c01.log" 2>/dev/null || true
+            fi
+          done
+
+          echo "HELDOUT_PASS=$PASS"
+          echo "HELDOUT_FAIL=$FAIL"
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo "GENERALIZATION_REAL_GATE=FAIL"
+            exit 1
+          fi
+
+          echo "GENERALIZATION_REAL_GATE=PASS"
+
+      - name: Cleanup private files
+        if: always()
+        run: |
+          rm -f /tmp/heldout_*
