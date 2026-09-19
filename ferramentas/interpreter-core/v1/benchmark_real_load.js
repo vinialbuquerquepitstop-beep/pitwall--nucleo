@@ -8193,7 +8193,7 @@ function sourceOnlyExpansionDirectionEvidence(bundle) {
   return evidence;
 }
 
-function simulateStrictAfterPriceColorExpansion(bundle, minColors) {
+function simulateStrictAfterPriceColorExpansion(bundle, minColors, sourceShapeMode = 'field_only') {
   const simulated = JSON.parse(JSON.stringify(bundle));
   const directionEvidence = sourceOnlyExpansionDirectionEvidence(bundle);
   const trustedAfterSuppliers = new Set(
@@ -8285,12 +8285,25 @@ function simulateStrictAfterPriceColorExpansion(bundle, minColors) {
         structurallyClosed = true;
         break;
       }
-      if (!isFieldOnlySegment(segment, 'color')) {
+      const colors = uniqueFieldCandidates(segment.field_candidates || [], 'color');
+      if (colors.length !== 1) {
         structurallyClosed = true;
         break;
       }
-      const colors = uniqueFieldCandidates(segment.field_candidates || [], 'color');
-      if (colors.length !== 1) {
+      const sourceIsFieldOnly = isFieldOnlySegment(segment, 'color');
+      const sourceCandidateFields = [...new Set(
+        (segment.field_candidates || []).map(candidate => candidate.field)
+      )];
+      const sourceRole = segment.role_candidates?.[0]?.role || 'unknown';
+      const sourceShapeAllowed =
+        sourceIsFieldOnly ||
+        (
+          sourceShapeMode === 'color_candidate_only_product_header' &&
+          sourceRole === 'product_header' &&
+          sourceCandidateFields.length === 1 &&
+          sourceCandidateFields[0] === 'color'
+        );
+      if (!sourceShapeAllowed) {
         structurallyClosed = true;
         break;
       }
@@ -8346,6 +8359,7 @@ function simulateStrictAfterPriceColorExpansion(bundle, minColors) {
   return {
     bundle: simulated,
     min_colors: minColors,
+    source_shape_mode: sourceShapeMode,
     direction_evidence: directionEvidence,
     trusted_after_suppliers: [...trustedAfterSuppliers].sort(),
     candidate_records: candidateRecords,
@@ -8356,8 +8370,17 @@ function simulateStrictAfterPriceColorExpansion(bundle, minColors) {
   };
 }
 
-const strictAfterPriceColorExpansionSimulations = [2, 1].map(minColors => {
-  const simulation = simulateStrictAfterPriceColorExpansion(coreBundle, minColors);
+const strictAfterPriceColorExpansionSimulations = [
+  { min_colors: 2, source_shape_mode: 'field_only' },
+  { min_colors: 1, source_shape_mode: 'field_only' },
+  { min_colors: 2, source_shape_mode: 'color_candidate_only_product_header' },
+  { min_colors: 1, source_shape_mode: 'color_candidate_only_product_header' }
+].map(config => {
+  const simulation = simulateStrictAfterPriceColorExpansion(
+    coreBundle,
+    config.min_colors,
+    config.source_shape_mode
+  );
   const report = compareSemanticShadow({
     legacy: legacySupplierAware,
     coreBundle: simulation.bundle,
@@ -8376,7 +8399,8 @@ const strictAfterPriceColorExpansionSimulations = [2, 1].map(minColors => {
     }
   );
   return {
-    min_colors: minColors,
+    min_colors: config.min_colors,
+    source_shape_mode: config.source_shape_mode,
     direction_evidence: simulation.direction_evidence,
     trusted_after_suppliers: simulation.trusted_after_suppliers,
     candidate_records: simulation.candidate_records,
