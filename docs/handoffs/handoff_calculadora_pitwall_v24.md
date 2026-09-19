@@ -149,9 +149,24 @@ Baseline de advisors antes da migration:
 Depois da migration:
 
 - os mesmos 11 findings;
-- nenhum finding novo `extcalc_*`;
+- nenhum finding novo `extcalc_*` de seguranca;
 - nenhuma nova funcao SECURITY DEFINER;
 - nenhuma escrita cliente-side aberta.
+
+O advisor de performance revelou 2 findings novos de FK sem indice de cobertura:
+
+- `extcalc_run_revision_fk`;
+- `extcalc_evidence_revision_fk`.
+
+Eles foram corrigidos antes do fechamento:
+
+- PR #27;
+- merge squash: `4bef4e5aa98ffe7bc018cf5dc48e8bbdf015f34b`;
+- migration: `20260919202604_external_calc_persistence_fk_indexes_v0`.
+
+Depois da correcao, `unindexed_foreign_keys` caiu de 28 para 26 e nenhum
+`extcalc_*` permaneceu nessa categoria. Os dois indices aparecem como unused
+porque as tabelas ainda estao vazias, estado esperado neste gate.
 
 ## 7. O que NAO entrou
 
