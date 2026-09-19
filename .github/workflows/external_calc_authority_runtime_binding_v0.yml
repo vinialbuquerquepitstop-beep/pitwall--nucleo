@@ -80,7 +80,7 @@ jobs:
           grep -Fq "createExternalCalcAuthorityResolver" "$FILE"
           grep -Fq "createAuthorityBoundApplicationService" "$FILE"
           grep -Fq "createPostgresAuthoritySource" "$FILE"
-          grep -Fq "EXTCALC_CALCULATION_PROFILE_JSON" "$FILE"
+          grep -Fq "EXTCALC_CALCULATION_CATEGORY" "$FILE"
           grep -Fq "EXTCALC_RESEARCH_PROFILE_JSON" "$FILE"
           grep -Fq "EXTCALC_INDICATOR_PROFILE_JSON" "$FILE"
 
