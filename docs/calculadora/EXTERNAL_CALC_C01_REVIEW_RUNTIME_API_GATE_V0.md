@@ -1,7 +1,7 @@
 # EXTERNAL CALC — C01 REVIEW RUNTIME API GATE V0
 
 Data: 19/09/2026
-Status: IMPLEMENTATION CANDIDATE
+Status: PASS
 
 Predecessores:
 
@@ -87,3 +87,23 @@ Este gate nao cria candidate a partir da Screen 03, nao decide politica C03/C04,
 C01_REVIEW_RUNTIME_API_GATE_V0 = PASS -> deploy manual G4 / smoke unauthenticated -> C01_REVIEW_LIVE_ROUNDTRIP_GATE_V0 -> Frontend Adapter review method -> Screen 03 real.
 
 A Screen 03 so pode trocar o estado local por persistencia real depois do roundtrip autenticado.
+
+## 10. Evidencia de fechamento
+
+PR: #39
+Merge commit: c4e38e1e307b6afbae6cfa3edf9e36299c4f22c3
+
+Na mesma revisao do PR ficaram verdes:
+- C01 Review Runtime API V0;
+- C01 Review Authority Core V0;
+- C01 Review Candidate Persistence V0;
+- C01 Review Result Persistence V0;
+- Runtime Postgres V0 Gate;
+- Authority Runtime Binding V0;
+- Authority Production Config V0;
+- Cloudflare G4 package validation;
+- Wrangler dry-run.
+
+Deploy do Worker nao foi executado por este gate, porque o workflow G4 preserva workflow_dispatch manual como barreira operacional.
+
+C01_REVIEW_RUNTIME_API_GATE_V0 = PASS
