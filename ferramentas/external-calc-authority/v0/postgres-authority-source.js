@@ -1,5 +1,7 @@
 'use strict';
 
+const { buildCalculationProfileFromCalcDados } = require('./calc-dados-calculation-profile');
+
 function assertNonEmpty(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${field} obrigatorio`);
