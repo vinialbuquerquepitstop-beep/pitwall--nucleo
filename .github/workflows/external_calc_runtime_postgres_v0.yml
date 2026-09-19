@@ -1,0 +1,156 @@
+name: External Calc - Runtime Postgres V0 Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-runtime-postgres-v0
+    paths:
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'ferramentas/external-calc-api/v0/**'
+      - 'supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql'
+      - 'worker/external-calc-worker.mjs'
+      - 'wrangler.jsonc'
+      - 'docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'ferramentas/external-calc-api/v0/**'
+      - 'supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql'
+      - 'worker/external-calc-worker.mjs'
+      - 'wrangler.jsonc'
+      - 'docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-runtime-postgres-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-postgres-gate:
+    name: Runtime Postgres roundtrip gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Preserve API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Prove Runtime Postgres V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Prove Cloudflare bundle
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-worker | tee /tmp/wrangler.log
+          test -s /tmp/extcalc-worker/index.js
+          echo "EXTERNAL_CALC_WORKER_BUNDLE=PASS"
+
+      - name: Enforce persistence RPC boundary
+        run: |
+          set -euo pipefail
+          FILE=supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql
+
+          grep -Fq "security definer" "$FILE"
+          grep -Fq "privado.fn_tenant_atual()" "$FILE"
+          grep -Fq "privado.fn_papel_atual()" "$FILE"
+          grep -Fq "v_papel is distinct from 'dono'" "$FILE"
+          grep -Fq "EXTCALC_TENANT_MISMATCH" "$FILE"
+          grep -Fq "EXTCALC_RUN_LINEAGE_MISMATCH" "$FILE"
+          grep -Fq "EXTCALC_EVIDENCE_LINEAGE_MISMATCH" "$FILE"
+          grep -Fq "revoke all on function public.extcalc_persist_execution_v0(jsonb)" "$FILE"
+          grep -Fq "grant execute on function public.extcalc_persist_execution_v0(jsonb)" "$FILE"
+
+          for token in             'cash_margin_minor'             'installment_margin_minor'             'cheap_at_or_below_percent'             'expensive_at_or_above_percent'             'median'             'market_price'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: RPC contem regra de dominio: $token"
+              exit 1
+            fi
+          done
+
+          echo "EXTERNAL_CALC_RUNTIME_RPC_BOUNDARY=PASS"
+
+      - name: Enforce no service role in runtime
+        run: |
+          set -euo pipefail
+          if grep -RFi "SUPABASE_SERVICE_ROLE_KEY"             ferramentas/external-calc-runtime/v0             worker/external-calc-worker.mjs             wrangler.jsonc; then
+            echo "BLOQUEIO: service role entrou no runtime"
+            exit 1
+          fi
+
+          if grep -RFi "service_role"             ferramentas/external-calc-runtime/v0             worker/external-calc-worker.mjs; then
+            echo "BLOQUEIO: service_role entrou no runtime"
+            exit 1
+          fi
+
+          echo "EXTERNAL_CALC_RUNTIME_NO_SERVICE_ROLE=PASS"
+
+      - name: Enforce API-only Worker routing
+        run: |
+          set -euo pipefail
+          grep -Fq '"directory": "./public"' wrangler.jsonc
+          grep -Fq '"binding": "ASSETS"' wrangler.jsonc
+          grep -Fq '"/api/external-calc/*"' wrangler.jsonc
+          grep -Fq '"not_found_handling": "single-page-application"' wrangler.jsonc
+          grep -Fq '"main": "./worker/external-calc-worker.mjs"' wrangler.jsonc
+          echo "EXTERNAL_CALC_RUNTIME_ROUTING=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-runtime/v0/*|ferramentas/external-calc-api/v0/application-service.js|ferramentas/external-calc-api/v0/api-handler.js|supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql|worker/external-calc-worker.mjs|wrangler.jsonc|docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md|.github/workflows/external_calc_runtime_postgres_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Runtime/Postgres V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "EXTERNAL_CALC_RUNTIME_SCOPE=PASS"
