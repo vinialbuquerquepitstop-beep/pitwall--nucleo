@@ -1,0 +1,124 @@
+name: External Calc - Cloudflare G4 Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_target:
+        description: 'Type flat-resonance-09ba to confirm the existing Worker target'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-cloudflare-g4
+  cancel-in-progress: false
+
+jobs:
+  gate-and-deploy:
+    name: Gate and deploy existing Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: external-calc-production
+
+    steps:
+      - name: Require main branch and exact target
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "main"
+          test "${CONFIRM_TARGET}" = "flat-resonance-09ba"
+          echo "EXTERNAL_CALC_G4_TARGET=PASS"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js for contract gates
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Preserve API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Preserve Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Verify Cloudflare credentials are configured
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          echo "EXTERNAL_CALC_G4_CREDENTIALS=PRESENT"
+
+      - name: Wrangler dry-run
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-worker | tee /tmp/wrangler-dry.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler-dry.log
+          echo "EXTERNAL_CALC_G4_DRY_RUN=PASS"
+
+      - name: Deploy existing Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy | tee /tmp/wrangler-deploy.log
+          echo "EXTERNAL_CALC_G4_DEPLOY=PASS"
+
+      - name: Smoke API unauthenticated
+        run: |
+          set -euo pipefail
+          URL="https://flat-resonance-09ba.pitstopimports.workers.dev/api/external-calc/v0/execute"
+          code="$(curl -sS -o /tmp/api-body -w '%{http_code}' -X POST -H 'content-type: application/json' --data '{}' "$URL")"
+          test "$code" = "401"
+          grep -q '"UNAUTHENTICATED"' /tmp/api-body
+          echo "EXTERNAL_CALC_G4_API_SMOKE=PASS"
+
+      - name: Smoke static calc
+        run: |
+          set -euo pipefail
+          URL="https://flat-resonance-09ba.pitstopimports.workers.dev/calc/"
+          code="$(curl -sS -o /tmp/calc-body -w '%{http_code}' "$URL")"
+          test "$code" = "200"
+          grep -qi '<html' /tmp/calc-body
+          echo "EXTERNAL_CALC_G4_STATIC_SMOKE=PASS"
+
+      - name: Final marker
+        run: |
+          echo "EXTERNAL_CALC_G4=PASS"
+          echo "BACKEND_INTEGRATION_READY=true"
