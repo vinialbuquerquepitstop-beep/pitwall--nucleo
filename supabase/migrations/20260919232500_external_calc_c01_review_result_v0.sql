@@ -162,7 +162,7 @@ begin
     'offer_revision', v_offer_revision,
     'review_id', v_review_id
   );
-end
+end;
 $extcalc_review_result$;
 
 comment on function public.extcalc_persist_review_result_v0(jsonb) is
