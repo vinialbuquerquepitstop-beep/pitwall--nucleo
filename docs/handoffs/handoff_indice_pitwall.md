@@ -32,14 +32,15 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Calculadora
 
-- topo: `handoff_calculadora_pitwall_v25.md`
-- estado: Interpreter Core V1 permanece FROZEN; Service V0, Lifecycle / Persistence V0 e API V0 boundary integrados no `main`; a API deriva tenant do contexto autenticado e rejeita campos de autoridade enviados pelo cliente.
-- merges: Service V0 PR #24 `57b3fa2d22828992b7cdba1f2dd22298c4568224`; Persistence V0 PR #25 `6ec053cb1410b04a1a1568c44341630016dfcc45`; indices PR #27 `4bef4e5aa98ffe7bc018cf5dc48e8bbdf015f34b`; API V0 PR #28 `072706a68e9ba07307951a974d572e8832453a6b`.
-- migrations vivas: `20260919202202_external_calc_lifecycle_persistence_v0` e `20260919202604_external_calc_persistence_fk_indexes_v0`.
-- proximo passo: `External Calc Runtime + Postgres Adapter V0`, publicando a fronteira HTTP e persistindo server-side sem abrir escrita direta em `extcalc_*`.
-- frontend continua em paralelo e ainda NAO deve trocar fixture por chamada real ate esse gate.
+- topo: `handoff_calculadora_pitwall_v26.md`
+- estado: Interpreter Core V1 permanece FROZEN; Service V0, Persistence V0, API V0 e Runtime/Postgres G1-G3 integrados no `main`. RPC autenticada persiste atomicamente sem service role no runtime; round-trip real e provas negativas passaram.
+- merge Runtime/Postgres: PR #30, squash `80956fe164746971df93a66c748d85eb5d2f294d`.
+- migrations vivas: `20260919202202_external_calc_lifecycle_persistence_v0`, `20260919202604_external_calc_persistence_fk_indexes_v0` e `20260919211347_external_calc_runtime_persist_rpc_v0`.
+- canal G4 versionado: PR #32, merge `8aba3e5831096e910a155def105c12953eb5c7f5`, workflow manual `.github/workflows/external_calc_cloudflare_g4.yml` e runbook `docs/calculadora/EXTERNAL_CALC_G4_CLOUDFLARE_RUNBOOK.md`.
+- proximo passo: executar G4 em `main` quando o ambiente `external-calc-production` tiver `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`; o workflow valida o alvo `flat-resonance-09ba` e faz smokes de API/static.
+- `BACKEND_INTEGRATION_READY = false` ate o smoke de G4; frontend continua em paralelo, mas ainda nao troca fixture pela API real.
 - substituicao do leitor legado continua NAO autorizada.
-- processo obrigatorio: `docs/calculadora/PROCESSO.md`
+- processo obrigatorio: `docs/calculadora/PROCESSO.md` e `docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md`
 
 ### Financeiro
 
@@ -56,13 +57,14 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Seguranca / backend / QA
 
-- topo: `handoff_seguranca_pitwall_v3.md`
+- topo: `handoff_seguranca_pitwall_v4.md`
 - porta de entrada obrigatoria: `docs/seguranca/DOCUMENTO_MESTRE_SEGURANCA.md`
 - fonte canonica do processo: `docs/seguranca/SECURITY_HARDENING_PITWALL_V1.md`
-- estado: SECURITY FATIA 0 em andamento; caminho automatico do Claude para `apply_migration` em producao bloqueado e integrado no `main`.
-- merge da contencao do agente: `7ada26781357032da2edc571c18dc950142ecb34`
-- ainda aberto: backup continua sendo commitado no proprio repo; repo continua publico; outras operacoes mutaveis do MCP ainda precisam de revisao para fechar read-only por padrao.
-- proximo passo: criar/provar destino privado separado para backup antes de desligar o workflow atual.
+- estado: SECURITY FATIA 0 continua em andamento; Runtime/Postgres do External Calc adicionou uma excecao controlada de writer RPC SECURITY DEFINER, elevando o baseline desse advisor de 11 para 12 findings.
+- excecao registrada: `extcalc_persist_execution_v0(jsonb)`; anon sem EXECUTE, authenticated sem escrita direta nas tabelas, papel/tenant derivados do JWT, vendedor e tenant mismatch provados como DENY.
+- merge relacionado: External Calc Runtime/Postgres PR #30, squash `80956fe164746971df93a66c748d85eb5d2f294d`.
+- ainda aberto: backup continua sendo commitado no proprio repo; repo continua publico; outras operacoes mutaveis do MCP ainda precisam de revisao; leaked password protection continua desabilitado.
+- proximo passo da linha de seguranca continua: criar/provar destino privado separado para backup antes de desligar o workflow atual.
 - regra especial: nenhuma mudanca silenciosa; avisar antes/depois e assinar procedencia no commit + handoff.
 
 ## Regras de sincronizacao entre agentes

@@ -12,6 +12,8 @@ on:
       - '.github/workflows/external_calc_lifecycle_persistence_v0.yml'
       - 'docs/handoffs/handoff_calculadora_pitwall_v23.md'
       - 'docs/handoffs/handoff_calculadora_pitwall_v24.md'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v26.md'
+      - 'docs/handoffs/handoff_seguranca_pitwall_v4.md'
       - 'docs/handoffs/handoff_indice_pitwall.md'
   pull_request:
     branches:
@@ -23,6 +25,8 @@ on:
       - '.github/workflows/external_calc_lifecycle_persistence_v0.yml'
       - 'docs/handoffs/handoff_calculadora_pitwall_v23.md'
       - 'docs/handoffs/handoff_calculadora_pitwall_v24.md'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v26.md'
+      - 'docs/handoffs/handoff_seguranca_pitwall_v4.md'
       - 'docs/handoffs/handoff_indice_pitwall.md'
 
 permissions:
@@ -100,7 +104,7 @@ jobs:
 
           while IFS= read -r file; do
             case "$file" in
-              ferramentas/external-calc-persistence/v0/*|supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql|supabase/migrations/20260919_external_calc_persistence_fk_indexes_v0.sql|.github/workflows/external_calc_lifecycle_persistence_v0.yml|docs/handoffs/handoff_calculadora_pitwall_v23.md|docs/handoffs/handoff_calculadora_pitwall_v24.md|docs/handoffs/handoff_indice_pitwall.md)
+              ferramentas/external-calc-persistence/v0/*|supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql|supabase/migrations/20260919_external_calc_persistence_fk_indexes_v0.sql|.github/workflows/external_calc_lifecycle_persistence_v0.yml|docs/handoffs/handoff_calculadora_pitwall_v23.md|docs/handoffs/handoff_calculadora_pitwall_v24.md|docs/handoffs/handoff_calculadora_pitwall_v26.md|docs/handoffs/handoff_seguranca_pitwall_v4.md|docs/handoffs/handoff_indice_pitwall.md)
                 ;;
               *)
                 echo "BLOQUEIO: arquivo fora da fatia Lifecycle/Persistence V0: $file"
