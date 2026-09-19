@@ -179,7 +179,7 @@ jobs:
           grep -q '^PROMOTION_READY=true$' /tmp/interpreter-real.log
 
           node ferramentas/external-calc-c01/v1/prova_real_c01_readonly.js \
-            /tmp/calc_raw.txt | tee /tmp/c01-real.log
+            /tmp/calc_raw.txt /tmp/supplier_profiles.json | tee /tmp/c01-real.log
           grep -q '^C01_REAL_READONLY_GATE=PASS$' /tmp/c01-real.log
 
       - name: Cleanup private files
