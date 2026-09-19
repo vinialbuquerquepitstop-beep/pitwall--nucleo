@@ -1,6 +1,16 @@
 name: External Calc - Cloudflare G4 Deploy
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/external_calc_cloudflare_g4.yml'
+      - 'docs/calculadora/EXTERNAL_CALC_G4_CLOUDFLARE_RUNBOOK.md'
+      - 'wrangler.jsonc'
+      - 'worker/external-calc-worker.mjs'
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'ferramentas/external-calc-api/v0/**'
   workflow_dispatch:
     inputs:
       confirm_target:
@@ -12,26 +22,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: external-calc-cloudflare-g4
+  group: external-calc-cloudflare-g4-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  gate-and-deploy:
-    name: Gate and deploy existing Worker
+  validate-g4:
+    name: Validate G4 package
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: external-calc-production
+    timeout-minutes: 15
 
     steps:
-      - name: Require main branch and exact target
-        env:
-          CONFIRM_TARGET: ${{ inputs.confirm_target }}
-        run: |
-          set -euo pipefail
-          test "${GITHUB_REF_NAME}" = "main"
-          test "${CONFIRM_TARGET}" = "flat-resonance-09ba"
-          echo "EXTERNAL_CALC_G4_TARGET=PASS"
-
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
@@ -71,6 +71,40 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Wrangler dry-run
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-worker | tee /tmp/wrangler-dry.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler-dry.log
+          find /tmp/extcalc-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          echo "EXTERNAL_CALC_G4_PACKAGE=PASS"
+
+  deploy-g4:
+    name: Deploy existing Worker
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate-g4
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: external-calc-production
+
+    steps:
+      - name: Require main branch and exact target
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "main"
+          test "${CONFIRM_TARGET}" = "flat-resonance-09ba"
+          echo "EXTERNAL_CALC_G4_TARGET=PASS"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
       - name: Verify Cloudflare credentials are configured
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -80,16 +114,6 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           echo "EXTERNAL_CALC_G4_CREDENTIALS=PRESENT"
-
-      - name: Wrangler dry-run
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-worker | tee /tmp/wrangler-dry.log
-          grep -q -- '--dry-run: exiting now.' /tmp/wrangler-dry.log
-          echo "EXTERNAL_CALC_G4_DRY_RUN=PASS"
 
       - name: Deploy existing Worker
         env:
