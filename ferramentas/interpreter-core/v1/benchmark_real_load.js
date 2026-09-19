@@ -5178,11 +5178,57 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
     const actualRecord = sameModelSupplierPrice[0] || null;
     const actualPriceLine = sourceLine(actualRecord, 'price');
+    const actualModelLine = sourceLine(actualRecord, 'model');
     const actualColorLine = sourceLine(actualRecord, 'color');
     const actualConditionLine = sourceLine(actualRecord, 'condition');
+    const actualPriceSegment = Number.isFinite(actualPriceLine)
+      ? segmentByLine.get(actualPriceLine)
+      : null;
+    const actualModelSegment = Number.isFinite(actualModelLine)
+      ? segmentByLine.get(actualModelLine)
+      : null;
+    const actualModelSemanticExact = !!(
+      actualModelSegment &&
+      actualRecord?.fields?.model?.id &&
+      (actualModelSegment.semantic_candidates || []).some(candidate =>
+        candidate.field === 'model' &&
+        candidate.entity_id === actualRecord.fields.model.id &&
+        (candidate.state === 'interpreted' || candidate.state === 'inferred')
+      )
+    );
+    const afterColorRows = [];
+    if (Number.isFinite(actualPriceLine)) {
+      for (let offset = 1; offset <= 3; offset += 1) {
+        const segment = segmentByLine.get(actualPriceLine + offset);
+        if (!segment) {
+          afterColorRows.push('o' + offset + ':missing');
+          continue;
+        }
+        const boundaries = (segment.context_events || [])
+          .map(event => event.reason)
+          .filter(reason =>
+            reason === 'timestamp_boundary' ||
+            reason === 'domain_boundary' ||
+            reason === 'supplier_boundary'
+          );
+        const colors = uniqueFieldCandidates(segment.field_candidates || [], 'color');
+        const fieldNames = [...new Set(
+          (segment.field_candidates || []).map(candidate => candidate.field)
+        )].sort();
+        afterColorRows.push(
+          'o' + offset +
+          ':role=' + (segment.role_candidates?.[0]?.role || 'unknown') +
+          ':colors=' + colors.length +
+          ':only_color=' + (isFieldOnlySegment(segment, 'color') ? 'yes' : 'no') +
+          ':fields=' + (fieldNames.join('+') || 'none') +
+          ':events=' + (boundaries.join('+') || 'none')
+        );
+      }
+    }
 
     const signature = [
       'model=' + expected.model,
+      'supplier=' + (expected.supplier ?? 'null'),
       'price_loci=' + priceSegments.length,
       'same_supplier_price_core=' + sameSupplierPrice.length,
       'same_model_supplier_price_core=' + sameModelSupplierPrice.length,
@@ -5193,6 +5239,12 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       'local_distinct_colors=' + localColorValues.size,
       'local_distinct_conditions=' + localConditionValues.size,
       'local_color_layout=' + (localColorLayout.sort().join(',') || 'none'),
+      'actual_price_rule=' + traceRules(actualRecord, 'price'),
+      'actual_model_rule=' + traceRules(actualRecord, 'model'),
+      'actual_model_distance=' + distanceLabel(actualModelLine, actualPriceLine),
+      'actual_model_semantic_exact=' + (actualModelSemanticExact ? 'yes' : 'no'),
+      'actual_price_role=' + (actualPriceSegment?.role_candidates?.[0]?.role || 'unknown'),
+      'after_color_rows=' + (afterColorRows.join(',') || 'none'),
       'actual_color_rule=' + traceRules(actualRecord, 'color'),
       'actual_color_offset=' + (
         Number.isFinite(actualPriceLine) && Number.isFinite(actualColorLine)
