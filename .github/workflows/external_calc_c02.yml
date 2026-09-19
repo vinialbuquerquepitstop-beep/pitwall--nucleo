@@ -1,0 +1,61 @@
+name: External Calc - C02 Calculation Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-c02-v1
+    paths:
+      - 'ferramentas/external-calc-c02/v1/**'
+      - '.github/workflows/external_calc_c02.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-c02/v1/**'
+      - '.github/workflows/external_calc_c02.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-c02-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  c02-gate:
+    name: C02 pure calculation gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01 contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+      - name: Run C02 calculation fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c02/v1/prova_c02_calculator.js | tee /tmp/c02.log
+          grep -q '^C02_FIXTURES=PASS checks=17$' /tmp/c02.log
+
+      - name: Enforce C02 trust boundary
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-c02/v1/c02-calculator.js
+          for token in             'supabase'             'postgres'             'tenant_id'             'fetch('             'http://'             'https://'             'writeFile'             'unlink('             'child_process'             'document.'             'window.'             'localStorage'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no C02: $token"
+              exit 1
+            fi
+          done
+          echo "C02_BOUNDARY=PASS"
