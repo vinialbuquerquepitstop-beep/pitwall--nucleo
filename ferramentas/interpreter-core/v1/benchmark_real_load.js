@@ -5181,6 +5181,41 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     const actualModelLine = sourceLine(actualRecord, 'model');
     const actualColorLine = sourceLine(actualRecord, 'color');
     const actualConditionLine = sourceLine(actualRecord, 'condition');
+
+    const matchingExpectedConditionSources = [];
+    if (expected.condition != null && Number.isFinite(actualPriceLine)) {
+      for (const segment of segments) {
+        if (supplierAt(segment) !== expected.supplier) continue;
+        const line = Number(segment.line_number);
+        if (!Number.isFinite(line)) continue;
+        const candidates = (segment.field_candidates || []).filter(candidate =>
+          candidateMatchesExpected(candidate, 'condition', expected.condition)
+        );
+        if (!candidates.length) continue;
+        const semanticModelIds = [...new Set(
+          (segment.semantic_candidates || [])
+            .filter(candidate =>
+              candidate.field === 'model' &&
+              candidate.entity_id &&
+              (candidate.state === 'interpreted' || candidate.state === 'inferred')
+            )
+            .map(candidate => candidate.entity_id)
+        )];
+        matchingExpectedConditionSources.push({
+          line,
+          distance: Math.abs(actualPriceLine - line),
+          role: segment.role_candidates?.[0]?.role || 'unknown',
+          model_ids: semanticModelIds,
+          boundaries: [...pathBoundaries(line, actualPriceLine)].sort()
+        });
+      }
+      matchingExpectedConditionSources.sort((a, b) =>
+        a.distance - b.distance || a.line - b.line
+      );
+    }
+    const nearestExpectedConditionSource =
+      matchingExpectedConditionSources[0] || null;
+
     const actualPriceSegment = Number.isFinite(actualPriceLine)
       ? segmentByLine.get(actualPriceLine)
       : null;
@@ -5229,6 +5264,22 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     const signature = [
       'model=' + expected.model,
       'supplier=' + (expected.supplier ?? 'null'),
+      'expected_color=' + (expected.color ?? 'null'),
+      'actual_color=' + (actualRecord?.fields?.color == null ? 'null' : normalizeKey(actualRecord.fields.color)),
+      'expected_condition=' + (expected.condition ?? 'null'),
+      'actual_condition=' + (actualRecord?.fields?.condition == null ? 'null' : normalizeKey(actualRecord.fields.condition)),
+      'expected_condition_source_distance=' + (nearestExpectedConditionSource?.distance ?? 'none'),
+      'expected_condition_source_role=' + (nearestExpectedConditionSource?.role ?? 'none'),
+      'expected_condition_source_models=' + (
+        nearestExpectedConditionSource?.model_ids?.length
+          ? nearestExpectedConditionSource.model_ids.join('+')
+          : 'none'
+      ),
+      'expected_condition_source_boundaries=' + (
+        nearestExpectedConditionSource?.boundaries?.length
+          ? nearestExpectedConditionSource.boundaries.join('+')
+          : 'none'
+      ),
       'price_loci=' + priceSegments.length,
       'same_supplier_price_core=' + sameSupplierPrice.length,
       'same_model_supplier_price_core=' + sameModelSupplierPrice.length,
