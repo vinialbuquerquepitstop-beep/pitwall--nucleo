@@ -1,0 +1,122 @@
+name: External Calc - API V0 Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-api-v0
+    paths:
+      - 'ferramentas/external-calc-api/v0/**'
+      - '.github/workflows/external_calc_api_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-api/v0/**'
+      - '.github/workflows/external_calc_api_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-api-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-v0-gate:
+    name: API authority and parity gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Prove API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Enforce API thin boundary
+        run: |
+          set -euo pipefail
+          API=ferramentas/external-calc-api/v0/api-handler.js
+          APP=ferramentas/external-calc-api/v0/application-service.js
+
+          for token in             'external-calc-c01'             'external-calc-c02'             'external-calc-c03'             'external-calc-c04'             'external-calc-c05'             'external-calc-service'             'external-calc-persistence'             'supabase'             'postgres'             'cash_margin_minor'             'price_signal'; do
+            if grep -Fqi "$token" "$API"; then
+              echo "BLOQUEIO: API contem dependencia/regra proibida: $token"
+              exit 1
+            fi
+          done
+
+          for token in             'external-calc-c01'             'external-calc-c02'             'external-calc-c03'             'external-calc-c04'             'external-calc-c05'             'supabase'             'postgres'             'document.'             'window.'             'localStorage'; do
+            if grep -Fqi "$token" "$APP"; then
+              echo "BLOQUEIO: Application Service contem dependencia proibida: $token"
+              exit 1
+            fi
+          done
+
+          grep -Fq "external-calc-service/v0/external-calc-service" "$APP"
+          echo "EXTERNAL_CALC_API_BOUNDARY=PASS"
+
+      - name: Enforce server authority
+        run: |
+          set -euo pipefail
+          API=ferramentas/external-calc-api/v0/api-handler.js
+          APP=ferramentas/external-calc-api/v0/application-service.js
+
+          grep -Fq "'tenant_id'" "$API"
+          grep -Fq "'run_ids'" "$API"
+          grep -Fq "'execution_id'" "$API"
+          grep -Fq "can_execute_external_calc" "$API"
+          grep -Fq "idFactory('execution')" "$APP"
+          grep -Fq "idFactory('calculation')" "$APP"
+          grep -Fq "idFactory('research')" "$APP"
+          grep -Fq "idFactory('price_signal')" "$APP"
+          grep -Fq "idFactory('decision')" "$APP"
+
+          echo "EXTERNAL_CALC_API_SERVER_AUTHORITY=PASS"
+
+      - name: Enforce no unrelated implementation changes
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-api/v0/*|.github/workflows/external_calc_api_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia API V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "EXTERNAL_CALC_API_SCOPE=PASS"
