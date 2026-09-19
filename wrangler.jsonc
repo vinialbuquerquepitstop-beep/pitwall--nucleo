@@ -16,6 +16,7 @@
   // Valores publicos ja usados pelo frontend atual. Nenhuma service_role entra aqui.
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
+    "EXTCALC_CALCULATION_CATEGORY": "iPhone",
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 
