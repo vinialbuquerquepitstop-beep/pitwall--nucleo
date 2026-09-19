@@ -1,0 +1,155 @@
+name: External Calc - Authority Production Config V0
+
+on:
+  push:
+    branches:
+      - external-calc-authority-production-config-v0
+    paths:
+      - 'ferramentas/external-calc-authority/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'wrangler.jsonc'
+      - 'docs/calculadora/EXTERNAL_CALC_AUTHORITY_PRODUCTION_CONFIG_GATE_V0.md'
+      - '.github/workflows/external_calc_authority_production_config_v0.yml'
+      - '.github/workflows/external_calc_product_execution_authority_v0.yml'
+      - '.github/workflows/external_calc_authority_runtime_binding_v0.yml'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-authority/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'wrangler.jsonc'
+      - 'docs/calculadora/EXTERNAL_CALC_AUTHORITY_PRODUCTION_CONFIG_GATE_V0.md'
+      - '.github/workflows/external_calc_authority_production_config_v0.yml'
+      - '.github/workflows/external_calc_product_execution_authority_v0.yml'
+      - '.github/workflows/external_calc_authority_runtime_binding_v0.yml'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-authority-production-config-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-config-gate:
+    name: Authority production config gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Preserve API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Preserve Product Execution Authority V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js | tee /tmp/authority.log
+          grep -q '^PRODUCT_EXECUTION_AUTHORITY_GATE_V0=PASS checks=10$' /tmp/authority.log
+
+      - name: Preserve authority-bound Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Prove C02 production configuration
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-authority/v0/prova_authority_production_config_v0.js | tee /tmp/config.log
+          grep -q '^C02_PRODUCTION_CONFIG_GATE_V0=PASS checks=7$' /tmp/config.log
+          grep -q '^C03_PRODUCTION_PROFILE=POLICY_PENDING$' /tmp/config.log
+          grep -q '^C04_PRODUCTION_PROFILE=POLICY_PENDING$' /tmp/config.log
+          grep -q '^AUTHORITY_PRODUCTION_CONFIG_GATE_V0=PARTIAL$' /tmp/config.log
+
+      - name: Enforce C02 source of truth
+        run: |
+          set -euo pipefail
+          SOURCE=ferramentas/external-calc-authority/v0/postgres-authority-source.js
+          MAP=ferramentas/external-calc-authority/v0/calc-dados-calculation-profile.js
+
+          grep -Fq '/rest/v1/calc_dados?' "$SOURCE"
+          grep -Fq 'EXTCALC_CALCULATION_CATEGORY' ferramentas/external-calc-runtime/v0/runtime.js
+          grep -Fq '"EXTCALC_CALCULATION_CATEGORY": "iPhone"' wrangler.jsonc
+
+          if grep -Fq 'EXTCALC_CALCULATION_PROFILE_JSON' ferramentas/external-calc-runtime/v0/runtime.js; then
+            echo 'BLOQUEIO: runtime ainda aceita calculation profile duplicado'
+            exit 1
+          fi
+
+          grep -Fq 'config.margens' "$MAP"
+          grep -Fq 'config.pb' "$MAP"
+          grep -Fq 'config.taxas' "$MAP"
+
+          echo 'C02_PRODUCTION_SOURCE_OF_TRUTH=PASS'
+
+      - name: Enforce policy hold for C03/C04
+        run: |
+          set -euo pipefail
+          CONFIG=wrangler.jsonc
+
+          if grep -Fq 'EXTCALC_RESEARCH_PROFILE_JSON' "$CONFIG"; then
+            echo 'BLOQUEIO: Research fixture/policy foi promovida antes de aprovacao'
+            exit 1
+          fi
+
+          if grep -Fq 'EXTCALC_INDICATOR_PROFILE_JSON' "$CONFIG"; then
+            echo 'BLOQUEIO: Indicator fixture/policy foi promovida antes de aprovacao'
+            exit 1
+          fi
+
+          echo 'C03_C04_PRODUCTION_POLICY_HOLD=PASS'
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-authority/v0/calc-dados-calculation-profile.js|ferramentas/external-calc-authority/v0/postgres-authority-source.js|ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js|ferramentas/external-calc-authority/v0/prova_authority_production_config_v0.js|ferramentas/external-calc-runtime/v0/runtime.js|ferramentas/external-calc-runtime/v0/prova_runtime_v0.js|wrangler.jsonc|docs/calculadora/EXTERNAL_CALC_AUTHORITY_PRODUCTION_CONFIG_GATE_V0.md|.github/workflows/external_calc_authority_production_config_v0.yml|.github/workflows/external_calc_product_execution_authority_v0.yml|.github/workflows/external_calc_authority_runtime_binding_v0.yml|.github/workflows/external_calc_runtime_postgres_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Authority Production Config V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo 'AUTHORITY_PRODUCTION_CONFIG_SCOPE=PASS'
