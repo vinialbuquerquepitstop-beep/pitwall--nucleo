@@ -151,7 +151,7 @@ jobs:
 
           while IFS= read -r file; do
             case "$file" in
-              ferramentas/external-calc-runtime/v0/*|ferramentas/external-calc-api/v0/application-service.js|ferramentas/external-calc-api/v0/api-handler.js|supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql|worker/external-calc-worker.mjs|wrangler.jsonc|docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md|.github/workflows/external_calc_runtime_postgres_v0.yml|.github/workflows/external_calc_api_v0.yml)
+              ferramentas/external-calc-runtime/v0/*|ferramentas/external-calc-api/v0/application-service.js|ferramentas/external-calc-api/v0/api-handler.js|supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql|worker/external-calc-worker.mjs|wrangler.jsonc|docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md|docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md|.github/workflows/external_calc_runtime_postgres_v0.yml|.github/workflows/external_calc_api_v0.yml|.github/workflows/external_calc_authority_runtime_binding_v0.yml)
                 ;;
               *)
                 echo "BLOQUEIO: arquivo fora da fatia Runtime/Postgres V0: $file"
