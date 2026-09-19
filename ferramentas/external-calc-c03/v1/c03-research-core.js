@@ -262,11 +262,15 @@ function meanConfidence(evidence) {
   return Math.round((total / evidence.length) * 10000) / 10000;
 }
 
+function researchSubjectFingerprint(subject) {
+  return stableHash(JSON.stringify(subject));
+}
+
 function researchInputFingerprint(candidate, subject, profile, asOf, evidence) {
   return stableHash(JSON.stringify({
     offer_id: candidate.offer_id,
-    offer_revision: candidate.offer_revision,
     offer_identity_fingerprint: candidate.offer_identity_fingerprint,
+    research_subject_fingerprint: researchSubjectFingerprint(subject),
     subject,
     profile,
     as_of: asOf,
@@ -308,6 +312,7 @@ function runC03Research(request) {
 
   const outputCore = {
     research_subject: subject,
+    research_subject_fingerprint: researchSubjectFingerprint(subject),
     evidence: classified,
     eligible_evidence_ids: eligible.map(item => item.evidence_id),
     research_confidence: meanConfidence(eligible),
@@ -351,6 +356,7 @@ module.exports = {
   CONTRACT_VERSION,
   ENGINE_VERSION,
   deriveResearchSubject,
+  researchSubjectFingerprint,
   classifyEvidence,
   runC03Research
 };
