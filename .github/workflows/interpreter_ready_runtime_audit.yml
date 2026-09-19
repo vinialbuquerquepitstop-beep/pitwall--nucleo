@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - audit/interpreter-ready-runtime-v1
+      - integrate/interpreter-core-v1
+    paths:
+      - 'ferramentas/interpreter-core/v1/**'
+      - 'docs/calculadora/INTERPRETER_READY_GATE_V1.md'
+      - '.github/workflows/interpreter_ready_runtime_audit.yml'
+  pull_request:
+    branches:
+      - main
     paths:
       - 'ferramentas/interpreter-core/v1/**'
       - 'docs/calculadora/INTERPRETER_READY_GATE_V1.md'
