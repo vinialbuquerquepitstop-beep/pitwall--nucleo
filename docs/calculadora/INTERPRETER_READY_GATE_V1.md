@@ -203,6 +203,10 @@ REAL_CORPUS_GATE=PASS
 Evidencia de freeze:
 - run GitHub Actions: #182
 - commit auditado: `7ac338f6046df20ecd04b0aa5b9b9ce47a4b58f9`
+- freeze documental revalidado: run #184
+- branch limpa: `integrate/interpreter-core-v1`
+- primeira validacao da branch limpa: run #185
+- PR de integracao: #13
 - corpus real permanece somente leitura
 - divergencias brutas continuam preservadas; apenas o conjunto acionavel e adjudicado por evidencia
 
