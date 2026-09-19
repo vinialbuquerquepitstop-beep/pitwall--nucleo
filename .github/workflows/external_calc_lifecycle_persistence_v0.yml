@@ -1,0 +1,100 @@
+name: External Calc - Lifecycle Persistence V0 Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-lifecycle-persistence-v0
+    paths:
+      - 'ferramentas/external-calc-persistence/v0/**'
+      - 'supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql'
+      - '.github/workflows/external_calc_lifecycle_persistence_v0.yml'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v23.md'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v24.md'
+      - 'docs/handoffs/handoff_indice_pitwall.md'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-persistence/v0/**'
+      - 'supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql'
+      - '.github/workflows/external_calc_lifecycle_persistence_v0.yml'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v23.md'
+      - 'docs/handoffs/handoff_calculadora_pitwall_v24.md'
+      - 'docs/handoffs/handoff_indice_pitwall.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-lifecycle-persistence-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lifecycle-persistence-gate:
+    name: Lifecycle persistence roundtrip gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Prove repository roundtrip
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Enforce migration boundary
+        run: |
+          set -euo pipefail
+          FILE=supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql
+
+          for token in 'security definer' 'create function' 'create or replace function' 'grant insert' 'grant update' 'grant delete'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: migration introduz fronteira proibida: $token"
+              exit 1
+            fi
+          done
+
+          test "$(grep -Fci 'enable row level security' "$FILE")" -eq 7
+          test "$(grep -Fci 'fn_tenant_atual()' "$FILE")" -ge 7
+          test "$(grep -Fci 'grant select on public.extcalc_' "$FILE")" -eq 7
+
+          echo "EXTERNAL_CALC_PERSISTENCE_SCHEMA_BOUNDARY=PASS"
+
+      - name: Enforce no domain changes
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-persistence/v0/*|supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql|.github/workflows/external_calc_lifecycle_persistence_v0.yml|docs/handoffs/handoff_calculadora_pitwall_v23.md|docs/handoffs/handoff_calculadora_pitwall_v24.md|docs/handoffs/handoff_indice_pitwall.md)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Lifecycle/Persistence V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "EXTERNAL_CALC_PERSISTENCE_SCOPE=PASS"
