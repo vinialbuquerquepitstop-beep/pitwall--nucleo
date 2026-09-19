@@ -6,7 +6,10 @@ const path = require('path');
 const { runC01ReadOnlySlice } = require('./c01-readonly-bridge');
 
 const rawPath = process.argv[2];
-if (!rawPath) throw new Error('uso: node prova_real_c01_readonly.js <raw.txt>');
+const supplierProfilesPath = process.argv[3];
+if (!rawPath || !supplierProfilesPath) {
+  throw new Error('uso: node prova_real_c01_readonly.js <raw.txt> <supplier-profiles.json>');
+}
 
 const schema = JSON.parse(fs.readFileSync(
   path.join(__dirname, '../../interpreter-core/v1/domains/apple-iphone-v0.schema.json'),
@@ -17,6 +20,7 @@ const knowledge = JSON.parse(fs.readFileSync(
   'utf8'
 ));
 const raw = fs.readFileSync(rawPath, 'utf8');
+const supplierProfiles = JSON.parse(fs.readFileSync(supplierProfilesPath, 'utf8'));
 
 const queue = runC01ReadOnlySlice({
   analysis_id: 'ana_real_shadow_readonly',
@@ -29,12 +33,15 @@ const queue = runC01ReadOnlySlice({
     source: { kind: 'plain_text' }
   },
   schema,
-  knowledge
+  knowledge,
+  supplier_profiles: supplierProfiles
 });
 
 assert.ok(queue.metrics.interpreter_records > 0);
 assert.strictEqual(queue.metrics.review_candidates, queue.metrics.interpreter_records);
 assert.strictEqual(new Set(queue.candidates.map(item => item.offer_id)).size, queue.candidates.length);
+const attributedSuppliers = queue.candidates.filter(item => item.interpreted_offer.supplier_id != null);
+assert.ok(attributedSuppliers.length > 0, 'corpus real deve preservar ao menos uma atribuicao de fornecedor');
 
 for (const candidate of queue.candidates) {
   assert.strictEqual(candidate.execution_status, 'SUCCEEDED');
@@ -51,3 +58,4 @@ console.log('C01_REAL_READONLY_GATE=PASS');
 console.log(`C01_REAL_CANDIDATES=${queue.candidates.length}`);
 console.log(`C01_REAL_AMBIGUITIES=${queue.unresolved_ambiguities.length}`);
 console.log(`C01_REAL_INVALID=${queue.invalid_items.length}`);
+console.log(`C01_REAL_SUPPLIER_ATTRIBUTED=${attributedSuppliers.length}`);
