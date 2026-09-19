@@ -307,7 +307,14 @@ function aggregateAnalysis(request) {
     ) {
       throw new Error('UPSTREAM_STALE: C05 nao elegivel para aggregation');
     }
-    decisionMap.set(decision.offer_id, decision);
+    const offerId = assertNonEmpty(decision.offer_id, 'C05 offer_id');
+    if (!offerMap.has(offerId)) {
+      throw new Error(`C05 sem C01 correspondente: ${offerId}`);
+    }
+    if (decisionMap.has(offerId)) {
+      throw new Error(`C05 duplicado para offer_id: ${offerId}`);
+    }
+    decisionMap.set(offerId, decision);
   }
 
   const counts = {
