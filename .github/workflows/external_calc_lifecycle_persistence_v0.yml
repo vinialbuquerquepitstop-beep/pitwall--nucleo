@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/external-calc-lifecycle-persistence-v0
+      - fix/external-calc-persistence-fk-indexes-v0
     paths:
       - 'ferramentas/external-calc-persistence/v0/**'
       - 'supabase/migrations/20260919_external_calc_lifecycle_persistence_v0.sql'
