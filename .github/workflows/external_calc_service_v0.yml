@@ -1,0 +1,134 @@
+name: External Calc - Service V0 Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-service-v0
+    paths:
+      - 'ferramentas/external-calc-service/v0/**'
+      - '.github/workflows/external_calc_service_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-service/v0/**'
+      - '.github/workflows/external_calc_service_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-service-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service-v0-gate:
+    name: Pure service parity gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+      - name: Preserve C02
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c02/v1/prova_c02_calculator.js | tee /tmp/c02.log
+          grep -q '^C02_FIXTURES=PASS checks=17$' /tmp/c02.log
+
+      - name: Preserve C03
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
+
+      - name: Preserve C04
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c04/v1/prova_c04_price_indicator.js | tee /tmp/c04.log
+          grep -q '^C04_FIXTURES=PASS checks=20$' /tmp/c04.log
+
+      - name: Preserve C05
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c05/v1/prova_c05_decision_output.js | tee /tmp/c05.log
+          grep -q '^C05_FIXTURES=PASS checks=26$' /tmp/c05.log
+
+      - name: Preserve canonical core pipeline
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-pipeline/v1/prova_core_pipeline.js | tee /tmp/pipeline.log
+          grep -q '^CORE_PIPELINE_FIXTURES=PASS checks=12$' /tmp/pipeline.log
+
+      - name: Prove Service V0 parity
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Enforce pure Service V0 boundary
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-service/v0/external-calc-service.js
+
+          for token in \
+            'interpreter-core' \
+            'external-calc-c01' \
+            'external-calc-c02' \
+            'external-calc-c03' \
+            'external-calc-c04' \
+            'external-calc-c05' \
+            'supabase' \
+            'postgres' \
+            'database_url' \
+            'tenant_id' \
+            'fetch(' \
+            'http://' \
+            'https://' \
+            'document.' \
+            'window.' \
+            'localStorage' \
+            'writeFile' \
+            'unlink(' \
+            'child_process'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no Service V0: $token"
+              exit 1
+            fi
+          done
+
+          grep -Fq "external-calc-pipeline/v1/core-pipeline" "$FILE"
+          echo "EXTERNAL_CALC_SERVICE_BOUNDARY=PASS"
+
+      - name: Enforce no unrelated implementation changes
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git diff --name-only origin/main...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-service/v0/*|.github/workflows/external_calc_service_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Service V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "EXTERNAL_CALC_SERVICE_SCOPE=PASS"
