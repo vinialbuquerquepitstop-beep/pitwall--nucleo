@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { interpretResolved } = require('../../interpreter-core/v1/core');
+const { applySupplierProfiles } = require('../../interpreter-core/v1/supplier-profile-adapter');
 
 const CONTRACT_VERSION = 'external-calc-c01-readonly/v1';
 const MATERIAL_FIELDS = ['model', 'capacity_gb', 'condition', 'color', 'price'];
@@ -78,6 +79,7 @@ function interpretationConfidence(record) {
 function interpretedOfferFromRecord(record, currency) {
   const fields = record.fields || {};
   return {
+    supplier_id: fields.supplier == null ? null : String(fields.supplier),
     model: normalizeModel(fields.model),
     capacity_gb: Number.isInteger(fields.capacity_gb) ? fields.capacity_gb : null,
     condition: fields.condition == null ? null : String(fields.condition),
@@ -88,6 +90,7 @@ function interpretedOfferFromRecord(record, currency) {
 
 function offerIdentityFingerprint(offer) {
   return stableHash(JSON.stringify({
+    supplier_id: offer.supplier_id || null,
     model: offer.model?.id || offer.model?.label || null,
     capacity_gb: offer.capacity_gb,
     condition: offer.condition,
@@ -165,9 +168,12 @@ function runC01ReadOnlySlice(request) {
   const analysisId = assertNonEmpty(request.analysis_id, 'analysis_id');
   const sourceId = assertNonEmpty(request.source_id, 'source_id');
   const currency = normalizeCurrency(request.currency);
+  const schema = request.supplier_profiles
+    ? applySupplierProfiles(request.schema, request.supplier_profiles)
+    : request.schema;
   const bundle = interpretResolved({
     document: request.document,
-    schema: request.schema,
+    schema,
     knowledge: request.knowledge || null
   });
   return mapBundleToC01ReviewQueue(bundle, {
@@ -179,6 +185,7 @@ function runC01ReadOnlySlice(request) {
 
 function cloneOffer(offer) {
   return {
+    supplier_id: offer.supplier_id ?? null,
     model: offer.model ? {
       id: offer.model.id ?? null,
       label: offer.model.label ?? null,
