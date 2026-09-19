@@ -1,0 +1,23 @@
+name: External Calc - C01 Review Live Smoke V0
+
+on:
+  push:
+    branches:
+      - external-calc-c01-review-live-smoke-v0
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smoke review unauthenticated
+        run: |
+          set -euo pipefail
+          URL="https://flat-resonance-09ba.pitstopimports.workers.dev/api/external-calc/v0/review"
+          code="$(curl -sS -o /tmp/review-body -w '%{http_code}' -X POST -H 'content-type: application/json' --data '{}' "$URL")"
+          cat /tmp/review-body
+          test "$code" = "401"
+          grep -q '"UNAUTHENTICATED"' /tmp/review-body
+          echo "C01_REVIEW_LIVE_UNAUTH_SMOKE=PASS"
