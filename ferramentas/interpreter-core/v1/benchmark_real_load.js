@@ -8146,49 +8146,101 @@ const supplierAwareExpansionGroupDiagnostic = supplierProfiles.length
   : null;
 
 function sourceOnlyExpansionDirectionEvidence(bundle) {
-  const groups = new Map();
-  for (const offer of coreOffers(bundle)) {
-    const match = /^(.*)-exp-\d+$/.exec(String(offer.core_record_id || ''));
-    if (!match) continue;
-    const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
-    if (!colorTrace?.rules?.includes('record_expansion:pairing_nearest_unique')) continue;
-    const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
-    const colorLine = Array.isArray(colorTrace?.sources) ? Number(colorTrace.sources[0]) : null;
-    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
-    if (!Number.isFinite(colorLine) || !Number.isFinite(priceLine)) continue;
-    const groupId = match[1];
-    if (!groups.has(groupId)) {
-      groups.set(groupId, {
-        supplier: offer.fields?.supplier == null ? null : String(offer.fields.supplier),
-        offsets: []
-      });
-    }
-    groups.get(groupId).offsets.push(colorLine - priceLine);
-  }
+  const segments = bundle.segments || [];
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
 
-  const evidence = {};
-  const directionClass = offsets => {
-    const hasBefore = offsets.some(value => value < 0);
-    const hasAfter = offsets.some(value => value > 0);
-    if (hasBefore && hasAfter) return 'mixed';
-    if (hasBefore) return 'before_only';
-    if (hasAfter) return 'after_only';
-    return 'same_or_unknown';
+  const supplierAtSegment = segment => {
+    if (!segment) return null;
+    const direct = [...new Set(
+      (segment.field_candidates || [])
+        .filter(candidate => candidate.field === 'supplier')
+        .map(candidate => String(candidate.value))
+    )];
+    if (direct.length === 1) return direct[0];
+    return segment.inherited_context?.supplier?.value == null
+      ? null
+      : String(segment.inherited_context.supplier.value);
+  };
+  const isHardBoundary = segment =>
+    (segment?.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' ||
+      event.reason === 'supplier_boundary' ||
+      event.reason === 'domain_boundary'
+    );
+  const structuralColorRow = segment => {
+    if (!segment || isHardBoundary(segment)) return false;
+    const colors = uniqueFieldCandidates(segment.field_candidates || [], 'color');
+    if (colors.length !== 1) return false;
+    const fieldNames = [...new Set(
+      (segment.field_candidates || []).map(candidate => candidate.field)
+    )];
+    if (fieldNames.some(field =>
+      field === 'price' ||
+      field === 'model' ||
+      field === 'supplier' ||
+      field === 'condition'
+    )) return false;
+    return (
+      isFieldOnlySegment(segment, 'color') ||
+      (
+        segment.role_candidates?.[0]?.role === 'product_header' &&
+        fieldNames.length === 1 &&
+        fieldNames[0] === 'color'
+      )
+    );
+  };
+  const collectColorOffsets = (priceLine, direction) => {
+    const offsets = [];
+    for (let step = 1; step <= 3; step += 1) {
+      const signed = direction === 'after' ? step : -step;
+      const segment = segmentByLine.get(priceLine + signed);
+      if (!segment || isHardBoundary(segment)) break;
+
+      const fields = new Set(
+        (segment.field_candidates || []).map(candidate => candidate.field)
+      );
+      if (
+        fields.has('price') ||
+        fields.has('model') ||
+        fields.has('supplier') ||
+        fields.has('condition')
+      ) break;
+      if (!structuralColorRow(segment)) break;
+      offsets.push(signed);
+    }
+    return offsets;
   };
 
-  for (const group of groups.values()) {
-    if (!group.supplier) continue;
-    const direction = directionClass(group.offsets);
-    if (!evidence[group.supplier]) {
-      evidence[group.supplier] = {
+  const evidence = {};
+  for (const segment of segments) {
+    const prices = uniqueFieldCandidates(segment.field_candidates || [], 'price');
+    if (prices.length !== 1) continue;
+    const priceLine = Number(segment.line_number);
+    if (!Number.isFinite(priceLine)) continue;
+
+    const supplier = supplierAtSegment(segment);
+    if (!supplier) continue;
+
+    const before = collectColorOffsets(priceLine, 'before');
+    const after = collectColorOffsets(priceLine, 'after');
+    if (!before.length && !after.length) continue;
+
+    if (!evidence[supplier]) {
+      evidence[supplier] = {
         before_only_groups: 0,
         after_only_groups: 0,
-        mixed_groups: 0
+        mixed_groups: 0,
+        before_rows: 0,
+        after_rows: 0
       };
     }
-    if (direction === 'before_only') evidence[group.supplier].before_only_groups += 1;
-    else if (direction === 'after_only') evidence[group.supplier].after_only_groups += 1;
-    else if (direction === 'mixed') evidence[group.supplier].mixed_groups += 1;
+    evidence[supplier].before_rows += before.length;
+    evidence[supplier].after_rows += after.length;
+    if (before.length && after.length) evidence[supplier].mixed_groups += 1;
+    else if (before.length) evidence[supplier].before_only_groups += 1;
+    else if (after.length) evidence[supplier].after_only_groups += 1;
   }
   return evidence;
 }
