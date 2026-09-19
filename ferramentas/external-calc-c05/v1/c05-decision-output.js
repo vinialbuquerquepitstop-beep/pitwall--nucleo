@@ -88,6 +88,8 @@ function normalizeC02(value, c01) {
   }
   assertCurrentSucceeded(value, 'C02');
   sameOfferRevision(value, c01, 'C02');
+  assertNonEmpty(value.calculation_run_id, 'C02 calculation_run_id');
+  assertNonEmpty(value.output_fingerprint, 'C02 output_fingerprint');
 
   if (
     !value.supplier_offer_price ||
@@ -106,6 +108,8 @@ function normalizeC03(value, c01) {
   }
   assertCurrentSucceeded(value, 'C03');
   sameOfferRevision(value, c01, 'C03');
+  assertNonEmpty(value.research_run_id, 'C03 research_run_id');
+  assertNonEmpty(value.output_fingerprint, 'C03 output_fingerprint');
 
   if (
     !value.research_subject ||
@@ -123,6 +127,8 @@ function normalizeC04(value, c01, c03) {
   }
   assertCurrentSucceeded(value, 'C04');
   sameOfferRevision(value, c01, 'C04');
+  assertNonEmpty(value.price_signal_run_id, 'C04 price_signal_run_id');
+  assertNonEmpty(value.output_fingerprint, 'C04 output_fingerprint');
 
   if (
     !value.evaluated_price ||
@@ -279,10 +285,14 @@ function aggregateAnalysis(request) {
     if (offer.analysis_id !== analysisId) {
       throw new Error('analysis_id divergente em C01');
     }
-    if (offerMap.has(offer.offer_id)) {
+    const offerId = assertNonEmpty(offer.offer_id, 'C01 offer_id');
+    if (!Number.isInteger(offer.offer_revision) || offer.offer_revision < 1) {
+      throw new Error('C01 offer_revision invalida na analysis');
+    }
+    if (offerMap.has(offerId)) {
       throw new Error('offer_id duplicado na analysis');
     }
-    offerMap.set(offer.offer_id, offer);
+    offerMap.set(offerId, offer);
   }
 
   const decisionMap = new Map();
