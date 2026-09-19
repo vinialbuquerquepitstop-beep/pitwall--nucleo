@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -25,7 +26,24 @@ async function check(name, fn) {
   }
 }
 
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
 function candidate() {
+  const interpretedOffer = {
+    supplier_id: 'SUP_TESTE',
+    model: {
+      id: 'iphone-17-pro-256',
+      label: 'iPhone 17 Pro 256GB',
+      attributes: {}
+    },
+    capacity_gb: 256,
+    condition: 'LACRADO',
+    color: 'PRETO',
+    price: { amount_minor: 650000, currency: 'BRL' }
+  };
+
   return {
     contract_version: 'external-calc-c01-readonly/v1',
     analysis_id: 'ana_review_runtime_001',
@@ -36,20 +54,15 @@ function candidate() {
     execution_status: 'SUCCEEDED',
     domain_outcome: 'REVIEW_REQUIRED',
     freshness_status: 'CURRENT',
-    offer_identity_fingerprint: 'identity-review-runtime-001',
-    offer_value_fingerprint: 'value-review-runtime-001-r1',
-    interpreted_offer: {
-      supplier_id: 'SUP_TESTE',
-      model: {
-        id: 'iphone-17-pro-256',
-        label: 'iPhone 17 Pro 256GB',
-        attributes: {}
-      },
-      capacity_gb: 256,
-      condition: 'LACRADO',
-      color: 'PRETO',
-      price: { amount_minor: 650000, currency: 'BRL' }
-    },
+    offer_identity_fingerprint: sha256(JSON.stringify({
+      supplier_id: interpretedOffer.supplier_id,
+      model: interpretedOffer.model.id,
+      capacity_gb: interpretedOffer.capacity_gb,
+      condition: interpretedOffer.condition,
+      color: interpretedOffer.color
+    })),
+    offer_value_fingerprint: sha256(JSON.stringify(interpretedOffer)),
+    interpreted_offer: interpretedOffer,
     reviewed_offer: null,
     review: null,
     provenance_refs: ['interpreter:review-runtime-fixture']
