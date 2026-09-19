@@ -4260,6 +4260,148 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
+  // 8b. SIMULATION ONLY: legacy condition attached to an offer is treated as
+  // unsupported when Core has the same model/supplier/price with no condition,
+  // the expected color is locally visible, and the nearest matching condition
+  // is only found later in the document after crossing a model/domain section.
+  if (options.includeDistantFutureConditionMissing === true) {
+    const conditionMap =
+      schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalConditionValue = value =>
+      value == null
+        ? null
+        : normalizeKey(
+            conditionMap[value] ||
+            conditionMap[String(value)] ||
+            value
+          ) || null;
+
+    for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+      if (claimedMissing.has(missingIndex)) continue;
+      const expected = norm(missing[missingIndex]);
+      if (!expected.condition) continue;
+
+      const candidateRecords = records.filter(record =>
+        record.fields?.model?.id === expected.model &&
+        String(record.fields?.supplier ?? '') === String(expected.supplier ?? '') &&
+        Number(record.fields?.price) === expected.price &&
+        canonicalConditionValue(record.fields?.condition) == null
+      );
+      if (!candidateRecords.length) continue;
+
+      let qualifies = false;
+      for (const record of candidateRecords) {
+        const priceLine = sourceLine(record, 'price');
+        if (!Number.isFinite(priceLine)) continue;
+        if (!modelSemanticallySupportsRecord(record, priceLine)) continue;
+
+        let expectedColorLocal = expected.color == null;
+        if (expected.color != null) {
+          expectedColorLocal = segments.some(segment => {
+            const line = Number(segment.line_number);
+            if (!Number.isFinite(line) || Math.abs(line - priceLine) > 3) return false;
+            const boundaries = pathBoundaries(line, priceLine);
+            if (
+              boundaries.has('domain') ||
+              boundaries.has('supplier') ||
+              boundaries.has('timestamp')
+            ) return false;
+            if (supplierAt(segment) !== expected.supplier) return false;
+            return (segment.field_candidates || []).some(candidate =>
+              candidate.field === 'color' &&
+              normalizeKey(candidate.value) === expected.color
+            );
+          });
+        }
+        if (!expectedColorLocal) continue;
+
+        const conditionSources = [];
+        for (const segment of segments) {
+          if (supplierAt(segment) !== expected.supplier) continue;
+          const line = Number(segment.line_number);
+          if (!Number.isFinite(line)) continue;
+          const hasExpectedCondition = (segment.field_candidates || []).some(candidate =>
+            candidate.field === 'condition' &&
+            canonicalConditionValue(candidate.value) === expected.condition
+          );
+          if (!hasExpectedCondition) continue;
+          conditionSources.push({
+            line,
+            distance: Math.abs(line - priceLine)
+          });
+        }
+        conditionSources.sort((a, b) => a.distance - b.distance || a.line - b.line);
+        const nearestCondition = conditionSources[0] || null;
+        if (!nearestCondition) continue;
+        if (nearestCondition.line <= priceLine) continue;
+        if (nearestCondition.distance < 12) continue;
+
+        const boundaries = pathBoundaries(priceLine, nearestCondition.line);
+        if (!boundaries.has('domain')) continue;
+
+        let modelAnchorsBetween = 0;
+        for (const segment of segments) {
+          const line = Number(segment.line_number);
+          if (!(line > priceLine && line <= nearestCondition.line)) continue;
+          if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+            modelAnchorsBetween += 1;
+          }
+        }
+        if (modelAnchorsBetween < 1) continue;
+
+        qualifies = true;
+        break;
+      }
+
+      if (qualifies) {
+        claim('source_unsupported_legacy_future_condition_missing', missingIndex, null);
+      }
+    }
+  }
+
+  // 8c. SIMULATION ONLY: legacy null color is contradicted when the same
+  // model/supplier/price/condition exists in Core with a color extracted
+  // directly from the price line and the model is locally resolved.
+  if (options.includeDirectColorContradictsLegacyNullMissing === true) {
+    const conditionMap =
+      schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalConditionValue = value =>
+      value == null
+        ? null
+        : normalizeKey(
+            conditionMap[value] ||
+            conditionMap[String(value)] ||
+            value
+          ) || null;
+
+    for (let missingIndex = 0; missingIndex < missing.length; missingIndex += 1) {
+      if (claimedMissing.has(missingIndex)) continue;
+      const expected = norm(missing[missingIndex]);
+      if (expected.color != null) continue;
+
+      const candidateRecord = records.find(record =>
+        record.fields?.model?.id === expected.model &&
+        String(record.fields?.supplier ?? '') === String(expected.supplier ?? '') &&
+        Number(record.fields?.price) === expected.price &&
+        canonicalConditionValue(record.fields?.condition) === expected.condition &&
+        record.fields?.color != null
+      );
+      if (!candidateRecord) continue;
+
+      const priceLine = sourceLine(candidateRecord, 'price');
+      const colorLine = sourceLine(candidateRecord, 'color');
+      const colorTrace = (candidateRecord.trace || []).find(item => item.field === 'color');
+      const priceTrace = (candidateRecord.trace || []).find(item => item.field === 'price');
+      if (!Number.isFinite(priceLine) || !Number.isFinite(colorLine)) continue;
+      if (priceLine !== colorLine) continue;
+      if (!(priceTrace?.rules || []).includes('direct_extraction')) continue;
+      if (!(colorTrace?.rules || []).includes('direct_extraction')) continue;
+      if (!modelSemanticallySupportsRecord(candidateRecord, priceLine)) continue;
+
+      claim('source_contradicted_legacy_null_color_missing', missingIndex, null);
+    }
+  }
+
   // 9. SIMULATION ONLY: claim a remaining missing/extra pair only when
   // every divergent field is locally supported on the Core side and locally
   // unsupported on the legacy side. No ties and no legacy-local wins allowed.
@@ -5407,6 +5549,52 @@ const residualAdjudicationLedger =
       includeNoLegacyWinsPartialPairDominance: true,
       includePriceOnlyDominanceNoLegacyWins: true,
       includeUnpairedForensics: true
+    }
+  );
+
+const residualAdjudicationLedgerFutureConditionSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true,
+      includeDistantFutureConditionMissing: true
+    }
+  );
+
+const residualAdjudicationLedgerNullColorSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true,
+      includeDirectColorContradictsLegacyNullMissing: true
+    }
+  );
+
+const residualAdjudicationLedgerCombinedMissingEvidenceSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true,
+      includeDistantFutureConditionMissing: true,
+      includeDirectColorContradictsLegacyNullMissing: true
     }
   );
 
@@ -8574,6 +8762,35 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  remaining_missing_evidence_simulations: {
+    distant_future_condition: {
+      actionable: residualAdjudicationLedgerFutureConditionSimulation?.actionable || null,
+      category:
+        residualAdjudicationLedgerFutureConditionSimulation?.categories
+          ?.source_unsupported_legacy_future_condition_missing || null,
+      integrity:
+        residualAdjudicationLedgerFutureConditionSimulation?.integrity?.pass === true
+    },
+    direct_color_vs_legacy_null: {
+      actionable: residualAdjudicationLedgerNullColorSimulation?.actionable || null,
+      category:
+        residualAdjudicationLedgerNullColorSimulation?.categories
+          ?.source_contradicted_legacy_null_color_missing || null,
+      integrity:
+        residualAdjudicationLedgerNullColorSimulation?.integrity?.pass === true
+    },
+    combined: {
+      actionable: residualAdjudicationLedgerCombinedMissingEvidenceSimulation?.actionable || null,
+      future_condition_category:
+        residualAdjudicationLedgerCombinedMissingEvidenceSimulation?.categories
+          ?.source_unsupported_legacy_future_condition_missing || null,
+      null_color_category:
+        residualAdjudicationLedgerCombinedMissingEvidenceSimulation?.categories
+          ?.source_contradicted_legacy_null_color_missing || null,
+      integrity:
+        residualAdjudicationLedgerCombinedMissingEvidenceSimulation?.integrity?.pass === true
+    }
+  },
   price_only_dominance_no_legacy_wins_simulation: {
     actionable:
       residualAdjudicationLedgerPriceOnlyDominanceSimulation?.actionable || null,
