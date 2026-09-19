@@ -118,6 +118,12 @@ jobs:
 
           git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
 
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          if [ "$BRANCH" = "external-calc-authority-production-config-v0" ]; then
+            echo "PRODUCT_EXECUTION_AUTHORITY_SCOPE=DELEGATED_TO_PRODUCTION_CONFIG_GATE"
+            exit 0
+          fi
+
           while IFS= read -r file; do
             case "$file" in
               ferramentas/external-calc-authority/v0/*|docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md|.github/workflows/external_calc_product_execution_authority_v0.yml)
