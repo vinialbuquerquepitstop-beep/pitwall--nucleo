@@ -36,8 +36,9 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 - estado: Interpreter Core V1 permanece FROZEN; Service V0, Persistence V0, API V0 e Runtime/Postgres G1-G3 integrados no `main`. RPC autenticada persiste atomicamente sem service role no runtime; round-trip real e provas negativas passaram.
 - merge Runtime/Postgres: PR #30, squash `80956fe164746971df93a66c748d85eb5d2f294d`.
 - migrations vivas: `20260919202202_external_calc_lifecycle_persistence_v0`, `20260919202604_external_calc_persistence_fk_indexes_v0` e `20260919211347_external_calc_runtime_persist_rpc_v0`.
-- proximo passo: fechar `G4 - Deploy / Endpoint` no Worker existente `flat-resonance-09ba`; o repo nao registra hoje um canal de deploy Cloudflare utilizavel por esta sessao.
-- `BACKEND_INTEGRATION_READY = false` ate G4; frontend continua em paralelo, mas ainda nao troca fixture pela API real.
+- canal G4 versionado: PR #32, merge `8aba3e5831096e910a155def105c12953eb5c7f5`, workflow manual `.github/workflows/external_calc_cloudflare_g4.yml` e runbook `docs/calculadora/EXTERNAL_CALC_G4_CLOUDFLARE_RUNBOOK.md`.
+- proximo passo: executar G4 em `main` quando o ambiente `external-calc-production` tiver `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`; o workflow valida o alvo `flat-resonance-09ba` e faz smokes de API/static.
+- `BACKEND_INTEGRATION_READY = false` ate o smoke de G4; frontend continua em paralelo, mas ainda nao troca fixture pela API real.
 - substituicao do leitor legado continua NAO autorizada.
 - processo obrigatorio: `docs/calculadora/PROCESSO.md` e `docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md`
 
