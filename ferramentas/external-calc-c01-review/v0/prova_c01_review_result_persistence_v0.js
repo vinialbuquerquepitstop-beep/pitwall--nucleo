@@ -87,6 +87,23 @@ function edited() {
   };
 }
 
+function excluded() {
+  const c = candidate();
+  return {
+    ...c,
+    domain_outcome: 'EXCLUDED',
+    reviewed_offer: null,
+    review: {
+      decision: 'EXCLUDE',
+      reviewer_ref: ACTOR,
+      reviewed_at: '2026-09-19T23:31:00.000Z',
+      reason: 'fora do escopo',
+      material_change: false
+    },
+    provenance_refs: c.provenance_refs
+  };
+}
+
 (async () => {
   await check('ACCEPT sem mudanca preserva offer_revision', async () => {
     const normalized = assertReviewResult({
@@ -107,6 +124,18 @@ function edited() {
     });
     assert.strictEqual(normalized.reviewed.offer_revision, 4);
   });
+
+  await check('EXCLUDE preserva revision sem exigir original_offer_revision', async () => {
+    const normalized = assertReviewResult({
+      tenant_id: TENANT,
+      actor_ref: ACTOR,
+      candidate: candidate(),
+      reviewed: excluded()
+    });
+    assert.strictEqual(normalized.reviewed.offer_revision, 3);
+    assert.strictEqual(normalized.reviewed.domain_outcome, 'EXCLUDED');
+  });
+
 
   await check('revision divergente falha antes da rede', async () => {
     const bad = edited();
