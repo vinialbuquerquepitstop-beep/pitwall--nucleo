@@ -105,6 +105,12 @@ jobs:
 
           git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
 
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          if [ "$BRANCH" = "external-calc-c01-review-runtime-api-v0" ]; then
+            echo "C01_REVIEW_CANDIDATE_PERSISTENCE_SCOPE=DELEGATED_TO_REVIEW_RUNTIME_API_GATE"
+            exit 0
+          fi
+
           while IFS= read -r file; do
             case "$file" in
               ferramentas/external-calc-c01-review/v0/postgres-review-candidate-repository.js|ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js|supabase/migrations/20260919231000_external_calc_c01_review_candidate_v0.sql|docs/calculadora/EXTERNAL_CALC_C01_REVIEW_CANDIDATE_PERSISTENCE_GATE_V0.md|.github/workflows/external_calc_c01_review_candidate_persistence_v0.yml|.github/workflows/external_calc_c01_review_authority_core_v0.yml)
