@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/external-calc-c03-v1
+      - fix/external-calc-selective-staleness-v1
     paths:
       - 'ferramentas/external-calc-c03/v1/**'
       - '.github/workflows/external_calc_c03.yml'
@@ -46,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
-          grep -q '^C03_FIXTURES=PASS checks=19$' /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
 
       - name: Enforce C03 trust boundary
         run: |

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/external-calc-c04-v1
+      - fix/external-calc-selective-staleness-v1
     paths:
       - 'ferramentas/external-calc-c04/v1/**'
       - '.github/workflows/external_calc_c04.yml'
@@ -42,13 +43,13 @@ jobs:
           node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
           grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
           node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
-          grep -q '^C03_FIXTURES=PASS checks=19$' /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
 
       - name: Run C04 price indicator fixtures
         run: |
           set -euo pipefail
           node ferramentas/external-calc-c04/v1/prova_c04_price_indicator.js | tee /tmp/c04.log
-          grep -q '^C04_FIXTURES=PASS checks=19$' /tmp/c04.log
+          grep -q '^C04_FIXTURES=PASS checks=20$' /tmp/c04.log
 
       - name: Enforce C04 trust boundary
         run: |

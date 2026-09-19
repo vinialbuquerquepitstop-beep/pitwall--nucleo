@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 
 const CONTRACT_VERSION = 'external-calc-c04/v1';
-const ENGINE_VERSION = 'c04-price-indicator/1.0.0';
+const ENGINE_VERSION = 'c04-price-indicator/1.0.1-selective-staleness';
 const C01_CONTRACT_VERSION = 'external-calc-c01-readonly/v1';
 const C03_CONTRACT_VERSION = 'external-calc-c03/v1';
 const OUTCOMES = new Set([
@@ -66,6 +66,23 @@ function normalizeC01(candidate) {
       candidate.offer_value_fingerprint,
       'C01 offer_value_fingerprint'
     ),
+    research_identity: {
+      model_id: candidate.reviewed_offer.model?.id == null
+        ? null
+        : String(candidate.reviewed_offer.model.id),
+      model_label: candidate.reviewed_offer.model?.label == null
+        ? null
+        : String(candidate.reviewed_offer.model.label),
+      capacity_gb: Number.isInteger(candidate.reviewed_offer.capacity_gb)
+        ? candidate.reviewed_offer.capacity_gb
+        : null,
+      condition: candidate.reviewed_offer.condition == null
+        ? null
+        : String(candidate.reviewed_offer.condition),
+      color: candidate.reviewed_offer.color == null
+        ? null
+        : String(candidate.reviewed_offer.color)
+    },
     price: {
       amount_minor: price.amount_minor,
       currency: normalizeCurrency(price.currency)
@@ -89,14 +106,37 @@ function normalizeC03(research, c01) {
 
   if (
     research.analysis_id !== c01.analysis_id ||
-    research.offer_id !== c01.offer_id ||
-    research.offer_revision !== c01.offer_revision
+    research.offer_id !== c01.offer_id
   ) {
-    throw new Error('UPSTREAM_STALE: C03 nao corresponde a revisao C01 atual');
+    throw new Error('UPSTREAM_STALE: C03 nao pertence a oferta C01 atual');
   }
 
-  if (!research.research_subject || research.research_subject.currency !== c01.price.currency) {
-    throw new Error('UPSTREAM_STALE: moeda C03 difere do C01 atual');
+  if (!research.research_subject) {
+    throw new Error('UPSTREAM_STALE: C03 sem research_subject');
+  }
+
+  const subject = research.research_subject;
+  const current = c01.research_identity;
+  const sameModel = current.model_id
+    ? subject.model_id === current.model_id
+    : subject.model_label === current.model_label;
+
+  if (
+    !sameModel ||
+    subject.capacity_gb !== current.capacity_gb ||
+    subject.condition !== current.condition ||
+    subject.color !== current.color ||
+    subject.currency !== c01.price.currency
+  ) {
+    throw new Error('UPSTREAM_STALE: C03 research_subject difere da identidade C01 atual');
+  }
+
+  const subjectFingerprint = assertNonEmpty(
+    research.research_subject_fingerprint,
+    'C03 research_subject_fingerprint'
+  );
+  if (subjectFingerprint !== stableHash(JSON.stringify(subject))) {
+    throw new Error('UPSTREAM_STALE: C03 research_subject_fingerprint invalido');
   }
 
   const evidence = Array.isArray(research.evidence) ? research.evidence : [];
@@ -129,6 +169,7 @@ function normalizeC03(research, c01) {
       'C03 output_fingerprint'
     ),
     research_confidence: confidence,
+    research_subject_fingerprint: subjectFingerprint,
     eligible_evidence: eligible.map(item => ({
       evidence_id: item.evidence_id,
       normalized_price: item.normalized_price,
@@ -213,6 +254,7 @@ function priceSignalInputFingerprint(c01, c03, profile) {
     offer_revision: c01.offer_revision,
     c01_value_fingerprint: c01.offer_value_fingerprint,
     research_run_id: c03.research_run_id,
+    research_subject_fingerprint: c03.research_subject_fingerprint,
     research_output_fingerprint: c03.output_fingerprint,
     indicator_profile: profile
   }));

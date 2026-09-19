@@ -266,6 +266,39 @@ check('provenance preserva C01 e evidencia', () => {
   assert.ok(result.provenance_refs.includes('research_profile:market-br-fixture:1'));
 });
 
+check('revisao apenas de preco preserva research subject e input fingerprint', () => {
+  const r1 = run();
+  const r2 = run({
+    c01_candidate: c01Candidate({
+      offer_revision: 2,
+      offer_value_fingerprint: 'value-research-price-r2',
+      reviewed_offer: {
+        price: { amount_minor: 640000, currency: 'BRL' }
+      }
+    })
+  });
+
+  assert.strictEqual(r1.research_subject_fingerprint, r2.research_subject_fingerprint);
+  assert.strictEqual(r1.research_input_fingerprint, r2.research_input_fingerprint);
+  assert.strictEqual(r1.offer_revision, 1);
+  assert.strictEqual(r2.offer_revision, 2);
+});
+
+check('mudanca de identidade altera research subject fingerprint', () => {
+  const r1 = run();
+  const r2 = run({
+    c01_candidate: c01Candidate({
+      offer_revision: 2,
+      offer_identity_fingerprint: 'identity-research-capacity-r2',
+      offer_value_fingerprint: 'value-research-capacity-r2',
+      reviewed_offer: { capacity_gb: 512 }
+    })
+  });
+
+  assert.notStrictEqual(r1.research_subject_fingerprint, r2.research_subject_fingerprint);
+  assert.notStrictEqual(r1.research_input_fingerprint, r2.research_input_fingerprint);
+});
+
 check('fingerprints sao deterministas para o mesmo snapshot', () => {
   const a = run();
   const b = run();

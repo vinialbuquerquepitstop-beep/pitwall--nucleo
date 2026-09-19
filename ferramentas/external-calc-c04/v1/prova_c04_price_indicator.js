@@ -218,19 +218,45 @@ check('price_signal_confidence fica namespaced e deriva da pesquisa V0', () => {
   assert.strictEqual(result.confidence_basis, 'C03_RESEARCH_CONFIDENCE_V0');
 });
 
-check('C04 recusa C03 de outra revisao da oferta', () => {
-  const c01 = candidate();
-  const c03 = research(c01);
-  c03.offer_revision = 2;
+check('C04 reutiliza C03 de revisao anterior quando mudou apenas o preco', () => {
+  const c01r1 = candidate(650000);
+  const c03r1 = research(c01r1);
+  const c01r2 = candidate(640000, {
+    offer_revision: 2,
+    offer_identity_fingerprint: c01r1.offer_identity_fingerprint,
+    offer_value_fingerprint: 'value-price-r2'
+  });
+
+  const result = runC04PriceIndicator({
+    price_signal_run_id: 'signal_price_revision_2',
+    c01_candidate: c01r2,
+    c03_research: c03r1,
+    indicator_profile: indicatorProfile()
+  });
+
+  assert.strictEqual(c03r1.offer_revision, 1);
+  assert.strictEqual(result.offer_revision, 2);
+  assert.strictEqual(result.evaluated_price.amount_minor, 640000);
+  assert.ok(result.provenance_refs.includes('research_run:research_price_001'));
+});
+
+check('C04 recusa C03 antigo quando identidade da oferta mudou', () => {
+  const c01r1 = candidate(650000);
+  const c03r1 = research(c01r1);
+  const c01r2 = JSON.parse(JSON.stringify(c01r1));
+  c01r2.offer_revision = 2;
+  c01r2.offer_identity_fingerprint = 'identity-capacity-r2';
+  c01r2.offer_value_fingerprint = 'value-capacity-r2';
+  c01r2.reviewed_offer.capacity_gb = 512;
 
   assert.throws(
     () => runC04PriceIndicator({
-      price_signal_run_id: 'signal_stale_revision',
-      c01_candidate: c01,
-      c03_research: c03,
+      price_signal_run_id: 'signal_identity_revision_2',
+      c01_candidate: c01r2,
+      c03_research: c03r1,
       indicator_profile: indicatorProfile()
     }),
-    /UPSTREAM_STALE/
+    /research_subject difere/
   );
 });
 

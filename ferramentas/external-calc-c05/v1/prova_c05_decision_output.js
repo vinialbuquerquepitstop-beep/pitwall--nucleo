@@ -247,10 +247,29 @@ check('C05 recusa C02 de revisao antiga', () => {
   assert.throws(() => compose(parts), /UPSTREAM_STALE: C02/);
 });
 
-check('C05 recusa C03 de revisao antiga', () => {
-  const parts = pipeline();
-  parts.c03.offer_revision = 2;
-  assert.throws(() => compose(parts), /UPSTREAM_STALE: C03/);
+check('C05 aceita C03 anterior reutilizado apos revisao apenas de preco', () => {
+  const r1 = pipeline({ priceMinor: 650000, revision: 1 });
+  const r2 = pipeline({ priceMinor: 640000, revision: 2 });
+
+  r2.c03 = r1.c03;
+  r2.c04 = runC04PriceIndicator({
+    price_signal_run_id: 'signal_price_revision_2_reuse_research',
+    c01_candidate: r2.c01,
+    c03_research: r1.c03,
+    indicator_profile: {
+      profile_id: 'indicator-decision-fixture',
+      profile_version: '1',
+      min_evidence_count: 3,
+      cheap_at_or_below_percent: -5,
+      expensive_at_or_above_percent: 5
+    }
+  });
+
+  const result = compose(r2, 'decision_price_revision_2');
+  assert.strictEqual(r1.c03.offer_revision, 1);
+  assert.strictEqual(result.offer_revision, 2);
+  assert.strictEqual(result.research.research_run_id, r1.c03.research_run_id);
+  assert.strictEqual(result.reviewed_offer.price.amount_minor, 640000);
 });
 
 check('C05 recusa C04 de revisao antiga', () => {
