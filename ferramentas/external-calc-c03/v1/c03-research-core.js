@@ -335,7 +335,7 @@ function runC03Research(request) {
     execution_status: 'SUCCEEDED',
     freshness_status: 'CURRENT',
     research_input_fingerprint: inputFingerprint,
-    output_fingerprint: stableHash(JSON.stringify(outputCore)),
+    output_fingerprint: stableHash(JSON.stringify({ as_of: asOf.text, ...outputCore })),
     as_of: asOf.text,
     ...outputCore,
     provenance_refs: [
