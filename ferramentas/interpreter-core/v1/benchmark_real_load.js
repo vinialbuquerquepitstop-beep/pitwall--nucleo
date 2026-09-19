@@ -4372,12 +4372,13 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   }
 
 
-  // 10. SIMULATION ONLY: after strict dominance, allow a conservative pair
-  // adjudication when Core has local price evidence plus at least one other
+  // 10. V5 EVIDENCE ADJUDICATION: after strict dominance, allow a conservative
+  // pair adjudication when Core has local price evidence plus at least one other
   // locally supported divergent field, legacy has zero locally supported wins,
   // and remaining fields are ties.
-  // This never mutates Core output; it only tests whether the residual ledger
-  // can distinguish source-supported Core pairs from weak legacy pairings.
+  // This never mutates Core output; it only classifies source-supported Core
+  // pairs against weak legacy pairings. The option remains toggleable so V4
+  // can still be reproduced for audit comparison.
   if (options.includeNoLegacyWinsPartialPairDominance === true) {
     const remainingMissing = () => missing
       .map((item, index) => ({ item, index }))
@@ -5205,9 +5206,11 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      options.includeStrictPairDominance === true
-        ? 'residual-adjudication-ledger/v4'
-        : options.includeSourceUnsupportedMissing === true
+      options.includeNoLegacyWinsPartialPairDominance === true
+        ? 'residual-adjudication-ledger/v5'
+        : options.includeStrictPairDominance === true
+          ? 'residual-adjudication-ledger/v4'
+          : options.includeSourceUnsupportedMissing === true
           ? 'residual-adjudication-ledger/v3'
         : (
             options.includeStrongMixed === true ||
@@ -5285,6 +5288,7 @@ const residualAdjudicationLedger =
       includeAllFullyLocalCoreOnlyLate: true,
       includeSourceUnsupportedMissing: true,
       includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
       includeUnpairedForensics: true
     }
   );
