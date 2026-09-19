@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/external-calc-c05-v1
+      - fix/external-calc-selective-staleness-v1
     paths:
       - 'ferramentas/external-calc-c05/v1/**'
       - '.github/workflows/external_calc_c05.yml'
@@ -46,10 +47,10 @@ jobs:
           grep -q '^C02_FIXTURES=PASS checks=17$' /tmp/c02.log
 
           node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
-          grep -q '^C03_FIXTURES=PASS checks=19$' /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
 
           node ferramentas/external-calc-c04/v1/prova_c04_price_indicator.js | tee /tmp/c04.log
-          grep -q '^C04_FIXTURES=PASS checks=19$' /tmp/c04.log
+          grep -q '^C04_FIXTURES=PASS checks=20$' /tmp/c04.log
 
       - name: Run C05 decision fixtures
         run: |
