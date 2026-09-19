@@ -72,6 +72,11 @@ jobs:
           node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
           grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
 
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
       - name: Prove Cloudflare bundle
         run: |
           set -euo pipefail
