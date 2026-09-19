@@ -174,9 +174,20 @@ Controles compensatorios:
 
 `G4 - Deploy / Endpoint` permanece PENDENTE.
 
-O repo nao possui workflow/comando versionado de deploy Cloudflare e nao ha conector
-Cloudflare disponivel nesta sessao. Nao foi criado um caminho de deploy novo sem conhecer
-as credenciais/mecanismo ja usado pelo Worker existente.
+O canal de deploy agora esta versionado e validado:
+
+- PR #32;
+- merge squash: `8aba3e5831096e910a155def105c12953eb5c7f5`;
+- workflow: `.github/workflows/external_calc_cloudflare_g4.yml`;
+- runbook: `docs/calculadora/EXTERNAL_CALC_G4_CLOUDFLARE_RUNBOOK.md`;
+- validacao do pacote no PR: PASS.
+
+O workflow e manual e NAO publica no merge. Em `main`, ele exige:
+
+- confirmacao exata do alvo `flat-resonance-09ba`;
+- ambiente GitHub `external-calc-production`;
+- `CLOUDFLARE_API_TOKEN`;
+- `CLOUDFLARE_ACCOUNT_ID`.
 
 Portanto:
 
@@ -184,27 +195,24 @@ Portanto:
 G1 PASS
 G2 PASS
 G3 PASS
-G4 PENDING
+G4 READY_TO_DEPLOY / PENDING_CREDENTIALS_AND_DISPATCH
 
 BACKEND_INTEGRATION_READY = false
 ```
 
-O frontend continua com fixtures ate G4.
+O frontend continua com fixtures ate o smoke de G4.
 
 ## 9. Proximo passo
 
-Identificar o canal real de deploy do Worker `flat-resonance-09ba` e executar G4.
+Executar o workflow manual `External Calc - Cloudflare G4 Deploy` em `main`.
 
-Gate G4:
+O proprio workflow:
 
-- publicar o main atual no Worker existente;
-- `/api/external-calc/v0/execute` sem JWT retorna JSON 401, nao SPA HTML;
-- `/calc/` continua 200;
-- assets/recovery permanecem funcionais;
-- nenhum Worker paralelo criado.
+- reroda Service, Persistence, API e Runtime gates;
+- roda Wrangler dry-run;
+- publica no Worker existente;
+- prova `/api/external-calc/v0/execute` sem JWT = JSON 401;
+- prova `/calc/` = 200;
+- emite `BACKEND_INTEGRATION_READY=true`.
 
-Depois:
-
-`BACKEND_INTEGRATION_READY = true`
-
-e abre `Frontend Integration Gate V0`.
+Depois desse PASS abre `Frontend Integration Gate V0`.
