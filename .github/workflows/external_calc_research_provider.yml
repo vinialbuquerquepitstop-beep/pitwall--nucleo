@@ -1,0 +1,61 @@
+name: External Calc - Research Provider Boundary Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-research-provider-v0
+    paths:
+      - 'ferramentas/external-calc-research-provider/v0/**'
+      - '.github/workflows/external_calc_research_provider.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-research-provider/v0/**'
+      - '.github/workflows/external_calc_research_provider.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-research-provider-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research-provider-gate:
+    name: Provider-neutral evidence boundary gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C03 semantics
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
+
+      - name: Run provider boundary fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-research-provider/v0/prova_research_provider.js | tee /tmp/provider.log
+          grep -q '^RESEARCH_PROVIDER_FIXTURES=PASS checks=9$' /tmp/provider.log
+
+      - name: Enforce provider contract boundary
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-research-provider/v0/research-provider-contract.js
+          for token in 'supabase' 'postgres' 'tenant_id' 'fetch(' 'XMLHttpRequest' 'child_process' 'writeFile' 'unlink(' 'document.' 'window.' 'localStorage'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no provider contract: $token"
+              exit 1
+            fi
+          done
+          echo "RESEARCH_PROVIDER_BOUNDARY=PASS"
