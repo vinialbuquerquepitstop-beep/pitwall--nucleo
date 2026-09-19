@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pitwall.local/contracts/interpreter/v1/domain-schema.schema.json",
+  "title": "DomainSchema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "schema_id", "schema_version", "entity_type", "fields"],
+  "properties": {
+    "contract_version": {"const": "domain-schema/v1"},
+    "schema_id": {"type": "string", "minLength": 1},
+    "schema_version": {"type": "string", "minLength": 1},
+    "entity_type": {"type": "string", "minLength": 1},
+    "description": {"type": ["string", "null"]},
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type", "required"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "type": {"type": "string", "enum": ["string", "number", "integer", "boolean", "enum", "object", "array"]},
+          "required": {"type": "boolean"},
+          "enum_values": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": ["string", "null"]},
+          "normalizers": {"type": "array", "items": {"type": "string"}},
+          "validators": {"type": "array", "items": {"type": "string"}},
+          "context_inheritable": {"type": "boolean", "default": false},
+          "context_anchor": {"type": "boolean", "default": false},
+          "record_trigger": {"type": "boolean", "default": false},
+          "resolver": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {"type": "string", "enum": ["entity"]},
+              "entity_kind": {"type": "string"},
+              "match": {
+                "type": "array",
+                "items": {"type": "string", "enum": ["alias", "label"]},
+                "minItems": 1,
+                "uniqueItems": true
+              }
+            },
+            "allOf": [
+              {
+                "if": {"properties": {"kind": {"const": "entity"}}},
+                "then": {"required": ["entity_kind", "match"]}
+              }
+            ]
+          },
+          "extractors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind"],
+              "properties": {
+                "kind": {"type": "string", "enum": ["regex", "role_raw"]},
+                "pattern": {"type": "string"},
+                "flags": {"type": "string"},
+                "group": {"type": "integer", "minimum": 0},
+                "role": {"type": "string"},
+                "transform": {"type": "string", "enum": ["identity", "trim", "lower", "number", "integer"]},
+                "score": {"type": "number", "minimum": 0, "maximum": 1}
+              },
+              "allOf": [
+                {
+                  "if": {"properties": {"kind": {"const": "regex"}}},
+                  "then": {"required": ["pattern"]}
+                },
+                {
+                  "if": {"properties": {"kind": {"const": "role_raw"}}},
+                  "then": {"required": ["role"]}
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "structural_roles": {"type": "array", "items": {"type": "string"}},
+    "validators": {"type": "array", "items": {"type": "string"}},
+    "context_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reset_on_timestamp": {"type": "boolean", "default": true},
+        "anchor_resets_other_context": {"type": "boolean", "default": true}
+      }
+    },
+    "metadata": {"type": "object", "additionalProperties": true}
+  }
+}

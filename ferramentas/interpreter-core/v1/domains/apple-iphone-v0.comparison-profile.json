@@ -1,0 +1,42 @@
+{
+  "contract_version": "shadow-comparison-profile/v1",
+  "profile_id": "apple-iphone-v0",
+  "description": "Mapeamento de comparação entre snapshot do leitor atual e InterpretationBundle do Apple Domain V0. O comparador permanece genérico; sem regras Apple no pipeline.",
+  "fields": [
+    {
+      "name": "model",
+      "semantic_role": "model",
+      "legacy_path": "fields.model",
+      "core_path": "fields.model",
+      "value_kind": "entity_id"
+    },
+    {
+      "name": "capacity_gb",
+      "semantic_role": "capacity",
+      "legacy_path": "fields.capacity_gb",
+      "core_path": "fields.capacity_gb",
+      "value_kind": "integer"
+    },
+    {
+      "name": "condition",
+      "semantic_role": "condition",
+      "legacy_path": "fields.condition",
+      "core_path": "fields.condition",
+      "value_kind": "string"
+    },
+    {
+      "name": "color",
+      "semantic_role": "color",
+      "legacy_path": "fields.color",
+      "core_path": "fields.color",
+      "value_kind": "string"
+    },
+    {
+      "name": "price",
+      "semantic_role": "price",
+      "legacy_path": "fields.price",
+      "core_path": "fields.price",
+      "value_kind": "number"
+    }
+  ]
+}

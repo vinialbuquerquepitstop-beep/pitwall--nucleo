@@ -1,0 +1,70 @@
+{
+  "contract_version": "domain-schema/v1",
+  "schema_id": "generic-device-test",
+  "schema_version": "2",
+  "entity_type": "offer",
+  "fields": [
+    {
+      "name": "model",
+      "type": "string",
+      "required": true,
+      "context_inheritable": true,
+      "context_anchor": true,
+      "resolver": {
+        "kind": "entity",
+        "entity_kind": "model",
+        "match": ["alias", "label"]
+      },
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "^DEVICE\\s+([A-Z]+\\s*[0-9]+)$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.95
+        }
+      ]
+    },
+    {
+      "name": "capacity",
+      "type": "integer",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "^(64|128|256|512)\\s*(?:GB)?$",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        }
+      ]
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "context_inheritable": false,
+      "record_trigger": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "^(?:R\\$|USD|US\\$|\\$)?\\s*([0-9][0-9.,]*)$",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.92
+        }
+      ]
+    }
+  ],
+  "structural_roles": ["header", "product_header", "variant", "price_line", "note", "noise", "unknown"],
+  "validators": [],
+  "context_policy": {
+    "reset_on_timestamp": true,
+    "anchor_resets_other_context": true
+  }
+}

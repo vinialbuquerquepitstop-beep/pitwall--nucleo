@@ -1,0 +1,29 @@
+{
+  "contract_version": "knowledge-snapshot/v1",
+  "snapshot_id": "generic-device-test-knowledge",
+  "version": "1",
+  "entities": [
+    {
+      "kind": "model",
+      "id": "model-alpha16",
+      "label": "ALPHA16",
+      "attributes": {"family": "alpha"}
+    },
+    {
+      "kind": "model",
+      "id": "model-beta20",
+      "label": "BETA20",
+      "attributes": {"family": "beta"}
+    }
+  ],
+  "aliases": [
+    {
+      "kind": "model",
+      "text": "A16",
+      "target_id": "model-alpha16"
+    }
+  ],
+  "semantic_rules": [],
+  "supplier_profiles": [],
+  "domain_rules": []
+}

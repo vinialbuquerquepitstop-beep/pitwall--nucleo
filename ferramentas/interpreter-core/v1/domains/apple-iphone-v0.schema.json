@@ -1,0 +1,508 @@
+{
+  "contract_version": "domain-schema/v1",
+  "schema_id": "apple-iphone-v0",
+  "schema_version": "0.8.10",
+  "entity_type": "offer",
+  "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
+  "fields": [
+    {
+      "name": "model",
+      "type": "string",
+      "required": true,
+      "context_inheritable": true,
+      "context_anchor": true,
+      "resolver": {
+        "kind": "entity",
+        "entity_kind": "model",
+        "match": [
+          "alias",
+          "label"
+        ]
+      },
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512)\\s*GB|iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*[12]\\s*TB)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.98
+        },
+        {
+          "kind": "regex",
+          "pattern": "(iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:13|15|16e?|17e?)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(?:64|128|256|512)\\s*GB)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:13|15|16e?|17e?)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(?:64|128|256|512))(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.88
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:13|15|16|17)(?:PM|P)(?:\\s|[-–—:|•_])*(?:64|128|256|512)(?:\\s*GB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.86
+        }
+      ]
+    },
+    {
+      "name": "capacity_gb",
+      "type": "integer",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(64|128|256|512)\\s*GB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.92
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?(?:13|15|16e?|17e?)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(64|128|256|512)\\s*GB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.9
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?(?:13|15|16e?|17e?)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(64|128|256|512)(?!\\s*GB)(?=\\D|$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.88
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?(?:13|15|16|17)(?:PM|P)(?:\\s|[-–—:|•_])*(64|128|256|512)(?:\\s*GB)?\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.86
+        }
+      ],
+      "derive_from_entity_attribute": {
+        "field": "model",
+        "attribute": "capacity_gb"
+      }
+    },
+    {
+      "name": "condition",
+      "type": "string",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Lacrado|Lacrados|Novo|Novos|CPO|Seminovo|Seminovos|Usado|Usados)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.93,
+          "match_mode": "all"
+        }
+      ],
+      "value_map": {
+        "Lacrado": "Lacrado",
+        "Lacrados": "Lacrado",
+        "Novo": "Novo",
+        "Novos": "Novo",
+        "CPO": "CPO",
+        "Seminovo": "Seminovo",
+        "Seminovos": "Seminovo",
+        "Usado": "Usado",
+        "Usados": "Usado"
+      },
+      "prefer_values_if_present": [
+        "CPO"
+      ],
+      "prefer_from_anchor": {
+        "anchor_field": "model",
+        "values": [
+          "CPO"
+        ]
+      }
+    },
+    {
+      "name": "color",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Black\\s+Ocean\\s+Band|Black\\s+Titanium|Blue\\s+Anatel|Orange\\s+Anatel|Silver\\s+Anatel|Jet\\s+Black|Space\\s+Black|Space\\s+Gray|Rosa\\s+Blush|Rose\\s+Gold|Sky\\s+Blue|Azul\\s+Profundo|Azul\\s+Anatel|Laranja\\s+Anatel|Pacific\\s+Blue|Amarelo|Azul|Black|Blue|Branco|Cítrus|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Ultramarine|Verde|Vermelho|White|Purple)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.88,
+          "match_mode": "all"
+        }
+      ],
+      "expand_records": true,
+      "expand_records_block_mode": "multi_only",
+      "expand_records_block_strategy": "contiguous_before_trigger",
+      "value_map": {
+        "Black": "Preto",
+        "Blue": "Azul",
+        "White": "Branco",
+        "Green": "Verde",
+        "Orange": "Laranja",
+        "Rose": "Rosa",
+        "Blue Anatel": "Azul Anatel",
+        "Orange Anatel": "Laranja Anatel",
+        "Prateado": "Silver",
+        "Dourado": "Gold",
+        "Ultramarine": "Azul",
+        "Pacific Blue": "Azul",
+        "Purple": "Lilás"
+      },
+      "pair_by_order_with_trigger": {
+        "field": "price",
+        "require_equal_rows": true,
+        "require_adjacent_rows": false,
+        "require_source_only": true,
+        "fallback_unique_nearest": true,
+        "fallback_max_distance": 3,
+        "fallback_supplier_direction_guard": {
+          "min_pure_groups": 3,
+          "require_zero_opposite": true,
+          "only_at_max_distance": true
+        },
+        "adjacent_unique_before_trigger": {
+          "enabled": true,
+          "non_field_only_roles": [
+            "product_header"
+          ],
+          "min_leftover_tokens": 2,
+          "require_unique_adjacent_trigger": true
+        }
+      }
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "record_trigger": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(?:💰|💵)\\s*(?:R\\$|\\$)?\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.995
+        },
+        {
+          "kind": "regex",
+          "pattern": "(?:R\\$|\\$)\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.99
+        },
+        {
+          "kind": "regex",
+          "pattern": "(?:R\\$\\s*)?([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)(?=\\s*(?:PROMO)?(?:[*_~ ]*)$)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.97
+        }
+      ],
+      "suppress_record_when": [
+        {
+          "roles": [
+            "product_header"
+          ],
+          "min_tokens": 6,
+          "text_contains_any": [
+            "💰",
+            "💵"
+          ],
+          "text_regex_absent": [
+            "(?:R\\$|\\$)"
+          ],
+          "absent_fields": [
+            "model",
+            "color"
+          ],
+          "trigger_evidence_pattern_contains_any": [
+            "💰",
+            "💵"
+          ],
+          "trigger_score_min": 0.995,
+          "trigger_score_max": 0.995
+        },
+        {
+          "roles": [
+            "price_line"
+          ],
+          "min_tokens": 3,
+          "max_tokens": 5,
+          "text_contains_any": [
+            "R$",
+            "$"
+          ],
+          "absent_fields": [
+            "model",
+            "color"
+          ],
+          "inherited_source_distance": {
+            "field": "model",
+            "min": 2,
+            "max": 2,
+            "direction": "before"
+          }
+        }
+      ]
+    },
+    {
+      "name": "_iphone_model_boundary",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "context_boundary": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512)\\s*GB|iPhone(?:\\s|📱)*(?:(?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?|Air)(?:\\s|[-–—:|•_])*(?:64|128|256|512))(?!\\s*GB)",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:[0-9]{1,2}[A-Za-z]?|XR)(?:\\s+(?:mini|Plus|Pro(?:\\s*Max)?|Air))?(?:\\s|[-–—:|•_])*(?:64|128|256|512)(?:\\s*GB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9
+        },
+        {
+          "kind": "regex",
+          "pattern": "^(?:[^A-Za-z0-9]{0,6}\\s*)?((?:[0-9]{1,2})(?:PM|P)(?:\\s|[-–—:|•_])*(?:64|128|256|512)(?:\\s*GB)?)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.88
+        }
+      ],
+      "preserve_fields": [
+        "condition"
+      ]
+    },
+    {
+      "name": "_domain_boundary",
+      "type": "string",
+      "required": false,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "context_boundary": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Poco|Xiaomi|Redmi|iPad|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|AirPods|AirTag|Pencil|Garmin|JBL|Moto(?:rola)?|Galaxy|Samsung)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.99
+        }
+      ]
+    }
+  ],
+  "structural_roles": [
+    "header",
+    "product_header",
+    "variant",
+    "price_line",
+    "condition",
+    "note",
+    "noise",
+    "unknown"
+  ],
+  "validators": [],
+  "context_policy": {
+    "reset_on_timestamp": true,
+    "anchor_resets_other_context": true,
+    "preserve_on_anchor": [
+      "condition"
+    ]
+  },
+  "metadata": {
+    "scope": "iPhone only",
+    "mode": "shadow",
+    "source": [
+      "supabase/migrations/20260908_calc_catalogo_semente.sql",
+      "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
+      "ferramentas/prova_calc_catalogo.sql"
+    ],
+    "offer_expansion": {
+      "version": "v1.2",
+      "fields": [
+        "color"
+      ],
+      "rule": "multiple distinct direct color candidates + one unambiguous price => one record per color",
+      "safety": "cross-line expansion requires multiple distinct colors contiguous immediately before one unambiguous price; prior price, timestamp and model anchors bound the scan",
+      "status": "shadow_candidate_validated_on_real_load",
+      "real_load_delta": {
+        "baseline_agreement_ratio": 0.2541,
+        "v11_agreement_ratio": 0.3757,
+        "v12_agreement_ratio": 0.5138,
+        "baseline_matched_offers": 46,
+        "v11_matched_offers": 68,
+        "v12_matched_offers": 93,
+        "baseline_missing_offers": 135,
+        "v12_missing_offers": 88,
+        "baseline_extra_offers": 43,
+        "v12_extra_offers": 21,
+        "v12_wrong_price_only": 0,
+        "v12_core_offers": 114
+      },
+      "v12_safety": {
+        "ordered_pairing": "equal-count color-only rows pair by order inside a model block",
+        "nearest_fallback": "count mismatch may use only a uniquely nearest bare price within 3 lines",
+        "ties": "abstain",
+        "distance_ge_4": "abstain"
+      }
+    },
+    "color_canonicalization": {
+      "source": ".claude/skills/calculadoras/references/formato-dados.md",
+      "policy": "dominant canonical name wins; Apple-specific color names remain distinct; Anatel variants remain distinct",
+      "catalog_sync": {
+        "source": "public.calc_cor + public.calc_alias (read-only, 2026-09-18)",
+        "added": [
+          "Azul Profundo",
+          "Cítrus"
+        ],
+        "corrected_aliases": {
+          "Purple": "Lilás"
+        }
+      }
+    },
+    "model_extraction": {
+      "source": "real load 6c4d3491 headers, prices masked",
+      "accepted_separators": [
+        "whitespace",
+        "📱",
+        "-",
+        "–",
+        "—",
+        ":",
+        "|",
+        "•",
+        "_"
+      ],
+      "safety": "still requires iPhone token + recognized model family + recognized capacity"
+    },
+    "domain_boundaries": {
+      "source": "real supplier load + canonical calculator references",
+      "purpose": "prevent iPhone context leaking into other product families",
+      "families": [
+        "Poco",
+        "Xiaomi",
+        "Redmi",
+        "iPad",
+        "MacBook",
+        "Mac Mini",
+        "iMac",
+        "Apple Watch",
+        "Watch",
+        "AirPods",
+        "AirTag",
+        "Pencil",
+        "Garmin",
+        "JBL",
+        "Moto/Motorola",
+        "Galaxy",
+        "Samsung"
+      ]
+    },
+    "condition_canonicalization": {
+      "source": "ferramentas/interpreter-core/v1/legacy-calc-v2-adapter.js",
+      "policy": "plural and singular supplier labels normalize to the same semantic condition"
+    },
+    "price_extraction": {
+      "source": "real load 6c4d3491",
+      "added_marker": [
+        "💰",
+        "💵"
+      ],
+      "safety": "requires explicit money emoji before 4-6 digit monetary token; generic bare-number rule unchanged"
+    },
+    "condition_same_line_precedence": {
+      "source": ".claude/skills/calculadoras/references/formato-dados.md item 3",
+      "rule": "extract all condition tokens on the segment; when CPO is present, CPO wins; otherwise ambiguity is preserved"
+    },
+    "condition_anchor_precedence": {
+      "rule": "when model anchor itself declares CPO, record composition prefers that CPO over later generic condition context for the same model",
+      "scope": "record composition only; context state is not mutated",
+      "source": "real CPO blocks in load 6c4d3491"
+    },
+    "ordered_color_price_pairing": {
+      "source": "supabase/migrations/20260910_calc_parse_cor_pareada.sql",
+      "rule": "within one model block, when color-only row count equals bare-price row count, pair nth color row with nth bare-price row",
+      "safety": "equal-count color-only blocks pair by order; count-mismatch fallback requires a uniquely nearest bare price within 3 lines; ties or distance >= 4 abstain",
+      "fallback": "when row counts differ, a color-only row may pair only to a uniquely nearest bare-price row; distance ties abstain",
+      "fallback_max_distance": 3
+    },
+    "supplier_direction_guard": {
+      "version": "v1",
+      "purpose": "abstain only when a mixed nearest-pairing candidate conflicts with a strong supplier-local pure direction pattern at fallback max distance",
+      "min_pure_groups": 3,
+      "require_zero_opposite": true,
+      "safety": "schema-driven; no supplier id or model id hardcoded"
+    },
+    "capacity_derivation": {
+      "version": "v1",
+      "rule": "capacity_gb may derive from resolved model entity attribute only when direct/context value is absent"
+    },
+    "adjacent_color_pairing": {
+      "version": "v1",
+      "status": "enabled_after_real_corpus_simulation",
+      "rule": "A unique color on the immediately previous line may pair to a single price trigger inside the same context block. Field-only color rows are accepted; non-field-only rows must be product_header with at least 2 leftover tokens after the color capture; a competing price immediately before the color forces abstention."
+    },
+    "record_emission_suppression": {
+      "version": "v2",
+      "rules": [
+        "preserve money-emoji long-header triggers for pairing while suppressing guarded final emission",
+        "suppress short textual-currency price lines inheriting model exactly two lines above when no direct model/color anchors the line"
+      ]
+    }
+  }
+}
