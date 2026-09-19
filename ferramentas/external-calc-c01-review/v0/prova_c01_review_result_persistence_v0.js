@@ -198,6 +198,7 @@ function excluded() {
     assert.ok(sql.includes('extcalc_review_candidate'));
     assert.ok(sql.includes('extcalc_offer_revision'));
     assert.ok(sql.includes('extcalc_human_review'));
+    assert.ok(sql.includes('end;\n$extcalc_review_result$;'));
 
     for (const forbidden of [
       'applyhumanreview',
