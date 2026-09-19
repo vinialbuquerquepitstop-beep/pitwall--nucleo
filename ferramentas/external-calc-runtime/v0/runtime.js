@@ -103,7 +103,7 @@ async function resolveIdentity(request, config, fetchImpl) {
 
 function authorityServerConfig(env) {
   return {
-    calculationProfileJson: env?.EXTCALC_CALCULATION_PROFILE_JSON,
+    calculationCategory: env?.EXTCALC_CALCULATION_CATEGORY,
     researchProfileJson: env?.EXTCALC_RESEARCH_PROFILE_JSON,
     indicatorProfileJson: env?.EXTCALC_INDICATOR_PROFILE_JSON,
     marketContextJson: env?.EXTCALC_MARKET_CONTEXT_JSON

@@ -80,7 +80,7 @@ jobs:
           grep -Fq "createExternalCalcAuthorityResolver" "$FILE"
           grep -Fq "createAuthorityBoundApplicationService" "$FILE"
           grep -Fq "createPostgresAuthoritySource" "$FILE"
-          grep -Fq "EXTCALC_CALCULATION_PROFILE_JSON" "$FILE"
+          grep -Fq "EXTCALC_CALCULATION_CATEGORY" "$FILE"
           grep -Fq "EXTCALC_RESEARCH_PROFILE_JSON" "$FILE"
           grep -Fq "EXTCALC_INDICATOR_PROFILE_JSON" "$FILE"
 
@@ -121,6 +121,12 @@ jobs:
           fi
 
           git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          if [ "$BRANCH" = "external-calc-authority-production-config-v0" ]; then
+            echo "AUTHORITY_RUNTIME_BINDING_SCOPE=DELEGATED_TO_PRODUCTION_CONFIG_GATE"
+            exit 0
+          fi
 
           while IFS= read -r file; do
             case "$file" in

@@ -139,6 +139,7 @@ function makeBackend(options = {}) {
     persistCalls: 0,
     authCalls: 0,
     profileCalls: 0,
+    calcConfigCalls: 0,
     authorityC01Calls: 0,
     authorityEvidenceCalls: 0,
     loadCalls: 0,
@@ -165,6 +166,23 @@ function makeBackend(options = {}) {
         tenant_id: TENANT_A,
         papel: role,
         ativo: true
+      }]);
+    }
+
+    if (url.startsWith(SUPABASE_URL + '/rest/v1/calc_dados?')) {
+      state.calcConfigCalls += 1;
+      return jsonResponse([{
+        tenant_id: TENANT_A,
+        atualizado_em: '2026-08-17T23:20:02.384365+00:00',
+        dados: {
+          config: {
+            margens: {
+              iPhone: { av: 550, pc: 650 }
+            },
+            pb: 100,
+            taxas: { 12: 1.1, 18: 1.2 }
+          }
+        }
       }]);
     }
 
@@ -236,7 +254,7 @@ function makeRuntime(backend, assetsFetch) {
     env: {
       SUPABASE_URL,
       SUPABASE_ANON_KEY: ANON_KEY,
-      EXTCALC_CALCULATION_PROFILE_JSON: JSON.stringify(calculationProfile()),
+      EXTCALC_CALCULATION_CATEGORY: 'iPhone',
       EXTCALC_RESEARCH_PROFILE_JSON: JSON.stringify(researchProfile()),
       EXTCALC_INDICATOR_PROFILE_JSON: JSON.stringify(indicatorProfile()),
       EXTCALC_MARKET_CONTEXT_JSON: JSON.stringify({ country: 'BR' })
@@ -299,6 +317,7 @@ async function responseBody(response) {
     assert.strictEqual(response.status, 200);
     assert.strictEqual(body.result.outputs.c05.contract_id, 'C05');
     assert.strictEqual(backend.state.authorityC01Calls, 1);
+    assert.strictEqual(backend.state.calcConfigCalls, 1);
     assert.strictEqual(backend.state.authorityEvidenceCalls, 1);
     assert.strictEqual(backend.state.persistCalls, 1);
     assert.ok(backend.state.storedBundle);
