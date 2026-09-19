@@ -128,6 +128,11 @@ jobs:
             exit 0
           fi
 
+          if [ "$BRANCH" = "external-calc-c01-review-runtime-api-v0" ]; then
+            echo "AUTHORITY_RUNTIME_BINDING_SCOPE=DELEGATED_TO_C01_REVIEW_RUNTIME_API_GATE"
+            exit 0
+          fi
+
           while IFS= read -r file; do
             case "$file" in
               ferramentas/external-calc-runtime/v0/runtime.js|ferramentas/external-calc-runtime/v0/prova_runtime_v0.js|docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md|.github/workflows/external_calc_authority_runtime_binding_v0.yml|.github/workflows/external_calc_runtime_postgres_v0.yml)
