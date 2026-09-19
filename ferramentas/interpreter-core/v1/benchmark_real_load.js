@@ -4657,6 +4657,132 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   }
 
 
+  // 13. SIMULATION ONLY: a remaining Core-only offer can be source-supported
+  // by the schema's section-scoped condition semantics. Price and model must be
+  // explicit/semantically exact, supplier continuity must hold, color must be
+  // local when present, and condition inheritance may cross only the
+  // model/domain boundary that preserves condition (never supplier/timestamp).
+  if (options.includeSchemaSupportedSectionConditionExtra === true) {
+    const conditionMap =
+      schema.fields.find(item => item.name === 'condition')?.value_map || {};
+    const canonicalConditionValue = value =>
+      value == null
+        ? null
+        : normalizeKey(
+            conditionMap[value] ||
+            conditionMap[String(value)] ||
+            value
+          ) || null;
+
+    for (let extraIndex = 0; extraIndex < extras.length; extraIndex += 1) {
+      if (claimedExtra.has(extraIndex)) continue;
+      const record = extraRecords[extraIndex];
+      if (!record || record.fields?.condition == null) continue;
+
+      const priceLine = sourceLine(record, 'price');
+      const modelLine = sourceLine(record, 'model');
+      const supplierLine = sourceLine(record, 'supplier');
+      const colorLine = sourceLine(record, 'color');
+      const conditionLine = sourceLine(record, 'condition');
+      if (
+        !Number.isFinite(priceLine) ||
+        !Number.isFinite(modelLine) ||
+        !Number.isFinite(supplierLine) ||
+        !Number.isFinite(conditionLine)
+      ) continue;
+
+      const priceTrace = (record.trace || []).find(item => item.field === 'price');
+      const conditionTrace = (record.trace || []).find(item => item.field === 'condition');
+      if (!(priceTrace?.rules || []).includes('direct_extraction')) continue;
+      if (!(conditionTrace?.rules || []).includes('context_inheritance')) continue;
+      if (!(modelLine <= priceLine && conditionLine < priceLine)) continue;
+
+      const modelSegment = segmentByLine.get(modelLine);
+      const modelId = record.fields?.model?.id || null;
+      const modelSemanticExact = !!(
+        modelSegment &&
+        modelId &&
+        (modelSegment.semantic_candidates || []).some(candidate =>
+          candidate.field === 'model' &&
+          candidate.entity_id === modelId &&
+          (candidate.state === 'interpreted' || candidate.state === 'inferred')
+        )
+      );
+      if (!modelSemanticExact) continue;
+
+      const modelBoundaries = pathBoundaries(modelLine, priceLine);
+      if (modelBoundaries.size !== 0) continue;
+
+      let interveningModelAnchors = 0;
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > modelLine && line < priceLine)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          interveningModelAnchors += 1;
+        }
+      }
+      if (interveningModelAnchors !== 0) continue;
+
+      const supplierBoundaries = pathBoundaries(supplierLine, priceLine);
+      if (
+        supplierBoundaries.has('supplier') ||
+        supplierBoundaries.has('timestamp')
+      ) continue;
+
+      if (record.fields?.color != null) {
+        if (!Number.isFinite(colorLine)) continue;
+        const colorBoundaries = pathBoundaries(colorLine, priceLine);
+        if (Math.abs(colorLine - priceLine) > 3) continue;
+        if (
+          colorBoundaries.has('domain') ||
+          colorBoundaries.has('supplier') ||
+          colorBoundaries.has('timestamp')
+        ) continue;
+      }
+
+      const conditionSegment = segmentByLine.get(conditionLine);
+      if (!conditionSegment) continue;
+      if (supplierAt(conditionSegment) !== String(record.fields?.supplier ?? '')) continue;
+
+      const conditionCandidates = uniqueFieldCandidates(
+        conditionSegment.field_candidates || [],
+        'condition'
+      );
+      if (
+        conditionCandidates.length !== 1 ||
+        canonicalConditionValue(conditionCandidates[0].value) !==
+          canonicalConditionValue(record.fields.condition)
+      ) continue;
+
+      const conditionFieldNames = [...new Set(
+        (conditionSegment.field_candidates || []).map(candidate => candidate.field)
+      )];
+      if (conditionFieldNames.some(field =>
+        field === 'price' ||
+        field === 'supplier'
+      )) continue;
+
+      const conditionBoundaries = pathBoundaries(conditionLine, priceLine);
+      if (
+        conditionBoundaries.has('supplier') ||
+        conditionBoundaries.has('timestamp') ||
+        !conditionBoundaries.has('domain')
+      ) continue;
+
+      let conditionModelAnchors = 0;
+      for (const segment of segments) {
+        const line = Number(segment.line_number);
+        if (!(line > conditionLine && line <= priceLine)) continue;
+        if ((segment.field_candidates || []).some(candidate => candidate.field === 'model')) {
+          conditionModelAnchors += 1;
+        }
+      }
+      if (conditionModelAnchors !== 1) continue;
+
+      claim('source_supported_schema_section_condition_extra', null, extraIndex);
+    }
+  }
+
   const expectedCategoryCounts = {
     source_contradicted_legacy_missing:
       sourceContradictedLegacyMissingDiagnostic?.source_contradicted_legacy_missing || 0,
@@ -5603,6 +5729,23 @@ const residualAdjudicationLedgerCombinedMissingEvidenceSimulation =
       includePriceOnlyDominanceNoLegacyWins: true,
       includeDistantFutureConditionMissing: true,
       includeDirectColorContradictsLegacyNullMissing: true
+    }
+  );
+
+const residualAdjudicationLedgerSectionConditionExtraSimulation =
+  buildResidualAdjudicationLedger(
+    reportSupplierAware,
+    coreBundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true,
+      includeDistantFutureConditionMissing: true,
+      includeDirectColorContradictsLegacyNullMissing: true,
+      includeSchemaSupportedSectionConditionExtra: true
     }
   );
 
@@ -8770,6 +8913,15 @@ const summary = {
   residual_adjudication_ledger_diagnostic: residualAdjudicationLedgerDiagnostic,
   adjudicated_residual_diagnostic: adjudicatedResidualDiagnostic,
   residual_adjudication_ledger: residualAdjudicationLedger,
+  section_condition_extra_simulation: {
+    actionable:
+      residualAdjudicationLedgerSectionConditionExtraSimulation?.actionable || null,
+    category:
+      residualAdjudicationLedgerSectionConditionExtraSimulation?.categories
+        ?.source_supported_schema_section_condition_extra || null,
+    integrity:
+      residualAdjudicationLedgerSectionConditionExtraSimulation?.integrity?.pass === true
+  },
   remaining_missing_evidence_simulations: {
     distant_future_condition: {
       actionable: residualAdjudicationLedgerFutureConditionSimulation?.actionable || null,
