@@ -1,0 +1,119 @@
+name: External Calc - C01 Review Candidate Persistence V0
+
+on:
+  push:
+    branches:
+      - external-calc-c01-review-candidate-persistence-v0
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'supabase/migrations/20260919231000_external_calc_c01_review_candidate_v0.sql'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_CANDIDATE_PERSISTENCE_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_candidate_persistence_v0.yml'
+      - '.github/workflows/external_calc_c01_review_authority_core_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'supabase/migrations/20260919231000_external_calc_c01_review_candidate_v0.sql'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_CANDIDATE_PERSISTENCE_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_candidate_persistence_v0.yml'
+      - '.github/workflows/external_calc_c01_review_authority_core_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-c01-review-candidate-persistence-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candidate-persistence-gate:
+    name: C01 review candidate persistence gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01 contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+      - name: Preserve C01 Review Authority Core
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js | tee /tmp/core.log
+          grep -q '^C01_REVIEW_AUTHORITY_CORE_GATE_V0=PASS checks=8$' /tmp/core.log
+
+      - name: Prove candidate persistence
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js | tee /tmp/candidate.log
+          grep -q '^C01_REVIEW_CANDIDATE_PERSISTENCE_GATE_V0=PASS checks=8$' /tmp/candidate.log
+
+      - name: Enforce SQL authority boundary
+        run: |
+          set -euo pipefail
+          SQL=supabase/migrations/20260919231000_external_calc_c01_review_candidate_v0.sql
+
+          grep -Fq 'create table if not exists public.extcalc_review_candidate' "$SQL"
+          grep -Fq 'security definer' "$SQL"
+          grep -Fq 'auth.uid()' "$SQL"
+          grep -Fq 'privado.fn_tenant_atual()' "$SQL"
+          grep -Fq "privado.fn_papel_atual()" "$SQL"
+          grep -Fq "v_papel is distinct from 'dono'" "$SQL"
+          grep -Fq 'EXTCALC_REVIEW_CANDIDATE_CONFLICT' "$SQL"
+          grep -Fq 'revoke all on public.extcalc_review_candidate from anon, authenticated' "$SQL"
+          grep -Fq 'grant select on public.extcalc_review_candidate to authenticated' "$SQL"
+
+          if grep -Eqi 'update[[:space:]]+public\.extcalc_offer_revision|delete[[:space:]]+from[[:space:]]+public\.extcalc_offer_revision' "$SQL"; then
+            echo 'BLOQUEIO: candidate persistence altera offer_revision final'
+            exit 1
+          fi
+
+          for token in 'applyHumanReview' 'offerIdentityFingerprint(' 'offerValueFingerprint(' 'service_role'; do
+            if grep -Fqi "$token" "$SQL"; then
+              echo "BLOQUEIO: regra/segredo indevido no SQL: $token"
+              exit 1
+            fi
+          done
+
+          echo 'C01_REVIEW_CANDIDATE_SQL_BOUNDARY=PASS'
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-c01-review/v0/postgres-review-candidate-repository.js|ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js|supabase/migrations/20260919231000_external_calc_c01_review_candidate_v0.sql|docs/calculadora/EXTERNAL_CALC_C01_REVIEW_CANDIDATE_PERSISTENCE_GATE_V0.md|.github/workflows/external_calc_c01_review_candidate_persistence_v0.yml|.github/workflows/external_calc_c01_review_authority_core_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia C01 Review Candidate Persistence V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo 'C01_REVIEW_CANDIDATE_PERSISTENCE_SCOPE=PASS'
