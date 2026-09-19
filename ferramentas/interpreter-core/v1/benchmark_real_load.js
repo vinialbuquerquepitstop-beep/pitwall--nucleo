@@ -5302,6 +5302,7 @@ const residualAdjudicationLedger =
       includeSourceUnsupportedMissing: true,
       includeStrictPairDominance: true,
       includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true,
       includeUnpairedForensics: true
     }
   );
