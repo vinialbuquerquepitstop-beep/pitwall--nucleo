@@ -81,7 +81,11 @@ begin
     raise exception 'EXTCALC_REVIEW_RESULT_STATE_INVALID';
   end if;
 
-  if v_offer_revision <> v_original_revision + case when v_material_change then 1 else 0 end then
+  if v_material_change and v_offer_revision <> v_original_revision + 1 then
+    raise exception 'EXTCALC_REVIEW_RESULT_REVISION_INVALID';
+  end if;
+
+  if not v_material_change and v_offer_revision <> v_original_revision then
     raise exception 'EXTCALC_REVIEW_RESULT_REVISION_INVALID';
   end if;
 
