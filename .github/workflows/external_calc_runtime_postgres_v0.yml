@@ -81,7 +81,9 @@ jobs:
         run: |
           set -euo pipefail
           npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-worker | tee /tmp/wrangler.log
-          test -s /tmp/extcalc-worker/index.js
+          find /tmp/extcalc-worker -maxdepth 2 -type f -print
+          find /tmp/extcalc-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler.log
           echo "EXTERNAL_CALC_WORKER_BUNDLE=PASS"
 
       - name: Enforce persistence RPC boundary
