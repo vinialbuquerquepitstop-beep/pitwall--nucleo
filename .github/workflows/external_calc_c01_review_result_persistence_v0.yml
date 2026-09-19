@@ -1,0 +1,27 @@
+name: External Calc - C01 Review Result Persistence V0
+
+on:
+  push:
+    branches:
+      - external-calc-c01-review-result-persistence-v0
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'supabase/migrations/20260919232500_external_calc_c01_review_result_v0.sql'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_RESULT_PERSISTENCE_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_result_persistence_v0.yml'
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Preserve C01 review core
+        run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js
+      - name: Preserve candidate persistence
+        run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js
+      - name: Prove review result persistence
+        run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_result_persistence_v0.js
