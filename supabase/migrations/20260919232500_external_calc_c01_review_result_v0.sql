@@ -61,7 +61,7 @@ begin
   v_decision := nullif(pg_catalog.btrim(p_reviewed->'review'->>'decision'), '');
   v_reviewer_ref := nullif(pg_catalog.btrim(p_reviewed->'review'->>'reviewer_ref'), '');
   v_reviewed_at := nullif(p_reviewed->'review'->>'reviewed_at', '')::timestamptz;
-  v_original_revision := nullif(p_reviewed->'review'->>'original_offer_revision', '')::integer;
+  v_original_revision := coalesce(\n    nullif(p_reviewed->'review'->>'original_offer_revision', '')::integer,\n    nullif(p_reviewed->>'offer_revision', '')::integer\n  );
   v_material_change := coalesce((p_reviewed->'review'->>'material_change')::boolean, false);
 
   if v_analysis_id is null or v_source_id is null or v_offer_id is null
