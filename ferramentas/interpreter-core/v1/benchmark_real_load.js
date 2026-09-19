@@ -4514,7 +4514,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
-  // 11. SIMULATION ONLY: legacy condition attached to an offer is treated as
+  // 11. V7 EVIDENCE ADJUDICATION: legacy condition attached to an offer is treated as
   // unsupported when Core has the same model/supplier/price with no condition,
   // the expected color is locally visible, and the nearest matching condition
   // is only found later in the document after crossing a model/domain section.
@@ -4613,7 +4613,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
     }
   }
 
-  // 12. SIMULATION ONLY: legacy null color is contradicted when the same
+  // 12. V7 EVIDENCE ADJUDICATION: legacy null color is contradicted when the same
   // model/supplier/price/condition exists in Core with a color extracted
   // directly from the price line and the model is locally resolved.
   if (options.includeDirectColorContradictsLegacyNullMissing === true) {
@@ -5463,9 +5463,14 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      options.includePriceOnlyDominanceNoLegacyWins === true
-        ? 'residual-adjudication-ledger/v6'
-        : options.includeNoLegacyWinsPartialPairDominance === true
+      (
+        options.includeDistantFutureConditionMissing === true &&
+        options.includeDirectColorContradictsLegacyNullMissing === true
+      )
+        ? 'residual-adjudication-ledger/v7'
+        : options.includePriceOnlyDominanceNoLegacyWins === true
+          ? 'residual-adjudication-ledger/v6'
+          : options.includeNoLegacyWinsPartialPairDominance === true
           ? 'residual-adjudication-ledger/v5'
           : options.includeStrictPairDominance === true
           ? 'residual-adjudication-ledger/v4'
@@ -5549,6 +5554,8 @@ const residualAdjudicationLedger =
       includeStrictPairDominance: true,
       includeNoLegacyWinsPartialPairDominance: true,
       includePriceOnlyDominanceNoLegacyWins: true,
+      includeDistantFutureConditionMissing: true,
+      includeDirectColorContradictsLegacyNullMissing: true,
       includeUnpairedForensics: true
     }
   );
