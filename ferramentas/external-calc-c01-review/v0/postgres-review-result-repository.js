@@ -49,8 +49,11 @@ function assertReviewResult(args = {}) {
   const review = reviewed.review;
   if (!review || typeof review !== 'object') throw new Error('review ausente');
   if (review.reviewer_ref !== actorRef) throw new Error('reviewer_ref diverge do ator');
-  if (review.original_offer_revision !== candidate.offer_revision) {
-    throw new Error('review.original_offer_revision diverge do candidate');
+  const originalRevision = review.original_offer_revision == null
+    ? candidate.offer_revision
+    : review.original_offer_revision;
+  if (originalRevision !== candidate.offer_revision) {
+    throw new Error('review original revision diverge do candidate');
   }
 
   const material = review.material_change === true;
