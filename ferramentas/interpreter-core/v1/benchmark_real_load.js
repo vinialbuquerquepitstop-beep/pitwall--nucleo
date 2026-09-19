@@ -8093,6 +8093,259 @@ const supplierAwareExpansionGroupDiagnostic = supplierProfiles.length
   ? supplierAwareExpansionGroupDiagnostics(legacySupplierAware, coreBundle)
   : null;
 
+function sourceOnlyExpansionDirectionEvidence(bundle) {
+  const groups = new Map();
+  for (const offer of coreOffers(bundle)) {
+    const match = /^(.*)-exp-\d+$/.exec(String(offer.core_record_id || ''));
+    if (!match) continue;
+    const colorTrace = (offer.trace || []).find(trace => trace.field === 'color');
+    if (!colorTrace?.rules?.includes('record_expansion:pairing_nearest_unique')) continue;
+    const priceTrace = (offer.trace || []).find(trace => trace.field === 'price');
+    const colorLine = Array.isArray(colorTrace?.sources) ? Number(colorTrace.sources[0]) : null;
+    const priceLine = Array.isArray(priceTrace?.sources) ? Number(priceTrace.sources[0]) : null;
+    if (!Number.isFinite(colorLine) || !Number.isFinite(priceLine)) continue;
+    const groupId = match[1];
+    if (!groups.has(groupId)) {
+      groups.set(groupId, {
+        supplier: offer.fields?.supplier == null ? null : String(offer.fields.supplier),
+        offsets: []
+      });
+    }
+    groups.get(groupId).offsets.push(colorLine - priceLine);
+  }
+
+  const evidence = {};
+  const directionClass = offsets => {
+    const hasBefore = offsets.some(value => value < 0);
+    const hasAfter = offsets.some(value => value > 0);
+    if (hasBefore && hasAfter) return 'mixed';
+    if (hasBefore) return 'before_only';
+    if (hasAfter) return 'after_only';
+    return 'same_or_unknown';
+  };
+
+  for (const group of groups.values()) {
+    if (!group.supplier) continue;
+    const direction = directionClass(group.offsets);
+    if (!evidence[group.supplier]) {
+      evidence[group.supplier] = {
+        before_only_groups: 0,
+        after_only_groups: 0,
+        mixed_groups: 0
+      };
+    }
+    if (direction === 'before_only') evidence[group.supplier].before_only_groups += 1;
+    else if (direction === 'after_only') evidence[group.supplier].after_only_groups += 1;
+    else if (direction === 'mixed') evidence[group.supplier].mixed_groups += 1;
+  }
+  return evidence;
+}
+
+function simulateStrictAfterPriceColorExpansion(bundle, minColors) {
+  const simulated = JSON.parse(JSON.stringify(bundle));
+  const directionEvidence = sourceOnlyExpansionDirectionEvidence(bundle);
+  const trustedAfterSuppliers = new Set(
+    Object.entries(directionEvidence)
+      .filter(([, row]) =>
+        row.after_only_groups >= 3 &&
+        row.before_only_groups === 0
+      )
+      .map(([supplier]) => supplier)
+  );
+  const segments = simulated.segments || [];
+  const segmentByLine = new Map(
+    segments.map(segment => [Number(segment.line_number), segment])
+  );
+
+  const sourceLine = (record, field) => {
+    const trace = (record.trace || []).find(item => item.field === field);
+    return Array.isArray(trace?.sources) && trace.sources.length
+      ? Number(trace.sources[0])
+      : null;
+  };
+  const hardBoundaryOnSegment = segment =>
+    (segment?.context_events || []).some(event =>
+      event.reason === 'timestamp_boundary' ||
+      event.reason === 'supplier_boundary' ||
+      event.reason === 'domain_boundary'
+    );
+  const modelLocallySupported = (record, priceLine) => {
+    const modelLine = sourceLine(record, 'model');
+    if (!Number.isFinite(modelLine) || !Number.isFinite(priceLine)) return false;
+    if (Math.abs(priceLine - modelLine) > 6) return false;
+    const modelSegment = segmentByLine.get(modelLine);
+    const modelId = record.fields?.model?.id || null;
+    if (!modelSegment || !modelId) return false;
+    return (modelSegment.semantic_candidates || []).some(candidate =>
+      candidate.field === 'model' &&
+      candidate.entity_id === modelId &&
+      (candidate.state === 'interpreted' || candidate.state === 'inferred')
+    );
+  };
+
+  let candidateRecords = 0;
+  let expandedSourceRecords = 0;
+  let generatedRecords = 0;
+  const bySupplier = {};
+  const byModel = {};
+  const nextRecords = [];
+
+  for (const record of simulated.records || []) {
+    const supplier = record.fields?.supplier == null
+      ? null
+      : String(record.fields.supplier);
+    const priceTrace = (record.trace || []).find(item => item.field === 'price');
+    const priceLine = sourceLine(record, 'price');
+    const directPrice =
+      Number.isFinite(priceLine) &&
+      (priceTrace?.rules || []).includes('direct_extraction');
+
+    if (
+      record.fields?.color != null ||
+      !supplier ||
+      !trustedAfterSuppliers.has(supplier) ||
+      !directPrice ||
+      !modelLocallySupported(record, priceLine)
+    ) {
+      nextRecords.push(record);
+      continue;
+    }
+
+    const candidates = [];
+    const seenColors = new Set();
+    let structurallyClosed = false;
+
+    for (let offset = 1; offset <= 3; offset += 1) {
+      const segment = segmentByLine.get(priceLine + offset);
+      if (!segment || hardBoundaryOnSegment(segment)) {
+        structurallyClosed = true;
+        break;
+      }
+      const fieldsHere = new Set(
+        (segment.field_candidates || []).map(candidate => candidate.field)
+      );
+      if (
+        fieldsHere.has('price') ||
+        fieldsHere.has('model') ||
+        fieldsHere.has('supplier') ||
+        fieldsHere.has('condition')
+      ) {
+        structurallyClosed = true;
+        break;
+      }
+      if (!isFieldOnlySegment(segment, 'color')) {
+        structurallyClosed = true;
+        break;
+      }
+      const colors = uniqueFieldCandidates(segment.field_candidates || [], 'color');
+      if (colors.length !== 1) {
+        structurallyClosed = true;
+        break;
+      }
+      const key = normalizeKey(colors[0].value);
+      if (!key || seenColors.has(key)) {
+        structurallyClosed = true;
+        break;
+      }
+      seenColors.add(key);
+      candidates.push({
+        candidate: colors[0],
+        line: Number(segment.line_number)
+      });
+    }
+
+    if (candidates.length < minColors) {
+      nextRecords.push(record);
+      continue;
+    }
+
+    candidateRecords += 1;
+    expandedSourceRecords += 1;
+    bySupplier[supplier] = (bySupplier[supplier] || 0) + 1;
+    const modelId = record.fields?.model?.id || '(unknown)';
+    byModel[modelId] = (byModel[modelId] || 0) + 1;
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const { candidate, line } = candidates[index];
+      const expanded = JSON.parse(JSON.stringify(record));
+      expanded.record_id =
+        String(record.record_id || 'record') +
+        '-diag-after-exp-' + String(index + 1);
+      expanded.fields.color = candidate.value;
+      expanded.trace = (expanded.trace || []).filter(item => item.field !== 'color');
+      expanded.trace.push({
+        field: 'color',
+        chosen: candidate.value,
+        sources: [line],
+        derived_from: [line],
+        rules: ['diagnostic:strict_after_price_color_expansion'],
+        alternatives: [],
+        score: candidate.score ?? null
+      });
+      nextRecords.push(expanded);
+      generatedRecords += 1;
+    }
+  }
+
+  simulated.records = nextRecords;
+  simulated.metrics = simulated.metrics || {};
+  simulated.metrics.n_records = nextRecords.length;
+
+  return {
+    bundle: simulated,
+    min_colors: minColors,
+    direction_evidence: directionEvidence,
+    trusted_after_suppliers: [...trustedAfterSuppliers].sort(),
+    candidate_records: candidateRecords,
+    expanded_source_records: expandedSourceRecords,
+    generated_records: generatedRecords,
+    by_supplier: bySupplier,
+    by_model: byModel
+  };
+}
+
+const strictAfterPriceColorExpansionSimulations = [2, 1].map(minColors => {
+  const simulation = simulateStrictAfterPriceColorExpansion(coreBundle, minColors);
+  const report = compareSemanticShadow({
+    legacy: legacySupplierAware,
+    coreBundle: simulation.bundle,
+    options: { include_supplier: true }
+  });
+  const ledger = buildResidualAdjudicationLedger(
+    report,
+    simulation.bundle,
+    {
+      includeStrongMixed: true,
+      includeAllFullyLocalCoreOnlyLate: true,
+      includeSourceUnsupportedMissing: true,
+      includeStrictPairDominance: true,
+      includeNoLegacyWinsPartialPairDominance: true,
+      includePriceOnlyDominanceNoLegacyWins: true
+    }
+  );
+  return {
+    min_colors: minColors,
+    direction_evidence: simulation.direction_evidence,
+    trusted_after_suppliers: simulation.trusted_after_suppliers,
+    candidate_records: simulation.candidate_records,
+    expanded_source_records: simulation.expanded_source_records,
+    generated_records: simulation.generated_records,
+    by_supplier: simulation.by_supplier,
+    by_model: simulation.by_model,
+    core_offers: report.metrics.core_offers,
+    matched_offers: report.metrics.matched_offers,
+    missing_offers: report.metrics.missing_offers,
+    extra_offers: report.metrics.extra_offers,
+    agreement_ratio: report.metrics.agreement_ratio,
+    confirmed_silent_wrong_price: report.metrics.confirmed_silent_wrong_price,
+    unresolved_price_attribution: report.metrics.unresolved_price_attribution,
+    no_silent_wrong_price: report.gates.no_silent_wrong_price,
+    price_attribution_resolved: report.gates.price_attribution_resolved,
+    actionable: ledger?.actionable || null,
+    ledger_integrity: ledger?.integrity?.pass === true
+  };
+});
+
 const summary = {
   contract_version: 'real-shadow-benchmark-summary/v1',
   mode: 'shadow_read_only',
@@ -8294,6 +8547,7 @@ const summary = {
   },
   supplier_aware_pairing_trace_diagnostic: supplierAwarePairingTraceDiagnostic,
   supplier_aware_expansion_group_diagnostic: supplierAwareExpansionGroupDiagnostic,
+  strict_after_price_color_expansion_simulations: strictAfterPriceColorExpansionSimulations,
   supplier_aware_silent_wrong_price_by_model:
     reportSupplierAware?.metrics?.silent_wrong_price_by_model ?? null,
   supplier_aware_silent_wrong_price_surplus_trace_by_rule:
