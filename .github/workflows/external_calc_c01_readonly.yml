@@ -1,0 +1,191 @@
+name: External Calc - C01 Read-only Gate
+
+on:
+  push:
+    branches:
+      - feat/external-calc-c01-readonly-v1
+    paths:
+      - 'ferramentas/external-calc-c01/v1/**'
+      - '.github/workflows/external_calc_c01_readonly.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-c01/v1/**'
+      - '.github/workflows/external_calc_c01_readonly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-c01-readonly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-gate:
+    name: C01 local contract gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Interpreter Core gate
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js | tee /tmp/interpreter-gate.log
+          grep -q '^GATE_LOCAL=PASS' /tmp/interpreter-gate.log
+
+      - name: Run C01 read-only fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01-gate.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01-gate.log
+
+      - name: Enforce read-only trust boundary
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-c01/v1/c01-readonly-bridge.js
+          for token in 'supabase' 'postgres' 'tenant_id' 'fetch(' 'http://' 'https://' 'writeFile' 'unlink(' 'child_process'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no bridge C01: $token"
+              exit 1
+            fi
+          done
+          echo "C01_BOUNDARY=PASS"
+
+  real-corpus-gate:
+    name: C01 real corpus read-only gate
+    needs: local-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOAD_ID: '6c4d3491-f85b-4015-8393-9798ab1ce758'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install PostgreSQL client 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Extract private benchmark inputs read-only
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          test -n "${SUPABASE_DB_URL:-}"
+
+          OWNER_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+              -c "select u.id::text
+                    from public.app_usuario u
+                    join public.calc_carga c on c.tenant_id = u.tenant_id
+                   where c.id = '$LOAD_ID'::uuid
+                     and u.ativo
+                     and u.papel = 'dono'
+                   order by u.id
+                   limit 1"
+          )"
+          test -n "$OWNER_ID"
+          CLAIMS="{\"sub\":\"$OWNER_ID\"}"
+
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1 \
+            -v claims="$CLAIMS" -v load_id="$LOAD_ID" <<'SQL'
+          \o /dev/null
+          select set_config('request.jwt.claims', :'claims', false);
+
+          \o /tmp/calc_raw.b64
+          select encode(convert_to(texto_bruto, 'UTF8'), 'base64')
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o /tmp/calc_legacy.b64
+          select encode(
+                   convert_to(public.calc_bench_ler(texto_bruto)::text, 'UTF8'),
+                   'base64'
+                 )
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o /tmp/supplier_profiles.json
+          select jsonb_build_object(
+                   'contract_version', 'supplier-profiles/v1',
+                   'profiles',
+                   coalesce(
+                     (
+                       select jsonb_agg(
+                                jsonb_build_object(
+                                  'id', f.codigo,
+                                  'label', f.nome,
+                                  'aliases',
+                                  coalesce(
+                                    (
+                                      select jsonb_agg(a.texto order by length(a.texto) desc, a.texto)
+                                        from public.calc_alias a
+                                       where a.tenant_id = f.tenant_id
+                                         and a.tipo = 'fornecedor'
+                                         and a.aponta = f.codigo
+                                    ),
+                                    '[]'::jsonb
+                                  )
+                                )
+                                order by length(f.nome) desc, f.nome
+                              )
+                         from public.calc_fornecedor f
+                        where f.tenant_id = c.tenant_id
+                          and f.ativo
+                     ),
+                     '[]'::jsonb
+                   )
+                 )::text
+            from public.calc_carga c
+           where c.id = :'load_id'::uuid;
+          \o
+          SQL
+
+          test -s /tmp/calc_raw.b64
+          test -s /tmp/calc_legacy.b64
+          test -s /tmp/supplier_profiles.json
+          base64 --decode /tmp/calc_raw.b64 > /tmp/calc_raw.txt
+          base64 --decode /tmp/calc_legacy.b64 > /tmp/calc_legacy.json
+          node -e "JSON.parse(require('fs').readFileSync('/tmp/calc_legacy.json','utf8'));"
+
+      - name: Reconfirm Interpreter P0 and run C01 bridge
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/benchmark_real_load.js \
+            /tmp/calc_raw.txt /tmp/calc_legacy.json /tmp/supplier_profiles.json | tee /tmp/interpreter-real.log
+          grep -q '^PROMOTION_READY=true$' /tmp/interpreter-real.log
+
+          node ferramentas/external-calc-c01/v1/prova_real_c01_readonly.js \
+            /tmp/calc_raw.txt /tmp/supplier_profiles.json | tee /tmp/c01-real.log
+          grep -q '^C01_REAL_READONLY_GATE=PASS$' /tmp/c01-real.log
+
+      - name: Cleanup private files
+        if: always()
+        run: |
+          rm -f /tmp/calc_raw.b64 /tmp/calc_legacy.b64 \
+                /tmp/calc_raw.txt /tmp/calc_legacy.json \
+                /tmp/supplier_profiles.json /tmp/interpreter-real.log /tmp/c01-real.log
+
