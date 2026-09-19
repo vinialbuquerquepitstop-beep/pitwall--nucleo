@@ -18,7 +18,7 @@ const knowledge = JSON.parse(fs.readFileSync(
   'utf8'
 ));
 
-function run(documentId, content) {
+function run(documentId, content, supplierProfiles = null) {
   return runC01ReadOnlySlice({
     analysis_id: 'ana_fixture_001',
     source_id: 'src_fixture_001',
@@ -30,7 +30,8 @@ function run(documentId, content) {
       source: { kind: 'plain_text' }
     },
     schema,
-    knowledge
+    knowledge,
+    supplier_profiles: supplierProfiles
   });
 }
 
@@ -81,6 +82,22 @@ const excluded = applyHumanReview(candidate, {
 });
 assert.strictEqual(excluded.domain_outcome, 'EXCLUDED');
 assert.strictEqual(excluded.reviewed_offer, null);
+
+
+const supplierQueue = run(
+  'c01-supplier',
+  'LOJA TESTE\niPhone 17 512GB Preto Lacrado - 8.100',
+  {
+    contract_version: 'supplier-profiles/v1',
+    profiles: [{ id: 'SUP_TESTE', label: 'Loja Teste', aliases: ['LOJA TESTE'] }]
+  }
+);
+assert.strictEqual(supplierQueue.candidates.length, 1);
+assert.strictEqual(supplierQueue.candidates[0].interpreted_offer.supplier_id, 'SUP_TESTE');
+assert.strictEqual(
+  supplierQueue.candidates[0].reviewed_offer,
+  null
+);
 
 const unresolved = run('c01-unresolved', 'iPhone 18 256GB Preto Lacrado - 9.999');
 assert.strictEqual(unresolved.candidates.length, 0);
