@@ -32,10 +32,12 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Calculadora
 
-- topo: `handoff_calculadora_pitwall_v22.md`
-- estado: Interpreter Core V1 integrado no `main`; Gate 02 PASS / FROZEN; Ledger V8 com residual acionavel zero.
-- merge: PR #13, squash `4b59d8b9c07fd5c4043c8f17d859815a1db6387d`; run #188 passou gate local e corpus real no HEAD do PR.
-- proximo passo: primeira integracao controlada e read-only do Core com o External Calc, produzindo `InterpretationBundle -> C01 Reviewed Offer -> revisao humana`; nao substituir `calc_parse_v2` ainda.
+- topo: `handoff_calculadora_pitwall_v24.md`
+- estado: Interpreter Core V1 permanece FROZEN; External Calc Service V0 e Lifecycle / Persistence V0 integrados no `main`; schema `extcalc_*` aplicado no Supabase com RLS e escrita cliente-side fechada.
+- merges: Service V0 PR #24, squash `57b3fa2d22828992b7cdba1f2dd22298c4568224`; Persistence V0 PR #25, squash `6ec053cb1410b04a1a1568c44341630016dfcc45`; correcao de indices PR #27, squash `4bef4e5aa98ffe7bc018cf5dc48e8bbdf015f34b`.
+- migrations vivas: `20260919202202_external_calc_lifecycle_persistence_v0` e `20260919202604_external_calc_persistence_fk_indexes_v0`.
+- proximo passo: `External Calc API V0`, consumindo Service + Lifecycle Repository sem duplicar regra de dominio e sem aceitar `tenant_id` como autoridade do cliente.
+- substituicao do leitor legado continua NAO autorizada.
 - processo obrigatorio: `docs/calculadora/PROCESSO.md`
 
 ### Financeiro
