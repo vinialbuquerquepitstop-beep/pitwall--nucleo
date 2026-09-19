@@ -7,7 +7,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $extcalc_review_result$
 declare
   v_tenant uuid;
   v_papel text;
@@ -160,7 +160,7 @@ begin
     'review_id', v_review_id
   );
 end
-$$;
+$extcalc_review_result$;
 
 comment on function public.extcalc_persist_review_result_v0(jsonb) is
   'Persiste o C01 final e HumanReview ja produzidos pelo Core. Nao calcula fingerprint, revision ou materialidade.';
