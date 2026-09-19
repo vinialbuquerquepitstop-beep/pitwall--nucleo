@@ -13,6 +13,7 @@ const USER_A = 'fb2aad8e-b728-4e59-a198-71da2156449d';
 const SUPABASE_URL = 'https://example.supabase.co';
 const ANON_KEY = 'anon-public-fixture';
 const TOKEN = 'user-access-token-fixture';
+const FIXED_TIME = '2026-09-19T21:15:00.000Z';
 
 let ok = 0;
 
@@ -55,6 +56,41 @@ function c01Candidate() {
   };
 }
 
+function calculationProfile() {
+  return {
+    profile_id: 'calc-runtime-fixture',
+    profile_version: '1',
+    currency: 'BRL',
+    cash_margin_minor: 55000,
+    installment_margin_minor: 65000,
+    freight_minor: 0,
+    freight_mode: 'STORE',
+    installment_base_addon_minor: 10000,
+    entry_minor: 0,
+    installment_coefficients: { 12: 1.1, 18: 1.2 }
+  };
+}
+
+function researchProfile() {
+  return {
+    profile_id: 'research-runtime-fixture',
+    profile_version: '1',
+    required_match_fields: ['model_id', 'capacity_gb', 'condition'],
+    min_evidence_confidence: 0.7,
+    max_age_seconds: 60 * 60 * 24 * 30
+  };
+}
+
+function indicatorProfile() {
+  return {
+    profile_id: 'indicator-runtime-fixture',
+    profile_version: '1',
+    min_evidence_count: 3,
+    cheap_at_or_below_percent: -5,
+    expensive_at_or_above_percent: 5
+  };
+}
+
 function evidence(id, price) {
   return {
     evidence_id: id,
@@ -73,42 +109,19 @@ function evidence(id, price) {
   };
 }
 
+function trustedEvidence() {
+  return [
+    evidence('ev_runtime_1', 600000),
+    evidence('ev_runtime_2', 650000),
+    evidence('ev_runtime_3', 700000)
+  ];
+}
+
 function clientRequest(overrides = {}) {
   return {
-    c01_candidate: c01Candidate(),
-    calculation_profile: {
-      profile_id: 'calc-runtime-fixture',
-      profile_version: '1',
-      currency: 'BRL',
-      cash_margin_minor: 55000,
-      installment_margin_minor: 65000,
-      freight_minor: 0,
-      freight_mode: 'STORE',
-      installment_base_addon_minor: 10000,
-      entry_minor: 0,
-      installment_coefficients: { 12: 1.1, 18: 1.2 }
-    },
-    research_profile: {
-      profile_id: 'research-runtime-fixture',
-      profile_version: '1',
-      required_match_fields: ['model_id', 'capacity_gb', 'condition'],
-      min_evidence_confidence: 0.7,
-      max_age_seconds: 60 * 60 * 24 * 30
-    },
-    indicator_profile: {
-      profile_id: 'indicator-runtime-fixture',
-      profile_version: '1',
-      min_evidence_count: 3,
-      cheap_at_or_below_percent: -5,
-      expensive_at_or_above_percent: 5
-    },
-    as_of: '2026-09-19T21:15:00.000Z',
-    market_context: { country: 'BR' },
-    evidence: [
-      evidence('ev_runtime_1', 600000),
-      evidence('ev_runtime_2', 650000),
-      evidence('ev_runtime_3', 700000)
-    ],
+    analysis_id: 'ana_runtime_001',
+    offer_id: 'off_runtime_001',
+    offer_revision: 1,
     ...overrides
   };
 }
@@ -126,6 +139,8 @@ function makeBackend(options = {}) {
     persistCalls: 0,
     authCalls: 0,
     profileCalls: 0,
+    authorityC01Calls: 0,
+    authorityEvidenceCalls: 0,
     loadCalls: 0,
     calls: []
   };
@@ -151,6 +166,30 @@ function makeBackend(options = {}) {
         papel: role,
         ativo: true
       }]);
+    }
+
+    if (url.startsWith(SUPABASE_URL + '/rest/v1/extcalc_offer_revision?')) {
+      state.authorityC01Calls += 1;
+      return jsonResponse([{
+        tenant_id: TENANT_A,
+        analysis_id: c01Candidate().analysis_id,
+        offer_id: c01Candidate().offer_id,
+        offer_revision: c01Candidate().offer_revision,
+        c01_snapshot: c01Candidate(),
+        domain_outcome: 'VALID',
+        freshness_status: 'CURRENT'
+      }]);
+    }
+
+    if (url.startsWith(SUPABASE_URL + '/rest/v1/extcalc_evidence?')) {
+      state.authorityEvidenceCalls += 1;
+      return jsonResponse(
+        trustedEvidence().map(item => ({
+          evidence_id: item.evidence_id,
+          evidence_snapshot: item,
+          observed_at: item.observed_at
+        }))
+      );
     }
 
     if (url === SUPABASE_URL + '/rest/v1/rpc/extcalc_persist_execution_v0') {
@@ -196,10 +235,15 @@ function makeRuntime(backend, assetsFetch) {
   return createExternalCalcWorkerRuntime({
     env: {
       SUPABASE_URL,
-      SUPABASE_ANON_KEY: ANON_KEY
+      SUPABASE_ANON_KEY: ANON_KEY,
+      EXTCALC_CALCULATION_PROFILE_JSON: JSON.stringify(calculationProfile()),
+      EXTCALC_RESEARCH_PROFILE_JSON: JSON.stringify(researchProfile()),
+      EXTCALC_INDICATOR_PROFILE_JSON: JSON.stringify(indicatorProfile()),
+      EXTCALC_MARKET_CONTEXT_JSON: JSON.stringify({ country: 'BR' })
     },
     fetchImpl: backend.fetchImpl,
-    assetsFetch
+    assetsFetch,
+    clock: () => FIXED_TIME
   });
 }
 
@@ -220,7 +264,7 @@ async function responseBody(response) {
 }
 
 (async () => {
-  await check('sem JWT responde 401 e nao tenta persistir', async () => {
+  await check('sem JWT responde 401 e nao toca autoridade/persistencia', async () => {
     const backend = makeBackend({ authenticated: false });
     const runtime = makeRuntime(backend);
     const response = await runtime.fetch(
@@ -228,10 +272,11 @@ async function responseBody(response) {
     );
 
     assert.strictEqual(response.status, 401);
+    assert.strictEqual(backend.state.authorityC01Calls, 0);
     assert.strictEqual(backend.state.persistCalls, 0);
   });
 
-  await check('JWT de papel sem permissao responde 403', async () => {
+  await check('JWT de papel sem permissao responde 403 antes da autoridade', async () => {
     const backend = makeBackend({ role: 'vendedor' });
     const runtime = makeRuntime(backend);
     const response = await runtime.fetch(
@@ -239,10 +284,11 @@ async function responseBody(response) {
     );
 
     assert.strictEqual(response.status, 403);
+    assert.strictEqual(backend.state.authorityC01Calls, 0);
     assert.strictEqual(backend.state.persistCalls, 0);
   });
 
-  await check('JWT dono executa Service V0 e persiste via RPC', async () => {
+  await check('JWT dono resolve autoridade server-side executa Service V0 e persiste', async () => {
     const backend = makeBackend();
     const runtime = makeRuntime(backend);
     const response = await runtime.fetch(
@@ -252,9 +298,15 @@ async function responseBody(response) {
 
     assert.strictEqual(response.status, 200);
     assert.strictEqual(body.result.outputs.c05.contract_id, 'C05');
+    assert.strictEqual(backend.state.authorityC01Calls, 1);
+    assert.strictEqual(backend.state.authorityEvidenceCalls, 1);
     assert.strictEqual(backend.state.persistCalls, 1);
     assert.ok(backend.state.storedBundle);
     assert.strictEqual(backend.state.storedBundle.execution.tenant_id, TENANT_A);
+    assert.deepStrictEqual(
+      backend.state.storedBundle.execution.request_snapshot.c01_candidate,
+      c01Candidate()
+    );
   });
 
   await check('execution_id default e UUID puro aceito pela persistencia', async () => {
@@ -272,29 +324,42 @@ async function responseBody(response) {
     assert.strictEqual(backend.state.storedBundle.execution.execution_id, body.execution_id);
   });
 
-  await check('tenant_id injetado no body e rejeitado antes da RPC', async () => {
-    const backend = makeBackend();
-    const runtime = makeRuntime(backend);
-    const response = await runtime.fetch(
+  await check('tenant e domain bundle injetados pelo cliente sao rejeitados', async () => {
+    const tenantBackend = makeBackend();
+    const tenantRuntime = makeRuntime(tenantBackend);
+    const tenantResponse = await tenantRuntime.fetch(
       apiRequest('POST', '/api/external-calc/v0/execute', {
         ...clientRequest(),
         tenant_id: '00000000-0000-4000-8000-000000000099'
       })
     );
-    const body = await responseBody(response);
+    const tenantBody = await responseBody(tenantResponse);
 
-    assert.strictEqual(response.status, 400);
-    assert.strictEqual(body.error.code, 'CLIENT_AUTHORITY_FIELD');
-    assert.strictEqual(backend.state.persistCalls, 0);
+    assert.strictEqual(tenantResponse.status, 400);
+    assert.strictEqual(tenantBody.error.code, 'CLIENT_AUTHORITY_FIELD');
+    assert.strictEqual(tenantBackend.state.persistCalls, 0);
+
+    const profileBackend = makeBackend();
+    const profileRuntime = makeRuntime(profileBackend);
+    const profileResponse = await profileRuntime.fetch(
+      apiRequest('POST', '/api/external-calc/v0/execute', {
+        ...clientRequest(),
+        calculation_profile: calculationProfile()
+      })
+    );
+    const profileBody = await responseBody(profileResponse);
+
+    assert.strictEqual(profileResponse.status, 400);
+    assert.match(profileBody.error.message, /autoridade proibido/);
+    assert.strictEqual(profileBackend.state.persistCalls, 0);
   });
 
-  await check('round-trip POST -> persistencia -> GET reconstrui request e result', async () => {
+  await check('round-trip POST -> persistencia -> GET retorna request resolvido e result', async () => {
     const backend = makeBackend();
     const runtime = makeRuntime(backend);
-    const original = clientRequest();
 
     const post = await runtime.fetch(
-      apiRequest('POST', '/api/external-calc/v0/execute', original)
+      apiRequest('POST', '/api/external-calc/v0/execute', clientRequest())
     );
     const postBody = await responseBody(post);
 
@@ -309,12 +374,14 @@ async function responseBody(response) {
 
     assert.strictEqual(get.status, 200);
     assert.strictEqual(getBody.execution_id, postBody.execution_id);
-    assert.deepStrictEqual(getBody.request.c01_candidate, original.c01_candidate);
+    assert.deepStrictEqual(getBody.request.c01_candidate, c01Candidate());
+    assert.deepStrictEqual(getBody.request.evidence, trustedEvidence());
+    assert.strictEqual(getBody.request.analysis_id, undefined);
     assert.deepStrictEqual(getBody.result, postBody.result);
     assert.strictEqual(backend.state.loadCalls, 1);
   });
 
-  await check('identidade e derivada por Auth + app_usuario, nunca pelo body', async () => {
+  await check('identidade e tenant continuam derivados de Auth + app_usuario', async () => {
     const backend = makeBackend();
     const runtime = makeRuntime(backend);
 
@@ -324,6 +391,7 @@ async function responseBody(response) {
 
     assert.strictEqual(backend.state.authCalls, 1);
     assert.strictEqual(backend.state.profileCalls, 1);
+    assert.strictEqual(backend.state.authorityC01Calls, 1);
     assert.strictEqual(backend.state.storedBundle.execution.tenant_id, TENANT_A);
   });
 
@@ -345,14 +413,18 @@ async function responseBody(response) {
     assert.strictEqual(backend.state.authCalls, 0);
   });
 
-  await check('runtime e adapter nao carregam service_role', async () => {
+  await check('runtime adapters e authority source nao carregam service_role', async () => {
     const runtimeSource = fs.readFileSync(path.join(__dirname, 'runtime.js'), 'utf8').toLowerCase();
     const adapterSource = fs.readFileSync(path.join(__dirname, 'postgres-adapter.js'), 'utf8').toLowerCase();
+    const authoritySource = fs.readFileSync(
+      path.join(__dirname, '../../external-calc-authority/v0/postgres-authority-source.js'),
+      'utf8'
+    ).toLowerCase();
 
-    assert.strictEqual(runtimeSource.includes('service_role'), false);
-    assert.strictEqual(adapterSource.includes('service_role'), false);
-    assert.strictEqual(runtimeSource.includes('supabase_service_role_key'), false);
-    assert.strictEqual(adapterSource.includes('supabase_service_role_key'), false);
+    for (const source of [runtimeSource, adapterSource, authoritySource]) {
+      assert.strictEqual(source.includes('service_role'), false);
+      assert.strictEqual(source.includes('supabase_service_role_key'), false);
+    }
   });
 
   await check('Worker entry apenas delega ao runtime canonico', async () => {

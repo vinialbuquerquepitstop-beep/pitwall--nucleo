@@ -9,6 +9,15 @@ const {
 const {
   createPostgresLifecycleRepository
 } = require('./postgres-adapter');
+const {
+  createExternalCalcAuthorityResolver
+} = require('../../external-calc-authority/v0/authority-resolver');
+const {
+  createAuthorityBoundApplicationService
+} = require('../../external-calc-authority/v0/authority-application-service');
+const {
+  createPostgresAuthoritySource
+} = require('../../external-calc-authority/v0/postgres-authority-source');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -92,6 +101,15 @@ async function resolveIdentity(request, config, fetchImpl) {
   };
 }
 
+function authorityServerConfig(env) {
+  return {
+    calculationProfileJson: env?.EXTCALC_CALCULATION_PROFILE_JSON,
+    researchProfileJson: env?.EXTCALC_RESEARCH_PROFILE_JSON,
+    indicatorProfileJson: env?.EXTCALC_INDICATOR_PROFILE_JSON,
+    marketContextJson: env?.EXTCALC_MARKET_CONTEXT_JSON
+  };
+}
+
 function toApiRequest(request, body) {
   const url = new URL(request.url);
   return {
@@ -118,6 +136,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
       : null
   );
   const config = assertEnv(env);
+  const clock = options.clock || (() => new Date().toISOString());
 
   if (typeof fetchImpl !== 'function') throw new Error('fetchImpl obrigatorio');
 
@@ -140,8 +159,26 @@ function createExternalCalcWorkerRuntime(options = {}) {
         fetchImpl
       });
 
-      const applicationService = createExternalCalcApplicationService({
+      const baseApplicationService = createExternalCalcApplicationService({
         repository
+      });
+
+      const authoritySource = createPostgresAuthoritySource({
+        supabaseUrl: config.supabaseUrl,
+        anonKey: config.anonKey,
+        accessToken,
+        fetchImpl,
+        serverConfig: authorityServerConfig(env)
+      });
+
+      const authorityResolver = createExternalCalcAuthorityResolver({
+        source: authoritySource,
+        clock
+      });
+
+      const applicationService = createAuthorityBoundApplicationService({
+        applicationService: baseApplicationService,
+        authorityResolver
       });
 
       const api = createExternalCalcApiV0({
@@ -168,5 +205,6 @@ module.exports = {
   API_PREFIX,
   OWNER_ROLE,
   resolveIdentity,
+  authorityServerConfig,
   createExternalCalcWorkerRuntime
 };

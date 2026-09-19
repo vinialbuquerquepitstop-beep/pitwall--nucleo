@@ -1,0 +1,136 @@
+name: External Calc - Authority Runtime Binding V0
+
+on:
+  push:
+    branches:
+      - external-calc-authority-runtime-binding-v0
+    paths:
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md'
+      - '.github/workflows/external_calc_authority_runtime_binding_v0.yml'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md'
+      - '.github/workflows/external_calc_authority_runtime_binding_v0.yml'
+      - '.github/workflows/external_calc_runtime_postgres_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-authority-runtime-binding-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  binding-gate:
+    name: Authority runtime binding gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Preserve API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Preserve Product Execution Authority V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js | tee /tmp/authority.log
+          grep -q '^PRODUCT_EXECUTION_AUTHORITY_GATE_V0=PASS checks=10$' /tmp/authority.log
+
+      - name: Prove authority-bound Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Enforce runtime binding
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-runtime/v0/runtime.js
+
+          grep -Fq "createExternalCalcAuthorityResolver" "$FILE"
+          grep -Fq "createAuthorityBoundApplicationService" "$FILE"
+          grep -Fq "createPostgresAuthoritySource" "$FILE"
+          grep -Fq "EXTCALC_CALCULATION_PROFILE_JSON" "$FILE"
+          grep -Fq "EXTCALC_RESEARCH_PROFILE_JSON" "$FILE"
+          grep -Fq "EXTCALC_INDICATOR_PROFILE_JSON" "$FILE"
+
+          echo "AUTHORITY_RUNTIME_BINDING=PASS"
+
+      - name: Enforce no service role
+        run: |
+          set -euo pipefail
+          if grep -Fqi "service_role"             ferramentas/external-calc-runtime/v0/runtime.js             ferramentas/external-calc-runtime/v0/postgres-adapter.js             ferramentas/external-calc-authority/v0/postgres-authority-source.js             worker/external-calc-worker.mjs; then
+            echo "BLOQUEIO: service_role entrou no runtime"
+            exit 1
+          fi
+          echo "AUTHORITY_RUNTIME_NO_SERVICE_ROLE=PASS"
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Wrangler dry-run
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-authority-worker | tee /tmp/wrangler.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler.log
+          find /tmp/extcalc-authority-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          echo "AUTHORITY_RUNTIME_WORKER_BUNDLE=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-runtime/v0/runtime.js|ferramentas/external-calc-runtime/v0/prova_runtime_v0.js|docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md|.github/workflows/external_calc_authority_runtime_binding_v0.yml|.github/workflows/external_calc_runtime_postgres_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Authority Runtime Binding V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "AUTHORITY_RUNTIME_BINDING_SCOPE=PASS"
