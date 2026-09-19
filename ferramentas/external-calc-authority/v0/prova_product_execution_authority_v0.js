@@ -321,6 +321,20 @@ function makeSystem(source = makeAuthoritySource()) {
         }]), { status: 200 });
       }
 
+      if (url.includes('/rest/v1/calc_dados?')) {
+        return new Response(JSON.stringify([{
+          tenant_id: TENANT,
+          atualizado_em: '2026-08-17T23:20:02.384365+00:00',
+          dados: {
+            config: {
+              margens: { iPhone: { av: 550, pc: 650 } },
+              pb: 100,
+              taxas: { 12: 1.1, 18: 1.2 }
+            }
+          }
+        }]), { status: 200 });
+      }
+
       if (url.includes('/rest/v1/extcalc_evidence?')) {
         return new Response(JSON.stringify(
           trustedEvidence().map(item => ({
@@ -340,7 +354,7 @@ function makeSystem(source = makeAuthoritySource()) {
       accessToken: 'jwt-fixture',
       fetchImpl,
       serverConfig: {
-        calculationProfileJson: calculationProfile(),
+        calculationCategory: 'iPhone',
         researchProfileJson: researchProfile(),
         indicatorProfileJson: indicatorProfile(),
         marketContextJson: { country: 'BR' }
@@ -351,35 +365,67 @@ function makeSystem(source = makeAuthoritySource()) {
       tenant_id: TENANT,
       ...command()
     });
+    const loadedCalculation = await source.loadCalculationProfile({
+      tenant_id: TENANT,
+      c01_candidate: loadedC01
+    });
     const loadedEvidence = await source.loadEvidence({
       tenant_id: TENANT,
       c01_candidate: loadedC01
     });
 
     assert.deepStrictEqual(loadedC01, c01());
+    assert.strictEqual(loadedCalculation.cash_margin_minor, 55000);
+    assert.strictEqual(loadedCalculation.installment_margin_minor, 65000);
+    assert.strictEqual(loadedCalculation.installment_base_addon_minor, 10000);
     assert.deepStrictEqual(loadedEvidence, trustedEvidence());
     assert.ok(calls[0].url.includes(encodeURIComponent(`eq.${TENANT}`)));
+    assert.ok(calls[1].url.includes('/rest/v1/calc_dados?'));
     assert.ok(calls[1].url.includes(encodeURIComponent(`eq.${TENANT}`)));
+    assert.ok(calls[2].url.includes(encodeURIComponent(`eq.${TENANT}`)));
     assert.strictEqual(calls[0].init.headers.authorization, 'Bearer jwt-fixture');
   });
 
-  await check('perfis de execucao vem apenas da configuracao server-side', async () => {
+  await check('C02 vem de calc_dados e C03-C04 permanecem server-side', async () => {
+    let calcCalls = 0;
     const source = createPostgresAuthoritySource({
       supabaseUrl: 'https://example.supabase.co',
       anonKey: 'anon-fixture',
       accessToken: 'jwt-fixture',
-      fetchImpl: async () => {
-        throw new Error('fetch nao deveria ocorrer para perfil');
+      fetchImpl: async (url) => {
+        if (!url.includes('/rest/v1/calc_dados?')) {
+          throw new Error(`fetch inesperado: ${url}`);
+        }
+        calcCalls += 1;
+        return new Response(JSON.stringify([{
+          tenant_id: TENANT,
+          atualizado_em: '2026-08-17T23:20:02.384365+00:00',
+          dados: {
+            config: {
+              margens: { iPhone: { av: 550, pc: 650 } },
+              pb: 100,
+              taxas: { 12: 1.1, 18: 1.2 }
+            }
+          }
+        }]), { status: 200 });
       },
       serverConfig: {
-        calculationProfileJson: JSON.stringify(calculationProfile()),
+        calculationCategory: 'iPhone',
         researchProfileJson: JSON.stringify(researchProfile()),
         indicatorProfileJson: JSON.stringify(indicatorProfile()),
         marketContextJson: JSON.stringify({ country: 'BR' })
       }
     });
 
-    assert.deepStrictEqual(await source.loadCalculationProfile(), calculationProfile());
+    const calc = await source.loadCalculationProfile({ tenant_id: TENANT });
+    assert.strictEqual(calc.profile_id, 'pitwall-calc-dados:iPhone');
+    assert.strictEqual(calc.cash_margin_minor, 55000);
+    assert.strictEqual(calc.installment_margin_minor, 65000);
+    assert.strictEqual(calc.installment_base_addon_minor, 10000);
+    assert.strictEqual(calc.installment_coefficients[12], 1.1);
+    assert.strictEqual(calc.installment_coefficients[18], 1.2);
+    assert.strictEqual(calcCalls, 1);
+
     assert.deepStrictEqual(await source.loadResearchProfile(), researchProfile());
     assert.deepStrictEqual(await source.loadIndicatorProfile(), indicatorProfile());
     assert.deepStrictEqual(await source.loadMarketContext(), { country: 'BR' });
