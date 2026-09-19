@@ -1,0 +1,120 @@
+name: External Calc - C01 Review Runtime API V0
+
+on:
+  push:
+    branches:
+      - external-calc-c01-review-runtime-api-v0
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/runtime.js'
+      - 'ferramentas/external-calc-runtime/v0/prova_c01_review_runtime_api_v0.js'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_RUNTIME_API_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_runtime_api_v0.yml'
+      - '.github/workflows/external_calc_authority_runtime_binding_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-c01-review-runtime-api-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01 review core
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js
+
+      - name: Preserve candidate persistence
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js
+
+      - name: Preserve review result persistence
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_result_persistence_v0.js
+
+      - name: Prove thin review API
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_api_v0.js | tee /tmp/review-api.log
+          grep -q '^C01_REVIEW_API_V0=PASS checks=7$' /tmp/review-api.log
+
+      - name: Prove review runtime binding
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_c01_review_runtime_api_v0.js | tee /tmp/review-runtime.log
+          grep -q '^C01_REVIEW_RUNTIME_API_GATE_V0=PASS checks=6$' /tmp/review-runtime.log
+
+      - name: Preserve Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Enforce no domain duplication or service role
+        run: |
+          set -euo pipefail
+          for file in             ferramentas/external-calc-c01-review/v0/review-api.js             ferramentas/external-calc-runtime/v0/runtime.js; do
+            if grep -Eqi 'service_role|SUPABASE_SERVICE_ROLE_KEY|calculateC02\(|runC03Research\(|runC04PriceIndicator\(|composeDecisionOutput\(' "$file"; then
+              echo "BLOQUEIO: regra/segredo proibido em $file"
+              exit 1
+            fi
+          done
+          echo "C01_REVIEW_RUNTIME_BOUNDARY=PASS"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Wrangler dry-run
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-review-worker | tee /tmp/wrangler.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler.log
+          find /tmp/extcalc-review-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          echo "C01_REVIEW_RUNTIME_WORKER_BUNDLE=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-c01-review/v0/review-api.js|              ferramentas/external-calc-c01-review/v0/prova_c01_review_api_v0.js|              ferramentas/external-calc-runtime/v0/runtime.js|              ferramentas/external-calc-runtime/v0/prova_c01_review_runtime_api_v0.js|              docs/calculadora/EXTERNAL_CALC_C01_REVIEW_RUNTIME_API_GATE_V0.md|              .github/workflows/external_calc_c01_review_runtime_api_v0.yml|              .github/workflows/external_calc_authority_runtime_binding_v0.yml|              .github/workflows/external_calc_c01_review_authority_core_v0.yml|              .github/workflows/external_calc_c01_review_candidate_persistence_v0.yml|              .github/workflows/external_calc_runtime_postgres_v0.yml|              .github/workflows/external_calc_authority_production_config_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia C01 Review Runtime API V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "C01_REVIEW_RUNTIME_API_SCOPE=PASS"

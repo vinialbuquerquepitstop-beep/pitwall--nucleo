@@ -155,6 +155,11 @@ jobs:
             exit 0
           fi
 
+          if [ "$BRANCH" = "external-calc-c01-review-runtime-api-v0" ]; then
+            echo "EXTERNAL_CALC_RUNTIME_SCOPE=DELEGATED_TO_C01_REVIEW_RUNTIME_API_GATE"
+            exit 0
+          fi
+
           while IFS= read -r file; do
             case "$file" in
               ferramentas/external-calc-runtime/v0/*|ferramentas/external-calc-api/v0/application-service.js|ferramentas/external-calc-api/v0/api-handler.js|supabase/migrations/20260919_external_calc_runtime_persist_rpc_v0.sql|worker/external-calc-worker.mjs|wrangler.jsonc|docs/calculadora/EXTERNAL_CALC_LAST_INFRA_V0.md|docs/calculadora/EXTERNAL_CALC_AUTHORITY_RUNTIME_BINDING_GATE_V0.md|.github/workflows/external_calc_runtime_postgres_v0.yml|.github/workflows/external_calc_api_v0.yml|.github/workflows/external_calc_authority_runtime_binding_v0.yml)

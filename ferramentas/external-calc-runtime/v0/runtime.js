@@ -18,6 +18,19 @@ const {
 const {
   createPostgresAuthoritySource
 } = require('../../external-calc-authority/v0/postgres-authority-source');
+const {
+  REVIEW_PATH,
+  createC01ReviewApiV0
+} = require('../../external-calc-c01-review/v0/review-api');
+const {
+  createC01ReviewAuthority
+} = require('../../external-calc-c01-review/v0/c01-review-authority');
+const {
+  createPostgresReviewCandidateRepository
+} = require('../../external-calc-c01-review/v0/postgres-review-candidate-repository');
+const {
+  createPostgresReviewResultRepository
+} = require('../../external-calc-c01-review/v0/postgres-review-result-repository');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -181,13 +194,40 @@ function createExternalCalcWorkerRuntime(options = {}) {
         authorityResolver
       });
 
+      const authContext = async () => identity && ({
+        tenant_id: identity.tenant_id,
+        subject: identity.subject,
+        can_execute_external_calc: identity.can_execute_external_calc
+      });
+
       const api = createExternalCalcApiV0({
         applicationService,
-        authenticate: async () => identity && ({
-          tenant_id: identity.tenant_id,
-          subject: identity.subject,
-          can_execute_external_calc: identity.can_execute_external_calc
-        })
+        authenticate: authContext
+      });
+
+      const reviewCandidateRepository = createPostgresReviewCandidateRepository({
+        supabaseUrl: config.supabaseUrl,
+        anonKey: config.anonKey,
+        accessToken,
+        fetchImpl
+      });
+
+      const reviewResultRepository = createPostgresReviewResultRepository({
+        supabaseUrl: config.supabaseUrl,
+        anonKey: config.anonKey,
+        accessToken,
+        fetchImpl
+      });
+
+      const reviewAuthority = createC01ReviewAuthority({
+        candidateSource: reviewCandidateRepository,
+        reviewRepository: reviewResultRepository,
+        clock
+      });
+
+      const reviewApi = createC01ReviewApiV0({
+        reviewAuthority,
+        authenticate: authContext
       });
 
       let body = null;
@@ -195,7 +235,8 @@ function createExternalCalcWorkerRuntime(options = {}) {
         body = await request.text();
       }
 
-      const apiResponse = await api.handle(toApiRequest(request, body));
+      const handler = url.pathname === REVIEW_PATH ? reviewApi : api;
+      const apiResponse = await handler.handle(toApiRequest(request, body));
       return toResponse(apiResponse);
     }
   };
