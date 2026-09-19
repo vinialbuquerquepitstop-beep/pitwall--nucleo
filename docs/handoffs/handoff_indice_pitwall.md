@@ -32,11 +32,12 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Calculadora
 
-- topo: `handoff_calculadora_pitwall_v24.md`
-- estado: Interpreter Core V1 permanece FROZEN; External Calc Service V0 e Lifecycle / Persistence V0 integrados no `main`; schema `extcalc_*` aplicado no Supabase com RLS e escrita cliente-side fechada.
-- merges: Service V0 PR #24, squash `57b3fa2d22828992b7cdba1f2dd22298c4568224`; Persistence V0 PR #25, squash `6ec053cb1410b04a1a1568c44341630016dfcc45`; correcao de indices PR #27, squash `4bef4e5aa98ffe7bc018cf5dc48e8bbdf015f34b`.
+- topo: `handoff_calculadora_pitwall_v25.md`
+- estado: Interpreter Core V1 permanece FROZEN; Service V0, Lifecycle / Persistence V0 e API V0 boundary integrados no `main`; a API deriva tenant do contexto autenticado e rejeita campos de autoridade enviados pelo cliente.
+- merges: Service V0 PR #24 `57b3fa2d22828992b7cdba1f2dd22298c4568224`; Persistence V0 PR #25 `6ec053cb1410b04a1a1568c44341630016dfcc45`; indices PR #27 `4bef4e5aa98ffe7bc018cf5dc48e8bbdf015f34b`; API V0 PR #28 `072706a68e9ba07307951a974d572e8832453a6b`.
 - migrations vivas: `20260919202202_external_calc_lifecycle_persistence_v0` e `20260919202604_external_calc_persistence_fk_indexes_v0`.
-- proximo passo: `External Calc API V0`, consumindo Service + Lifecycle Repository sem duplicar regra de dominio e sem aceitar `tenant_id` como autoridade do cliente.
+- proximo passo: `External Calc Runtime + Postgres Adapter V0`, publicando a fronteira HTTP e persistindo server-side sem abrir escrita direta em `extcalc_*`.
+- frontend continua em paralelo e ainda NAO deve trocar fixture por chamada real ate esse gate.
 - substituicao do leitor legado continua NAO autorizada.
 - processo obrigatorio: `docs/calculadora/PROCESSO.md`
 
