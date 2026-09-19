@@ -4657,7 +4657,7 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
   }
 
 
-  // 13. SIMULATION ONLY: a remaining Core-only offer can be source-supported
+  // 13. V8 EVIDENCE ADJUDICATION: a remaining Core-only offer can be source-supported
   // by the schema's section-scoped condition semantics. Price and model must be
   // explicit/semantically exact, supplier continuity must hold, color must be
   // local when present, and condition inheritance may cross only the
@@ -5589,12 +5589,14 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
   return {
     version:
-      (
-        options.includeDistantFutureConditionMissing === true &&
-        options.includeDirectColorContradictsLegacyNullMissing === true
-      )
-        ? 'residual-adjudication-ledger/v7'
-        : options.includePriceOnlyDominanceNoLegacyWins === true
+      options.includeSchemaSupportedSectionConditionExtra === true
+        ? 'residual-adjudication-ledger/v8'
+        : (
+            options.includeDistantFutureConditionMissing === true &&
+            options.includeDirectColorContradictsLegacyNullMissing === true
+          )
+          ? 'residual-adjudication-ledger/v7'
+          : options.includePriceOnlyDominanceNoLegacyWins === true
           ? 'residual-adjudication-ledger/v6'
           : options.includeNoLegacyWinsPartialPairDominance === true
           ? 'residual-adjudication-ledger/v5'
@@ -5682,6 +5684,7 @@ const residualAdjudicationLedger =
       includePriceOnlyDominanceNoLegacyWins: true,
       includeDistantFutureConditionMissing: true,
       includeDirectColorContradictsLegacyNullMissing: true,
+      includeSchemaSupportedSectionConditionExtra: true,
       includeUnpairedForensics: true
     }
   );
@@ -9133,7 +9136,7 @@ const summary = {
   source_adjudicated_exact:
     residualAdjudicationLedger?.integrity?.pass === true &&
     residualAdjudicationLedger?.actionable?.total_residual === 0,
-  promotion_basis: 'source_adjudicated_ledger_v4',
+  promotion_basis: residualAdjudicationLedger?.version || 'source_adjudicated_ledger',
   promotion_ready:
     (reportSupplierAware?.gates?.no_silent_wrong_price ?? report.gates.no_silent_wrong_price) === true &&
     (reportSupplierAware?.gates?.price_attribution_resolved ?? report.gates.price_attribution_resolved) === true &&
