@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 
 const CONTRACT_VERSION = 'external-calc-c03/v1';
-const ENGINE_VERSION = 'c03-research-core/1.0.0';
+const ENGINE_VERSION = 'c03-research-core/1.0.1-selective-staleness';
 const C01_CONTRACT_VERSION = 'external-calc-c01-readonly/v1';
 const ALLOWED_MATCH_FIELDS = new Set([
   'model_id',
