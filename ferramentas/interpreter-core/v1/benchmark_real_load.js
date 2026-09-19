@@ -4373,8 +4373,9 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
 
 
   // 10. SIMULATION ONLY: after strict dominance, allow a conservative pair
-  // adjudication when Core has multiple locally supported divergent fields,
-  // legacy has zero locally supported wins, and remaining fields are ties.
+  // adjudication when Core has local price evidence plus at least one other
+  // locally supported divergent field, legacy has zero locally supported wins,
+  // and remaining fields are ties.
   // This never mutates Core output; it only tests whether the residual ledger
   // can distinguish source-supported Core pairs from weak legacy pairings.
   if (options.includeNoLegacyWinsPartialPairDominance === true) {
@@ -4475,16 +4476,22 @@ function buildResidualAdjudicationLedger(reportSupplierAware, bundle, options = 
       let coreWins = 0;
       let legacyWins = 0;
       let ties = 0;
+      const coreWinFields = [];
 
       for (const field of best.diffs) {
         const coreLocal = actualFieldLocalForPartialPair(record, field, priceLine);
         const legacyLocal = expectedFieldLocalForPartialPair(expected, field, priceLine);
-        if (coreLocal && !legacyLocal) coreWins += 1;
-        else if (legacyLocal && !coreLocal) legacyWins += 1;
-        else ties += 1;
+        if (coreLocal && !legacyLocal) {
+          coreWins += 1;
+          coreWinFields.push(field);
+        } else if (legacyLocal && !coreLocal) {
+          legacyWins += 1;
+        } else {
+          ties += 1;
+        }
       }
 
-      if (legacyWins !== 0 || coreWins < 2) continue;
+      if (legacyWins !== 0 || coreWins < 2 || !coreWinFields.includes('price')) continue;
       if (claim(
         'source_partial_dominance_no_legacy_wins_pair',
         missingIndex,
