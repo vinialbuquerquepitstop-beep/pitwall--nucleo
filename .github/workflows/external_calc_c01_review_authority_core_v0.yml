@@ -1,0 +1,100 @@
+name: External Calc - C01 Review Authority Core V0
+
+on:
+  push:
+    branches:
+      - external-calc-c01-review-authority-core-v0
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_AUTHORITY_CORE_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_authority_core_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-c01-review/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_AUTHORITY_CORE_GATE_V0.md'
+      - '.github/workflows/external_calc_c01_review_authority_core_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-c01-review-authority-core-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  c01-review-authority:
+    name: C01 review authority core gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01 contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+      - name: Prove C01 review authority core
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js | tee /tmp/review.log
+          grep -q '^C01_REVIEW_AUTHORITY_CORE_GATE_V0=PASS checks=8$' /tmp/review.log
+
+      - name: Enforce server-owned review authority
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-c01-review/v0/c01-review-authority.js
+
+          grep -Fq "applyHumanReview" "$FILE"
+          grep -Fq "candidateSource.loadCandidate" "$FILE"
+          grep -Fq "reviewRepository.persistReview" "$FILE"
+          grep -Fq "actor_ref" "$FILE"
+          grep -Fq "server reviewed_at" "$FILE"
+
+          for token in             "createHash("             "sha256"             "MATERIAL_FIELDS"             "offerIdentityFingerprint("             "offerValueFingerprint("; do
+            if grep -Fq "$token" "$FILE"; then
+              echo "BLOQUEIO: regra C01 duplicada no authority core: $token"
+              exit 1
+            fi
+          done
+
+          echo "C01_REVIEW_SERVER_AUTHORITY=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-c01-review/v0/*|docs/calculadora/EXTERNAL_CALC_C01_REVIEW_AUTHORITY_CORE_GATE_V0.md|.github/workflows/external_calc_c01_review_authority_core_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia C01 Review Authority Core V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "C01_REVIEW_AUTHORITY_CORE_SCOPE=PASS"
