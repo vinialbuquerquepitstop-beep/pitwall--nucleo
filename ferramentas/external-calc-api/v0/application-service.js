@@ -17,6 +17,7 @@ function clone(value) {
 }
 
 function defaultIdFactory(prefix) {
+  if (prefix === 'execution') return crypto.randomUUID();
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
@@ -33,7 +34,7 @@ function createExternalCalcApplicationService(options = {}) {
   return {
     version: APPLICATION_SERVICE_VERSION,
 
-    executeAnalysis(command) {
+    async executeAnalysis(command) {
       if (!command || typeof command !== 'object') throw new Error('command obrigatorio');
 
       const tenantId = assertNonEmpty(command.tenant_id, 'tenant_id');
@@ -64,7 +65,7 @@ function createExternalCalcApplicationService(options = {}) {
 
       const serviceResult = executeService(serviceRequest);
 
-      repository.persistExecution({
+      await repository.persistExecution({
         tenant_id: tenantId,
         execution_id: executionId,
         persisted_at: persistedAt,
@@ -83,6 +84,31 @@ function createExternalCalcApplicationService(options = {}) {
         freshness_status: serviceResult.freshness_status,
         decision_outcome: serviceResult.outputs?.c05?.decision_outcome ?? null,
         service_result: serviceResult
+      };
+    },
+
+    async loadExecution(query) {
+      if (!repository || typeof repository.loadExecution !== 'function') {
+        throw new Error('repository.loadExecution obrigatorio');
+      }
+
+      const tenantId = assertNonEmpty(query?.tenant_id, 'tenant_id');
+      const executionId = assertNonEmpty(query?.execution_id, 'execution_id');
+      const replay = await repository.loadExecution({
+        tenant_id: tenantId,
+        execution_id: executionId
+      });
+
+      if (!replay) return null;
+
+      return {
+        application_service_version: APPLICATION_SERVICE_VERSION,
+        execution_id: replay.execution_id,
+        analysis_id: replay.lineage.analysis_id,
+        offer_id: replay.lineage.offer_id,
+        offer_revision: replay.lineage.offer_revision,
+        request: clone(replay.request),
+        service_result: clone(replay.service_result)
       };
     }
   };

@@ -4,16 +4,27 @@
   // e a Site URL do Auth do Supabase quebra.
   "name": "flat-resonance-09ba",
 
-  // Data de compatibilidade do runtime. Pode manter esta.
+  // Mantida para nao alterar sem necessidade o comportamento do frontend vivo.
+  // nodejs_compat e necessario porque o External Calc Core atual usa modulos Node.
   "compatibility_date": "2026-07-08",
+  "compatibility_flags": ["nodejs_compat"],
 
-  // Tudo que estiver em public/ vira arquivo estatico servido.
-  // O index.html na raiz de public/ responde em "/".
+  // Worker fino: somente /api/external-calc/* passa pelo runtime.
+  // O restante continua no mesmo caminho de static assets.
+  "main": "./worker/external-calc-worker.mjs",
+
+  // Valores publicos ja usados pelo frontend atual. Nenhuma service_role entra aqui.
+  "vars": {
+    "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
+  },
+
   "assets": {
     "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/external-calc/*"],
     // Qualquer rota que nao casar com um arquivo devolve o index.html
-    // (200), em vez de 404. Protege o link de recovery de senha,
-    // que chega com um fragmento (#) apos a URL.
+    // (200), em vez de 404. Protege o link de recovery de senha.
     "not_found_handling": "single-page-application"
   }
 }
