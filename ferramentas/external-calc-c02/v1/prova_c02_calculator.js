@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('crypto');
 const {
   applyHumanReview
 } = require('../../external-calc-c01/v1/c01-readonly-bridge');
@@ -11,6 +12,10 @@ const {
 } = require('./c02-calculator');
 
 let ok = 0;
+
+function stableHash(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
 
 function check(name, fn) {
   try {
@@ -38,7 +43,7 @@ function c01ReviewCandidate(priceMinor = 400000) {
     interpretation_engine_version: 'interpreter-core/test',
     interpretation_confidence: { overall: 0.98, by_field: {}, record_state: 'resolved' },
     offer_identity_fingerprint: 'identity-v1',
-    offer_value_fingerprint: 'value-v1',
+    offer_value_fingerprint: null,
     interpreted_offer: {
       supplier_id: 'SUP_TESTE',
       model: { id: 'iphone-17-256', label: 'iPhone 17 256GB', attributes: {} },
@@ -55,6 +60,7 @@ function c01ReviewCandidate(priceMinor = 400000) {
     ],
     trace: []
   };
+  candidate.offer_value_fingerprint = stableHash(JSON.stringify(candidate.interpreted_offer));
 
   return applyHumanReview(candidate, {
     decision: 'ACCEPT',
@@ -251,7 +257,7 @@ check('revisao material de preco em C01 alimenta nova revisao no C02', () => {
     domain_outcome: 'REVIEW_REQUIRED',
     freshness_status: 'CURRENT',
     offer_identity_fingerprint: 'identity-edit',
-    offer_value_fingerprint: 'value-edit',
+    offer_value_fingerprint: null,
     interpreted_offer: {
       supplier_id: 'SUP_TESTE',
       model: { id: 'iphone-17-256', label: 'iPhone 17 256GB', attributes: {} },
@@ -265,6 +271,7 @@ check('revisao material de preco em C01 alimenta nova revisao no C02', () => {
     provenance_refs: [],
     trace: []
   };
+  base.offer_value_fingerprint = stableHash(JSON.stringify(base.interpreted_offer));
 
   const edited = applyHumanReview(base, {
     decision: 'EDIT',
