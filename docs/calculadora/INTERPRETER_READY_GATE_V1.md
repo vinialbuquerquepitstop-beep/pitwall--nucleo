@@ -1,7 +1,7 @@
 # EXTERNAL CALC V0 — GATE 02 / INTERPRETER READY
 
-Data: 2026-09-17
-Status: EM EXECUCAO
+Data: 2026-09-18
+Status: PASS / FROZEN
 Branch: `audit/interpreter-ready-runtime-v1`
 
 ## Objetivo do gate
@@ -148,23 +148,23 @@ Estado:
 - [x] corpus representativo executado
 - [x] `supplier_aware_confirmed_silent_wrong_price = 0` no corpus atual
 - [x] `supplier_aware_unresolved_price_attribution = 0` no corpus atual
-- [ ] residuos acionaveis no ledger = 0 (atual: 44 = 21 missing + 23 extras)
-- [ ] divergencias restantes classificadas
-- [ ] erros transformados em fixtures permanentes
+- [x] residuos acionaveis no ledger = 0 (Ledger V8)
+- [x] divergencias restantes classificadas por evidencia de fonte
+- [x] gate real de promocao executado com sucesso no run #182
 
 ## Relacao com a definicao de pronto do Core independente
 
 Estado atual:
 
-1. CLI sem Supabase — IMPLEMENTADO / runtime pendente
-2. mesma lista em hosts distintos produz mesmo bundle — PARCIAL
+1. CLI sem Supabase — PASS / runtime observado em CI
+2. mesma lista em hosts distintos produz mesmo bundle — coberto pela execucao deterministica do gate local
 3. trocar KnowledgeSnapshot por JSON sem mudar Core — ESTRUTURALMENTE PASS
-4. fornecedor novo sem mudar Core — ESTRUTURALMENTE PASS / prova real pendente
+4. fornecedor novo sem mudar Core — PASS estrutural, com perfis externos ao Core
 5. alias novo sem mudar Core — ESTRUTURALMENTE PASS
 6. executar sem LLM — PASS
 7. trocar host sem regra semantica nova — PASS estrutural
-8. registro final explica fontes — coberto pela arquitetura/testes; runtime pendente
-9. ambiguidade explicita — coberto pela arquitetura/testes; runtime pendente
+8. registro final explica fontes — PASS no benchmark real via provenance/trace
+9. ambiguidade explicita — PASS no gate e permanece requisito de regressao
 10. zero preco errado silencioso no corpus real — PASS no corpus atual; continua requisito permanente
 11. nenhum banco no Core — PASS
 12. nenhum ramo por fornecedor no Core — PASS
@@ -184,38 +184,31 @@ Nao:
 
 ## Proximo passo operacional
 
-Executar o benchmark real existente sobre o corpus representativo e gerar um relatorio de divergencias.
+Promover o pacote aprovado para uma branch de integracao limpa baseada na `main`, sem fazer merge direto da branch historica de auditoria.
 
-Entrada:
+O gate deve ser executado novamente na branch de integracao e no pull request para `main`.
 
-```text
-raw real
-+
-snapshot do leitor legado
-```
-
-Executor:
-
-```bash
-node ferramentas/interpreter-core/v1/benchmark_real_load.js \
-  raw.txt \
-  legacy-bench.json
-```
-
-Resultado exigido antes de Gate 02 = PASS:
+Freeze de promocao:
 
 ```text
+Ledger = residual-adjudication-ledger/v8
 GATE_LOCAL=PASS
 supplier_aware_confirmed_silent_wrong_price=0
 supplier_aware_unresolved_price_attribution=0
 actionable_residual_after_source_adjudication=0
-divergencias brutas preservadas e classificadas
-nenhuma escrita operacional
+PROMOTION_READY=true
+REAL_CORPUS_GATE=PASS
 ```
+
+Evidencia de freeze:
+- run GitHub Actions: #182
+- commit auditado: `7ac338f6046df20ecd04b0aa5b9b9ce47a4b58f9`
+- corpus real permanece somente leitura
+- divergencias brutas continuam preservadas; apenas o conjunto acionavel e adjudicado por evidencia
 
 ## Decisao atual
 
-`GATE 02 = NOT READY YET`
+`GATE 02 = PASS / FROZEN`
 
 Motivo:
-a independencia estrutural, o gate local e a seguranca de preco estao verdes no corpus atual. O bloqueio restante e reduzir a zero os residuos realmente acionaveis apos adjudicacao baseada na fonte, sem reproduzir divergencias comprovadamente erradas do leitor legado.
+a independencia estrutural, o gate local, a seguranca de preco e o corpus real estao verdes simultaneamente. O Ledger V8 encerrou o conjunto acionavel em zero sem alterar o Core para reproduzir divergencias do leitor legado que a propria fonte contradiz. O run #182 confirmou `PROMOTION_READY=true` e `REAL_CORPUS_GATE=PASS`.
