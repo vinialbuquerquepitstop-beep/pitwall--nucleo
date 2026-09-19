@@ -1,0 +1,132 @@
+name: External Calc - Product Execution Authority V0
+
+on:
+  push:
+    branches:
+      - external-calc-product-execution-authority-v0
+    paths:
+      - 'ferramentas/external-calc-authority/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md'
+      - '.github/workflows/external_calc_product_execution_authority_v0.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-authority/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md'
+      - '.github/workflows/external_calc_product_execution_authority_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-product-execution-authority-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authority-gate:
+    name: Product execution authority gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Service V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-service/v0/prova_external_calc_service_v0.js | tee /tmp/service.log
+          grep -q '^EXTERNAL_CALC_SERVICE_V0=PASS checks=7$' /tmp/service.log
+
+      - name: Preserve Persistence V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-persistence/v0/prova_lifecycle_repository.js | tee /tmp/persistence.log
+          grep -q '^EXTERNAL_CALC_PERSISTENCE_V0=PASS checks=9$' /tmp/persistence.log
+
+      - name: Preserve API V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-api/v0/prova_api_v0.js | tee /tmp/api.log
+          grep -q '^EXTERNAL_CALC_API_V0=PASS checks=13$' /tmp/api.log
+
+      - name: Preserve Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Prove Product Execution Authority V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js | tee /tmp/authority.log
+          grep -q '^PRODUCT_EXECUTION_AUTHORITY_GATE_V0=PASS checks=10$' /tmp/authority.log
+
+      - name: Enforce zero browser authority
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-authority/v0/authority-resolver.js
+
+          for token in             "'c01_candidate'"             "'calculation_profile'"             "'research_profile'"             "'indicator_profile'"             "'evidence'"             "'as_of'"; do
+            grep -Fq "$token" "$FILE"
+          done
+
+          grep -Fq "campo de autoridade proibido no cliente" "$FILE"
+          grep -Fq "loadC01" "$FILE"
+          grep -Fq "loadCalculationProfile" "$FILE"
+          grep -Fq "loadResearchProfile" "$FILE"
+          grep -Fq "loadIndicatorProfile" "$FILE"
+          grep -Fq "loadEvidence" "$FILE"
+
+          echo "EXTERNAL_CALC_BROWSER_AUTHORITY=ZERO"
+
+      - name: Enforce no C01-C05 reimplementation
+        run: |
+          set -euo pipefail
+
+          for FILE in             ferramentas/external-calc-authority/v0/authority-resolver.js             ferramentas/external-calc-authority/v0/authority-application-service.js             ferramentas/external-calc-authority/v0/postgres-authority-source.js; do
+
+            for token in               "external-calc-c01"               "external-calc-c02"               "external-calc-c03"               "external-calc-c04"               "external-calc-c05"               "calculateC02("               "runC03Research("               "runC04PriceIndicator("               "composeDecisionOutput("; do
+              if grep -Fq "$token" "$FILE"; then
+                echo "BLOQUEIO: regra/contrato duplicado em $FILE: $token"
+                exit 1
+              fi
+            done
+          done
+
+          echo "EXTERNAL_CALC_AUTHORITY_ZERO_DOMAIN_RULES=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce isolated scope
+        run: |
+          set -euo pipefail
+          git fetch origin main || true
+          BASE=origin/main
+          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+            BASE=HEAD^
+          fi
+
+          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
+
+          while IFS= read -r file; do
+            case "$file" in
+              ferramentas/external-calc-authority/v0/*|docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md|.github/workflows/external_calc_product_execution_authority_v0.yml)
+                ;;
+              *)
+                echo "BLOQUEIO: arquivo fora da fatia Product Execution Authority V0: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed.txt
+
+          echo "PRODUCT_EXECUTION_AUTHORITY_SCOPE=PASS"
