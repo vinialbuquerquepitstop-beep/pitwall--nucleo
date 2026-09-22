@@ -121,6 +121,26 @@ assert.strictEqual(edited.review.material_change, true);
 assert.deepStrictEqual(edited.interpreted_offer.price, { amount_minor: 810000, currency: 'BRL' });
 assert.deepStrictEqual(edited.reviewed_offer.price, { amount_minor: 799900, currency: 'BRL' });
 
+const trimmedReview = applyHumanReview(candidate, {
+  decision: 'EDIT',
+  reviewer_ref: 'human_fixture',
+  reviewed_at: '2026-09-19T12:06:00.000Z',
+  patch: {
+    condition: '  SEMINOVO  ',
+    color: '  Azul  '
+  }
+});
+assert.strictEqual(trimmedReview.reviewed_offer.condition, 'SEMINOVO');
+assert.strictEqual(trimmedReview.reviewed_offer.color, 'Azul');
+assert.strictEqual(trimmedReview.offer_revision, 2);
+
+assert.throws(() => applyHumanReview(candidate, {
+  decision: 'EDIT',
+  reviewer_ref: 'human_fixture',
+  reviewed_at: '2026-09-19T12:06:30.000Z',
+  patch: { color: '   ' }
+}), /color de review invalida/);
+
 const excluded = applyHumanReview(candidate, {
   decision: 'EXCLUDE',
   reviewer_ref: 'human_fixture',
