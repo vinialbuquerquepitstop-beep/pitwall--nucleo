@@ -255,10 +255,22 @@ function applyPatch(baseOffer, patch = {}) {
     next.capacity_gb = patch.capacity_gb;
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'condition')) {
-    next.condition = patch.condition == null ? null : String(patch.condition);
+    if (patch.condition == null) {
+      next.condition = null;
+    } else {
+      const normalizedCondition = String(patch.condition).trim();
+      if (!normalizedCondition) throw new Error('condition de review invalida');
+      next.condition = normalizedCondition;
+    }
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'color')) {
-    next.color = patch.color == null ? null : String(patch.color);
+    if (patch.color == null) {
+      next.color = null;
+    } else {
+      const normalizedColor = String(patch.color).trim();
+      if (!normalizedColor) throw new Error('color de review invalida');
+      next.color = normalizedColor;
+    }
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'price')) {
     next.price = validateMoney(patch.price, baseOffer.price.currency);
