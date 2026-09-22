@@ -1,0 +1,26 @@
+name: External Calc - Temporary Real Input Source Pack
+
+on:
+  push:
+    branches:
+      - tmp/external-calc-real-input-smoke-pack
+    paths:
+      - '.github/workflows/external_calc_tmp_real_input_source_pack.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pack exact interpreter/C01 source
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-calc-real-input-source
+          path: |
+            ferramentas/interpreter-core/v1
+            ferramentas/external-calc-c01/v1
+          if-no-files-found: error
+          retention-days: 1
