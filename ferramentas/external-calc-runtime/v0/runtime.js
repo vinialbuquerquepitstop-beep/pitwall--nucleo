@@ -34,6 +34,11 @@ const {
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
+const BETA_VALIDATOR_ROLE = 'validador';
+
+function canOperateExternalCalc(role) {
+  return role === OWNER_ROLE || role === BETA_VALIDATOR_ROLE;
+}
 const EXTERNAL_CALC_VERCEL_PREVIEW_ORIGIN =
   /^https:\/\/external-calc-frontend-v1-preview(?:-[a-z0-9-]+)?\.vercel\.app$/i;
 const EXTERNAL_CALC_LOCAL_ORIGINS = new Set([
@@ -161,7 +166,8 @@ async function resolveIdentity(request, config, fetchImpl) {
   return {
     tenant_id: profile.tenant_id,
     subject: user.id,
-    can_execute_external_calc: profile.papel === OWNER_ROLE,
+    papel: profile.papel,
+    can_execute_external_calc: canOperateExternalCalc(profile.papel),
     access_token: accessToken
   };
 }
@@ -306,6 +312,8 @@ function createExternalCalcWorkerRuntime(options = {}) {
 module.exports = {
   API_PREFIX,
   OWNER_ROLE,
+  BETA_VALIDATOR_ROLE,
+  canOperateExternalCalc,
   resolveIdentity,
   authorityServerConfig,
   createExternalCalcWorkerRuntime
