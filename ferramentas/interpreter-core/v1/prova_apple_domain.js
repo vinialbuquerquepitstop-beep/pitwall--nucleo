@@ -116,15 +116,61 @@ check('cabecalho de fornecedor desconhecido nao e necessario para resolver produ
   );
 });
 
-check('cabecalho sem GB seguido de emoji resolve modelo e capacidade', () => {
+check('modelo com tres referencias de cor expande tres disponibilidades', () => {
   const result = run(
     'apple-9',
     '📲IPHONE 16 PRO MAX 256 ⚪️ (gold) ⚫️\nR$4.999/BATERIA🔋🟰92%'
   );
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record =>
+    record.fields.model.id === 'iphone_16_pro_max_256gb'
+  ));
+  assert.ok(result.records.every(record => record.fields.capacity_gb === 256));
+  assert.ok(result.records.every(record => record.fields.price === 4999));
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Gold', 'Preto', 'Silver']
+  );
+});
+
+check('emoji unico de cor no anchor do modelo segue para o preco adjacente', () => {
+  const result = run(
+    'apple-color-symbol-single',
+    '📲IPHONE 15 128GB🔵\nR$2.650/BATERIA🔋🟰100%'
+  );
   assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-  assert.strictEqual(result.records[0].fields.price, 4999);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_15_128gb');
+  assert.strictEqual(result.records[0].fields.color, 'Azul');
+  assert.strictEqual(result.records[0].fields.price, 2650);
+});
+
+check('sinonimos textuais canonizam para a mesma cor operacional', () => {
+  for (const raw of ['White', 'Branco', 'Silver', 'Prateado']) {
+    const result = run(
+      'apple-color-silver-' + raw.toLowerCase(),
+      `iPhone 17 256GB ${raw} Lacrado R$ 5.299`
+    );
+    assert.strictEqual(result.records.length, 1);
+    assert.strictEqual(result.records[0].fields.color, 'Silver');
+  }
+
+  for (const raw of ['Gold', 'Dourado', 'Amarelo']) {
+    const result = run(
+      'apple-color-gold-' + raw.toLowerCase(),
+      `iPhone 17 256GB ${raw} Lacrado R$ 5.299`
+    );
+    assert.strictEqual(result.records.length, 1);
+    assert.strictEqual(result.records[0].fields.color, 'Gold');
+  }
+});
+
+check('emoji decorativo sem modelo na mesma linha nao vira cor', () => {
+  const result = run(
+    'apple-color-symbol-scope',
+    '🔥 IPHONES SEMINOVOS 🔥\n🔵 disponibilidade geral\niPhone 15 128GB\nR$ 2.650'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, undefined);
 });
 
 check('preco com R$ pode ter texto e emoji depois sem perder o gatilho', () => {
@@ -225,7 +271,7 @@ check('cores equivalentes sao canonizadas pelo schema', () => {
     'iPhone 17 256GB Black Blue White Lacrado R$ 5.299'
   );
   assert.strictEqual(result.records.length, 3);
-  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Branco', 'Preto']);
+  assert.deepStrictEqual(result.records.map(r => r.fields.color).sort(), ['Azul', 'Preto', 'Silver']);
 });
 
 check('cores Apple proprias continuam distintas', () => {
