@@ -283,7 +283,7 @@ begin
     from pg_catalog.jsonb_array_elements(p_entries) e;
 
   v_fingerprint := pg_catalog.encode(
-    public.digest(
+    extensions.digest(
       pg_catalog.convert_to(
         pg_catalog.jsonb_build_object(
           'currency', v_currency,
