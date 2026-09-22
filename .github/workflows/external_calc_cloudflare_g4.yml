@@ -94,7 +94,8 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_REF_NAME}" = "main"
-          test "${CONFIRM_TARGET}" = "flat-resonance-09ba"
+          NORMALIZED_CONFIRM_TARGET="$(printf '%s' "${CONFIRM_TARGET}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test "${NORMALIZED_CONFIRM_TARGET}" = "flat-resonance-09ba"
           echo "EXTERNAL_CALC_G4_TARGET=PASS"
 
       - name: Checkout repository
