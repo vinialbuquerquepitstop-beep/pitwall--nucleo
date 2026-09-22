@@ -46,5 +46,8 @@ const command={analysis_id:'a1',offer_id:'o1',offer_revision:1,installment_count
  await assert.rejects(()=>resolver(missing).resolveQuote({auth_user_id:'owner',calculation_run_id:'r6',command}),e=>e.code==='INSTALLMENT_RATE_NOT_CONFIGURED');
  const invalid={...profiles,t1:{...profiles.t1,tenant_id:'evil'}};
  await assert.rejects(()=>resolver(invalid).resolveQuote({auth_user_id:'owner',calculation_run_id:'r7',command}),e=>e.code==='RATE_PROFILE_INVALID');
+ const oneXProfile={...profiles,t1:{...profiles.t1,entries:[{installment_count:1,rate_units:0}]}};
+ const one=await resolver(oneXProfile).resolveQuote({auth_user_id:'owner',calculation_run_id:'r8',command:{...command,installment_count:1}});
+ assert.strictEqual(one.installment_count,1); assert.strictEqual(one.applied_rate_units,0);
  console.log('EXTERNAL_CALC_STORE_RATE_PROFILE_RESOLVER_C02_G3=PASS');
 })().catch(e=>{console.error(e);process.exit(1);});
