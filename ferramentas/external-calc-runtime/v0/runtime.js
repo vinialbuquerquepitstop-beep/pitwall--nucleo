@@ -34,6 +34,58 @@ const {
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
+const EXTERNAL_CALC_VERCEL_PREVIEW_ORIGIN =
+  /^https:\/\/external-calc-frontend-v1-preview(?:-[a-z0-9-]+)?\.vercel\.app$/i;
+const EXTERNAL_CALC_LOCAL_ORIGINS = new Set([
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+]);
+
+function configuredCorsOrigins(env) {
+  return new Set(
+    String(env?.EXTCALC_ALLOWED_ORIGINS || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean)
+  );
+}
+
+function allowedCorsOrigin(request, env) {
+  const origin = request.headers.get('origin');
+  if (!origin) return null;
+
+  if (configuredCorsOrigins(env).has(origin)) return origin;
+  if (EXTERNAL_CALC_LOCAL_ORIGINS.has(origin)) return origin;
+  if (EXTERNAL_CALC_VERCEL_PREVIEW_ORIGIN.test(origin)) return origin;
+
+  return null;
+}
+
+function corsHeaders(origin) {
+  if (!origin) return {};
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-headers': 'authorization,content-type',
+    'access-control-max-age': '86400',
+    'vary': 'Origin'
+  };
+}
+
+function withCors(response, origin) {
+  if (!origin) return response;
+
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders(origin))) {
+    headers.set(key, value);
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
 
 function assertEnv(env) {
   const supabaseUrl = env?.SUPABASE_URL;
@@ -162,6 +214,14 @@ function createExternalCalcWorkerRuntime(options = {}) {
         return new Response('Not found', { status: 404 });
       }
 
+      const corsOrigin = allowedCorsOrigin(request, env);
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders(corsOrigin)
+        });
+      }
+
       const identity = await resolveIdentity(request, config, fetchImpl);
       const accessToken = identity?.access_token || bearerFrom(request) || 'unauthenticated';
 
@@ -238,7 +298,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
 
       const handler = url.pathname === REVIEW_PATH ? reviewApi : api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
-      return toResponse(apiResponse);
+      return withCors(toResponse(apiResponse), corsOrigin);
     }
   };
 }
