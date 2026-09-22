@@ -3,6 +3,7 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'C02_CALCULATION', patterns: [/^ferramentas\/external-calc-c02\/v1\//] },
   { owner: 'STORE_RATE_PROFILE_PERSISTENCE', patterns: [
     /^supabase\/migrations\/20260922230000_external_calc_user_rate_profile_persistence_v1\.sql$/,
     /^supabase\/migrations\/20260922233000_external_calc_store_rate_profile_correction_v1\.sql$/,
@@ -53,7 +54,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_cloudflare_g4\.yml$/,
     /^\.github\/workflows\/external_calc_beta_store_team_v0\.yml$/,
     /^\.github\/workflows\/external_calc_user_rate_profile_persistence_v1\.yml$/,
-    /^\.github\/workflows\/external_calc_store_rate_profile_persistence_v1\.yml$/
+    /^\.github\/workflows\/external_calc_store_rate_profile_persistence_v1\.yml$/,
+    /^\.github\/workflows\/external_calc_store_rate_profile_resolver_c02_g3\.yml$/
   ] }
 ];
 

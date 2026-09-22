@@ -97,7 +97,7 @@ function normalizeInstallmentCoefficients(input) {
   const entries = Object.entries(input)
     .map(([countText, coefficient]) => {
       const count = Number(countText);
-      if (!Number.isInteger(count) || count < 2 || count > 60) {
+      if (!Number.isInteger(count) || count < 1 || count > 60) {
         throw new Error('installment count invalido');
       }
       if (typeof coefficient !== 'number' || !Number.isFinite(coefficient) || coefficient <= 0) {
