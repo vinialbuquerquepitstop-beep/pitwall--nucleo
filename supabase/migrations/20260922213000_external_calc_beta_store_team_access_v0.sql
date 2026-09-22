@@ -1028,7 +1028,7 @@ grant execute on function public.extcalc_list_pending_review_candidates_v0(integ
 -- 2. vendedor continua fora do beta privilegiado;
 -- 3. learning candidates continuam owner-only;
 -- 4. app_usuario continua self-readable para o proprio usuario;
--- 5. nenhuma service_role e exposta ao browser.
+-- 5. nenhuma credencial privilegiada e exposta ao browser.
 
 
 -- Convites de beta: token bruto nunca e persistido.
