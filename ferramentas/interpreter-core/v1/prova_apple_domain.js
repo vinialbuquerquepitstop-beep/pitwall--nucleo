@@ -502,6 +502,41 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
 });
 
+check('emoji preto na linha do modelo vira cor disponivel', () => {
+  const result = run(
+    'apple-color-symbol-black',
+    '🔥 IPHONES SEMINOVOS 🔥\n📲IPHONE 15 128GB ⚫️\nR$2.550/ BATERIA 🔋 🟰100%'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_15_128gb');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 2550);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+});
+
+check('multiplos emojis de cor expandem cores disponiveis sem capturar emoji decorativo', () => {
+  const result = run(
+    'apple-color-symbol-multi',
+    '📲 iPhone 17 256GB Lacrado ⚫️ ⚪️ 🔵\nR$ 5.299 🔋100%'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Azul', 'Branco', 'Preto']
+  );
+  assert.ok(result.records.every(record => record.fields.price === 5299));
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_17_256gb'));
+});
+
+check('emoji amarelo permanece Amarelo e nao e promovido silenciosamente para Gold', () => {
+  const result = run(
+    'apple-color-symbol-yellow',
+    'iPhone 17 256GB Lacrado 🟡 R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Amarelo');
+});
+
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
   const result = run('apple-11', 'iPhone 16 256GB Azul Lacrado - 4.900');
   assert.ok(result.warnings.includes('no_persistence'));
