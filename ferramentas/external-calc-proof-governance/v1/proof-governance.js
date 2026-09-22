@@ -3,6 +3,7 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'C02_CALCULATION', patterns: [/^ferramentas\/external-calc-c02\/v1\//] },
   { owner: 'STORE_RATE_PROFILE_PERSISTENCE', patterns: [
     /^supabase\/migrations\/20260922230000_external_calc_user_rate_profile_persistence_v1\.sql$/,
     /^supabase\/migrations\/20260922233000_external_calc_store_rate_profile_correction_v1\.sql$/,
