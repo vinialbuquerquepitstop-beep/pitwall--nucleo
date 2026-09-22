@@ -19,7 +19,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_authority_runtime_binding_v0\.yml$/,
     /^\.github\/workflows\/external_calc_runtime_postgres_v0\.yml$/,
     /^\.github\/workflows\/external_calc_authority_production_config_v0\.yml$/,
-    /^\.github\/workflows\/external_calc_proof_governance_v1\.yml$/
+    /^\.github\/workflows\/external_calc_proof_governance_v1\.yml$/,
+    /^\.github\/workflows\/external_calc_cloudflare_g4\.yml$/
   ] }
 ];
 
