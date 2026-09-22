@@ -1,7 +1,8 @@
 # EXTERNAL CALC — BETA STORE TEAM ACCESS V0
 
-Data: 22/09/2026
-Status: IMPLEMENTATION CANDIDATE
+Data: 22/09/2026  
+Status: IMPLEMENTED / BETA PASS WITH SELLER PRODUCTION HOLD  
+Implementation evidence: PR #56 merged on 22/09/2026.
 
 ## Objetivo
 
@@ -93,6 +94,19 @@ Convites V0 expiram em 7 dias.
 
 Somente `dono` cria/revoga convites.
 
+## Interacao com UserRateProfile
+
+Quando o UserRateProfile atingir o gate de Settings:
+
+- `dono` podera configurar somente o proprio perfil de taxas;
+- `validador` podera configurar somente o proprio perfil de taxas durante o beta;
+- identidade do perfil vem de `auth.uid()`, nunca de `user_id` escolhido pelo browser;
+- nenhum usuario pode ler/escrever o perfil de outro usuario;
+- taxas continuam sendo configuracao comercial do usuario, nao permissao de administracao de equipe;
+- `vendedor` permanece fora desta superficie privilegiada ate Seller Projection.
+
+Essa integracao ainda nao esta implementada enquanto os gates UserRateProfile G2–G7 estiverem pendentes.
+
 ## Gate
 
 PASS quando:
@@ -109,6 +123,15 @@ PASS quando:
 10. reviewer_ref continua sendo auth.uid();
 11. nenhuma service_role entra no browser/Worker;
 12. C01-C05 permanecem intactos.
+
+Current adjudication:
+
+```text
+BETA_TEAM_ACCESS = PASS
+DONO = ALLOWED
+VALIDADOR = ALLOWED_TEMPORARY_BETA
+VENDEDOR = HOLD_UNTIL_SELLER_PROJECTION
+```
 
 ## Bootstrap de uma nova loja beta
 
