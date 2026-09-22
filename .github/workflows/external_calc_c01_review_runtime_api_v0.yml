@@ -95,26 +95,7 @@ jobs:
       - name: Diff check
         run: git diff --check
 
-      - name: Enforce isolated scope
+      - name: Enforce governed scope
         run: |
           set -euo pipefail
-          git fetch origin main || true
-          BASE=origin/main
-          if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-            BASE=HEAD^
-          fi
-
-          git diff --name-only "$BASE"...HEAD | tee /tmp/changed.txt
-
-          while IFS= read -r file; do
-            case "$file" in
-              ferramentas/external-calc-c01-review/v0/review-api.js|              ferramentas/external-calc-c01-review/v0/prova_c01_review_api_v0.js|              ferramentas/external-calc-runtime/v0/runtime.js|              ferramentas/external-calc-runtime/v0/prova_c01_review_runtime_api_v0.js|              docs/calculadora/EXTERNAL_CALC_C01_REVIEW_RUNTIME_API_GATE_V0.md|              .github/workflows/external_calc_c01_review_runtime_api_v0.yml|              .github/workflows/external_calc_authority_runtime_binding_v0.yml|              .github/workflows/external_calc_c01_review_authority_core_v0.yml|              .github/workflows/external_calc_c01_review_candidate_persistence_v0.yml|              .github/workflows/external_calc_runtime_postgres_v0.yml|              .github/workflows/external_calc_authority_production_config_v0.yml)
-                ;;
-              *)
-                echo "BLOQUEIO: arquivo fora da fatia C01 Review Runtime API V0: $file"
-                exit 1
-                ;;
-            esac
-          done < /tmp/changed.txt
-
-          echo "C01_REVIEW_RUNTIME_API_SCOPE=PASS"
+          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
