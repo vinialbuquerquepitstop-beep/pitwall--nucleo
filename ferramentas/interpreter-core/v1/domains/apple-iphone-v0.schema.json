@@ -217,7 +217,10 @@
             "product_header"
           ],
           "min_leftover_tokens": 2,
-          "require_unique_adjacent_trigger": true
+          "require_unique_adjacent_trigger": true,
+          "allow_when_anchor_field_present": [
+            "model"
+          ]
         }
       },
       "literal_value_map": {
@@ -546,7 +549,8 @@
           "Amarelo",
           "Dourado"
         ]
-      }
+      },
+      "scope": "symbols may pair from the model anchor line to the immediately following price inside the same model block"
     }
   }
 }
