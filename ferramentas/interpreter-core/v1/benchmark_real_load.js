@@ -38,6 +38,30 @@ const schema = applySupplierProfiles(baseSchema, supplierProfileDocument);
 const raw = readText(rawPath);
 const legacyBench = readJson(legacyPath);
 
+function buildColorAliasMap(domainSchema) {
+  const colorField = (domainSchema.fields || []).find(field => field.name === 'color');
+  const out = {};
+  for (const source of [colorField?.value_map, colorField?.literal_value_map]) {
+    if (!source || typeof source !== 'object') continue;
+    for (const [alias, canonical] of Object.entries(source)) {
+      out[alias] = canonical;
+      out[canonical] = canonical;
+    }
+  }
+  return out;
+}
+
+const canonicalColorAliases = buildColorAliasMap(schema);
+function compareSemanticShadowCanonical(args) {
+  return compareSemanticShadowCanonical({
+    ...args,
+    options: {
+      color_aliases: canonicalColorAliases,
+      ...(args.options || {})
+    }
+  });
+}
+
 if (!raw.trim()) die('documento bruto vazio');
 if (legacyBench.guarda_conservacao?.ok !== true) {
   die('guarda de conservacao do leitor legado nao esta verde');
@@ -87,8 +111,8 @@ const coreBundle = interpretResolved({
   knowledge
 });
 
-const report = compareSemanticShadow({ legacy, coreBundle });
-const reportNoColor = compareSemanticShadow({ legacy, coreBundle, options: { include_color: false } });
+const report = compareSemanticShadowCanonical({ legacy, coreBundle });
+const reportNoColor = compareSemanticShadowCanonical({ legacy, coreBundle, options: { include_color: false } });
 
 const conditionTimestampSchema = JSON.parse(JSON.stringify(schema));
 conditionTimestampSchema.context_policy = conditionTimestampSchema.context_policy || {};
@@ -105,7 +129,7 @@ const conditionTimestampBundle = interpretResolved({
   schema: conditionTimestampSchema,
   knowledge
 });
-const conditionTimestampReport = compareSemanticShadow({
+const conditionTimestampReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: conditionTimestampBundle,
   options: { include_supplier: true }
@@ -131,7 +155,7 @@ for (const record of capacityFromResolvedModelBundle.records || []) {
   });
   capacityFromResolvedModelFilled += 1;
 }
-const capacityFromResolvedModelReport = compareSemanticShadow({
+const capacityFromResolvedModelReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: capacityFromResolvedModelBundle,
   options: { include_supplier: true }
@@ -245,7 +269,7 @@ for (const record of adjacentColorBundle.records || []) {
   adjacentColorFilled += 1;
 }
 
-const adjacentColorReport = compareSemanticShadow({
+const adjacentColorReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: adjacentColorBundle,
   options: { include_supplier: true }
@@ -294,7 +318,7 @@ for (const record of conditionDomainGuardBundle.records || []) {
   conditionDomainGuardCleared += 1;
 }
 
-const conditionDomainGuardReport = compareSemanticShadow({
+const conditionDomainGuardReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: conditionDomainGuardBundle,
   options: { include_supplier: true }
@@ -370,7 +394,7 @@ const conditionConfidenceHorizonSimulations = conditionConfidenceHorizonPolicies
     cleared += 1;
   }
 
-  const report = compareSemanticShadow({
+  const report = compareSemanticShadowCanonical({
     legacy: legacySupplierAware,
     coreBundle: bundle,
     options: { include_supplier: true }
@@ -418,7 +442,7 @@ longHeaderFallbackPriceBundle.records = (longHeaderFallbackPriceBundle.records |
   return false;
 });
 
-const longHeaderFallbackPriceReport = compareSemanticShadow({
+const longHeaderFallbackPriceReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: longHeaderFallbackPriceBundle,
   options: { include_supplier: true }
@@ -462,13 +486,13 @@ inheritedModelDistance2Bundle.records = (inheritedModelDistance2Bundle.records |
   return false;
 });
 
-const inheritedModelDistance2Report = compareSemanticShadow({
+const inheritedModelDistance2Report = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: inheritedModelDistance2Bundle,
   options: { include_supplier: true }
 });
 const reportSupplierAware = supplierProfiles.length
-  ? compareSemanticShadow({
+  ? compareSemanticShadowCanonical({
       legacy: legacySupplierAware,
       coreBundle,
       options: { include_supplier: true }
@@ -6008,7 +6032,7 @@ function simulateSameGenerationVariantConditionGuard(bundle) {
 
 const conditionSameGenerationVariantGuard =
   simulateSameGenerationVariantConditionGuard(coreBundle);
-const conditionSameGenerationVariantGuardReport = compareSemanticShadow({
+const conditionSameGenerationVariantGuardReport = compareSemanticShadowCanonical({
   legacy: legacySupplierAware,
   coreBundle: conditionSameGenerationVariantGuard.bundle,
   options: { include_supplier: true }
@@ -8826,7 +8850,7 @@ const strictAfterPriceColorExpansionSimulations = [
     config.min_colors,
     config.source_shape_mode
   );
-  const report = compareSemanticShadow({
+  const report = compareSemanticShadowCanonical({
     legacy: legacySupplierAware,
     coreBundle: simulation.bundle,
     options: { include_supplier: true }
