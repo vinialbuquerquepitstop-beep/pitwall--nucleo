@@ -19,7 +19,7 @@ async function main() {
           document: {
             contract_version: 'raw-document/v1',
             document_id: 'doc-trusted-fixture-v0',
-            content: 'iPhone 15 Pro 256GB\nR$ 6.350'
+            content: 'iPhone 17 512GB Preto Lacrado - 8.100'
           },
           schema,
           knowledge,
