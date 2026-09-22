@@ -97,15 +97,13 @@ function createPostgresReviewCandidateRepository(options = {}) {
       const limit = Number.isSafeInteger(options.limit) ? options.limit : 50;
       if (limit < 1 || limit > 100) throw new Error('limit invalido');
 
-      const params = new URLSearchParams({
-        select: 'candidate_snapshot,criado_em',
-        order: 'criado_em.asc',
-        limit: String(limit)
-      });
-
       const response = await fetchImpl(
-        joinUrl(supabaseUrl, `/rest/v1/extcalc_review_candidate?${params.toString()}`),
-        { method: 'GET', headers: authHeaders(anonKey, accessToken) }
+        joinUrl(supabaseUrl, '/rest/v1/rpc/extcalc_list_pending_review_candidates_v0'),
+        {
+          method: 'POST',
+          headers: authHeaders(anonKey, accessToken),
+          body: JSON.stringify({ p_limit: limit })
+        }
       );
       const payload = await readJson(response);
       if (!response.ok) {

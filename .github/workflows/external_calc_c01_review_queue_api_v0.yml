@@ -4,6 +4,7 @@ on:
     paths:
       - "ferramentas/external-calc-c01-review/**"
       - "ferramentas/external-calc-runtime/**"
+      - "supabase/migrations/20260922184500_external_calc_c01_review_pending_queue_v0.sql"
       - ".github/workflows/external_calc_c01_review_queue_api_v0.yml"
 permissions:
   contents: read
@@ -18,3 +19,4 @@ jobs:
       - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js
       - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_result_persistence_v0.js
       - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_queue_api_v0.js
+      - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_pending_queue_v0.js
