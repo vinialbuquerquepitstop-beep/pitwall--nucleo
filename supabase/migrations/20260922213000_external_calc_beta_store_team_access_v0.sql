@@ -1029,3 +1029,267 @@ grant execute on function public.extcalc_list_pending_review_candidates_v0(integ
 -- 3. learning candidates continuam owner-only;
 -- 4. app_usuario continua self-readable para o proprio usuario;
 -- 5. nenhuma service_role e exposta ao browser.
+
+
+-- Convites de beta: token bruto nunca e persistido.
+create table if not exists public.extcalc_beta_invite (
+  invite_id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenant(id),
+  email text not null,
+  nome text not null,
+  papel text not null check (papel in ('dono', 'validador')),
+  token_hash text not null unique,
+  created_by uuid,
+  expires_at timestamptz not null,
+  claimed_by uuid,
+  claimed_at timestamptz,
+  revoked_at timestamptz,
+  criado_em timestamptz not null default now()
+);
+
+create index if not exists extcalc_beta_invite_tenant_ix
+  on public.extcalc_beta_invite (tenant_id, criado_em desc);
+
+alter table public.extcalc_beta_invite enable row level security;
+
+drop policy if exists extcalc_beta_invite_owner_sel on public.extcalc_beta_invite;
+create policy extcalc_beta_invite_owner_sel
+  on public.extcalc_beta_invite
+  for select
+  to authenticated
+  using (
+    tenant_id = privado.fn_tenant_atual()
+    and privado.fn_papel_atual() = 'dono'
+  );
+
+revoke all on public.extcalc_beta_invite from anon, authenticated;
+grant select on public.extcalc_beta_invite to authenticated;
+
+create or replace function public.extcalc_create_beta_validator_invite_v0(
+  p_email text,
+  p_nome text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $extcalc_beta_invite$
+declare
+  v_tenant uuid;
+  v_papel text;
+  v_email text;
+  v_nome text;
+  v_token text;
+  v_hash text;
+  v_invite_id uuid;
+  v_expires timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = '42501', message = 'EXTCALC_UNAUTHENTICATED';
+  end if;
+
+  v_tenant := privado.fn_tenant_atual();
+  v_papel := privado.fn_papel_atual();
+
+  if v_tenant is null then
+    raise exception using errcode = '42501', message = 'EXTCALC_TENANT_UNAVAILABLE';
+  end if;
+  if v_papel is distinct from 'dono' then
+    raise exception using errcode = '42501', message = 'EXTCALC_FORBIDDEN';
+  end if;
+
+  v_email := lower(nullif(pg_catalog.btrim(p_email), ''));
+  v_nome := nullif(pg_catalog.btrim(p_nome), '');
+
+  if v_email is null or position('@' in v_email) < 2 or v_nome is null then
+    raise exception 'EXTCALC_BETA_INVITE_INVALID';
+  end if;
+
+  if exists (
+    select 1
+    from public.extcalc_beta_invite i
+    where i.tenant_id = v_tenant
+      and lower(i.email) = v_email
+      and i.claimed_at is null
+      and i.revoked_at is null
+      and i.expires_at > now()
+  ) then
+    raise exception 'EXTCALC_BETA_INVITE_ACTIVE_EXISTS';
+  end if;
+
+  v_token := encode(gen_random_bytes(32), 'hex');
+  v_hash := encode(digest(v_token, 'sha256'), 'hex');
+  v_expires := now() + interval '7 days';
+
+  insert into public.extcalc_beta_invite (
+    tenant_id,
+    email,
+    nome,
+    papel,
+    token_hash,
+    created_by,
+    expires_at
+  ) values (
+    v_tenant,
+    v_email,
+    v_nome,
+    'validador',
+    v_hash,
+    auth.uid(),
+    v_expires
+  )
+  returning invite_id into v_invite_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'invite_id', v_invite_id,
+    'invite_token', v_token,
+    'expires_at', v_expires,
+    'papel', 'validador'
+  );
+end;
+$extcalc_beta_invite$;
+
+revoke all on function public.extcalc_create_beta_validator_invite_v0(text, text)
+  from public, anon, authenticated;
+grant execute on function public.extcalc_create_beta_validator_invite_v0(text, text)
+  to authenticated;
+
+create or replace function public.extcalc_claim_beta_invite_v0(
+  p_token text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $extcalc_beta_claim$
+declare
+  v_token text;
+  v_hash text;
+  v_email text;
+  v_invite public.extcalc_beta_invite%rowtype;
+  v_existing public.app_usuario%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = '42501', message = 'EXTCALC_UNAUTHENTICATED';
+  end if;
+
+  v_token := nullif(pg_catalog.btrim(p_token), '');
+  if v_token is null then
+    raise exception 'EXTCALC_BETA_INVITE_TOKEN_REQUIRED';
+  end if;
+
+  v_email := lower(coalesce(auth.jwt()->>'email', ''));
+  if v_email = '' then
+    raise exception using errcode = '42501', message = 'EXTCALC_EMAIL_UNAVAILABLE';
+  end if;
+
+  v_hash := encode(digest(v_token, 'sha256'), 'hex');
+
+  select *
+  into v_invite
+  from public.extcalc_beta_invite i
+  where i.token_hash = v_hash
+  for update;
+
+  if not found
+     or v_invite.revoked_at is not null
+     or v_invite.expires_at <= now() then
+    raise exception using errcode = '42501', message = 'EXTCALC_BETA_INVITE_INVALID_OR_EXPIRED';
+  end if;
+
+  if lower(v_invite.email) is distinct from v_email then
+    raise exception using errcode = '42501', message = 'EXTCALC_BETA_INVITE_EMAIL_MISMATCH';
+  end if;
+
+  select *
+  into v_existing
+  from public.app_usuario u
+  where u.id = auth.uid();
+
+  if found then
+    if v_existing.tenant_id is distinct from v_invite.tenant_id
+       or v_existing.papel is distinct from v_invite.papel then
+      raise exception using errcode = '42501', message = 'EXTCALC_MEMBERSHIP_CONFLICT';
+    end if;
+  else
+    insert into public.app_usuario (
+      id,
+      tenant_id,
+      nome,
+      papel,
+      ativo
+    ) values (
+      auth.uid(),
+      v_invite.tenant_id,
+      v_invite.nome,
+      v_invite.papel,
+      true
+    );
+  end if;
+
+  if v_invite.claimed_at is null then
+    update public.extcalc_beta_invite
+    set claimed_by = auth.uid(),
+        claimed_at = now()
+    where invite_id = v_invite.invite_id;
+  elsif v_invite.claimed_by is distinct from auth.uid() then
+    raise exception using errcode = '42501', message = 'EXTCALC_BETA_INVITE_ALREADY_CLAIMED';
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'tenant_id', v_invite.tenant_id,
+    'papel', v_invite.papel,
+    'invite_id', v_invite.invite_id
+  );
+end;
+$extcalc_beta_claim$;
+
+revoke all on function public.extcalc_claim_beta_invite_v0(text)
+  from public, anon, authenticated;
+grant execute on function public.extcalc_claim_beta_invite_v0(text)
+  to authenticated;
+
+create or replace function public.extcalc_revoke_beta_invite_v0(
+  p_invite_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $extcalc_beta_revoke$
+declare
+  v_tenant uuid;
+  v_papel text;
+begin
+  if auth.uid() is null then
+    raise exception using errcode = '42501', message = 'EXTCALC_UNAUTHENTICATED';
+  end if;
+
+  v_tenant := privado.fn_tenant_atual();
+  v_papel := privado.fn_papel_atual();
+
+  if v_tenant is null or v_papel is distinct from 'dono' then
+    raise exception using errcode = '42501', message = 'EXTCALC_FORBIDDEN';
+  end if;
+
+  update public.extcalc_beta_invite
+  set revoked_at = now()
+  where invite_id = p_invite_id
+    and tenant_id = v_tenant
+    and claimed_at is null
+    and revoked_at is null;
+
+  if not found then
+    raise exception 'EXTCALC_BETA_INVITE_NOT_REVOCABLE';
+  end if;
+
+  return jsonb_build_object('ok', true, 'invite_id', p_invite_id);
+end;
+$extcalc_beta_revoke$;
+
+revoke all on function public.extcalc_revoke_beta_invite_v0(uuid)
+  from public, anon, authenticated;
+grant execute on function public.extcalc_revoke_beta_invite_v0(uuid)
+  to authenticated;
