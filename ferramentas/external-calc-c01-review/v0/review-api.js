@@ -64,9 +64,6 @@ function createC01ReviewApiV0(options = {}) {
   if (!reviewAuthority || typeof reviewAuthority.review !== 'function') {
     throw new Error('reviewAuthority.review obrigatorio');
   }
-  if (!candidateSource || typeof candidateSource.listPendingCandidates !== 'function') {
-    throw new Error('candidateSource.listPendingCandidates obrigatorio');
-  }
 
   return {
     version: REVIEW_API_VERSION,
@@ -85,6 +82,9 @@ function createC01ReviewApiV0(options = {}) {
         const auth = assertReviewAuth(await authenticate(request));
 
         if (method === 'GET') {
+          if (!candidateSource || typeof candidateSource.listPendingCandidates !== 'function') {
+            throw new Error('candidateSource.listPendingCandidates obrigatorio');
+          }
           const candidates = await candidateSource.listPendingCandidates({ limit: 50 });
           return json(200, {
             api_version: REVIEW_API_VERSION,
