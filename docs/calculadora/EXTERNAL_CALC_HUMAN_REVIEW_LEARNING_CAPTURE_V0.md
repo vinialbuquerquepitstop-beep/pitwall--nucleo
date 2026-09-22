@@ -1,7 +1,9 @@
 # EXTERNAL CALC — HUMAN REVIEW LEARNING CAPTURE V0
 
-Data: 22/09/2026
-Status: IMPLEMENTATION CANDIDATE
+Data: 22/09/2026  
+Status: IMPLEMENTED / CAPTURE PASS  
+Implementation evidence: PR #52 merged on 22/09/2026.  
+Promotion status: NOT AUTHORIZED / SEPARATE GATE.
 
 ## Objetivo
 
@@ -100,19 +102,30 @@ Decide se a recorrencia/evidencia deve virar vocabulario, alias, regra de schema
 ### Interpreter
 So muda depois que uma promocao versionada passa pelos gates de regressao e corpus real.
 
+## Beta multiusuario
+
+Depois do Beta Store Team Access V0:
+
+- `dono` pode revisar no proprio tenant;
+- `validador` pode revisar no proprio tenant durante o beta;
+- um EDIT material de qualquer reviewer autorizado pode gerar candidate PROPOSED;
+- `reviewer_ref` continua derivado da identidade autenticada server-side;
+- leitura direta de learning candidates permanece owner-only;
+- nenhum `validador` promove knowledge/Interpreter automaticamente.
+
 ## Por que nao autoaprender no clique
 
 Uma cor/simbolo pode ter semantica diferente entre fornecedores.
 
-Exemplo de vocabulario aprovado neste dominio:
+Exemplo de vocabulario observado neste dominio:
 
 ```text
 🟡 = Amarelo = Dourado = Gold -> Gold
 ```
 
-Mas novos equivalentes nao devem ser inferidos globalmente a partir de um unico clique sem gate.
+Esse exemplo continua sujeito ao gate de promocao do Interpreter. Novos equivalentes nao devem ser inferidos globalmente a partir de um unico clique sem corpus/regressao.
 
-## Gate
+## Gate de captura
 
 PASS quando:
 
@@ -128,6 +141,15 @@ PASS quando:
 10. nenhuma regra C01-C05 e recalculada;
 11. review nao depende de service_role;
 12. promocao continua sendo gate separado.
+
+Current adjudication:
+
+```text
+LEARNING_CAPTURE = PASS
+LEARNING_CANDIDATES = PROPOSED_ONLY
+AUTO_PROMOTION = FORBIDDEN
+INTERPRETER_PROMOTION = SEPARATE_GATE
+```
 
 ## Proximo gate
 
