@@ -93,6 +93,31 @@ function createPostgresReviewCandidateRepository(options = {}) {
       return clone(payload);
     },
 
+    async listPendingCandidates(options = {}) {
+      const limit = Number.isSafeInteger(options.limit) ? options.limit : 50;
+      if (limit < 1 || limit > 100) throw new Error('limit invalido');
+
+      const params = new URLSearchParams({
+        select: 'candidate_snapshot,criado_em',
+        order: 'criado_em.asc',
+        limit: String(limit)
+      });
+
+      const response = await fetchImpl(
+        joinUrl(supabaseUrl, `/rest/v1/extcalc_review_candidate?${params.toString()}`),
+        { method: 'GET', headers: authHeaders(anonKey, accessToken) }
+      );
+      const payload = await readJson(response);
+      if (!response.ok) {
+        const message = payload?.message || payload?.error || `HTTP ${response.status}`;
+        throw new Error(`EXTCALC_REVIEW_QUEUE_LOAD_FAILED: ${message}`);
+      }
+      if (!Array.isArray(payload)) {
+        throw new Error('EXTCALC_REVIEW_QUEUE_LOAD_FAILED: resposta invalida');
+      }
+      return payload.map(row => assertCandidateIdentity(row.candidate_snapshot));
+    },
+
     async loadCandidate(identity) {
       const tenantId = assertNonEmpty(identity?.tenant_id, 'tenant_id');
       const analysisId = assertNonEmpty(identity?.analysis_id, 'analysis_id');

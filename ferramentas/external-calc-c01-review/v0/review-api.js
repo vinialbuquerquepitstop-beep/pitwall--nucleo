@@ -58,6 +58,7 @@ function assertReviewAuth(context) {
 function createC01ReviewApiV0(options = {}) {
   const authenticate = options.authenticate;
   const reviewAuthority = options.reviewAuthority;
+  const candidateSource = options.candidateSource;
 
   if (typeof authenticate !== 'function') throw new Error('authenticate obrigatorio');
   if (!reviewAuthority || typeof reviewAuthority.review !== 'function') {
@@ -72,13 +73,26 @@ function createC01ReviewApiV0(options = {}) {
         const method = String(request?.method || '').toUpperCase();
         const path = String(request?.path || '');
 
-        if (method !== 'POST' || path !== REVIEW_PATH) {
+        if (!['GET', 'POST'].includes(method) || path !== REVIEW_PATH) {
           return json(404, {
             error: { code: 'NOT_FOUND', message: 'rota nao encontrada' }
           });
         }
 
         const auth = assertReviewAuth(await authenticate(request));
+
+        if (method === 'GET') {
+          if (!candidateSource || typeof candidateSource.listPendingCandidates !== 'function') {
+            throw new Error('candidateSource.listPendingCandidates obrigatorio');
+          }
+          const candidates = await candidateSource.listPendingCandidates({ limit: 50 });
+          return json(200, {
+            api_version: REVIEW_API_VERSION,
+            queue: candidates,
+            count: candidates.length
+          });
+        }
+
         const command = normalizeBody(request.body);
 
         const result = await reviewAuthority.review({
