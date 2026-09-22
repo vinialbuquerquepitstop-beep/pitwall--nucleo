@@ -220,6 +220,22 @@ async function bodyOf(response) {
     assert.strictEqual(backend.state.persistReviewCalls, 0);
   });
 
+  await check('runtime review com validador beta permite revisao auditavel', async () => {
+    const backend = makeBackend({ role: 'validador' });
+    const runtime = makeRuntime(backend);
+    const response = await runtime.fetch(request({
+      analysis_id: candidate().analysis_id,
+      offer_id: candidate().offer_id,
+      offer_revision: 1,
+      decision: 'ACCEPT'
+    }));
+    const body = await bodyOf(response);
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(body.c01.review.reviewer_ref, USER);
+    assert.strictEqual(backend.state.persistReviewCalls, 1);
+  });
+
   await check('runtime review com vendedor responde 403 sem banco de review', async () => {
     const backend = makeBackend({ role: 'vendedor' });
     const runtime = makeRuntime(backend);
