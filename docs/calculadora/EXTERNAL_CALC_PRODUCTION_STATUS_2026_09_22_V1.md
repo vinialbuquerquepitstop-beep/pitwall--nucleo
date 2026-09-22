@@ -20,7 +20,7 @@ Purpose: give engineering one discoverable snapshot of implemented, open and hel
 ### StoreRateProfile
 - architecture: PASS — tenant/store-owned; dono write authority;
 - backend G2 Persistence/RLS: PASS / corrected production migration 20260922231648;
-- G3 Resolver/C02: IMPLEMENTED ON PR / awaiting fresh CI proof;
+- G3 Resolver/C02: PASS — PR #60 merged at 0947b88; trusted session user → membership → tenant → ACTIVE StoreRateProfile → existing C02; CI G3/C02/G2/Proof Governance green;
 - G4 API: pending;
 - G5 Settings: pending;
 - G6 Screen 01 authoritative quote: pending;
@@ -65,4 +65,4 @@ Implementation docs must not stay labeled `IMPLEMENTATION CANDIDATE` after the c
 
 ## Next exact action
 
-StoreRateProfile G3 — close fresh CI proof, then proceed to G4 API.
+StoreRateProfile G4 — expose the trusted resolver through the authenticated API without accepting tenant/profile/rate authority from the browser.
