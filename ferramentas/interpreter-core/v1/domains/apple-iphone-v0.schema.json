@@ -196,7 +196,8 @@
         "Ultramarine": "Azul",
         "Pacific Blue": "Azul",
         "Purple": "Lilás",
-        "Amarelo": "Gold"
+        "Amarelo": "Gold",
+        "Gold": "Gold"
       },
       "pair_by_order_with_trigger": {
         "field": "price",
