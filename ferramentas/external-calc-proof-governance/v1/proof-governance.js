@@ -24,6 +24,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_c01_review_queue_api_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_runtime_api_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_candidate_persistence_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_c01_review_result_persistence_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_authority_core_v0\.yml$/,
     /^\.github\/workflows\/external_calc_authority_runtime_binding_v0\.yml$/,
     /^\.github\/workflows\/external_calc_runtime_postgres_v0\.yml$/,
