@@ -1,7 +1,7 @@
 # EXTERNAL CALC — USER RATE PROFILE BACKEND IMPLEMENTATION V1
 
 Data: 22/09/2026  
-Status: READY TO IMPLEMENT — G2 NEXT  
+Status: G2 PERSISTENCE/RLS PASS — G3 NEXT  
 Scope owner: Backend / Platform + C02 trusted domain path.  
 Cross-cutting authority: `EXTERNAL_CALC_USER_RATE_PROFILE_V1` and its impact/gate documents in the External Calc frontend architecture branch.  
 Project production map: `EXTERNAL_CALC_PRODUCTION_INTEGRATION_MAP_2026_09_22_V1` in the Brain External Calc project folder.
@@ -45,6 +45,49 @@ Backend is responsible for production evidence for:
 G5 Settings and G6 Screen 01 integration consume these server boundaries and do not replace them.
 
 ## 4. G2 — Persistence / RLS
+
+Status: PASS — implemented and applied to production on 22/09/2026.
+
+Production migration:
+`external_calc_user_rate_profile_persistence_v1`
+Supabase migration version:
+`20260922230617`
+
+Implemented persistence:
+
+```text
+extcalc_user_rate_profiles
+- profile_id
+- tenant_id
+- user_id
+- version
+- status
+- currency
+- rate_scale
+- fingerprint
+- supersedes_profile_id
+- created_at
+- activated_at
+
+extcalc_user_rate_profile_entries
+- profile_id
+- installment_count
+- rate_units
+```
+
+Proof completed against the production schema:
+- dry-run migration + rollback before production apply;
+- two synthetic users in the same tenant;
+- user A could read only A;
+- user B could read only B;
+- owner and validador both passed their own-user path;
+- version 1 → version 2 archived the prior active version;
+- stale expected version returned `EXTCALC_RATE_PROFILE_CONFLICT`;
+- authenticated direct INSERT/UPDATE/DELETE remained unavailable;
+- post-test rollback left zero synthetic users/profiles;
+- production introspection confirmed one-active partial unique index, own-user RLS and read-only table grants.
+
+No quote calculation or C02 arithmetic was introduced.
 
 Target persistence semantics:
 
@@ -234,4 +277,4 @@ G6_SCREEN01_QUOTE = PENDING_FRONTEND
 G7_REPLAY_LIVE = PENDING
 ```
 
-Next exact action: implement G2 Persistence/RLS with a two-user isolation proof.
+Next exact action: implement G3 Resolver/C02 so the authenticated user's ACTIVE UserRateProfile becomes trusted C02 input and quote math remains single-authority.

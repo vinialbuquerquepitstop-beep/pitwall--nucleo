@@ -19,8 +19,8 @@ Purpose: give engineering one discoverable snapshot of implemented, open and hel
 
 ### UserRateProfile
 - architecture: PASS;
-- backend G2 Persistence/RLS: NEXT;
-- G3 Resolver/C02: pending;
+- backend G2 Persistence/RLS: PASS / production migration 20260922230617;
+- G3 Resolver/C02: NEXT;
 - G4 API: pending;
 - G5 Settings: pending;
 - G6 Screen 01 authoritative quote: pending;
@@ -64,4 +64,4 @@ Implementation docs must not stay labeled `IMPLEMENTATION CANDIDATE` after the c
 
 ## Next exact action
 
-UserRateProfile G2 — Persistence/RLS + two-user isolation proof.
+UserRateProfile G3 — Resolver/C02 trusted active-profile resolution + single authoritative rate/rounding calculation.
