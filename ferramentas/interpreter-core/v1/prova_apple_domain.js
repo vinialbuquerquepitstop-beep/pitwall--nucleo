@@ -528,13 +528,28 @@ check('multiplos emojis de cor expandem cores disponiveis sem capturar emoji dec
   assert.ok(result.records.every(record => record.fields.model.id === 'iphone_17_256gb'));
 });
 
-check('emoji amarelo permanece Amarelo e nao e promovido silenciosamente para Gold', () => {
+check('Amarelo e Dourado canonizam para Gold', () => {
+  const amarelo = run(
+    'apple-color-amarelo-gold',
+    'iPhone 17 256GB Amarelo Lacrado R$ 5.299'
+  );
+  const dourado = run(
+    'apple-color-dourado-gold',
+    'iPhone 17 256GB Dourado Lacrado R$ 5.299'
+  );
+  assert.strictEqual(amarelo.records.length, 1);
+  assert.strictEqual(amarelo.records[0].fields.color, 'Gold');
+  assert.strictEqual(dourado.records.length, 1);
+  assert.strictEqual(dourado.records[0].fields.color, 'Gold');
+});
+
+check('emoji amarelo canoniza para Gold conforme vocabulario operacional', () => {
   const result = run(
     'apple-color-symbol-yellow',
     'iPhone 17 256GB Lacrado 🟡 R$ 5.299'
   );
   assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.color, 'Amarelo');
+  assert.strictEqual(result.records[0].fields.color, 'Gold');
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
