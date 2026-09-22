@@ -46,10 +46,57 @@ assert.strictEqual(candidate.execution_status, 'SUCCEEDED');
 assert.strictEqual(candidate.freshness_status, 'CURRENT');
 assert.strictEqual(candidate.offer_revision, 1);
 assert.strictEqual(candidate.interpreted_offer.model.id, 'iphone_17_512gb');
+assert.strictEqual(candidate.interpreted_offer.model.label, 'iPhone 17');
+assert.strictEqual(candidate.interpreted_offer.capacity_gb, 512);
 assert.deepStrictEqual(candidate.interpreted_offer.price, { amount_minor: 810000, currency: 'BRL' });
 assert.strictEqual(candidate.reviewed_offer, null);
 assert.ok(candidate.trace.some(item => item.field === 'price'));
 assert.ok(candidate.provenance_refs.some(ref => ref.startsWith('interpreter_record:')));
+
+const separatedModel = run(
+  'c01-model-capacity-separation',
+  'iPhone 16 Pro Max 256GB Preto Lacrado - 6.500'
+);
+assert.strictEqual(separatedModel.candidates.length, 1);
+assert.strictEqual(
+  separatedModel.candidates[0].interpreted_offer.model.id,
+  'iphone_16_pro_max_256gb'
+);
+assert.strictEqual(
+  separatedModel.candidates[0].interpreted_offer.model.label,
+  'iPhone 16 Pro Max'
+);
+assert.strictEqual(
+  separatedModel.candidates[0].interpreted_offer.capacity_gb,
+  256
+);
+
+const sameFamily128 = run(
+  'c01-model-family-128',
+  'iPhone 16 128GB Preto Lacrado - 4.500'
+);
+const sameFamily256 = run(
+  'c01-model-family-256',
+  'iPhone 16 256GB Preto Lacrado - 4.900'
+);
+assert.strictEqual(sameFamily128.candidates[0].interpreted_offer.model.label, 'iPhone 16');
+assert.strictEqual(sameFamily256.candidates[0].interpreted_offer.model.label, 'iPhone 16');
+assert.strictEqual(sameFamily128.candidates[0].interpreted_offer.capacity_gb, 128);
+assert.strictEqual(sameFamily256.candidates[0].interpreted_offer.capacity_gb, 256);
+assert.notStrictEqual(
+  sameFamily128.candidates[0].interpreted_offer.model.id,
+  sameFamily256.candidates[0].interpreted_offer.model.id
+);
+assert.notStrictEqual(
+  sameFamily128.candidates[0].offer_identity_fingerprint,
+  sameFamily256.candidates[0].offer_identity_fingerprint
+);
+
+for (const entity of knowledge.entities.filter(item => item.kind === 'model')) {
+  assert.ok(entity.attributes?.display_label, 'modelo precisa de display_label');
+  assert.strictEqual(/\b\d+(?:GB|TB)$/i.test(entity.attributes.display_label), false);
+  assert.ok(Number.isInteger(entity.attributes.capacity_gb));
+}
 
 const accepted = applyHumanReview(candidate, {
   decision: 'ACCEPT',
