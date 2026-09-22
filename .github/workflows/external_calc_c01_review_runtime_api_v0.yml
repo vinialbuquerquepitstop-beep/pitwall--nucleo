@@ -61,7 +61,45 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-runtime/v0/prova_c01_review_runtime_api_v0.js | tee /tmp/review-runtime.log
-          grep -q '^C01_REVIEW_RUNTIME_API_GATE_V0=PASS checks=6$' /tmp/review-runtime.log
+          grep -q '^C01_REVIEW_RUNTIME_API_GATE_V0=PASS checks=8
+
+      - name: Preserve Runtime V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=11$' /tmp/runtime.log
+
+      - name: Enforce no domain duplication or service role
+        run: |
+          set -euo pipefail
+          for file in             ferramentas/external-calc-c01-review/v0/review-api.js             ferramentas/external-calc-runtime/v0/runtime.js; do
+            if grep -Eqi 'service_role|SUPABASE_SERVICE_ROLE_KEY|calculateC02\(|runC03Research\(|runC04PriceIndicator\(|composeDecisionOutput\(' "$file"; then
+              echo "BLOQUEIO: regra/segredo proibido em $file"
+              exit 1
+            fi
+          done
+          echo "C01_REVIEW_RUNTIME_BOUNDARY=PASS"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Wrangler dry-run
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-review-worker | tee /tmp/wrangler.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler.log
+          find /tmp/extcalc-review-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          echo "C01_REVIEW_RUNTIME_WORKER_BUNDLE=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce governed scope
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
+ /tmp/review-runtime.log
 
       - name: Preserve Runtime V0
         run: |
