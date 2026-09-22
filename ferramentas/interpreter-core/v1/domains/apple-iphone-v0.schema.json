@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.10",
+  "schema_version": "0.8.11",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -522,6 +522,22 @@
         "preserve money-emoji long-header triggers for pairing while suppressing guarded final emission",
         "suppress short textual-currency price lines inheriting model exactly two lines above when no direct model/color anchors the line"
       ]
+    },
+    "color_symbol_vocabulary": {
+      "version": "v0",
+      "source": "live C01 review evidence on real calc_carga 6c4d3491-f85b-4015-8393-9798ab1ce758",
+      "rule": "color-circle symbols are domain evidence for available colors; decorative/status emojis remain ignored",
+      "global_symbols": {
+        "⚫": "Preto",
+        "⚪": "Branco",
+        "🔵": "Azul",
+        "🟢": "Verde",
+        "🟣": "Roxo",
+        "🔴": "Vermelho",
+        "🟡": "Amarelo",
+        "🟠": "Laranja"
+      },
+      "safety": "symbol meaning stays generic; supplier-specific semantics such as yellow=Gold require separate reviewed learning before promotion"
     }
   }
 }
