@@ -25,6 +25,12 @@ check('arquivo sem ownership falha fechado', () => {
   assert.deepStrictEqual(r.unknown, ['financeiro/producao.js']);
 });
 
+check('documento canonico de access control exige ownership explicito', () => {
+  const r = classifyFiles(['docs/calculadora/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1.md']);
+  assert.deepStrictEqual(r.unknown, []);
+  assert(r.requiredOwners.includes('ACCESS_CONTROL_DOCS'));
+});
+
 check('governance pode evoluir a propria prova explicitamente', () => {
   const r = classifyFiles(['ferramentas/external-calc-proof-governance/v1/proof-governance.js']);
   assert.deepStrictEqual(r.unknown, []);
