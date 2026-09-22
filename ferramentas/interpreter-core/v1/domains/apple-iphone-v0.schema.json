@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.10",
+  "schema_version": "0.8.11",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -162,6 +162,18 @@
       "extractors": [
         {
           "kind": "regex",
+          "pattern": "(⚪️?|⚫️?|🔵|🟢|🔴|🟡|🟠|🩷)",
+          "flags": "u",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.94,
+          "match_mode": "all",
+          "requires_fields_present": [
+            "model"
+          ]
+        },
+        {
+          "kind": "regex",
           "pattern": "\\b(Black\\s+Ocean\\s+Band|Black\\s+Titanium|Blue\\s+Anatel|Orange\\s+Anatel|Silver\\s+Anatel|Jet\\s+Black|Space\\s+Black|Space\\s+Gray|Rosa\\s+Blush|Rose\\s+Gold|Sky\\s+Blue|Azul\\s+Profundo|Azul\\s+Anatel|Laranja\\s+Anatel|Pacific\\s+Blue|Amarelo|Azul|Black|Blue|Branco|Cítrus|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Ultramarine|Verde|Vermelho|White|Purple)\\b",
           "flags": "i",
           "group": 1,
@@ -176,7 +188,7 @@
       "value_map": {
         "Black": "Preto",
         "Blue": "Azul",
-        "White": "Branco",
+        "White": "Silver",
         "Green": "Verde",
         "Orange": "Laranja",
         "Rose": "Rosa",
@@ -186,7 +198,12 @@
         "Dourado": "Gold",
         "Ultramarine": "Azul",
         "Pacific Blue": "Azul",
-        "Purple": "Lilás"
+        "Purple": "Lilás",
+        "Branco": "Silver",
+        "Silver": "Silver",
+        "Preto": "Preto",
+        "Gold": "Gold",
+        "Amarelo": "Gold"
       },
       "pair_by_order_with_trigger": {
         "field": "price",
@@ -206,8 +223,21 @@
             "product_header"
           ],
           "min_leftover_tokens": 2,
-          "require_unique_adjacent_trigger": true
+          "require_unique_adjacent_trigger": true,
+          "allow_when_anchor_field_present": [
+            "model"
+          ]
         }
+      },
+      "literal_value_map": {
+        "⚪": "Silver",
+        "⚫": "Preto",
+        "🔵": "Azul",
+        "🟢": "Verde",
+        "🔴": "Vermelho",
+        "🟡": "Gold",
+        "🟠": "Laranja",
+        "🩷": "Rosa"
       }
     },
     {
@@ -503,6 +533,55 @@
         "preserve money-emoji long-header triggers for pairing while suppressing guarded final emission",
         "suppress short textual-currency price lines inheriting model exactly two lines above when no direct model/color anchors the line"
       ]
+    },
+    "color_symbol_vocabulary": {
+      "version": "v1",
+      "scope": "emoji/symbol color extraction is accepted only when the same segment also contains a recognized model candidate",
+      "canonical_aliases": {
+        "Silver": [
+          "⚪",
+          "White",
+          "Branco",
+          "Silver",
+          "Prateado"
+        ],
+        "Preto": [
+          "⚫",
+          "Black",
+          "Preto"
+        ],
+        "Gold": [
+          "🟡",
+          "Gold",
+          "Dourado",
+          "Amarelo"
+        ],
+        "Azul": [
+          "🔵",
+          "Blue",
+          "Azul"
+        ],
+        "Verde": [
+          "🟢",
+          "Green",
+          "Verde"
+        ],
+        "Vermelho": [
+          "🔴",
+          "Vermelho"
+        ],
+        "Laranja": [
+          "🟠",
+          "Orange",
+          "Laranja"
+        ],
+        "Rosa": [
+          "🩷",
+          "Rosa"
+        ]
+      },
+      "multi_color_rule": "multiple color references on one recognized model line represent multiple available colors for the same model/storage/price block",
+      "unknown_symbol_rule": "unknown or ambiguous symbols remain unresolved and are handled through Human Review -> Learning Capture before promotion"
     }
   }
 }
