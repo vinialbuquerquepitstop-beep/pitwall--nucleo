@@ -31,6 +31,16 @@ const {
 const {
   createPostgresReviewResultRepository
 } = require('../../external-calc-c01-review/v0/postgres-review-result-repository');
+const {
+  createStoreRateQuoteResolver
+} = require('../../external-calc-store-rate/v1/store-rate-resolver');
+const {
+  createPostgresStoreRateQuoteSource
+} = require('../../external-calc-store-rate/v1/postgres-store-rate-source');
+const {
+  QUOTE_PATH,
+  createStoreRateQuoteApiV0
+} = require('../../external-calc-store-rate/v1/store-rate-quote-api');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -271,6 +281,19 @@ function createExternalCalcWorkerRuntime(options = {}) {
         authenticate: authContext
       });
 
+      const storeRateSource = createPostgresStoreRateQuoteSource({
+        supabaseUrl: config.supabaseUrl,
+        anonKey: config.anonKey,
+        accessToken,
+        fetchImpl,
+        authoritySource
+      });
+      const storeRateResolver = createStoreRateQuoteResolver({ source: storeRateSource });
+      const storeRateApi = createStoreRateQuoteApiV0({
+        resolver: storeRateResolver,
+        authenticate: authContext
+      });
+
       const reviewCandidateRepository = createPostgresReviewCandidateRepository({
         supabaseUrl: config.supabaseUrl,
         anonKey: config.anonKey,
@@ -302,7 +325,10 @@ function createExternalCalcWorkerRuntime(options = {}) {
         body = await request.text();
       }
 
-      const handler = url.pathname === REVIEW_PATH ? reviewApi : api;
+      const handler =
+        url.pathname === REVIEW_PATH ? reviewApi :
+        url.pathname === QUOTE_PATH ? storeRateApi :
+        api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
       return withCors(toResponse(apiResponse), corsOrigin);
     }

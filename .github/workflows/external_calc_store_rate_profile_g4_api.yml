@@ -1,0 +1,20 @@
+name: External Calc - Store Rate Profile G4 API
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-store-rate/**'
+      - 'ferramentas/external-calc-runtime/v0/runtime.js'
+      - 'ferramentas/external-calc-proof-governance/**'
+      - 'docs/calculadora/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1.md'
+      - '.github/workflows/external_calc_store_rate_profile_g4_api.yml'
+  workflow_dispatch:
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_resolver_c02_g3.js
+      - run: node ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_g4_api.js
+      - run: node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js
