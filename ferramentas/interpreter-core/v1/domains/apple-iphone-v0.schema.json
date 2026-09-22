@@ -162,6 +162,15 @@
       "extractors": [
         {
           "kind": "regex",
+          "pattern": "(⚫️?|⚪️?|🔵|🟢|🟣|🔴|🟡|🟠)",
+          "flags": "u",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9,
+          "match_mode": "all"
+        },
+        {
+          "kind": "regex",
           "pattern": "\\b(Black\\s+Ocean\\s+Band|Black\\s+Titanium|Blue\\s+Anatel|Orange\\s+Anatel|Silver\\s+Anatel|Jet\\s+Black|Space\\s+Black|Space\\s+Gray|Rosa\\s+Blush|Rose\\s+Gold|Sky\\s+Blue|Azul\\s+Profundo|Azul\\s+Anatel|Laranja\\s+Anatel|Pacific\\s+Blue|Amarelo|Azul|Black|Blue|Branco|Cítrus|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Ultramarine|Verde|Vermelho|White|Purple)\\b",
           "flags": "i",
           "group": 1,
@@ -208,6 +217,16 @@
           "min_leftover_tokens": 2,
           "require_unique_adjacent_trigger": true
         }
+      },
+      "literal_value_map": {
+        "⚫": "Preto",
+        "⚪": "Branco",
+        "🔵": "Azul",
+        "🟢": "Verde",
+        "🟣": "Roxo",
+        "🔴": "Vermelho",
+        "🟡": "Amarelo",
+        "🟠": "Laranja"
       }
     },
     {
