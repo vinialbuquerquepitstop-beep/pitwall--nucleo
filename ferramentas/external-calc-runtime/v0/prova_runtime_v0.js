@@ -306,6 +306,19 @@ async function responseBody(response) {
     assert.strictEqual(backend.state.persistCalls, 0);
   });
 
+  await check('JWT validador beta resolve autoridade e executa External Calc', async () => {
+    const backend = makeBackend({ role: 'validador' });
+    const runtime = makeRuntime(backend);
+    const response = await runtime.fetch(
+      apiRequest('POST', '/api/external-calc/v0/execute', clientRequest())
+    );
+    const body = await responseBody(response);
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(body.result.outputs.c05.contract_id, 'C05');
+    assert.strictEqual(backend.state.persistCalls, 1);
+  });
+
   await check('JWT dono resolve autoridade server-side executa Service V0 e persiste', async () => {
     const backend = makeBackend();
     const runtime = makeRuntime(backend);
