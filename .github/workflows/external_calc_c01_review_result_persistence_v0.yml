@@ -8,7 +8,9 @@ on:
     paths:
       - 'ferramentas/external-calc-c01-review/v0/**'
       - 'supabase/migrations/20260919232500_external_calc_c01_review_result_v0.sql'
+      - 'supabase/migrations/20260922194500_external_calc_human_review_learning_capture_v0.sql'
       - 'docs/calculadora/EXTERNAL_CALC_C01_REVIEW_RESULT_PERSISTENCE_GATE_V0.md'
+      - 'docs/calculadora/EXTERNAL_CALC_HUMAN_REVIEW_LEARNING_CAPTURE_V0.md'
       - '.github/workflows/external_calc_c01_review_result_persistence_v0.yml'
 
 jobs:
@@ -25,3 +27,5 @@ jobs:
         run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_candidate_persistence_v0.js
       - name: Prove review result persistence
         run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_result_persistence_v0.js
+      - name: Prove human review learning capture
+        run: node ferramentas/external-calc-c01-review/v0/prova_human_review_learning_capture_v0.js
