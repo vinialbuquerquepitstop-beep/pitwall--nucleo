@@ -50,10 +50,21 @@ function validateMoney(value, expectedCurrency = null) {
 
 function normalizeModel(value) {
   if (value && typeof value === 'object' && typeof value.id === 'string') {
+    const attributes =
+      value.attributes && typeof value.attributes === 'object'
+        ? { ...value.attributes }
+        : {};
+    const displayLabel =
+      typeof attributes.display_label === 'string' && attributes.display_label.trim()
+        ? attributes.display_label.trim()
+        : value.label == null
+          ? null
+          : String(value.label).trim();
+
     return {
       id: value.id,
-      label: value.label == null ? null : String(value.label),
-      attributes: value.attributes && typeof value.attributes === 'object' ? { ...value.attributes } : {}
+      label: displayLabel,
+      attributes
     };
   }
   if (typeof value === 'string' && value.trim()) {
