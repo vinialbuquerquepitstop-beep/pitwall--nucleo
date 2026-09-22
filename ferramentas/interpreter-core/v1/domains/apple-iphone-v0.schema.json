@@ -195,7 +195,8 @@
         "Dourado": "Gold",
         "Ultramarine": "Azul",
         "Pacific Blue": "Azul",
-        "Purple": "Lilás"
+        "Purple": "Lilás",
+        "Amarelo": "Gold"
       },
       "pair_by_order_with_trigger": {
         "field": "price",
@@ -225,7 +226,7 @@
         "🟢": "Verde",
         "🟣": "Roxo",
         "🔴": "Vermelho",
-        "🟡": "Amarelo",
+        "🟡": "Gold",
         "🟠": "Laranja"
       }
     },
@@ -526,7 +527,7 @@
     "color_symbol_vocabulary": {
       "version": "v0",
       "source": "live C01 review evidence on real calc_carga 6c4d3491-f85b-4015-8393-9798ab1ce758",
-      "rule": "color-circle symbols are domain evidence for available colors; decorative/status emojis remain ignored",
+      "rule": "color-circle symbols and supplier color terms are normalized to the same canonical business color vocabulary",
       "global_symbols": {
         "⚫": "Preto",
         "⚪": "Branco",
@@ -534,10 +535,17 @@
         "🟢": "Verde",
         "🟣": "Roxo",
         "🔴": "Vermelho",
-        "🟡": "Amarelo",
+        "🟡": "Gold",
         "🟠": "Laranja"
       },
-      "safety": "symbol meaning stays generic; supplier-specific semantics such as yellow=Gold require separate reviewed learning before promotion"
+      "safety": "aliases are promoted only when explicitly approved or proven by reviewed list evidence; equivalent terms share one canonical color instead of becoming parallel colors",
+      "canonical_aliases": {
+        "Gold": [
+          "🟡",
+          "Amarelo",
+          "Dourado"
+        ]
+      }
     }
   }
 }
