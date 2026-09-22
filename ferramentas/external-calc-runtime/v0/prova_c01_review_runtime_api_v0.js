@@ -147,9 +147,10 @@ function makeRuntime(backend) {
   });
 }
 
-function request(body, token = TOKEN) {
+function request(body, token = TOKEN, origin = null) {
   const headers = { 'content-type': 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
+  if (origin) headers.origin = origin;
   return new Request('https://pitwall.test/api/external-calc/v0/review', {
     method: 'POST',
     headers,
@@ -280,6 +281,45 @@ async function bodyOf(response) {
     assert.strictEqual(body.c01.review.material_change, true);
     assert.strictEqual(body.c01.review.original_offer_revision, 1);
     assert.strictEqual(backend.state.persistedBody.p_reviewed.offer_revision, 2);
+  });
+
+  await check('runtime responde preflight CORS do Preview sem autenticar', async () => {
+    const backend = makeBackend();
+    const runtime = makeRuntime(backend);
+    const origin = 'https://external-calc-frontend-v1-preview-8baw1ij9y-pits4.vercel.app';
+    const response = await runtime.fetch(new Request(
+      'https://pitwall.test/api/external-calc/v0/review',
+      {
+        method: 'OPTIONS',
+        headers: {
+          origin,
+          'access-control-request-method': 'GET',
+          'access-control-request-headers': 'authorization'
+        }
+      }
+    ));
+
+    assert.strictEqual(response.status, 204);
+    assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
+    assert.ok(response.headers.get('access-control-allow-methods').includes('GET'));
+    assert.ok(response.headers.get('access-control-allow-headers').includes('authorization'));
+    assert.strictEqual(backend.state.authCalls, 0);
+  });
+
+  await check('runtime inclui CORS na resposta autenticada do Preview', async () => {
+    const backend = makeBackend();
+    const runtime = makeRuntime(backend);
+    const origin = 'https://external-calc-frontend-v1-preview-8baw1ij9y-pits4.vercel.app';
+    const response = await runtime.fetch(request({
+      analysis_id: candidate().analysis_id,
+      offer_id: candidate().offer_id,
+      offer_revision: 1,
+      decision: 'ACCEPT'
+    }, TOKEN, origin));
+
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
+    assert.strictEqual(response.headers.get('vary'), 'Origin');
   });
 
   await check('runtime nao contem regra C01 local nem service_role', async () => {
