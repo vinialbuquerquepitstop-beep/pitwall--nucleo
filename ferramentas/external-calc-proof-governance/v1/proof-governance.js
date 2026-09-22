@@ -3,6 +3,16 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'COLOR_SYMBOL_CANONICAL_V1', patterns: [
+    /^ferramentas\/interpreter-core\/v1\/core\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/domains\/apple-iphone-v0\.schema\.json$/,
+    /^ferramentas\/interpreter-core\/v1\/prova_apple_domain\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/prova_supplier_profile_adapter\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/semantic-shadow\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/benchmark_real_load\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/prova_real_shadow_semantic\.js$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_COLOR_SYMBOL_CANONICAL_VOCABULARY_V1\.md$/
+  ] },
   { owner: 'MODEL_STORAGE_SEPARATION', patterns: [
     /^ferramentas\/interpreter-core\/v1\/domains\/apple-iphone-v0\.knowledge\.json$/,
     /^ferramentas\/external-calc-c01\/v1\/c01-readonly-bridge\.js$/,

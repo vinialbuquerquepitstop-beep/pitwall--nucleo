@@ -129,7 +129,7 @@ function ok(value, message) {
   eq(target.length, 2, 'guard deve preservar duas cores seguras no grupo misto');
   eq(
     target.map(record => record.fields.color).sort(),
-    ['Branco', 'Preto'],
+    ['Preto', 'Silver'],
     'guard deve abster apenas a cor oposta mais distante'
   );
   ok(result.ambiguities.some(ambiguity =>

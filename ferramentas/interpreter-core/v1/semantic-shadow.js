@@ -16,6 +16,19 @@ function canonicalCondition(value) {
   return map.get(key) || (value == null ? null : String(value).trim());
 }
 
+function canonicalColor(value, options = {}) {
+  if (value == null) return null;
+  const raw = String(value).trim();
+  const aliases = options.color_aliases;
+  if (!aliases || typeof aliases !== 'object') return raw;
+
+  const key = normalizeKey(raw);
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (normalizeKey(alias) === key) return String(canonical).trim();
+  }
+  return raw;
+}
+
 function coreOffers(bundle) {
   if (!bundle || bundle.contract_version !== 'interpretation-bundle/v1') {
     throw new Error('bundle invalido: interpretation-bundle/v1 esperado');
@@ -41,7 +54,7 @@ function offerKey(fields, options = {}) {
     fields.model?.id || null,
     fields.capacity_gb == null ? null : Number(fields.capacity_gb),
     canonicalCondition(fields.condition),
-    includeColor ? normalizeKey(fields.color) || null : undefined,
+    includeColor ? normalizeKey(canonicalColor(fields.color, options)) || null : undefined,
     includeSupplier ? normalizeKey(fields.supplier) || null : undefined,
     fields.price == null ? null : Number(fields.price)
   ];
@@ -110,7 +123,7 @@ function priceIdentityKey(fields, options = {}) {
     fields.model?.id || null,
     fields.capacity_gb == null ? null : Number(fields.capacity_gb),
     canonicalCondition(fields.condition),
-    includeColor ? normalizeKey(fields.color) || null : undefined,
+    includeColor ? normalizeKey(canonicalColor(fields.color, options)) || null : undefined,
     includeSupplier ? normalizeKey(fields.supplier) || null : undefined
   ]);
 }
@@ -311,6 +324,7 @@ function compareSemanticShadow({ legacy, coreBundle, options = {} }) {
 module.exports = {
   SEMANTIC_SHADOW_VERSION,
   canonicalCondition,
+  canonicalColor,
   coreOffers,
   offerKey,
   countOffers,

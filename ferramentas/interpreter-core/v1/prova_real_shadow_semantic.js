@@ -157,4 +157,41 @@ function ok(value, message) {
   eq(r.by_model.length, 2, 'dois modelos aparecem no diagnostico');
 }
 
+
+{
+  const aliases = {
+    Branco: 'Silver',
+    White: 'Silver',
+    Silver: 'Silver',
+    Prateado: 'Silver',
+    Dourado: 'Gold',
+    Amarelo: 'Gold',
+    Gold: 'Gold'
+  };
+
+  const l = legacy([
+    legacyOffer('l-color-alias', 'iphone_16_pro_max_256gb', 'Seminovo', 'Branco', 4999)
+  ]);
+  const c = core([
+    coreRecord('c-color-alias', 'iphone_16_pro_max_256gb', 'Seminovo', 'Silver', 4999)
+  ]);
+  const same = compareSemanticShadow({
+    legacy: l,
+    coreBundle: c,
+    options: { color_aliases: aliases }
+  });
+  eq(same.metrics.exact_multiset, true, 'alias canonico de cor casa semanticamente');
+
+  const wrongPrice = compareSemanticShadow({
+    legacy: l,
+    coreBundle: core([
+      coreRecord('c-color-alias-price', 'iphone_16_pro_max_256gb', 'Seminovo', 'Silver', 5099)
+    ]),
+    options: { color_aliases: aliases }
+  });
+  eq(wrongPrice.gates.no_silent_wrong_price, false, 'alias de cor nao pode esconder preco divergente');
+  eq(wrongPrice.metrics.missing_offers, 1, 'preco errado continua faltando');
+  eq(wrongPrice.metrics.extra_offers, 1, 'preco errado continua extra');
+}
+
 console.log(`PASSOU: ${n} assercoes Real Shadow Semantic V0`);
