@@ -3,6 +3,10 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'HUMAN_REVIEW_LEARNING_CAPTURE', patterns: [
+    /^supabase\/migrations\/20260922194500_external_calc_human_review_learning_capture_v0\.sql$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_HUMAN_REVIEW_LEARNING_CAPTURE_V0\.md$/
+  ] },
   { owner: 'C01_REVIEW_EVIDENCE', patterns: [
     /^ferramentas\/external-calc-c01\/v1\/c01-readonly-bridge\.js$/,
     /^ferramentas\/external-calc-c01\/v1\/prova_c01_readonly_bridge\.js$/,
