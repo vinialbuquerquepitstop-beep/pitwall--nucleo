@@ -33,7 +33,7 @@ O schema Apple/iPhone define o vocabulario de simbolos de cor:
 - 🟢 -> Verde
 - 🟣 -> Roxo
 - 🔴 -> Vermelho
-- 🟡 -> Amarelo
+- 🟡 -> Gold
 - 🟠 -> Laranja
 
 O variation selector visual de emoji e ignorado na comparacao literal.
@@ -47,11 +47,12 @@ Nao sao tratados como cor:
 - 💰
 - 💵
 
-O vocabulario global nao promove silenciosamente semantica especifica de fornecedor.
+O vocabulario operacional usa formas canonicas compartilhadas entre simbolos e termos equivalentes.
 
-Exemplo:
-- 🟡 globalmente significa Amarelo;
-- se um fornecedor usa 🟡 para representar Gold, isso exige aprendizado revisado e promocao especifica, nao alteracao global automatica.
+Exemplo aprovado:
+- 🟡 = Amarelo = Dourado = Gold -> Gold.
+
+Novos equivalentes ainda exigem evidencia/revisao antes de promocao; o principio e canonizar sinonimos, nao criar cores paralelas para a mesma cor.
 
 ## Comportamento esperado
 
