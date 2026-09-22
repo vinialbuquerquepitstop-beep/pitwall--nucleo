@@ -9,7 +9,8 @@ const OWNERS = [
     /^ferramentas\/external-calc-user-rate\/v1\//,
     /^ferramentas\/external-calc-store-rate\/v1\//,
     /^docs\/calculadora\/EXTERNAL_CALC_USER_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/,
-    /^docs\/calculadora\/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/
+    /^docs\/calculadora\/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1\.md$/
   ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
