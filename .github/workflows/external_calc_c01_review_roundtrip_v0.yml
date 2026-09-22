@@ -1,0 +1,29 @@
+name: External Calc C01 Candidate Review Roundtrip V0
+
+on:
+  push:
+    branches: [external-calc-c01-review-roundtrip-v0]
+  pull_request:
+    paths:
+      - "ferramentas/external-calc-c01-review/**"
+      - "ferramentas/external-calc-c01-review-candidate-runtime/**"
+      - "ferramentas/external-calc-c01/**"
+      - "ferramentas/interpreter-core/**"
+      - ".github/workflows/external_calc_c01_review_roundtrip_v0.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  roundtrip:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js
+      - run: node ferramentas/external-calc-c01-review-candidate-runtime/v0/prova_candidate_runtime_v0.js
+      - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_authority_core_v0.js
+      - run: node ferramentas/external-calc-c01-review/v0/prova_c01_review_result_persistence_v0.js
+      - run: node ferramentas/external-calc-c01-review/prova_candidate_review_roundtrip_v0.js
