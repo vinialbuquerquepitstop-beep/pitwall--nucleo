@@ -7,6 +7,7 @@ const OWNERS = [
     /^ferramentas\/interpreter-core\/v1\/core\.js$/,
     /^ferramentas\/interpreter-core\/v1\/domains\/apple-iphone-v0\.schema\.json$/,
     /^ferramentas\/interpreter-core\/v1\/prova_apple_domain\.js$/,
+    /^ferramentas\/interpreter-core\/v1\/prova_supplier_profile_adapter\.js$/,
     /^docs\/calculadora\/EXTERNAL_CALC_COLOR_SYMBOL_CANONICAL_VOCABULARY_V1\.md$/
   ] },
   { owner: 'MODEL_STORAGE_SEPARATION', patterns: [
