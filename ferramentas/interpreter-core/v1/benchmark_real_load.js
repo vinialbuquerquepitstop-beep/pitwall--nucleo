@@ -53,7 +53,7 @@ function buildColorAliasMap(domainSchema) {
 
 const canonicalColorAliases = buildColorAliasMap(schema);
 function compareSemanticShadowCanonical(args) {
-  return compareSemanticShadowCanonical({
+  return compareSemanticShadow({
     ...args,
     options: {
       color_aliases: canonicalColorAliases,
