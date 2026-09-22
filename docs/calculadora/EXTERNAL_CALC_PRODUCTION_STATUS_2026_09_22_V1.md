@@ -17,9 +17,9 @@ Purpose: give engineering one discoverable snapshot of implemented, open and hel
 
 ## Open production work
 
-### UserRateProfile
-- architecture: PASS;
-- backend G2 Persistence/RLS: PASS / production migration 20260922230617;
+### StoreRateProfile
+- architecture: PASS — tenant/store-owned; dono write authority;
+- backend G2 Persistence/RLS: PASS / corrected production migration 20260922231648;
 - G3 Resolver/C02: NEXT;
 - G4 API: pending;
 - G5 Settings: pending;
@@ -27,7 +27,7 @@ Purpose: give engineering one discoverable snapshot of implemented, open and hel
 - G7 replay/live proof: pending.
 
 Backend handoff:
-`docs/calculadora/EXTERNAL_CALC_USER_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1.md`
+`docs/calculadora/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1.md`
 
 ### Frontend Integration
 Gate remains OPEN until its live authenticated/public-env/human visual evidence closes.
@@ -51,10 +51,11 @@ validador  = temporary beta privileged / own tenant
 vendedor   = production hold
 ```
 
-After UserRateProfile Settings:
-- dono edits own profile only;
-- validador edits own profile only;
-- browser never supplies user/profile authority.
+After StoreRateProfile Settings:
+- dono edits the store profile;
+- validador consumes but cannot edit;
+- vendedor inherits the store profile through the trusted quote path after Seller Projection;
+- browser never supplies tenant/profile/rate authority.
 
 ## Documentation state rule
 
@@ -64,4 +65,4 @@ Implementation docs must not stay labeled `IMPLEMENTATION CANDIDATE` after the c
 
 ## Next exact action
 
-UserRateProfile G3 — Resolver/C02 trusted active-profile resolution + single authoritative rate/rounding calculation.
+StoreRateProfile G3 — resolve session tenant ACTIVE profile into C02 + single authoritative rate/rounding calculation.
