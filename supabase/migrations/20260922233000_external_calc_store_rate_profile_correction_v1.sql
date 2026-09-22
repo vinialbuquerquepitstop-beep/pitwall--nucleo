@@ -15,12 +15,14 @@ end;
 $guard$;
 
 drop function if exists public.extcalc_replace_my_rate_profile_v1(integer, jsonb, text, integer);
+
+-- Drop tables first so their triggers are removed before the trigger functions.
+drop table if exists public.extcalc_user_rate_profile_entries;
+drop table if exists public.extcalc_user_rate_profiles;
+
 drop function if exists privado.extcalc_enforce_rate_profile_membership_v1();
 drop function if exists privado.extcalc_guard_rate_profile_entry_v1();
 drop function if exists privado.extcalc_guard_rate_profile_version_v1();
-
-drop table if exists public.extcalc_user_rate_profile_entries;
-drop table if exists public.extcalc_user_rate_profiles;
 
 create table public.extcalc_store_rate_profiles (
   profile_id            uuid primary key default gen_random_uuid(),
