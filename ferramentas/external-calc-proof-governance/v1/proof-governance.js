@@ -3,7 +3,11 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
-  { owner: 'C01_REVIEW', patterns: [/^ferramentas\/external-calc-c01-review\/v0\//] },
+  { owner: 'C01_REVIEW', patterns: [
+    /^ferramentas\/external-calc-c01-review\/v0\//,
+    /^supabase\/migrations\/20260922184500_external_calc_c01_review_pending_queue_v0\.sql$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_C01_REVIEW_PENDING_QUEUE_GATE_V0\.md$/
+  ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//] },
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
