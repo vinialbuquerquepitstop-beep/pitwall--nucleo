@@ -227,6 +227,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
 
       const reviewApi = createC01ReviewApiV0({
         reviewAuthority,
+        candidateSource: reviewCandidateRepository,
         authenticate: authContext
       });
 
