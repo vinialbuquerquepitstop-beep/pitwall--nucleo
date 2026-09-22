@@ -755,7 +755,20 @@ function applyOrderedFieldPairing(segments, schema = {}) {
 
           if (!sourceIsFieldOnly) {
             const topRole = sourceSegment.role_candidates?.[0]?.role || 'unknown';
-            if (!allowedNonFieldOnlyRoles.has(topRole)) continue;
+            const allowedAnchorFields = new Set(
+              Array.isArray(adjacentConfig.allow_when_anchor_field_present)
+                ? adjacentConfig.allow_when_anchor_field_present
+                : adjacentConfig.allow_when_anchor_field_present
+                  ? [adjacentConfig.allow_when_anchor_field_present]
+                  : []
+            );
+            const hasAllowedAnchor = [...allowedAnchorFields].some(anchorField =>
+              uniqueFieldCandidates(
+                sourceSegment.field_candidates || [],
+                anchorField
+              ).length === 1
+            );
+            if (!allowedNonFieldOnlyRoles.has(topRole) && !hasAllowedAnchor) continue;
 
             const normalizedSource = String(sourceSegment.normalized || '').trim();
             const capturedSource = String(candidate.evidence?.captured || candidate.value || '');
