@@ -197,7 +197,7 @@ async function call(api, body, method = 'POST', pathName = REVIEW_PATH) {
       decision: 'ACCEPT'
     };
 
-    assert.strictEqual((await call(api, body, 'GET')).status, 404);
+    assert.strictEqual((await call(api, body, 'PUT')).status, 404);
     assert.strictEqual((await call(api, body, 'POST', '/api/external-calc/v0/other')).status, 404);
     assert.strictEqual(state.calls.length, 0);
   });
