@@ -116,15 +116,19 @@ check('cabecalho de fornecedor desconhecido nao e necessario para resolver produ
   );
 });
 
-check('cabecalho sem GB seguido de emoji resolve modelo e capacidade', () => {
+check('cabecalho sem GB seguido de emojis preserva modelo e expande cores disponiveis', () => {
   const result = run(
     'apple-9',
     '📲IPHONE 16 PRO MAX 256 ⚪️ (gold) ⚫️\nR$4.999/BATERIA🔋🟰92%'
   );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-  assert.strictEqual(result.records[0].fields.price, 4999);
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_16_pro_max_256gb'));
+  assert.ok(result.records.every(record => record.fields.capacity_gb === 256));
+  assert.ok(result.records.every(record => record.fields.price === 4999));
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Branco', 'Gold', 'Preto']
+  );
 });
 
 check('preco com R$ pode ter texto e emoji depois sem perder o gatilho', () => {
