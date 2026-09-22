@@ -1,7 +1,7 @@
 {
   "contract_version": "knowledge-snapshot/v1",
   "snapshot_id": "apple-iphone-shadow-v0",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "created_at": null,
   "entities": [
     {
@@ -10,7 +10,8 @@
       "label": "iPhone 13 Pro 128GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 128
+        "capacity_gb": 128,
+        "display_label": "iPhone 13 Pro"
       }
     },
     {
@@ -19,7 +20,8 @@
       "label": "iPhone 15 128GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 128
+        "capacity_gb": 128,
+        "display_label": "iPhone 15"
       }
     },
     {
@@ -28,7 +30,8 @@
       "label": "iPhone 16 128GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 128
+        "capacity_gb": 128,
+        "display_label": "iPhone 16"
       }
     },
     {
@@ -37,7 +40,8 @@
       "label": "iPhone 16 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 16"
       }
     },
     {
@@ -46,7 +50,8 @@
       "label": "iPhone 16 Pro 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 16 Pro"
       }
     },
     {
@@ -55,7 +60,8 @@
       "label": "iPhone 16 Pro Max 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 16 Pro Max"
       }
     },
     {
@@ -64,7 +70,8 @@
       "label": "iPhone 17 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 17"
       }
     },
     {
@@ -73,7 +80,8 @@
       "label": "iPhone 17 512GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 512
+        "capacity_gb": 512,
+        "display_label": "iPhone 17"
       }
     },
     {
@@ -82,7 +90,8 @@
       "label": "iPhone 17 Air 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 17 Air"
       }
     },
     {
@@ -91,7 +100,8 @@
       "label": "iPhone 16e 128GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 128
+        "capacity_gb": 128,
+        "display_label": "iPhone 16e"
       }
     },
     {
@@ -100,7 +110,8 @@
       "label": "iPhone 17e 256GB",
       "attributes": {
         "categoria": "iPhone",
-        "capacity_gb": 256
+        "capacity_gb": 256,
+        "display_label": "iPhone 17e"
       }
     }
   ],
@@ -392,6 +403,8 @@
       "supabase/migrations/20260910_calc_catalogo_apelidos_das_listas.sql",
       "ferramentas/prova_calc_catalogo.sql"
     ],
-    "capacity_attributes_version": "v1"
+    "capacity_attributes_version": "v1",
+    "model_display_label_version": "v1",
+    "model_display_label_rule": "model display_label excludes storage; technical entity id/label and capacity_gb preserve variant identity"
   }
 }
