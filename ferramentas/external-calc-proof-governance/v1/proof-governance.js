@@ -3,6 +3,11 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
+    /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
+    /^ferramentas\/external-calc-access\/v0\/prova_beta_store_team_access_v0\.js$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_BETA_STORE_TEAM_ACCESS_V0\.md$/
+  ] },
   { owner: 'MODEL_STORAGE_SEPARATION', patterns: [
     /^ferramentas\/interpreter-core\/v1\/domains\/apple-iphone-v0\.knowledge\.json$/,
     /^ferramentas\/external-calc-c01\/v1\/c01-readonly-bridge\.js$/,
