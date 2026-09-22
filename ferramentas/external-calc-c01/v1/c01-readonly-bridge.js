@@ -102,6 +102,49 @@ function offerValueFingerprint(offer) {
   return stableHash(JSON.stringify(offer));
 }
 
+function reviewEvidenceFromRecord(record, bundle) {
+  const segmentByLine = new Map(
+    (Array.isArray(bundle?.segments) ? bundle.segments : [])
+      .filter(segment => Number.isSafeInteger(segment?.line_number))
+      .map(segment => [segment.line_number, segment])
+  );
+
+  const fieldSources = {};
+  const sourceLineNumbers = new Set();
+
+  for (const item of record?.trace || []) {
+    if (!item || typeof item.field !== 'string') continue;
+    const lines = [...new Set(
+      (Array.isArray(item.sources) ? item.sources : [])
+        .filter(Number.isSafeInteger)
+    )].sort((a, b) => a - b);
+
+    if (lines.length) fieldSources[item.field] = lines;
+    for (const line of lines) sourceLineNumbers.add(line);
+  }
+
+  const recordLine = /^record-line-(\d+)/.exec(String(record?.record_id || ''));
+  if (recordLine) sourceLineNumbers.add(Number(recordLine[1]));
+
+  const sourceLines = [...sourceLineNumbers]
+    .sort((a, b) => a - b)
+    .map(lineNumber => {
+      const segment = segmentByLine.get(lineNumber);
+      if (!segment) return null;
+      return {
+        line_number: lineNumber,
+        raw: String(segment.raw ?? '')
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    record_id: record?.record_id || null,
+    source_lines: sourceLines,
+    field_sources: fieldSources
+  };
+}
+
 function candidateFromRecord(record, bundle, context) {
   const interpretedOffer = interpretedOfferFromRecord(record, context.currency);
   const offerId = stableId('off', context.analysis_id, context.source_id, record.record_id);
@@ -124,6 +167,7 @@ function candidateFromRecord(record, bundle, context) {
     interpreted_offer: interpretedOffer,
     reviewed_offer: null,
     review: null,
+    review_evidence: reviewEvidenceFromRecord(record, bundle),
     provenance_refs: [
       `interpretation_run:${bundle.run.run_id}`,
       `interpreter_record:${record.record_id}`
@@ -284,6 +328,7 @@ function applyHumanReview(candidate, review) {
 module.exports = {
   CONTRACT_VERSION,
   moneyFromMajorUnits,
+  reviewEvidenceFromRecord,
   mapBundleToC01ReviewQueue,
   runC01ReadOnlySlice,
   applyHumanReview

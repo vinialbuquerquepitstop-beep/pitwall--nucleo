@@ -84,6 +84,34 @@ assert.strictEqual(excluded.domain_outcome, 'EXCLUDED');
 assert.strictEqual(excluded.reviewed_offer, null);
 
 
+const evidenceQueue = run(
+  'c01-review-evidence',
+  '🔥IPHONE LACRADO 🔥\n📲IPHONE 15 128GB ⚫️\nR$3.790'
+);
+assert.strictEqual(evidenceQueue.candidates.length, 1);
+const evidenceCandidate = evidenceQueue.candidates[0];
+assert.ok(evidenceCandidate.review_evidence);
+assert.strictEqual(evidenceCandidate.review_evidence.record_id, 'record-line-3');
+assert.deepStrictEqual(
+  evidenceCandidate.review_evidence.source_lines,
+  [
+    { line_number: 1, raw: '🔥IPHONE LACRADO 🔥' },
+    { line_number: 2, raw: '📲IPHONE 15 128GB ⚫️' },
+    { line_number: 3, raw: 'R$3.790' }
+  ]
+);
+assert.deepStrictEqual(evidenceCandidate.review_evidence.field_sources.model, [2]);
+assert.deepStrictEqual(evidenceCandidate.review_evidence.field_sources.capacity_gb, [2]);
+assert.deepStrictEqual(evidenceCandidate.review_evidence.field_sources.condition, [1]);
+assert.deepStrictEqual(evidenceCandidate.review_evidence.field_sources.price, [3]);
+
+const evidenceAccepted = applyHumanReview(evidenceCandidate, {
+  decision: 'ACCEPT',
+  reviewer_ref: 'human_fixture',
+  reviewed_at: '2026-09-19T12:05:00.000Z'
+});
+assert.deepStrictEqual(evidenceAccepted.review_evidence, evidenceCandidate.review_evidence);
+
 const supplierQueue = run(
   'c01-supplier',
   'LOJA TESTE\niPhone 17 512GB Preto Lacrado - 8.100',
