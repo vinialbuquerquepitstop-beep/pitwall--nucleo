@@ -1,0 +1,19 @@
+name: External Calc - Store Rate Profile Resolver C02 G3
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-store-rate/**'
+      - 'ferramentas/external-calc-c02/**'
+      - 'docs/calculadora/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1.md'
+      - 'ferramentas/external-calc-proof-governance/**'
+      - '.github/workflows/external_calc_store_rate_profile_resolver_c02_g3.yml'
+  workflow_dispatch:
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node ferramentas/external-calc-c02/v1/prova_c02_calculator.js
+      - run: node ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_resolver_c02_g3.js
