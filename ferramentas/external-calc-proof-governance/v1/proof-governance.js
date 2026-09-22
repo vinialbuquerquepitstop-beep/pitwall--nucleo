@@ -3,6 +3,11 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'USER_RATE_PROFILE_PERSISTENCE', patterns: [
+    /^supabase\/migrations\/20260922230000_external_calc_user_rate_profile_persistence_v1\.sql$/,
+    /^ferramentas\/external-calc-user-rate\/v1\//,
+    /^docs\/calculadora\/EXTERNAL_CALC_USER_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/
+  ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
     /^ferramentas\/external-calc-access\/v0\/prova_beta_store_team_access_v0\.js$/,
@@ -42,7 +47,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_authority_production_config_v0\.yml$/,
     /^\.github\/workflows\/external_calc_proof_governance_v1\.yml$/,
     /^\.github\/workflows\/external_calc_cloudflare_g4\.yml$/,
-    /^\.github\/workflows\/external_calc_beta_store_team_v0\.yml$/
+    /^\.github\/workflows\/external_calc_beta_store_team_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_user_rate_profile_persistence_v1\.yml$/
   ] }
 ];
 
