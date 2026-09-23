@@ -19,6 +19,10 @@ const OWNERS = [
     /^ferramentas\/external-calc-trade-in\/v0\//,
     /^docs\/calculadora\/EXTERNAL_CALC_STORE_TRADE_IN_POLICY_GATE_V0\.md$/
   ] },
+  { owner: 'SALES_PRODUCT_T04', patterns: [
+    /^ferramentas\/external-calc-sales-product\/v0\//,
+    /^supabase\/migrations\/20260923061000_external_calc_sales_product_context_v0\.sql$/
+  ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
     /^ferramentas\/external-calc-access\/v0\/prova_beta_store_team_access_v0\.js$/,
@@ -63,7 +67,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_store_rate_profile_persistence_v1\.yml$/,
     /^\.github\/workflows\/external_calc_store_rate_profile_resolver_c02_g3\.yml$/,
     /^\.github\/workflows\/external_calc_store_rate_profile_g4_api\.yml$/,
-    /^\.github\/workflows\/external_calc_store_trade_in_policy_v0\.yml$/
+    /^\.github\/workflows\/external_calc_store_trade_in_policy_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
   ] }
 ];
 
