@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with: { node-version: '20' }
       - run: node ferramentas/external-calc-sales-product/v0/prova_sales_product_service_v0.js
