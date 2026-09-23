@@ -43,7 +43,7 @@ const {
 } = require('../../external-calc-store-rate/v1/store-rate-quote-api');
 const { createSalesProductService } = require('../../external-calc-sales-product/v0/sales-product-service');
 const { createPostgresSalesProductSource } = require('../../external-calc-sales-product/v0/postgres-sales-product-source');
-const { VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, createSalesProductApiV0 } = require('../../external-calc-sales-product/v0/sales-product-api');
+const { PRODUCT_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, createSalesProductApiV0 } = require('../../external-calc-sales-product/v0/sales-product-api');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -340,7 +340,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
       const handler =
         url.pathname === REVIEW_PATH ? reviewApi :
         url.pathname === QUOTE_PATH ? storeRateApi :
-        [VARIANT_PATH, TRADE_IN_PATH, SIM_PATH].includes(url.pathname) ? salesProductApi :
+        [PRODUCT_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH].includes(url.pathname) ? salesProductApi :
         api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
       return withCors(toResponse(apiResponse), corsOrigin);
