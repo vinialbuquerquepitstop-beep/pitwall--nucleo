@@ -1,0 +1,54 @@
+name: External Calc - Store Trade-in Policy T03
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20260923052000_external_calc_store_trade_in_policy_v0.sql'
+      - 'ferramentas/external-calc-trade-in/v0/**'
+      - 'docs/calculadora/EXTERNAL_CALC_STORE_TRADE_IN_POLICY_GATE_V0.md'
+      - 'ferramentas/external-calc-proof-governance/v1/proof-governance.js'
+      - '.github/workflows/external_calc_store_trade_in_policy_v0.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  trade-in-policy-t03:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Prove store trade-in policy contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-trade-in/v0/prova_store_trade_in_policy_v0.js | tee /tmp/trade-in-t03.log
+          grep -q '^EXTERNAL_CALC_STORE_TRADE_IN_POLICY_T03=PASS$' /tmp/trade-in-t03.log
+
+      - name: Enforce store ownership
+        run: |
+          set -euo pipefail
+          FILE=supabase/migrations/20260923052000_external_calc_store_trade_in_policy_v0.sql
+          grep -Fq "v_role is distinct from 'dono'" "$FILE"
+          grep -Fq "where p.tenant_id = v_tenant" "$FILE"
+          grep -Fq "EXTCALC_TRADE_IN_POLICY_CONFLICT" "$FILE"
+          if grep -Fq "p_user_id" "$FILE" || grep -Fq "p_tenant_id" "$FILE"; then
+            echo "BLOQUEIO: client/user voltou a escolher ownership"
+            exit 1
+          fi
+          echo "EXTERNAL_CALC_STORE_TRADE_IN_POLICY_BOUNDARY=PASS"
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Enforce governed scope
+        run: node ferramentas/external-calc-proof-governance/v1/proof-governance.js
