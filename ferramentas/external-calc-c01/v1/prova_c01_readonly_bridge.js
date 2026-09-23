@@ -92,6 +92,34 @@ assert.notStrictEqual(
   sameFamily256.candidates[0].offer_identity_fingerprint
 );
 
+const colorVariantQueue = run(
+  'c01-color-variant-price-identity',
+  'iPhone 17 256GB Lacrado\nRoxo\nR$ 4.480\nGold\nR$ 4.520'
+);
+assert.strictEqual(colorVariantQueue.candidates.length, 2);
+assert.deepStrictEqual(
+  colorVariantQueue.candidates.map(item => ({
+    model_id: item.interpreted_offer.model.id,
+    capacity_gb: item.interpreted_offer.capacity_gb,
+    color: item.interpreted_offer.color,
+    price: item.interpreted_offer.price.amount_minor
+  })),
+  [
+    { model_id: 'iphone_17_256gb', capacity_gb: 256, color: 'Roxo', price: 448000 },
+    { model_id: 'iphone_17_256gb', capacity_gb: 256, color: 'Gold', price: 452000 }
+  ]
+);
+assert.notStrictEqual(
+  colorVariantQueue.candidates[0].offer_id,
+  colorVariantQueue.candidates[1].offer_id,
+  'price-bearing color variants must remain separate C01 offers'
+);
+assert.notStrictEqual(
+  colorVariantQueue.candidates[0].offer_identity_fingerprint,
+  colorVariantQueue.candidates[1].offer_identity_fingerprint,
+  'color must remain part of C01 offer identity'
+);
+
 for (const entity of knowledge.entities.filter(item => item.kind === 'model')) {
   assert.ok(entity.attributes?.display_label, 'modelo precisa de display_label');
   assert.strictEqual(/\b\d+(?:GB|TB)$/i.test(entity.attributes.display_label), false);
