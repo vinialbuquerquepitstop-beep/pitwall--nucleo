@@ -15,6 +15,7 @@ const OWNERS = [
   ] },
   { owner: 'TRADE_IN_POLICY', patterns: [
     /^supabase\/migrations\/20260923052000_external_calc_store_trade_in_policy_v0\.sql$/,
+    /^supabase\/migrations\/20260923053000_external_calc_store_trade_in_policy_indexes_v0\.sql$/,
     /^ferramentas\/external-calc-trade-in\/v0\//,
     /^docs\/calculadora\/EXTERNAL_CALC_STORE_TRADE_IN_POLICY_GATE_V0\.md$/
   ] },
