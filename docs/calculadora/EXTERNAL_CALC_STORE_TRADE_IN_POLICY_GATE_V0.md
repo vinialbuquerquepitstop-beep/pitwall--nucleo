@@ -1,7 +1,7 @@
 # EXTERNAL CALC — STORE TRADE-IN DEDUCTION POLICY GATE V0
 
 Date: 2026-09-23  
-Status: T03 IMPLEMENTATION / PROOF GATE  
+Status: T03 PASS — PRODUCTION MIGRATED / ROLE + VERSION + IMMUTABILITY PROVEN  
 Owner: Platform / Store Configuration  
 Consumed later by: Trade-in Estimate Product service
 
@@ -89,17 +89,54 @@ T03 does not:
 - add frontend fields;
 - grant seller raw privileged access.
 
+## Production evidence — 2026-09-23
+
+Applied Supabase migrations:
+- `20260923050015 external_calc_store_trade_in_policy_v0`;
+- `20260923050300 external_calc_store_trade_in_policy_indexes_v0`.
+
+CI on PR #65:
+- Store Trade-in Policy T03 = PASS;
+- Proof Governance V1 = PASS;
+- Store Rate Profile Persistence regression = PASS;
+- Store Rate Resolver/C02 regression = PASS;
+- Store Rate G4 API regression = PASS.
+
+Transactional production proofs, all rolled back:
+- owner created v1;
+- identical replacement returned idempotently at v1;
+- owner created v2 with v1 archived and v2 ACTIVE;
+- missing/wrong expected active version failed as `EXTCALC_TRADE_IN_POLICY_CONFLICT`;
+- direct mutation of archived history failed as `EXTCALC_TRADE_IN_POLICY_IMMUTABLE`;
+- seller write attempt failed as `EXTCALC_TRADE_IN_POLICY_FORBIDDEN`;
+- seller raw SELECT saw zero rows under the current beta boundary;
+- production table returned to zero rows / zero ACTIVE rows after proofs.
+
+Privileges:
+- anon cannot execute the replacement RPC;
+- authenticated can execute the RPC entrypoint, but the function derives identity from auth and requires role `dono`;
+- authenticated has SELECT only on the table;
+- authenticated has no direct INSERT / UPDATE / DELETE.
+
+Advisor review:
+- the two newly reported unindexed FKs were corrected with explicit indexes;
+- remaining performance notes for those indexes are only `unused_index`, expected while the table contains zero production rows;
+- Supabase reports the replacement RPC under the generic `authenticated_security_definer_function_executable` lint. This is intentional and matches the existing StoreRateProfile pattern: public RPC entrypoint, anon revoked, authenticated entry allowed, internal authenticated membership + `dono` authorization enforced before mutation. The seller denial was proven against production.
+
+No synthetic policy was left ACTIVE. The real deduction amount remains unconfigured until the owner sets it through the Product/Settings flow.
+
 ## Exit
 
-T03 PASS requires:
-- static ownership proof green;
-- migration applied;
-- owner can create/version;
-- seller cannot create/version;
-- tenant isolation remains intact;
-- one ACTIVE policy per tenant;
-- history immutable;
-- security advisor shows no new RLS/security regression.
+```text
+T03_STORE_TRADE_IN_POLICY = PASS
+STORE_OWNERSHIP = PROVEN
+OWNER_WRITE = PROVEN
+SELLER_OVERRIDE = FORBIDDEN
+VERSIONING = PROVEN
+IMMUTABILITY = PROVEN
+PRODUCTION_RESIDUE = ZERO
+T04_BACKEND_SERVICES = READY
+```
 
 Next after PASS:
 `T04 — trusted Variant Resolver + Trade-in Estimate + Sales Simulation backend services`.
