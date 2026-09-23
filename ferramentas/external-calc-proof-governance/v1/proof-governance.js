@@ -13,6 +13,12 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1\.md$/
   ] },
+  { owner: 'TRADE_IN_POLICY', patterns: [
+    /^supabase\/migrations\/20260923052000_external_calc_store_trade_in_policy_v0\.sql$/,
+    /^supabase\/migrations\/20260923053000_external_calc_store_trade_in_policy_indexes_v0\.sql$/,
+    /^ferramentas\/external-calc-trade-in\/v0\//,
+    /^docs\/calculadora\/EXTERNAL_CALC_STORE_TRADE_IN_POLICY_GATE_V0\.md$/
+  ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
     /^ferramentas\/external-calc-access\/v0\/prova_beta_store_team_access_v0\.js$/,
@@ -56,7 +62,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_user_rate_profile_persistence_v1\.yml$/,
     /^\.github\/workflows\/external_calc_store_rate_profile_persistence_v1\.yml$/,
     /^\.github\/workflows\/external_calc_store_rate_profile_resolver_c02_g3\.yml$/,
-    /^\.github\/workflows\/external_calc_store_rate_profile_g4_api\.yml$/
+    /^\.github\/workflows\/external_calc_store_rate_profile_g4_api\.yml$/,
+    /^\.github\/workflows\/external_calc_store_trade_in_policy_v0\.yml$/
   ] }
 ];
 
