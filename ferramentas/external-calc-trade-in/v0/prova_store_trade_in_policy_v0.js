@@ -4,13 +4,10 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const migration = fs.readFileSync(
-  path.join(
-    __dirname,
-    '../../../supabase/migrations/20260923052000_external_calc_store_trade_in_policy_v0.sql'
-  ),
-  'utf8'
-).toLowerCase();
+const migration = [
+  '../../../supabase/migrations/20260923052000_external_calc_store_trade_in_policy_v0.sql',
+  '../../../supabase/migrations/20260923053000_external_calc_store_trade_in_policy_indexes_v0.sql'
+].map(file => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n').toLowerCase();
 
 for (const required of [
   'extcalc_store_trade_in_policies',
@@ -26,7 +23,9 @@ for (const required of [
   'extcalc_trade_in_policy_immutable',
   'extcalc_replace_store_trade_in_policy_v0',
   'seller never chooses tenant',
-  'future trusted trade-in estimate resolver'
+  'future trusted trade-in estimate resolver',
+  'extcalc_store_trade_in_policies_created_by_ix',
+  'extcalc_store_trade_in_policies_supersedes_ix'
 ]) {
   assert.ok(migration.includes(required), `migration sem: ${required}`);
 }
