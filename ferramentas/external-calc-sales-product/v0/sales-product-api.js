@@ -1,4 +1,5 @@
 'use strict';
+const PRODUCT_OPTIONS_PATH='/api/external-calc/v0/product-options';
 const VARIANT_PATH='/api/external-calc/v0/resolve-variant';
 const TRADE_IN_PATH='/api/external-calc/v0/trade-in-estimate';
 const SIM_PATH='/api/external-calc/v0/sales-simulation';
@@ -9,11 +10,11 @@ function createSalesProductApiV0({service,authenticate}={}){
  if(!service)throw new Error('service obrigatorio');if(typeof authenticate!=='function')throw new Error('authenticate obrigatorio');
  return {async handle(request){try{
    const path=String(request?.path||''),method=String(request?.method||'').toUpperCase();
-   if(method!=='POST'||![VARIANT_PATH,TRADE_IN_PATH,SIM_PATH].includes(path))return out(404,{error:{code:'NOT_FOUND',message:'rota nao encontrada'}});
+   if(method!=='POST'||![PRODUCT_OPTIONS_PATH,VARIANT_PATH,TRADE_IN_PATH,SIM_PATH].includes(path))return out(404,{error:{code:'NOT_FOUND',message:'rota nao encontrada'}});
    const auth=await authenticate(request);if(!auth?.subject){const e=new Error('autenticacao obrigatoria');e.code='UNAUTHENTICATED';throw e;}
    const command=parse(request.body);
-   const result=path===VARIANT_PATH?await service.resolveVariant({auth_user_id:String(auth.subject),command}):path===TRADE_IN_PATH?await service.estimateTradeIn({auth_user_id:String(auth.subject),command}):await service.simulateSale({auth_user_id:String(auth.subject),command});
+   const result=path===PRODUCT_OPTIONS_PATH?await service.listProductOptions({auth_user_id:String(auth.subject),command}):path===VARIANT_PATH?await service.resolveVariant({auth_user_id:String(auth.subject),command}):path===TRADE_IN_PATH?await service.estimateTradeIn({auth_user_id:String(auth.subject),command}):await service.simulateSale({auth_user_id:String(auth.subject),command});
    return out(200,{api_version:'external-calc-sales-product-api/v0',result});
  }catch(e){const code=e?.code||'INVALID_REQUEST';return out(status(code),{error:{code,message:e instanceof Error?e.message:'request invalido'}});}}};
 }
-module.exports={VARIANT_PATH,TRADE_IN_PATH,SIM_PATH,createSalesProductApiV0};
+module.exports={PRODUCT_OPTIONS_PATH,VARIANT_PATH,TRADE_IN_PATH,SIM_PATH,createSalesProductApiV0};

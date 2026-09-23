@@ -1,10 +1,23 @@
 'use strict';
 const assert=require('assert');
-const {resolveVariant,resolveTradeIn,resolveSimulation}=require('./sales-product-service');
-const offer=(id,supplier,model,cap,color,price)=>({contract_version:'external-calc-c01-readonly/v1',analysis_id:'a',offer_id:id,offer_revision:1,execution_status:'SUCCEEDED',domain_outcome:'VALID',freshness_status:'CURRENT',offer_identity_fingerprint:'i'+id,offer_value_fingerprint:'v'+id,reviewed_offer:{supplier_id:supplier,model:{id:model},capacity_gb:cap,color,price:{amount_minor:price,currency:'BRL'}}});
-const offers=[offer('purple','S1','iphone14pm',256,'Deep Purple',310000),offer('silver','S2','iphone14pm',256,'Silver',300000),offer('sale-silver','OUT','iphone17pm',256,'Silver',600000),offer('sale-blue','OUT','iphone17pm',256,'Blue',610000)];
+const {listProductOptions,resolveVariant,resolveTradeIn,resolveSimulation}=require('./sales-product-service');
+const offer=(id,supplier,model,label,cap,color,price)=>({contract_version:'external-calc-c01-readonly/v1',analysis_id:'a',offer_id:id,offer_revision:1,execution_status:'SUCCEEDED',domain_outcome:'VALID',freshness_status:'CURRENT',offer_identity_fingerprint:'i'+id,offer_value_fingerprint:'v'+id,reviewed_offer:{supplier_id:supplier,model:{id:model,label,attributes:{display_label:label}},capacity_gb:cap,color,price:{amount_minor:price,currency:'BRL'}}});
+const offers=[
+ offer('purple','S1','iphone14pm','iPhone 14 Pro Max',256,'Deep Purple',310000),
+ offer('silver','S2','iphone14pm','iPhone 14 Pro Max',256,'Silver',300000),
+ offer('sale-silver','OUT','iphone17pm','iPhone 17 Pro Max',256,'Silver',600000),
+ offer('sale-blue','OUT','iphone17pm','iPhone 17 Pro Max',256,'Blue',610000)
+];
 const policy={policy_id:'p1',version:3,status:'ACTIVE',currency:'BRL',deduction_amount_minor:30000,fingerprint:'pf'};
 const rate={profile_id:'r1',version:4,status:'ACTIVE',currency:'BRL',rate_scale:10000,fingerprint:'rf',entries:[{installment_count:12,rate_units:90000}]};
+
+const catalog=listProductOptions(offers,{query:'14 pro',limit:10});
+assert.strictEqual(catalog.catalog_version,'external-calc-product-options/v0');
+assert.strictEqual(catalog.items.length,1);
+assert.deepStrictEqual(catalog.items[0],{model_id:'iphone14pm',label:'iPhone 14 Pro Max',capacities_gb:[256],colors:['Deep Purple','Silver'],offer_count:2});
+assert.strictEqual('price' in catalog.items[0],false);
+assert.strictEqual('offer_id' in catalog.items[0],false);
+assert.throws(()=>listProductOptions(offers,{limit:101}),e=>e.code==='PRODUCT_OPTIONS_INVALID');
 
 assert.throws(()=>resolveVariant(offers,{supplier_id:'OUT',model_id:'iphone17pm',capacity_gb:256}),e=>e.code==='VARIANT_COLOR_REQUIRED');
 const v=resolveVariant(offers,{supplier_id:'OUT',model_id:'iphone17pm',capacity_gb:256,color:'Silver'});
