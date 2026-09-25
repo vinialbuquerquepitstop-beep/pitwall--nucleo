@@ -54,9 +54,10 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A3_RUNTIME_PERSISTENCE_GATE_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A31_PRODUCTION_ACTIVATION_V0\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A4_OPENAI_RUNTIME_GATE_V0\.md$/,
     /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
-  { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//] },
+  { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//, /^worker\/external-calc-worker\.mjs$/, /^wrangler\.jsonc$/] },
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
   { owner: 'WORKFLOW_GOVERNANCE', patterns: [
@@ -79,6 +80,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_ai_advisor_a1\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a2\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a3\.yml$/,
+    /^\.github\/workflows\/external_calc_ai_advisor_a4\.yml$/,
     /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
   ] }
 ];
