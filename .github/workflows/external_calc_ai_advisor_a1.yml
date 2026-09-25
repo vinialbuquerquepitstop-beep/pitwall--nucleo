@@ -1,0 +1,94 @@
+name: External Calc - AI Advisor A1 Gate
+
+on:
+  push:
+    branches:
+      - external-calc-ai-advisor-a1-context-v0
+    paths:
+      - 'ferramentas/external-calc-ai-advisor/v0/**'
+      - 'ferramentas/external-calc-c03/v1/**'
+      - 'ferramentas/external-calc-c05/v1/**'
+      - '.github/workflows/external_calc_ai_advisor_a1.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-ai-advisor/v0/**'
+      - 'ferramentas/external-calc-c03/v1/**'
+      - 'ferramentas/external-calc-c05/v1/**'
+      - '.github/workflows/external_calc_ai_advisor_a1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-ai-advisor-a1-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisor-a1-gate:
+    name: AI Advisor A1 post-C05 guardrail gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01-C05 authority
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+          node ferramentas/external-calc-c02/v1/prova_c02_calculator.js | tee /tmp/c02.log
+          grep -q '^C02_FIXTURES=PASS checks=17$' /tmp/c02.log
+
+          node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
+
+          node ferramentas/external-calc-c04/v1/prova_c04_price_indicator.js | tee /tmp/c04.log
+          grep -q '^C04_FIXTURES=PASS checks=20$' /tmp/c04.log
+
+          node ferramentas/external-calc-c05/v1/prova_c05_decision_output.js | tee /tmp/c05.log
+          grep -q '^C05_FIXTURES=PASS checks=26$' /tmp/c05.log
+
+      - name: Run AI Advisor A1 fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_context_v0.js | tee /tmp/advisor.log
+          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=15$' /tmp/advisor.log
+
+      - name: Enforce read-only post-C05 boundary
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-ai-advisor/v0/advisor-context.js
+          for token in \
+            'supabase' \
+            'postgres' \
+            'fetch(' \
+            'XMLHttpRequest' \
+            'writeFile' \
+            'unlink(' \
+            'document.' \
+            'window.' \
+            'localStorage' \
+            "require('../../external-calc-c01" \
+            "require('../../external-calc-c02" \
+            "require('../../external-calc-c03" \
+            "require('../../external-calc-c04" \
+            "require('../../external-calc-c05"; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no Advisor A1: $token"
+              exit 1
+            fi
+          done
+          echo "AI_ADVISOR_A1_BOUNDARY=PASS"
+
+      - name: Diff check
+        run: git diff --check
