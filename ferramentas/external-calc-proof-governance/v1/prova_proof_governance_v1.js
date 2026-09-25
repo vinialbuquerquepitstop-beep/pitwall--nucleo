@@ -56,4 +56,14 @@ check('AI Advisor exige ownership explicito em A1 A2 e A3', () => {
   assert(r.requiredOwners.includes('RUNTIME'));
 });
 
+check('C03 research evidence e execution authority possuem ownership explicito', () => {
+  const r = classifyFiles([
+    'ferramentas/external-calc-research-provider/v0/current-offers-evidence.js',
+    'ferramentas/external-calc-authority/v0/postgres-authority-source.js'
+  ]);
+  assert.deepStrictEqual(r.unknown, []);
+  assert(r.requiredOwners.includes('C03_RESEARCH_EVIDENCE'));
+  assert(r.requiredOwners.includes('EXECUTION_AUTHORITY'));
+});
+
 console.log('EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=' + checks);

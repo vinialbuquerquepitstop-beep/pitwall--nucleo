@@ -3,6 +3,13 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  { owner: 'C03_RESEARCH_EVIDENCE', patterns: [
+    /^ferramentas\/external-calc-research-provider\/v0\//,
+    /^docs\/calculadora\/EXTERNAL_CALC_C03_CURRENT_OFFERS_EVIDENCE_SOURCE_V0\.md$/
+  ] },
+  { owner: 'EXECUTION_AUTHORITY', patterns: [
+    /^ferramentas\/external-calc-authority\/v0\//
+  ] },
   { owner: 'C02_CALCULATION', patterns: [/^ferramentas\/external-calc-c02\/v1\//] },
   { owner: 'STORE_RATE_PROFILE_PERSISTENCE', patterns: [
     /^supabase\/migrations\/20260922230000_external_calc_user_rate_profile_persistence_v1\.sql$/,
@@ -68,6 +75,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_c01_review_result_persistence_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_authority_core_v0\.yml$/,
     /^\.github\/workflows\/external_calc_authority_runtime_binding_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_product_execution_authority_v0\.yml$/,
     /^\.github\/workflows\/external_calc_runtime_postgres_v0\.yml$/,
     /^\.github\/workflows\/external_calc_authority_production_config_v0\.yml$/,
     /^\.github\/workflows\/external_calc_proof_governance_v1\.yml$/,
@@ -83,6 +91,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_ai_advisor_a3\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a4\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a41_production\.yml$/,
+    /^\.github\/workflows\/external_calc_research_provider\.yml$/,
     /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
   ] }
 ];

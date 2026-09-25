@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildCalculationProfileFromCalcDados } = require('./calc-dados-calculation-profile');
+const { buildCurrentOfferEvidence } = require('../../external-calc-research-provider/v0/current-offers-evidence');
 
 function assertNonEmpty(value, field) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -173,58 +174,36 @@ function createPostgresAuthoritySource(options = {}) {
     },
 
     async loadEvidence(identity) {
-      const tenantId = assertNonEmpty(identity?.tenant_id, 'tenant_id');
+      assertNonEmpty(identity?.tenant_id, 'tenant_id');
       const candidate = identity?.c01_candidate || {};
-      const analysisId = assertNonEmpty(candidate.analysis_id, 'c01.analysis_id');
-      const offerId = assertNonEmpty(candidate.offer_id, 'c01.offer_id');
-      const offerRevision = candidate.offer_revision;
-
-      if (!Number.isSafeInteger(offerRevision) || offerRevision < 1) {
-        throw new Error('c01.offer_revision invalida');
-      }
-
-      const params = new URLSearchParams({
-        tenant_id: `eq.${tenantId}`,
-        analysis_id: `eq.${analysisId}`,
-        offer_id: `eq.${offerId}`,
-        offer_revision: `eq.${offerRevision}`,
-        select: 'evidence_id,evidence_snapshot,observed_at',
-        order: 'observed_at.desc',
-        limit: String(serverConfig.maxEvidenceRows || 100)
-      });
 
       const response = await fetchImpl(
-        joinUrl(supabaseUrl, `/rest/v1/extcalc_evidence?${params.toString()}`),
+        joinUrl(supabaseUrl, '/rest/v1/rpc/extcalc_product_current_offers_v0'),
         {
-          method: 'GET',
-          headers: authHeaders(anonKey, accessToken)
+          method: 'POST',
+          headers: authHeaders(anonKey, accessToken),
+          body: '{}'
         }
       );
       const payload = await readJson(response);
 
       if (!response.ok) {
         const message = payload?.message || payload?.error || `HTTP ${response.status}`;
-        throw new Error(`EXTCALC_AUTHORITY_EVIDENCE_LOAD_FAILED: ${message}`);
+        throw new Error(
+          `EXTCALC_AUTHORITY_CURRENT_OFFERS_LOAD_FAILED: ${message}`
+        );
       }
 
       if (!Array.isArray(payload)) {
-        throw new Error('EXTCALC_AUTHORITY_EVIDENCE_LOAD_FAILED: resposta invalida');
+        throw new Error(
+          'EXTCALC_AUTHORITY_CURRENT_OFFERS_LOAD_FAILED: resposta invalida'
+        );
       }
 
-      const seen = new Set();
-      const evidence = [];
-
-      for (const row of payload) {
-        const snapshot = row?.evidence_snapshot;
-        const evidenceId = snapshot?.evidence_id || row?.evidence_id;
-        if (!snapshot || typeof snapshot !== 'object' || !evidenceId || seen.has(evidenceId)) {
-          continue;
-        }
-        seen.add(evidenceId);
-        evidence.push(clone(snapshot));
-      }
-
-      return evidence;
+      return buildCurrentOfferEvidence({
+        c01_candidate: candidate,
+        current_offers: payload
+      }).evidence;
     }
   };
 }

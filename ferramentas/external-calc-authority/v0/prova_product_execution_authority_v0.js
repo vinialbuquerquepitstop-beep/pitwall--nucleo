@@ -21,6 +21,9 @@ const {
 const {
   createPostgresAuthoritySource
 } = require('./postgres-authority-source');
+const {
+  buildCurrentOfferEvidence
+} = require('../../external-calc-research-provider/v0/current-offers-evidence');
 
 const TENANT = '00000000-0000-4000-8000-000000000001';
 const FIXED_TIME = '2026-09-19T23:00:00.000Z';
@@ -125,6 +128,47 @@ function trustedEvidence() {
     evidence('ev_authority_2', 650000),
     evidence('ev_authority_3', 700000)
   ];
+}
+
+function currentOfferCandidates() {
+  return trustedEvidence().map((item, index) => {
+    const base = c01();
+    return {
+      ...base,
+      analysis_id: 'ana_authority_peer_' + (index + 1),
+      source_id: 'src_authority_peer_' + (index + 1),
+      offer_id: 'off_authority_peer_' + (index + 1),
+      offer_revision: 1,
+      offer_identity_fingerprint: 'identity-authority-peer-' + (index + 1),
+      offer_value_fingerprint: 'value-authority-peer-' + (index + 1),
+      reviewed_offer: {
+        ...base.reviewed_offer,
+        color: item.product.color,
+        price: {
+          amount_minor: item.normalized_price,
+          currency: item.currency
+        }
+      },
+      review: {
+        decision: 'ACCEPT',
+        reviewer_ref: 'reviewer-authority',
+        reviewed_at: item.observed_at
+      },
+      interpretation_confidence: {
+        overall: item.confidence,
+        by_field: {},
+        record_state: 'resolved'
+      },
+      provenance_refs: ['human_review:authority-peer-' + (index + 1)]
+    };
+  });
+}
+
+function currentOfferEvidence() {
+  return buildCurrentOfferEvidence({
+    c01_candidate: c01(),
+    current_offers: currentOfferCandidates()
+  }).evidence;
 }
 
 function command() {
@@ -304,7 +348,7 @@ function makeSystem(source = makeAuthoritySource()) {
     assert.deepStrictEqual(loaded.service_result, executed.service_result);
   });
 
-  await check('Postgres authority source usa C01 e Evidence sob tenant autenticado', async () => {
+  await check('Postgres authority source usa C01 e current reviewed offers sob JWT autenticado', async () => {
     const calls = [];
     const fetchImpl = async (url, init = {}) => {
       calls.push({ url, init });
@@ -335,14 +379,8 @@ function makeSystem(source = makeAuthoritySource()) {
         }]), { status: 200 });
       }
 
-      if (url.includes('/rest/v1/extcalc_evidence?')) {
-        return new Response(JSON.stringify(
-          trustedEvidence().map(item => ({
-            evidence_id: item.evidence_id,
-            evidence_snapshot: item,
-            observed_at: item.observed_at
-          }))
-        ), { status: 200 });
+      if (url.includes('/rest/v1/rpc/extcalc_product_current_offers_v0')) {
+        return new Response(JSON.stringify(currentOfferCandidates()), { status: 200 });
       }
 
       throw new Error(`fetch inesperado: ${url}`);
@@ -378,11 +416,11 @@ function makeSystem(source = makeAuthoritySource()) {
     assert.strictEqual(loadedCalculation.cash_margin_minor, 55000);
     assert.strictEqual(loadedCalculation.installment_margin_minor, 65000);
     assert.strictEqual(loadedCalculation.installment_base_addon_minor, 10000);
-    assert.deepStrictEqual(loadedEvidence, trustedEvidence());
+    assert.deepStrictEqual(loadedEvidence, currentOfferEvidence());
     assert.ok(calls[0].url.includes(encodeURIComponent(`eq.${TENANT}`)));
     assert.ok(calls[1].url.includes('/rest/v1/calc_dados?'));
     assert.ok(calls[1].url.includes(encodeURIComponent(`eq.${TENANT}`)));
-    assert.ok(calls[2].url.includes(encodeURIComponent(`eq.${TENANT}`)));
+    assert.ok(calls[2].url.includes('/rest/v1/rpc/extcalc_product_current_offers_v0'));
     assert.strictEqual(calls[0].init.headers.authorization, 'Bearer jwt-fixture');
   });
 
