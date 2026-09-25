@@ -4,16 +4,21 @@ on:
   push:
     branches:
       - external-calc-product-execution-authority-v0
+      - external-calc-c03-current-offers-evidence-v0
     paths:
       - 'ferramentas/external-calc-authority/v0/**'
+      - 'ferramentas/external-calc-research-provider/v0/**'
       - 'docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md'
+      - 'docs/calculadora/EXTERNAL_CALC_C03_CURRENT_OFFERS_EVIDENCE_SOURCE_V0.md'
       - '.github/workflows/external_calc_product_execution_authority_v0.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'ferramentas/external-calc-authority/v0/**'
+      - 'ferramentas/external-calc-research-provider/v0/**'
       - 'docs/calculadora/EXTERNAL_CALC_PRODUCT_EXECUTION_AUTHORITY_GATE_V0.md'
+      - 'docs/calculadora/EXTERNAL_CALC_C03_CURRENT_OFFERS_EVIDENCE_SOURCE_V0.md'
       - '.github/workflows/external_calc_product_execution_authority_v0.yml'
 
 permissions:
@@ -62,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
-          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=12
+          grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=12$' /tmp/runtime.log
 
       - name: Prove Product Execution Authority V0
         run: |
