@@ -1,8 +1,8 @@
 # EXTERNAL CALC — C03/C04 PRODUCTION POLICY PROPOSAL V1
 
 Date: 2026-09-24
-Status: PROPOSAL — HUMAN APPROVAL REQUIRED
-Activation: NOT AUTHORIZED
+Status: APPROVED POLICY — PRODUCTION ACTIVATION PENDING
+Activation: authorized only through the controlled production gate
 Depends on:
 - C03 Current Reviewed Offers Evidence Source V0 = PASS / merged
 - C01–C05 core = PASS
@@ -19,7 +19,7 @@ This document proposes concrete V1 values for:
 
 It does not activate them.
 
-No value in this proposal becomes production authority until explicit human approval.
+The product owner approved the exact package in section 9 on 2026-09-25. Runtime authority still requires the controlled activation gate in section 8.
 
 ## 2. Existing hard constraints
 
@@ -257,4 +257,17 @@ C03_PRODUCTION_PROFILE = POLICY_PENDING
 C04_PRODUCTION_PROFILE = POLICY_PENDING
 ~~~
 
-until explicit human approval.
+until the approved policy is activated through the controlled production gate.
+
+## 10. Product-owner decision — 2026-09-25
+
+The product owner approved the complete V1 package in section 9 in the External Calc project session, following a direct review of the thresholds and their current `INSUFFICIENT_DATA` consequence. No value was changed.
+
+Decision:
+
+~~~text
+C03_C04_PRODUCTION_POLICY = APPROVED
+C03_C04_PRODUCTION_ACTIVATION = PENDING_CONTROLLED_GATE
+~~~
+
+This approval permits preparing and validating the exact server-side configuration. It does not mark the Worker deployed, an authenticated execution proven, or the Advisor operational.
