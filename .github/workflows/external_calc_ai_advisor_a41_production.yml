@@ -1,0 +1,208 @@
+name: External Calc - AI Advisor A4.1 Production Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_target:
+        description: 'Type flat-resonance-09ba to confirm the existing Worker target'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-ai-advisor-a41-production
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: A4.1 preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Require main branch and exact target
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "main"
+          NORMALIZED_CONFIRM_TARGET="$(printf '%s' "${CONFIRM_TARGET}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test "${NORMALIZED_CONFIRM_TARGET}" = "flat-resonance-09ba"
+          echo "AI_ADVISOR_A41_TARGET=PASS"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve Advisor gates A1-A4
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_context_v0.js | tee /tmp/a1.log
+          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=15$' /tmp/a1.log
+
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_executor_v0.js | tee /tmp/a2.log
+          grep -q '^AI_ADVISOR_A2_FIXTURES=PASS checks=15$' /tmp/a2.log
+
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_runtime_v0.js | tee /tmp/a3.log
+          grep -q '^AI_ADVISOR_A3_FIXTURES=PASS checks=15$' /tmp/a3.log
+
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_a4_v0.js | tee /tmp/a4.log
+          grep -q '^AI_ADVISOR_A4_FIXTURES=PASS checks=20$' /tmp/a4.log
+
+          echo "AI_ADVISOR_A41_REGRESSION=PASS"
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Wrangler dry-run
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy --dry-run --outdir /tmp/extcalc-a41-worker | tee /tmp/wrangler-dry.log
+          grep -q -- '--dry-run: exiting now.' /tmp/wrangler-dry.log
+          find /tmp/extcalc-a41-worker -maxdepth 2 -type f -name '*.js' -size +0c | grep -q .
+          echo "AI_ADVISOR_A41_PACKAGE=PASS"
+
+      - name: Verify production secrets are present
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${OPENAI_API_KEY:-}"
+          echo "AI_ADVISOR_A41_SECRETS=PRESENT"
+
+      - name: OpenAI provider smoke before Worker mutation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ADVISOR_MODEL: gpt-6-sol
+        run: |
+          set -euo pipefail
+          cat > /tmp/openai-a41-request.json <<JSON
+          {
+            "model": "${ADVISOR_MODEL}",
+            "store": false,
+            "input": [
+              {
+                "role": "system",
+                "content": "Return the requested structured smoke response only."
+              },
+              {
+                "role": "user",
+                "content": "Production activation smoke. Return ok=true."
+              }
+            ],
+            "text": {
+              "format": {
+                "type": "json_schema",
+                "name": "external_calc_advisor_a41_smoke",
+                "strict": true,
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "const": true }
+                  },
+                  "required": ["ok"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "max_output_tokens": 128
+          }
+          JSON
+
+          code="$(curl -sS -o /tmp/openai-a41-response.json -w '%{http_code}'             -X POST 'https://api.openai.com/v1/responses'             -H "Authorization: Bearer ${OPENAI_API_KEY}"             -H 'Content-Type: application/json'             --data-binary @/tmp/openai-a41-request.json)"
+
+          test "${code}" = "200"
+          node -e '
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync("/tmp/openai-a41-response.json", "utf8"));
+            if (payload.status !== "completed") process.exit(1);
+            const text = (payload.output || [])
+              .flatMap(x => Array.isArray(x.content) ? x.content : [])
+              .find(x => x && x.type === "output_text")?.text;
+            if (!text) process.exit(1);
+            const parsed = JSON.parse(text);
+            if (parsed.ok !== true) process.exit(1);
+          '
+          echo "AI_ADVISOR_A41_OPENAI_SMOKE=PASS"
+
+  activate:
+    name: Activate Advisor provider on existing Worker
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: external-calc-production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Verify deployment secrets again
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${OPENAI_API_KEY:-}"
+          echo "AI_ADVISOR_A41_DEPLOY_SECRETS=PRESENT"
+
+      - name: Put OpenAI secret on existing Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${OPENAI_API_KEY}" | npx --yes wrangler@4.135.0 secret put OPENAI_API_KEY --name flat-resonance-09ba
+          echo "AI_ADVISOR_A41_WORKER_SECRET=PASS"
+
+      - name: Deploy existing Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 deploy | tee /tmp/a41-deploy.log
+          echo "AI_ADVISOR_A41_DEPLOY=PASS"
+
+      - name: Smoke Advisor route unauthenticated
+        run: |
+          set -euo pipefail
+          URL="https://flat-resonance-09ba.pitstopimports.workers.dev/api/external-calc/v0/advisor"
+          code="$(curl -sS -o /tmp/advisor-body -w '%{http_code}'             -X POST             -H 'content-type: application/json'             --data '{"source_execution_id":"00000000-0000-4000-8000-000000000000"}'             "${URL}")"
+          test "${code}" = "401"
+          grep -q '"UNAUTHENTICATED"' /tmp/advisor-body
+          echo "AI_ADVISOR_A41_ROUTE_SMOKE=PASS"
+
+      - name: Preserve existing External Calc API smoke
+        run: |
+          set -euo pipefail
+          URL="https://flat-resonance-09ba.pitstopimports.workers.dev/api/external-calc/v0/execute"
+          code="$(curl -sS -o /tmp/api-body -w '%{http_code}'             -X POST             -H 'content-type: application/json'             --data '{}'             "${URL}")"
+          test "${code}" = "401"
+          grep -q '"UNAUTHENTICATED"' /tmp/api-body
+          echo "AI_ADVISOR_A41_EXISTING_API_SMOKE=PASS"
+
+      - name: Final marker
+        run: |
+          echo "AI_ADVISOR_A41_PROVIDER_ACTIVATION=PASS"
+          echo "AI_ADVISOR_PROVIDER_CONFIGURED=true"
