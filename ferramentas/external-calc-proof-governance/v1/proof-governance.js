@@ -53,6 +53,7 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A1_GATE_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A3_RUNTIME_PERSISTENCE_GATE_V0\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A31_PRODUCTION_ACTIVATION_V0\.md$/,
     /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//] },
