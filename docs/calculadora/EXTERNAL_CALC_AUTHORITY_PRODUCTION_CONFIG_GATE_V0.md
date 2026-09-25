@@ -139,70 +139,39 @@ Passa a usar apenas:
 
 e a carregar `calc_dados` sob o JWT/tenant atual.
 
-## 8. C03 — POLICY PENDING
+## 8. C03/C04 — politica aprovada em 2026-09-25
 
-Os testes atuais usam valores de fixture como:
+O dono aprovou o pacote exato registrado em
+`EXTERNAL_CALC_C03_C04_PRODUCTION_POLICY_PROPOSAL_V1.md`:
 
-- required_match_fields = model_id, capacity_gb, condition;
-- min_evidence_confidence = 0.7;
-- max_age_seconds = 30 dias.
+- C03: mesmo `model_id`, `capacity_gb`, `condition` e `color`; confianca minima 0.90; idade maxima 604800 segundos (7 dias).
+- C04: minimo de 3 comparaveis exatos; mediana V0; `CHEAP` <= -5%, `EXPENSIVE` >= +5%, `MARKET` no intervalo aberto entre esses limites.
+- `evaluated_price` continua vindo de `C01 reviewed_offer.price`.
 
-Esses valores provam o contrato, mas nesta auditoria nao foi localizada decisao canônica
-que os declare politica de producao.
+Os dois perfis foram copiados exatamente para variaveis server-side do Worker.
+O teste deste gate le `wrangler.jsonc`, compara todos os campos e verifica o
+binding ao resolver; uma mudanca silenciosa nos thresholds faz o gate falhar.
+O navegador nao recebe autoridade sobre esses valores.
 
-Portanto:
-
-```text
-C03_PRODUCTION_PROFILE = POLICY_PENDING
-```
-
-Eles nao sao promovidos silenciosamente.
-
-## 9. C04 — POLICY PENDING
-
-E canonico que:
-
-- C04 usa mediana V0;
-- evaluated_price vem de C01 reviewed_offer.price;
-- sinais possiveis incluem CHEAP / MARKET / EXPENSIVE / INSUFFICIENT_DATA.
-
-Os testes atuais usam:
-
-- min_evidence_count = 3;
-- cheap_at_or_below_percent = -5;
-- expensive_at_or_above_percent = +5.
-
-Nesta auditoria nao foi localizada decisao canônica que transforme esses tres numeros
-em politica de producao.
-
-Portanto:
+## 9. Estado do gate de configuracao
 
 ```text
-C04_PRODUCTION_PROFILE = POLICY_PENDING
+C02_PRODUCTION_CONFIG_GATE_V0 = PASS checks=8
+C03_PRODUCTION_PROFILE = APPROVED_CONFIG_READY
+C04_PRODUCTION_PROFILE = APPROVED_CONFIG_READY
+AUTHORITY_PRODUCTION_CONFIG_GATE_V0 = PASS
 ```
 
-## 10. Estado do gate
+`PASS` aqui significa configuracao e regressao local/CI. Nao afirma deploy,
+execucao autenticada ou `C05 READY` em producao.
 
-```text
-C02_PRODUCTION_CONFIG_GATE_V0 = PASS candidate
-C03_PRODUCTION_PROFILE         = POLICY_PENDING
-C04_PRODUCTION_PROFILE         = POLICY_PENDING
-AUTHORITY_PRODUCTION_CONFIG_GATE_V0 = PARTIAL
-```
+## 10. Ativacao e prova operacional pendentes
 
-## 11. Deploy
+1. Preservar regressao C01–C05, autoridade, runtime e Advisor A1–A4.
+2. Validar o pacote Worker com Wrangler dry-run.
+3. Fazer deploy controlado no Worker existente `flat-resonance-09ba`.
+4. Executar `/execute` com usuario real e confirmar persistencia do C05.
+5. Com as ofertas atuais, a ausencia de pares exatos deve produzir
+   `INSUFFICIENT_DATA` sem fabricar evidencia ou insight do Advisor.
 
-Nao fazer deploy enquanto o gate integral estiver PARTIAL.
-
-Mesmo com C02 verde, o runtime falha fechado sem C03/C04 profiles server-side.
-
-## 12. Proximo trabalho permitido sem decisao humana
-
-Enquanto C03/C04 aguardam politica:
-
-1. consolidar C02 em CI;
-2. preservar todos os gates anteriores;
-3. auditar a ausencia de C01 real persistido;
-4. preparar o gate de C01 Review Authority sem ativar producao.
-
-Nao e permitido inventar thresholds para destravar deploy.
+O deploy e o teste autenticado sao gates separados deste arquivo.

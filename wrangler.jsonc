@@ -18,6 +18,8 @@
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
+    "EXTCALC_RESEARCH_PROFILE_JSON": "{\"profile_id\":\"external-calc-research-production-v1\",\"profile_version\":\"1\",\"required_match_fields\":[\"model_id\",\"capacity_gb\",\"condition\",\"color\"],\"min_evidence_confidence\":0.9,\"max_age_seconds\":604800}",
+    "EXTCALC_INDICATOR_PROFILE_JSON": "{\"profile_id\":\"external-calc-indicator-production-v1\",\"profile_version\":\"1\",\"min_evidence_count\":3,\"cheap_at_or_below_percent\":-5,\"expensive_at_or_above_percent\":5}",
     "EXTCALC_ADVISOR_OPENAI_MODEL": "gpt-6-sol",
     "EXTCALC_ADVISOR_PROMPT_VERSION": "advisor-prompt/v1",
     "EXTCALC_ADVISOR_TIMEOUT_MS": "30000",
