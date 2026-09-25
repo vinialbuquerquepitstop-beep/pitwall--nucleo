@@ -29,7 +29,8 @@ const tc=resolveTradeIn(offers,policy,{model_id:'iphone14pm',capacity_gb:256,col
 assert.strictEqual(tc.source_offer.offer_id,'purple');assert.strictEqual(tc.estimated_credit.amount_minor,280000);
 
 const s=resolveSimulation(offers,policy,rate,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1,sale_amount:{amount_minor:690000,currency:'BRL'},installment_count:12,trade_in_estimate_id:t.estimate_id});
-assert.strictEqual(s.cash_difference.direction,'CUSTOMER_PAYS');assert.strictEqual(s.cash_difference.amount.amount_minor,420000);assert.strictEqual(s.financed_base.amount_minor,420000);assert.strictEqual(s.total.amount_minor,457800);assert.strictEqual(s.installment_amount.amount_minor,38150);
+assert.strictEqual(s.cash_difference.direction,'CUSTOMER_PAYS');assert.strictEqual(s.cash_difference.amount.amount_minor,420000);assert.strictEqual(s.financed_base.amount_minor,420000);assert.strictEqual(s.total.amount_minor,461538);assert.strictEqual(s.installment_amount.amount_minor,38462);
+assert.strictEqual(s.total.amount_minor-Math.round(s.total.amount_minor*0.09),420000);
 assert.throws(()=>resolveSimulation(offers,{...policy,version:4,fingerprint:'new'},rate,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1,sale_amount:{amount_minor:690000,currency:'BRL'},installment_count:12,trade_in_estimate_id:t.estimate_id}),e=>e.code==='TRADE_IN_ESTIMATE_STALE');
 const storePays=resolveSimulation(offers,policy,rate,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1,sale_amount:{amount_minor:200000,currency:'BRL'},installment_count:12,trade_in_estimate_id:t.estimate_id});
 assert.strictEqual(storePays.cash_difference.direction,'STORE_PAYS');assert.strictEqual(storePays.cash_difference.amount.amount_minor,70000);assert.strictEqual(storePays.financed_base.amount_minor,0);assert.strictEqual(storePays.total.amount_minor,0);
@@ -39,5 +40,9 @@ for(const bad of [
  {model_id:'iphone14pm',capacity_gb:256,estimated_credit:1}
 ])assert.throws(()=>resolveTradeIn(offers,policy,bad),e=>e.code==='TRADE_IN_SELECTION_INVALID');
 assert.throws(()=>resolveSimulation(offers,policy,rate,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1,sale_amount:{amount_minor:690000,currency:'BRL'},installment_count:12,rate_units:1}),e=>e.code==='SALE_SIMULATION_INVALID');
+const realSixRate={...rate,rate_scale:100,entries:[{installment_count:6,rate_units:637}]};
+const realSix=resolveSimulation(offers,policy,realSixRate,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1,sale_amount:{amount_minor:100000,currency:'BRL'},installment_count:6});
+assert.strictEqual(realSix.total.amount_minor,106803);
+assert.strictEqual(realSix.total.amount_minor-Math.round(realSix.total.amount_minor*0.0637),100000);
 
 console.log('EXTERNAL_CALC_SALES_PRODUCT_T04_DOMAIN=PASS');
