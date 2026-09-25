@@ -37,13 +37,15 @@ check('governance pode evoluir a propria prova explicitamente', () => {
   assert(r.requiredOwners.includes('PROOF_GOVERNANCE'));
 });
 
-check('AI Advisor A1 exige ownership explicito', () => {
+check('AI Advisor exige ownership explicito em A1 e A2', () => {
   const r = classifyFiles([
     'ferramentas/external-calc-ai-advisor/v0/advisor-context.js',
-    'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A1_GATE_V0.md'
+    'ferramentas/external-calc-ai-advisor/v0/advisor-executor.js',
+    'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A1_GATE_V0.md',
+    'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0.md'
   ]);
   assert.deepStrictEqual(r.unknown, []);
-  assert(r.requiredOwners.includes('AI_ADVISOR_A1'));
+  assert(r.requiredOwners.includes('AI_ADVISOR'));
 });
 
 console.log('EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=' + checks);
