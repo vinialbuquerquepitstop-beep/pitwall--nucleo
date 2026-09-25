@@ -2,7 +2,9 @@
 
 const { calculateC02 } = require('../../external-calc-c02/v1/c02-calculator');
 
-const RESOLVER_VERSION = 'external-calc-store-rate-resolver/v1';
+const RESOLVER_VERSION = 'external-calc-store-rate-resolver/v1.1.0';
+const RATE_SEMANTICS = 'PROCESSOR_DEDUCTION_PERCENT';
+const GROSS_UP_FORMULA_VERSION = 'processor-deduction-gross-up/v1';
 const FORBIDDEN_CLIENT_KEYS = new Set([
   'tenant_id','user_id','auth_user_id','profile_id','profile_version','rate_units',
   'rate_scale','rate_percent','coefficient','total_amount_minor','installment_amount_minor',
@@ -51,6 +53,15 @@ function normalizeMembership(row, authUserId) {
   if (!['dono','validador'].includes(row.papel)) fail('RATE_PROFILE_FORBIDDEN');
   return { tenant_id: nonEmpty(row.tenant_id,'membership.tenant_id'), role: row.papel };
 }
+function rateFractionFromUnits(rateUnits, rateScale) {
+  if (!Number.isSafeInteger(rateUnits) || rateUnits < 0 ||
+      !Number.isSafeInteger(rateScale) || rateScale <= 0) {
+    fail('RATE_PROFILE_INVALID','taxa invalida');
+  }
+  const percent=rateUnits/rateScale;
+  if (percent >= 100) fail('RATE_PROFILE_INVALID','taxa precisa ser menor que 100%');
+  return percent/100;
+}
 function normalizeStoreRateProfile(profile, tenantId, installmentCount) {
   if (!profile) fail('RATE_PROFILE_NOT_CONFIGURED');
   if (profile.tenant_id !== tenantId || profile.status !== 'ACTIVE') fail('RATE_PROFILE_INVALID');
@@ -60,11 +71,14 @@ function normalizeStoreRateProfile(profile, tenantId, installmentCount) {
   const entries=Array.isArray(profile.entries) ? profile.entries : [];
   const entry=entries.find(x=>x && x.installment_count===installmentCount);
   if (!entry || !Number.isSafeInteger(entry.rate_units) || entry.rate_units < 0) fail('INSTALLMENT_RATE_NOT_CONFIGURED');
+  rateFractionFromUnits(entry.rate_units,profile.rate_scale);
   return { ...profile, entry };
 }
 function coefficientFromRate(rateUnits, rateScale) {
-  // rate_percent = rate_units / rate_scale; customer total = base * (1 + percent/100).
-  return 1 + (rateUnits / rateScale) / 100;
+  const processorDeductionFraction=rateFractionFromUnits(rateUnits,rateScale);
+  // StoreRateProfile stores the real processor deduction percentage.
+  // To preserve the desired net amount, customer_total = net_base / (1 - deduction_fraction).
+  return 1/(1-processorDeductionFraction);
 }
 function buildTrustedCalculationProfile(baseProfile, rateProfile) {
   if (!baseProfile || typeof baseProfile !== 'object') fail('RATE_PROFILE_INVALID','base calculation profile ausente');
@@ -103,8 +117,16 @@ function createStoreRateQuoteResolver(options={}) {
       });
       const installment=calculation.installments.find(x=>x.count===command.installment_count);
       if (!installment) fail('QUOTE_RECALCULATION_REQUIRED');
+
+      const processorDeductionFraction=rateFractionFromUnits(rateProfile.entry.rate_units,rateProfile.rate_scale);
+      const totalMinor=installment.total_price.amount_minor;
+      const processorFeeMinor=Math.round(totalMinor*processorDeductionFraction);
+      const netMinor=totalMinor-processorFeeMinor;
+
       return {
         resolver_version:RESOLVER_VERSION,
+        rate_semantics:RATE_SEMANTICS,
+        gross_up_formula_version:GROSS_UP_FORMULA_VERSION,
         tenant_id:membership.tenant_id,
         role:membership.role,
         analysis_id:command.analysis_id,
@@ -116,6 +138,8 @@ function createStoreRateQuoteResolver(options={}) {
         applied_rate_scale:rateProfile.rate_scale,
         total:installment.total_price,
         installment_amount:installment.installment_price,
+        processor_fee:{amount_minor:processorFeeMinor,currency:rateProfile.currency},
+        net_amount:{amount_minor:netMinor,currency:rateProfile.currency},
         calculation_version:calculation.engine_version,
         rounding_version:'c02-calculator/1.0.0',
         rate_profile_id:rateProfile.profile_id,
@@ -126,4 +150,8 @@ function createStoreRateQuoteResolver(options={}) {
     }
   };
 }
-module.exports={RESOLVER_VERSION,FORBIDDEN_CLIENT_KEYS,findForbidden,normalizeCommand,coefficientFromRate,buildTrustedCalculationProfile,createStoreRateQuoteResolver};
+module.exports={
+ RESOLVER_VERSION,RATE_SEMANTICS,GROSS_UP_FORMULA_VERSION,FORBIDDEN_CLIENT_KEYS,
+ findForbidden,normalizeCommand,rateFractionFromUnits,coefficientFromRate,
+ buildTrustedCalculationProfile,createStoreRateQuoteResolver
+};
