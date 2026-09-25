@@ -48,6 +48,23 @@ jobs:
           node ferramentas/external-calc-research-provider/v0/prova_research_provider.js | tee /tmp/provider.log
           grep -q '^RESEARCH_PROVIDER_FIXTURES=PASS checks=9$' /tmp/provider.log
 
+      - name: Run current reviewed offer evidence fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-research-provider/v0/prova_current_offers_evidence.js | tee /tmp/current-offers-evidence.log
+          grep -q '^CURRENT_OFFERS_EVIDENCE_FIXTURES=PASS checks=10
+        run: |
+          set -euo pipefail
+          FILE=ferramentas/external-calc-research-provider/v0/research-provider-contract.js
+          for token in 'supabase' 'postgres' 'tenant_id' 'fetch(' 'XMLHttpRequest' 'child_process' 'writeFile' 'unlink(' 'document.' 'window.' 'localStorage'; do
+            if grep -Fqi "$token" "$FILE"; then
+              echo "BLOQUEIO: dependencia proibida no provider contract: $token"
+              exit 1
+            fi
+          done
+          echo "RESEARCH_PROVIDER_BOUNDARY=PASS"
+ /tmp/current-offers-evidence.log
+
       - name: Enforce provider contract boundary
         run: |
           set -euo pipefail
