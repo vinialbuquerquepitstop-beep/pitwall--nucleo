@@ -32,22 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-proof-governance/v1/prova_proof_governance_v1.js | tee /tmp/proof-governance.log
-          grep -q '^EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=6 /tmp/proof-governance.log
-      - name: Enforce governed scope
-        run: |
-          set -euo pipefail
-          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
-      - name: Negative fail-closed proof
-        run: |
-          set -euo pipefail
-          if PROOF_GOVERNANCE_CHANGED_FILES='financeiro/producao.js' node ferramentas/external-calc-proof-governance/v1/proof-governance.js; then
-            echo 'BLOQUEIO: arquivo sem ownership foi aceito'
-            exit 1
-          fi
-          echo 'PROOF_GOVERNANCE_FAIL_CLOSED=PASS'
-      - name: Diff check
-        run: git diff --check
- /tmp/proof-governance.log
+          grep -q '^EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=6$' /tmp/proof-governance.log
       - name: Enforce governed scope
         run: |
           set -euo pipefail
