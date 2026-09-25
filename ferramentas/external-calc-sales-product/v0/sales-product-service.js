@@ -4,6 +4,7 @@ const {calculateInstallments}=require('../../external-calc-c02/v1/c02-calculator
 const {coefficientFromRate}=require('../../external-calc-store-rate/v1/store-rate-resolver');
 
 const PRODUCT_OPTIONS_VERSION='external-calc-product-options/v0';
+const OFFER_OPTIONS_VERSION='external-calc-offer-options/v0';
 const VARIANT_VERSION='external-calc-variant-offer-resolver/v0';
 const TRADE_IN_VERSION='external-calc-trade-in-estimate/v0';
 const SIM_VERSION='external-calc-sales-simulation/v0';
@@ -61,6 +62,52 @@ function listProductOptions(candidates,command={}){
      offer_count:x.offer_count
    }));
  return {catalog_version:PRODUCT_OPTIONS_VERSION,query:q.query,items};
+}
+function normalizeOfferOptionsCommand(c){
+ if(!c||typeof c!=='object'||Array.isArray(c))fail('OFFER_OPTIONS_INVALID');
+ const allowed=new Set(['model_id','capacity_gb','color','limit']);
+ for(const k of Object.keys(c))if(!allowed.has(k))fail('OFFER_OPTIONS_INVALID','campo proibido: '+k);
+ const out={
+   model_id:str(c.model_id,'model_id'),
+   capacity_gb:c.capacity_gb,
+   color:c.color==null?null:str(c.color,'color'),
+   limit:c.limit==null?50:c.limit
+ };
+ if(out.capacity_gb!=null&&(!Number.isInteger(out.capacity_gb)||out.capacity_gb<=0))fail('OFFER_OPTIONS_INVALID','capacity_gb invalida');
+ if(!Number.isInteger(out.limit)||out.limit<1||out.limit>100)fail('OFFER_OPTIONS_INVALID','limit invalido');
+ return out;
+}
+function listOfferOptions(candidates,command){
+ const q=normalizeOfferOptionsCommand(command);
+ let rows=(candidates||[]).filter(eligible).filter(x=>modelId(x)===q.model_id);
+ if(q.capacity_gb!=null)rows=rows.filter(x=>x.reviewed_offer.capacity_gb===q.capacity_gb);
+ if(q.color)rows=rows.filter(x=>String(x.reviewed_offer.color||'').toLowerCase()===q.color.toLowerCase());
+ rows=rows.filter(x=>x.reviewed_offer.price?.currency==='BRL'&&Number.isSafeInteger(x.reviewed_offer.price?.amount_minor)&&x.reviewed_offer.price.amount_minor>0);
+ const items=rows
+   .sort((a,b)=>a.reviewed_offer.price.amount_minor-b.reviewed_offer.price.amount_minor||String(a.offer_id).localeCompare(String(b.offer_id)))
+   .slice(0,q.limit)
+   .map(x=>{
+     const o=x.reviewed_offer;
+     return {
+       analysis_id:x.analysis_id,
+       offer_id:x.offer_id,
+       offer_revision:x.offer_revision,
+       offer_identity_fingerprint:x.offer_identity_fingerprint,
+       offer_value_fingerprint:x.offer_value_fingerprint,
+       supplier_id:typeof o.supplier_id==='string'&&o.supplier_id.trim()?o.supplier_id.trim():null,
+       model_id:modelId(x),
+       label:modelLabel(x),
+       capacity_gb:Number.isInteger(o.capacity_gb)?o.capacity_gb:null,
+       color:typeof o.color==='string'&&o.color.trim()?o.color.trim():null,
+       condition:typeof o.condition==='string'&&o.condition.trim()?o.condition.trim():null,
+       price:money(o.price,'offer.price',false)
+     };
+   });
+ return {
+   catalog_version:OFFER_OPTIONS_VERSION,
+   selection:{model_id:q.model_id,capacity_gb:q.capacity_gb??null,color:q.color},
+   items
+ };
 }
 function normalizeVariantCommand(c){
  if(!c||typeof c!=='object'||Array.isArray(c))fail('VARIANT_SELECTION_INVALID');
@@ -151,9 +198,10 @@ function createSalesProductService({source}={}){
  async function ctx(auth){const m=await source.loadMembership({auth_user_id:str(auth,'auth_user_id')});if(!m||!m.ativo||!['dono','validador','vendedor'].includes(m.papel))fail('PRODUCT_FORBIDDEN');return m;}
  return {
   async listProductOptions({auth_user_id,command}){await ctx(auth_user_id);return listProductOptions(await source.loadCurrentOffers(),command);},
+  async listOfferOptions({auth_user_id,command}){await ctx(auth_user_id);return listOfferOptions(await source.loadCurrentOffers(),command);},
   async resolveVariant({auth_user_id,command}){await ctx(auth_user_id);return resolveVariant(await source.loadCurrentOffers(),command);},
   async estimateTradeIn({auth_user_id,command}){await ctx(auth_user_id);const [offers,p]=await Promise.all([source.loadCurrentOffers(),source.loadActiveTradeInPolicy()]);return resolveTradeIn(offers,p,command);},
   async simulateSale({auth_user_id,command}){await ctx(auth_user_id);const [offers,p,r]=await Promise.all([source.loadCurrentOffers(),source.loadActiveTradeInPolicy(),source.loadActiveRateProfile()]);return resolveSimulation(offers,p,r,command);}
  };
 }
-module.exports={PRODUCT_OPTIONS_VERSION,VARIANT_VERSION,TRADE_IN_VERSION,SIM_VERSION,listProductOptions,resolveVariant,resolveTradeIn,resolveSimulation,createSalesProductService};
+module.exports={PRODUCT_OPTIONS_VERSION,OFFER_OPTIONS_VERSION,VARIANT_VERSION,TRADE_IN_VERSION,SIM_VERSION,listProductOptions,listOfferOptions,resolveVariant,resolveTradeIn,resolveSimulation,createSalesProductService};
