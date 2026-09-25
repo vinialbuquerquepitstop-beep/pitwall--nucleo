@@ -44,6 +44,9 @@ const {
 const { createSalesProductService } = require('../../external-calc-sales-product/v0/sales-product-service');
 const { createPostgresSalesProductSource } = require('../../external-calc-sales-product/v0/postgres-sales-product-source');
 const { PRODUCT_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, createSalesProductApiV0 } = require('../../external-calc-sales-product/v0/sales-product-api');
+const { ADVISOR_PATH, createAdvisorApiV0 } = require('../../external-calc-ai-advisor/v0/advisor-api');
+const { createAdvisorRuntimeSource, createAdvisorRuntimeService } = require('../../external-calc-ai-advisor/v0/advisor-runtime');
+const { ADAPTER_VERSION: OPENAI_ADAPTER_VERSION, createOpenAIAdvisorProvider } = require('../../external-calc-ai-advisor/v0/openai-provider');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -194,6 +197,45 @@ function authorityServerConfig(env) {
   };
 }
 
+function advisorServerConfig(env) {
+  const apiKey = typeof env?.OPENAI_API_KEY === 'string'
+    ? env.OPENAI_API_KEY.trim()
+    : '';
+  const model = typeof env?.EXTCALC_ADVISOR_OPENAI_MODEL === 'string'
+    ? env.EXTCALC_ADVISOR_OPENAI_MODEL.trim()
+    : '';
+  const promptVersion = typeof env?.EXTCALC_ADVISOR_PROMPT_VERSION === 'string'
+    ? env.EXTCALC_ADVISOR_PROMPT_VERSION.trim()
+    : '';
+  const timeoutRaw = String(env?.EXTCALC_ADVISOR_TIMEOUT_MS || '30000');
+  const timeoutMs = Number(timeoutRaw);
+
+  if (
+    !apiKey ||
+    !model ||
+    !promptVersion ||
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs < 100 ||
+    timeoutMs > 120000
+  ) {
+    return {
+      configured: false,
+      apiKey: null,
+      model: null,
+      promptVersion: null,
+      timeoutMs: null
+    };
+  }
+
+  return {
+    configured: true,
+    apiKey,
+    model,
+    promptVersion,
+    timeoutMs
+  };
+}
+
 function toApiRequest(request, body) {
   const url = new URL(request.url);
   return {
@@ -332,6 +374,45 @@ function createExternalCalcWorkerRuntime(options = {}) {
         authenticate: authContext
       });
 
+      const advisorConfig = advisorServerConfig(env);
+      const advisorAuthContext = async () => identity && ({
+        tenant_id: identity.tenant_id,
+        actor_role: identity.papel
+      });
+
+      let advisorService = null;
+      if (advisorConfig.configured) {
+        const advisorSource = createAdvisorRuntimeSource({
+          supabaseUrl: config.supabaseUrl,
+          anonKey: config.anonKey,
+          accessToken,
+          fetchImpl
+        });
+        const advisorProvider = createOpenAIAdvisorProvider({
+          apiKey: advisorConfig.apiKey,
+          model: advisorConfig.model,
+          fetchImpl
+        });
+        advisorService = createAdvisorRuntimeService({
+          source: advisorSource,
+          provider: advisorProvider,
+          providerConfig: {
+            provider_name: 'openai',
+            model_name: advisorConfig.model,
+            model_version: advisorConfig.model,
+            adapter_version: OPENAI_ADAPTER_VERSION,
+            timeout_ms: advisorConfig.timeoutMs
+          },
+          clock
+        });
+      }
+
+      const advisorApi = createAdvisorApiV0({
+        service: advisorService,
+        authenticate: advisorAuthContext,
+        promptVersion: advisorConfig.promptVersion
+      });
+
       let body = null;
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         body = await request.text();
@@ -340,6 +421,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
       const handler =
         url.pathname === REVIEW_PATH ? reviewApi :
         url.pathname === QUOTE_PATH ? storeRateApi :
+        url.pathname === ADVISOR_PATH ? advisorApi :
         [PRODUCT_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH].includes(url.pathname) ? salesProductApi :
         api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
@@ -355,5 +437,6 @@ module.exports = {
   canOperateExternalCalc,
   resolveIdentity,
   authorityServerConfig,
+  advisorServerConfig,
   createExternalCalcWorkerRuntime
 };

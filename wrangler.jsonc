@@ -14,9 +14,13 @@
   "main": "./worker/external-calc-worker.mjs",
 
   // Valores publicos ja usados pelo frontend atual. Nenhuma service_role entra aqui.
+  // OPENAI_API_KEY permanece secret do Worker e nunca entra no repositorio.
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
+    "EXTCALC_ADVISOR_OPENAI_MODEL": "gpt-6-sol",
+    "EXTCALC_ADVISOR_PROMPT_VERSION": "advisor-prompt/v1",
+    "EXTCALC_ADVISOR_TIMEOUT_MS": "30000",
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 

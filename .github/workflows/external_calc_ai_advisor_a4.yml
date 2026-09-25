@@ -1,0 +1,94 @@
+name: External Calc - AI Advisor A4 Gate
+
+on:
+  push:
+    branches:
+      - external-calc-ai-advisor-a4-openai-runtime-v0
+    paths:
+      - 'ferramentas/external-calc-ai-advisor/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'worker/external-calc-worker.mjs'
+      - 'wrangler.jsonc'
+      - '.github/workflows/external_calc_ai_advisor_a4.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-ai-advisor/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/**'
+      - 'worker/external-calc-worker.mjs'
+      - 'wrangler.jsonc'
+      - '.github/workflows/external_calc_ai_advisor_a4.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-ai-advisor-a4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisor-a4-gate:
+    name: AI Advisor A4 OpenAI runtime gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Preserve C01-C05
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-c01/v1/prova_c01_readonly_bridge.js | tee /tmp/c01.log
+          grep -q '^C01_READONLY_FIXTURES=PASS$' /tmp/c01.log
+
+          node ferramentas/external-calc-c02/v1/prova_c02_calculator.js | tee /tmp/c02.log
+          grep -q '^C02_FIXTURES=PASS checks=17$' /tmp/c02.log
+
+          node ferramentas/external-calc-c03/v1/prova_c03_research.js | tee /tmp/c03.log
+          grep -q '^C03_FIXTURES=PASS checks=21$' /tmp/c03.log
+
+          node ferramentas/external-calc-c04/v1/prova_c04_price_indicator.js | tee /tmp/c04.log
+          grep -q '^C04_FIXTURES=PASS checks=20$' /tmp/c04.log
+
+          node ferramentas/external-calc-c05/v1/prova_c05_decision_output.js | tee /tmp/c05.log
+          grep -q '^C05_FIXTURES=PASS checks=26$' /tmp/c05.log
+
+      - name: Preserve Advisor A1-A3
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_context_v0.js | tee /tmp/a1.log
+          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=15$' /tmp/a1.log
+
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_executor_v0.js | tee /tmp/a2.log
+          grep -q '^AI_ADVISOR_A2_FIXTURES=PASS checks=15$' /tmp/a2.log
+
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_runtime_v0.js | tee /tmp/a3.log
+          grep -q '^AI_ADVISOR_A3_FIXTURES=PASS checks=15$' /tmp/a3.log
+
+      - name: Run Advisor A4 fixtures
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-ai-advisor/v0/prova_advisor_a4_v0.js | tee /tmp/a4.log
+          grep -q '^AI_ADVISOR_A4_FIXTURES=PASS checks=20$' /tmp/a4.log
+
+      - name: Enforce secret and browser authority boundary
+        run: |
+          set -euo pipefail
+          if grep -Eq '"OPENAI_API_KEY"[[:space:]]*:' wrangler.jsonc; then
+            echo 'BLOQUEIO: OPENAI_API_KEY nao pode entrar no wrangler/repo'
+            exit 1
+          fi
+          grep -q "body aceita somente source_execution_id" ferramentas/external-calc-ai-advisor/v0/advisor-api.js
+          grep -q "store: false" ferramentas/external-calc-ai-advisor/v0/openai-provider.js
+          grep -q "type: 'json_schema'" ferramentas/external-calc-ai-advisor/v0/openai-provider.js
+          echo 'AI_ADVISOR_A4_BOUNDARY=PASS'
+
+      - name: Diff check
+        run: git diff --check
