@@ -28,7 +28,21 @@ function resolver(profileMap=profiles){
 }
 const command={analysis_id:'a1',offer_id:'o1',offer_revision:1,installment_count:12};
 (async()=>{
- assert.strictEqual(coefficientFromRate(1050,100),1.105);
+ assert.ok(Math.abs(coefficientFromRate(1050,100)-(1/0.895))<1e-12);
+
+ // Real processor evidence examples from the supplied simulations:
+ // 6x: R$ 1.000,00 charged -> R$ 936,30 net => 6.37% deduction.
+ const gross6=Math.round(100000*coefficientFromRate(637,100));
+ assert.strictEqual(gross6,106803);
+ assert.strictEqual(gross6-Math.round(gross6*0.0637),100000);
+
+ // 18x: R$ 7.800,00 charged -> R$ 6.667,44 net => 14.52% deduction.
+ const gross18=Math.round(780000*coefficientFromRate(1452,100));
+ assert.strictEqual(gross18,912494);
+ assert.strictEqual(gross18-Math.round(gross18*0.1452),780000);
+
+ assert.throws(()=>coefficientFromRate(10000,100),e=>e.code==='RATE_PROFILE_INVALID');
+
  for(const key of ['tenant_id','profile_id','rate_units','rate_scale','coefficient','total_amount_minor']){
   assert.throws(()=>normalizeCommand({...command,[key]:'spoof'}),e=>e.code==='RATE_PROFILE_FORBIDDEN');
  }
@@ -37,6 +51,9 @@ const command={analysis_id:'a1',offer_id:'o1',offer_revision:1,installment_count
  assert.strictEqual(a.rate_profile_id,'rp1'); assert.strictEqual(b.rate_profile_id,'rp1');
  assert.strictEqual(a.rate_profile_version,3); assert.strictEqual(a.rate_profile_fingerprint,'fp-t1-v3');
  assert.strictEqual(a.applied_rate_units,1050); assert.strictEqual(a.applied_rate_scale,100);
+ assert.strictEqual(a.rate_semantics,'PROCESSOR_DEDUCTION_PERCENT');
+ assert.strictEqual(a.gross_up_formula_version,'processor-deduction-gross-up/v1');
+ assert.strictEqual(a.total.amount_minor-a.processor_fee.amount_minor,a.net_amount.amount_minor);
  assert.deepStrictEqual(a.total,b.total);
  const other=await resolver().resolveQuote({auth_user_id:'other',calculation_run_id:'r3',command});
  assert.strictEqual(other.rate_profile_id,'rp2'); assert.notDeepStrictEqual(other.total,a.total);
