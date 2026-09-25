@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('crypto');
 const {calculateInstallments}=require('../../external-calc-c02/v1/c02-calculator');
+const {coefficientFromRate}=require('../../external-calc-store-rate/v1/store-rate-resolver');
 
 const PRODUCT_OPTIONS_VERSION='external-calc-product-options/v0';
 const VARIANT_VERSION='external-calc-variant-offer-resolver/v0';
@@ -138,7 +139,7 @@ function resolveSimulation(candidates,policy,rateProfile,command){
  const diff=q.sale_amount.amount_minor-credit;
  const direction=diff>0?'CUSTOMER_PAYS':diff<0?'STORE_PAYS':'EVEN';
  const financed=Math.max(diff,0),rp=normalizeRateProfile(rateProfile,q.installment_count);
- const coefficient=1+(rp.entry.rate_units/rp.rate_scale)/100;
+ const coefficient=coefficientFromRate(rp.entry.rate_units,rp.rate_scale);
  const installments=calculateInstallments(financed,{currency:'BRL',installment_base_addon_minor:0,installment_coefficients:[[q.installment_count,coefficient]]});
  const inst=installments[0]||{total_price:{amount_minor:0,currency:'BRL'},installment_price:{amount_minor:0,currency:'BRL'}};
  const core={offer:[q.analysis_id,q.offer_id,q.offer_revision,offer.offer_value_fingerprint],sale:q.sale_amount,trade:trade?.estimate_fingerprint||null,count:q.installment_count,rate:[rp.profile_id,rp.version,rp.fingerprint],financed};
