@@ -55,6 +55,7 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A3_RUNTIME_PERSISTENCE_GATE_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A31_PRODUCTION_ACTIVATION_V0\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A4_OPENAI_RUNTIME_GATE_V0\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A41_PRODUCTION_ACTIVATION_V0\.md$/,
     /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//, /^worker\/external-calc-worker\.mjs$/, /^wrangler\.jsonc$/] },
@@ -81,6 +82,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_ai_advisor_a2\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a3\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a4\.yml$/,
+    /^\.github\/workflows\/external_calc_ai_advisor_a41_production\.yml$/,
     /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
   ] }
 ];
