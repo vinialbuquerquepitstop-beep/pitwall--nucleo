@@ -311,16 +311,22 @@ check('candidate output aceita ate tres insights somente com refs permitidas', (
   assert.strictEqual(validated.candidate_output.insights.length, 1);
 });
 
-check('pesquisa que mistura cor ou modelo nao pode alimentar o Advisor', () => {
+check('perfil amplo de C03 nao permite outra cor alimentar o Advisor', () => {
   const mixed = [
     evidence('ev_a', 620000),
-    evidence('ev_b', 650000, { color: 'AZUL' }),
-    evidence('ev_c', 680000, { modelId: 'iphone-17-pro-max-256' })
+    evidence('ev_b', 640000, { color: 'AZUL' }),
+    evidence('ev_c', 660000),
+    evidence('ev_d', 680000)
   ];
   const fixture = readyFixture({
     evidenceRecords: mixed,
     requiredMatchFields: ['model_id', 'capacity_gb', 'condition']
   });
+  assert.strictEqual(fixture.c05.decision_outcome, 'READY');
+  assert(
+    fixture.c05.research.eligible_evidence_ids.includes('ev_b'),
+    'fixture precisa provar que C03 aceitou a outra cor'
+  );
   assert.throws(
     () => buildAdvisorContext(requestFrom(fixture)),
     /ADVISOR_EVIDENCE_MISMATCH/
