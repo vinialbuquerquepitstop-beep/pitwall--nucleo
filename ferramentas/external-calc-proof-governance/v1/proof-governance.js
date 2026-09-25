@@ -4,7 +4,8 @@ const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
   { owner: 'C03_RESEARCH_EVIDENCE', patterns: [
-    /^ferramentas\/external-calc-research-provider\/v0\//
+    /^ferramentas\/external-calc-research-provider\/v0\//,
+    /^docs\/calculadora\/EXTERNAL_CALC_C03_CURRENT_OFFERS_EVIDENCE_SOURCE_V0\.md$/
   ] },
   { owner: 'EXECUTION_AUTHORITY', patterns: [
     /^ferramentas\/external-calc-authority\/v0\//
