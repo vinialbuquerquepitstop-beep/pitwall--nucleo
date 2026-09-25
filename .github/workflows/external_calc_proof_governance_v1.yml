@@ -19,6 +19,7 @@ on:
       - 'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A4_OPENAI_RUNTIME_GATE_V0.md'
       - 'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A41_PRODUCTION_ACTIVATION_V0.md'
       - 'docs/calculadora/EXTERNAL_CALC_C03_CURRENT_OFFERS_EVIDENCE_SOURCE_V0.md'
+      - 'docs/calculadora/EXTERNAL_CALC_C03_C04_PRODUCTION_POLICY_PROPOSAL_V1.md'
       - 'wrangler.jsonc'
       - 'worker/external-calc-worker.mjs'
       - 'supabase/migrations/20260925003500_external_calc_ai_advisor_a3_v0.sql'
@@ -45,7 +46,25 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-proof-governance/v1/prova_proof_governance_v1.js | tee /tmp/proof-governance.log
-          grep -q '^EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=7$' /tmp/proof-governance.log
+          grep -q '^EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=8 /tmp/proof-governance.log
+
+      - name: Enforce governed scope
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
+
+      - name: Negative fail-closed proof
+        run: |
+          set -euo pipefail
+          if PROOF_GOVERNANCE_CHANGED_FILES='financeiro/producao.js' node ferramentas/external-calc-proof-governance/v1/proof-governance.js; then
+            echo 'BLOQUEIO: arquivo sem ownership foi aceito'
+            exit 1
+          fi
+          echo 'PROOF_GOVERNANCE_FAIL_CLOSED=PASS'
+
+      - name: Diff check
+        run: git diff --check
+ /tmp/proof-governance.log
 
       - name: Enforce governed scope
         run: |
