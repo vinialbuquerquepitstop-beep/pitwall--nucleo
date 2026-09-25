@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: external-calc-ai-advisor-a1-\${{ github.ref }}
+  group: external-calc-ai-advisor-a1-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
