@@ -46,10 +46,13 @@ check('AI Advisor exige ownership explicito em A1 A2 e A3', () => {
     'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0.md',
     'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A3_RUNTIME_PERSISTENCE_GATE_V0.md',
     'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A31_PRODUCTION_ACTIVATION_V0.md',
-    'supabase/migrations/20260925003500_external_calc_ai_advisor_a3_v0.sql'
+    'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A4_OPENAI_RUNTIME_GATE_V0.md',
+    'supabase/migrations/20260925003500_external_calc_ai_advisor_a3_v0.sql',
+    'wrangler.jsonc'
   ]);
   assert.deepStrictEqual(r.unknown, []);
   assert(r.requiredOwners.includes('AI_ADVISOR'));
+  assert(r.requiredOwners.includes('RUNTIME'));
 });
 
 console.log('EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=' + checks);
