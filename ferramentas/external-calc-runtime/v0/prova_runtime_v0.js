@@ -7,6 +7,9 @@ const path = require('path');
 const {
   createExternalCalcWorkerRuntime
 } = require('./runtime');
+const {
+  buildCurrentOfferEvidence
+} = require('../../external-calc-research-provider/v0/current-offers-evidence');
 
 const TENANT_A = '00000000-0000-4000-8000-000000000001';
 const USER_A = 'fb2aad8e-b728-4e59-a198-71da2156449d';
@@ -117,6 +120,47 @@ function trustedEvidence() {
   ];
 }
 
+function currentOfferCandidates() {
+  return trustedEvidence().map((item, index) => {
+    const base = c01Candidate();
+    return {
+      ...base,
+      analysis_id: 'ana_runtime_peer_' + (index + 1),
+      source_id: 'src_runtime_peer_' + (index + 1),
+      offer_id: 'off_runtime_peer_' + (index + 1),
+      offer_revision: 1,
+      offer_identity_fingerprint: 'identity-runtime-peer-' + (index + 1),
+      offer_value_fingerprint: 'value-runtime-peer-' + (index + 1),
+      reviewed_offer: {
+        ...base.reviewed_offer,
+        color: item.product.color,
+        price: {
+          amount_minor: item.normalized_price,
+          currency: item.currency
+        }
+      },
+      review: {
+        decision: 'ACCEPT',
+        reviewer_ref: 'reviewer-runtime',
+        reviewed_at: item.observed_at
+      },
+      interpretation_confidence: {
+        overall: item.confidence,
+        by_field: {},
+        record_state: 'resolved'
+      },
+      provenance_refs: ['human_review:runtime-peer-' + (index + 1)]
+    };
+  });
+}
+
+function currentOfferEvidence() {
+  return buildCurrentOfferEvidence({
+    c01_candidate: c01Candidate(),
+    current_offers: currentOfferCandidates()
+  }).evidence;
+}
+
 function clientRequest(overrides = {}) {
   return {
     analysis_id: 'ana_runtime_001',
@@ -199,15 +243,9 @@ function makeBackend(options = {}) {
       }]);
     }
 
-    if (url.startsWith(SUPABASE_URL + '/rest/v1/extcalc_evidence?')) {
+    if (url === SUPABASE_URL + '/rest/v1/rpc/extcalc_product_current_offers_v0') {
       state.authorityEvidenceCalls += 1;
-      return jsonResponse(
-        trustedEvidence().map(item => ({
-          evidence_id: item.evidence_id,
-          evidence_snapshot: item,
-          observed_at: item.observed_at
-        }))
-      );
+      return jsonResponse(currentOfferCandidates());
     }
 
     if (url === SUPABASE_URL + '/rest/v1/rpc/extcalc_persist_execution_v0') {
@@ -407,7 +445,7 @@ async function responseBody(response) {
     assert.strictEqual(get.status, 200);
     assert.strictEqual(getBody.execution_id, postBody.execution_id);
     assert.deepStrictEqual(getBody.request.c01_candidate, c01Candidate());
-    assert.deepStrictEqual(getBody.request.evidence, trustedEvidence());
+    assert.deepStrictEqual(getBody.request.evidence, currentOfferEvidence());
     assert.strictEqual(getBody.request.analysis_id, undefined);
     assert.deepStrictEqual(getBody.result, postBody.result);
     assert.strictEqual(backend.state.loadCalls, 1);
