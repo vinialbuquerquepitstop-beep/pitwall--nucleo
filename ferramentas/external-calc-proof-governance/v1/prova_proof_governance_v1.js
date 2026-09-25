@@ -66,4 +66,12 @@ check('C03 research evidence e execution authority possuem ownership explicito',
   assert(r.requiredOwners.includes('EXECUTION_AUTHORITY'));
 });
 
+check('C03 C04 market policy proposal exige ownership explicito', () => {
+  const r = classifyFiles([
+    'docs/calculadora/EXTERNAL_CALC_C03_C04_PRODUCTION_POLICY_PROPOSAL_V1.md'
+  ]);
+  assert.deepStrictEqual(r.unknown, []);
+  assert(r.requiredOwners.includes('C03_C04_MARKET_POLICY'));
+});
+
 console.log('EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=' + checks);
