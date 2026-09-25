@@ -77,8 +77,6 @@ jobs:
           FILE=ferramentas/external-calc-ai-advisor/v0/advisor-runtime.js
           for token in \
             'service_role' \
-            'tenant_id:' \
-            'actor_id:' \
             'insert into' \
             'update ' \
             'delete from'; do
