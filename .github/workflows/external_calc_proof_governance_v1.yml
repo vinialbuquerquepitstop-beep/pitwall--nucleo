@@ -11,6 +11,7 @@ on:
       - 'ferramentas/external-calc-proof-governance/v1/**'
       - 'docs/calculadora/EXTERNAL_CALC_PROOF_GOVERNANCE_V1.md'
       - 'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A1_GATE_V0.md'
+      - 'docs/calculadora/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0.md'
       - 'docs/calculadora/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22.md'
       - '.github/workflows/external_calc_*'
 
