@@ -74,4 +74,14 @@ check('C03 C04 market policy proposal exige ownership explicito', () => {
   assert(r.requiredOwners.includes('C03_C04_MARKET_POLICY'));
 });
 
+check('gate de configuracao aprovado exige ownership de politica', () => {
+  const r = classifyFiles([
+    'docs/calculadora/EXTERNAL_CALC_AUTHORITY_PRODUCTION_CONFIG_GATE_V0.md',
+    'wrangler.jsonc'
+  ]);
+  assert.deepStrictEqual(r.unknown, []);
+  assert(r.requiredOwners.includes('C03_C04_MARKET_POLICY'));
+  assert(r.requiredOwners.includes('RUNTIME'));
+});
+
 console.log('EXTERNAL_CALC_PROOF_GOVERNANCE_V1=PASS checks=' + checks);

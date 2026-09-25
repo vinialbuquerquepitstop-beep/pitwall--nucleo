@@ -1,9 +1,12 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const {
   buildCalculationProfileFromCalcDados
 } = require('./calc-dados-calculation-profile');
+const { authorityServerConfig } = require('../../external-calc-runtime/v0/runtime');
 const {
   calculateC02
 } = require('../../external-calc-c02/v1/c02-calculator');
@@ -193,7 +196,35 @@ check('config sem taxas falha sem fallback chumbado', () => {
   );
 });
 
+check('Worker usa exatamente os perfis C03/C04 aprovados e os entrega ao resolver', () => {
+  const raw = fs.readFileSync(path.join(__dirname, '../../../wrangler.jsonc'), 'utf8');
+  const config = JSON.parse(raw.replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1'));
+  const vars = config.vars;
+  const research = JSON.parse(vars.EXTCALC_RESEARCH_PROFILE_JSON);
+  const indicator = JSON.parse(vars.EXTCALC_INDICATOR_PROFILE_JSON);
+
+  assert.deepStrictEqual(research, {
+    profile_id: 'external-calc-research-production-v1',
+    profile_version: '1',
+    required_match_fields: ['model_id', 'capacity_gb', 'condition', 'color'],
+    min_evidence_confidence: 0.9,
+    max_age_seconds: 604800
+  });
+  assert.deepStrictEqual(indicator, {
+    profile_id: 'external-calc-indicator-production-v1',
+    profile_version: '1',
+    min_evidence_count: 3,
+    cheap_at_or_below_percent: -5,
+    expensive_at_or_above_percent: 5
+  });
+
+  const mapped = authorityServerConfig(vars);
+  assert.strictEqual(mapped.researchProfileJson, vars.EXTCALC_RESEARCH_PROFILE_JSON);
+  assert.strictEqual(mapped.indicatorProfileJson, vars.EXTCALC_INDICATOR_PROFILE_JSON);
+  assert.strictEqual(config.name, 'flat-resonance-09ba');
+});
+
 console.log(`C02_PRODUCTION_CONFIG_GATE_V0=PASS checks=${ok}`);
-console.log('C03_PRODUCTION_PROFILE=POLICY_PENDING');
-console.log('C04_PRODUCTION_PROFILE=POLICY_PENDING');
-console.log('AUTHORITY_PRODUCTION_CONFIG_GATE_V0=PARTIAL');
+console.log('C03_PRODUCTION_PROFILE=APPROVED_CONFIG_READY');
+console.log('C04_PRODUCTION_PROFILE=APPROVED_CONFIG_READY');
+console.log('AUTHORITY_PRODUCTION_CONFIG_GATE_V0=PASS');

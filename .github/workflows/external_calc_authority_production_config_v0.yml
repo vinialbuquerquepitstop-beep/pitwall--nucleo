@@ -84,10 +84,10 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-authority/v0/prova_authority_production_config_v0.js | tee /tmp/config.log
-          grep -q '^C02_PRODUCTION_CONFIG_GATE_V0=PASS checks=7$' /tmp/config.log
-          grep -q '^C03_PRODUCTION_PROFILE=POLICY_PENDING$' /tmp/config.log
-          grep -q '^C04_PRODUCTION_PROFILE=POLICY_PENDING$' /tmp/config.log
-          grep -q '^AUTHORITY_PRODUCTION_CONFIG_GATE_V0=PARTIAL$' /tmp/config.log
+          grep -q '^C02_PRODUCTION_CONFIG_GATE_V0=PASS checks=8$' /tmp/config.log
+          grep -q '^C03_PRODUCTION_PROFILE=APPROVED_CONFIG_READY$' /tmp/config.log
+          grep -q '^C04_PRODUCTION_PROFILE=APPROVED_CONFIG_READY$' /tmp/config.log
+          grep -q '^AUTHORITY_PRODUCTION_CONFIG_GATE_V0=PASS$' /tmp/config.log
 
       - name: Enforce C02 source of truth
         run: |
@@ -110,22 +110,14 @@ jobs:
 
           echo 'C02_PRODUCTION_SOURCE_OF_TRUTH=PASS'
 
-      - name: Enforce policy hold for C03/C04
+      - name: Enforce approved server-side C03/C04 profiles
         run: |
           set -euo pipefail
           CONFIG=wrangler.jsonc
 
-          if grep -Fq 'EXTCALC_RESEARCH_PROFILE_JSON' "$CONFIG"; then
-            echo 'BLOQUEIO: Research fixture/policy foi promovida antes de aprovacao'
-            exit 1
-          fi
-
-          if grep -Fq 'EXTCALC_INDICATOR_PROFILE_JSON' "$CONFIG"; then
-            echo 'BLOQUEIO: Indicator fixture/policy foi promovida antes de aprovacao'
-            exit 1
-          fi
-
-          echo 'C03_C04_PRODUCTION_POLICY_HOLD=PASS'
+          grep -Fq '"EXTCALC_RESEARCH_PROFILE_JSON"' "$CONFIG"
+          grep -Fq '"EXTCALC_INDICATOR_PROFILE_JSON"' "$CONFIG"
+          echo 'C03_C04_APPROVED_SERVER_CONFIG=PASS'
 
       - name: Diff check
         run: git diff --check
