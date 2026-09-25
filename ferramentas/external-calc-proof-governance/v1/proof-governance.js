@@ -51,7 +51,9 @@ const OWNERS = [
   { owner: 'AI_ADVISOR', patterns: [
     /^ferramentas\/external-calc-ai-advisor\/v0\//,
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A1_GATE_V0\.md$/,
-    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0\.md$/
+    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A2_EXECUTION_GATE_V0\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A3_RUNTIME_PERSISTENCE_GATE_V0\.md$/,
+    /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//] },
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
@@ -75,6 +77,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_store_trade_in_policy_v0\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a1\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a2\.yml$/,
+    /^\.github\/workflows\/external_calc_ai_advisor_a3\.yml$/,
     /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
   ] }
 ];
