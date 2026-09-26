@@ -285,6 +285,27 @@ for (const line of supplierBoundaryLines) {
 const h4 = boundaryLikeCandidates(1);
 const h5 = boundaryLikeCandidates(2);
 const h6 = boundaryLikeCandidates(3);
+function isolatedNonSemanticCandidates(allowedRoles = null) {
+  const lines = [];
+  for (let i = 0; i < blocks.length; i += 1) {
+    const block = blocks[i];
+    if (!block.text.trim()) continue;
+    if (allowedRoles && !allowedRoles.has(block.top_role)) continue;
+
+    const ownFields = blockFieldNames.get(block.line) || new Set();
+    if (ownFields.size > 0) continue;
+
+    const previousBlank = i === 0 || blocks[i - 1].text.trim() === '';
+    const nextBlank = i === blocks.length - 1 || blocks[i + 1].text.trim() === '';
+    if (!previousBlank || !nextBlank) continue;
+
+    lines.push(block.line);
+  }
+  return lines;
+}
+
+const h7 = isolatedNonSemanticCandidates();
+const h8 = isolatedNonSemanticCandidates(new Set(['unknown', 'product_header', 'note']));
 
 const boundaryHeuristics = {
   supplier_boundaries: supplierBoundaryLines.size,
@@ -307,6 +328,14 @@ const boundaryHeuristics = {
   h6_nonsemantic_header_model_within_3: {
     ...evaluateCandidateSet(h6),
     p0_coverage: coverage(h6, badBoundaryLines)
+  },
+  h7_isolated_nonsemantic: {
+    ...evaluateCandidateSet(h7),
+    p0_coverage: coverage(h7, badBoundaryLines)
+  },
+  h8_isolated_nonsemantic_scoped_roles: {
+    ...evaluateCandidateSet(h8),
+    p0_coverage: coverage(h8, badBoundaryLines)
   }
 };
 
