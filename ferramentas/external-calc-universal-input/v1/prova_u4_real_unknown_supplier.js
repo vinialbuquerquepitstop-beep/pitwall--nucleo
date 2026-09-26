@@ -243,6 +243,45 @@ function coverage(lines, targetSet) {
   };
 }
 
+function safeBoundaryFeatures(line) {
+  const block = blocks[line - 1];
+  const ownFields = Array.from(blockFieldNames.get(line) || []).sort();
+  const roles = scoreRoles(block?.text || '').map(item => item.role);
+  const previous = line > 1 ? blocks[line - 2] : null;
+  const next = line < blocks.length ? blocks[line] : null;
+
+  return {
+    top_role: block?.top_role || 'missing',
+    roles,
+    field_names: ownFields,
+    length_bucket: !block ? 'missing'
+      : block.text.length <= 20 ? '0-20'
+      : block.text.length <= 40 ? '21-40'
+      : block.text.length <= 80 ? '41-80'
+      : '81+',
+    has_digits: !!block && /\d/.test(block.text),
+    previous_blank: previous ? previous.text.trim() === '' : true,
+    next_blank: next ? next.text.trim() === '' : true,
+    next_top_role: next?.top_role || 'none',
+    next_field_names: next ? Array.from(blockFieldNames.get(next.line) || []).sort() : []
+  };
+}
+
+const p0BoundaryFeatureCounts = {};
+for (const line of badBoundaryLines) {
+  const feature = safeBoundaryFeatures(line);
+  const key = JSON.stringify(feature);
+  p0BoundaryFeatureCounts[key] = (p0BoundaryFeatureCounts[key] || 0) + 1;
+}
+
+const nonP0SupplierFeatureCounts = {};
+for (const line of supplierBoundaryLines) {
+  if (badBoundaryLines.has(line)) continue;
+  const feature = safeBoundaryFeatures(line);
+  const key = JSON.stringify(feature);
+  nonP0SupplierFeatureCounts[key] = (nonP0SupplierFeatureCounts[key] || 0) + 1;
+}
+
 const h4 = boundaryLikeCandidates(1);
 const h5 = boundaryLikeCandidates(2);
 const h6 = boundaryLikeCandidates(3);
@@ -252,6 +291,8 @@ const boundaryHeuristics = {
   supplier_top_roles: supplierRoleCounts,
   extra_preceding_supplier_roles: extraPrecedingSupplierRoles,
   p0_boundary_count: badBoundaryLines.size,
+  p0_boundary_feature_groups: p0BoundaryFeatureCounts,
+  non_p0_supplier_feature_group_count: Object.keys(nonP0SupplierFeatureCounts).length,
   h1_unknown_then_product: evaluateCandidateSet(structuralCandidates(1)),
   h2_unknown_within_2: evaluateCandidateSet(structuralCandidates(2)),
   h3_unknown_within_3: evaluateCandidateSet(structuralCandidates(3)),
