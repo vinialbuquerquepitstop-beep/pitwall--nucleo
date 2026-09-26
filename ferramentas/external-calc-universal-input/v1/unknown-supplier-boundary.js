@@ -106,7 +106,7 @@ function applyUnknownSupplierBoundaryFallback(schema, document) {
       context_inheritable: false,
       context_anchor: false,
       context_boundary: true,
-      context_boundary_reason: 'unknown_supplier_boundary',
+      context_boundary_reason: 'supplier_boundary',
       preserve_fields: [],
       skip_if_anchor_present: true,
       extractors: [{
@@ -126,7 +126,7 @@ function applyUnknownSupplierBoundaryFallback(schema, document) {
   out.metadata = Object.assign({}, out.metadata || {}, {
     unknown_supplier_boundary_fallback: {
       version: VERSION,
-      policy: 'isolated-nonsemantic-section-boundary-without-supplier-identity',
+      policy: 'isolated-nonsemantic-supplier-section-boundary-without-supplier-identity',
       candidate_count: candidates.length
     }
   });
