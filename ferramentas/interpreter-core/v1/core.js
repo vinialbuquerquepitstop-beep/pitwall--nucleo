@@ -146,8 +146,24 @@ function applyTransform(value, transform = 'identity') {
   throw new Error(`transform desconhecido: ${transform}`);
 }
 
+function normalizeLiteralKey(input) {
+  return String(input ?? '')
+    .trim()
+    .normalize('NFC')
+    .replace(/\uFE0F/g, '');
+}
+
 function applyFieldValueMap(value, field = {}) {
-  if (value == null || !field.value_map || typeof field.value_map !== 'object') return value;
+  if (value == null) return value;
+
+  if (field.literal_value_map && typeof field.literal_value_map === 'object') {
+    const literalKey = normalizeLiteralKey(value);
+    for (const [raw, canonical] of Object.entries(field.literal_value_map)) {
+      if (normalizeLiteralKey(raw) === literalKey) return canonical;
+    }
+  }
+
+  if (!field.value_map || typeof field.value_map !== 'object') return value;
   const key = normalizeKey(value);
   for (const [raw, canonical] of Object.entries(field.value_map)) {
     if (normalizeKey(raw) === key) return canonical;
@@ -739,7 +755,20 @@ function applyOrderedFieldPairing(segments, schema = {}) {
 
           if (!sourceIsFieldOnly) {
             const topRole = sourceSegment.role_candidates?.[0]?.role || 'unknown';
-            if (!allowedNonFieldOnlyRoles.has(topRole)) continue;
+            const allowedAnchorFields = new Set(
+              Array.isArray(adjacentConfig.allow_when_anchor_field_present)
+                ? adjacentConfig.allow_when_anchor_field_present
+                : adjacentConfig.allow_when_anchor_field_present
+                  ? [adjacentConfig.allow_when_anchor_field_present]
+                  : []
+            );
+            const hasAllowedAnchor = [...allowedAnchorFields].some(anchorField =>
+              uniqueFieldCandidates(
+                sourceSegment.field_candidates || [],
+                anchorField
+              ).length === 1
+            );
+            if (!allowedNonFieldOnlyRoles.has(topRole) && !hasAllowedAnchor) continue;
 
             const normalizedSource = String(sourceSegment.normalized || '').trim();
             const capturedSource = String(candidate.evidence?.captured || candidate.value || '');
@@ -1543,6 +1572,7 @@ module.exports = {
   normalizeText,
   normalizeLine,
   normalizeKey,
+  normalizeLiteralKey,
   isTimestampLine,
   stripMessagePrefix,
   scoreRoles,
