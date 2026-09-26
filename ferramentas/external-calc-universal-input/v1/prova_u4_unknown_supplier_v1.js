@@ -7,6 +7,7 @@ const { applySupplierProfiles } = require('../../interpreter-core/v1/supplier-pr
 const { parseTextSource } = require('./text-adapter');
 const { interpretCanonical } = require('./canonical-interpreter-bridge');
 const { assertCriticalProvenance } = require('./provenance-resolver');
+const { applyUnknownSupplierBoundaryFallback } = require('./unknown-supplier-boundary');
 const { compareUnknownSupplier } = require('./u4-unknown-supplier-metrics');
 
 const fixtureDir = path.join(__dirname, 'fixtures');
@@ -30,7 +31,7 @@ const canonical = parseTextSource({
 const knownSchema = applySupplierProfiles(baseSchema, {
   profiles: [expected.supplier]
 });
-const unknownSchema = applySupplierProfiles(baseSchema, { profiles: [] });
+const unknownSchema = applyUnknownSupplierBoundaryFallback(baseSchema);
 
 const baseline = interpretCanonical({
   document: canonical,
