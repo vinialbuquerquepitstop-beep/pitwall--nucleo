@@ -374,7 +374,7 @@ for (const candidate of unknown.records || []) {
     (item.record.trace || []).find(trace => trace.field === 'color')
   ).filter(Boolean);
   const unknownBoundaryEvent = preceding == null ? false : (unknownSegments.get(preceding)?.context_events || [])
-    .some(event => event.reason === 'unknown_supplier_boundary');
+    .some(event => event.field === '_unknown_supplier_boundary' && event.reason === 'supplier_boundary');
   const candidateColorLine = candidateColorTrace?.sources?.find(value => Number.isInteger(value)) ?? null;
   const baselineColorLines = baselineColorTraces
     .map(trace => trace.sources?.find(value => Number.isInteger(value)) ?? null)
