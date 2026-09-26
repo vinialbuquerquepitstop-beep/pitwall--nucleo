@@ -176,9 +176,23 @@ for (const line of supplierBoundaryLines) {
   supplierRoleCounts[role] = (supplierRoleCounts[role] || 0) + 1;
 }
 
+const sortedSupplierBoundaries = Array.from(supplierBoundaryLines).sort((a, b) => a - b);
+const extraPrecedingSupplierRoles = {};
+for (const record of extras) {
+  const priceLine = traceSource(record, 'price');
+  let preceding = null;
+  for (const line of sortedSupplierBoundaries) {
+    if (line > priceLine) break;
+    preceding = line;
+  }
+  const role = preceding == null ? 'none' : (blocks[preceding - 1]?.top_role || 'missing');
+  extraPrecedingSupplierRoles[role] = (extraPrecedingSupplierRoles[role] || 0) + 1;
+}
+
 const boundaryHeuristics = {
   supplier_boundaries: supplierBoundaryLines.size,
   supplier_top_roles: supplierRoleCounts,
+  extra_preceding_supplier_roles: extraPrecedingSupplierRoles,
   h1_unknown_then_product: evaluateCandidateSet(structuralCandidates(1)),
   h2_unknown_within_2: evaluateCandidateSet(structuralCandidates(2)),
   h3_unknown_within_3: evaluateCandidateSet(structuralCandidates(3))
