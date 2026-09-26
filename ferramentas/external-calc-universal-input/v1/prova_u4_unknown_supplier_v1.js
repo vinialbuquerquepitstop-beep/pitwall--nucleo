@@ -9,6 +9,7 @@ const { interpretCanonical } = require('./canonical-interpreter-bridge');
 const { assertCriticalProvenance } = require('./provenance-resolver');
 const { applyUnknownSupplierBoundaryFallback } = require('./unknown-supplier-boundary');
 const { compareUnknownSupplier } = require('./u4-unknown-supplier-metrics');
+const { validateUnknownSupplierPairing } = require('./unknown-supplier-safety-validator');
 
 const fixtureDir = path.join(__dirname, 'fixtures');
 const content = fs.readFileSync(path.join(fixtureDir, 'u4-unknown-supplier.txt'), 'utf8');
@@ -39,11 +40,11 @@ const baseline = interpretCanonical({
   knowledge
 }, { documentId: 'u4-local-known' });
 
-const unknown = interpretCanonical({
+const unknown = validateUnknownSupplierPairing(interpretCanonical({
   document: canonical,
   schema: unknownSchema,
   knowledge
-}, { documentId: 'u4-local-unknown' });
+}, { documentId: 'u4-local-unknown' }), unknownSchema);
 
 assertCriticalProvenance(unknown, canonical);
 
