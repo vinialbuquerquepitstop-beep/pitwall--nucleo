@@ -26,3 +26,17 @@ PROOF_GOVERNANCE_V1 so pode ser declarado PASS quando:
 3. workflows afetados deixam de depender do nome da branch para autorizar escopo;
 4. regressao funcional permanece verde;
 5. PR #45 fica verde sem excecao especifica para o nome da branch.
+
+
+## Addendum 2026-09-26 — Universal Input
+
+Abertura do Chat B confirmou uma nova superficie estrutural antes de C01: Universal Input.
+
+Decisao humana aprovada:
+- owner explicito `UNIVERSAL_INPUT`;
+- escopo limitado a `ferramentas/external-calc-universal-input/v1/**` e ao gate documental U0;
+- workflow da nova superficie continua sob `WORKFLOW_GOVERNANCE`;
+- qualquer path semelhante fora de V1 continua falhando fechado;
+- nenhuma regra C01-C05, Interpreter, runtime ou frontend e alterada no U0.
+
+O gate especifico esta em `EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0.md`.
