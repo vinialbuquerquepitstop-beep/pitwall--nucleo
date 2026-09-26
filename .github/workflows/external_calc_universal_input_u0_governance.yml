@@ -1,0 +1,59 @@
+name: External Calc - Universal Input U0 Governance
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-universal-input/v1/**'
+      - 'ferramentas/external-calc-proof-governance/v1/**'
+      - 'docs/calculadora/EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0.md'
+      - '.github/workflows/external_calc_universal_input_u0_governance.yml'
+      - '.github/workflows/external_calc_proof_governance_v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  universal-input-u0-governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Prove central governance semantics
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/prova_proof_governance_v1.js
+
+      - name: Prove Universal Input ownership boundary
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/prova_universal_input_u0_ownership.js | tee /tmp/universal-input-u0.log
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_U0_OWNERSHIP=PASS checks=4$' /tmp/universal-input-u0.log
+
+      - name: Enforce changed-file ownership
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
+
+      - name: Prove fail-closed outside Universal Input V1
+        run: |
+          set -euo pipefail
+          if PROOF_GOVERNANCE_CHANGED_FILES='ferramentas/external-calc-universal-input-v2/unsafe.js' node ferramentas/external-calc-proof-governance/v1/proof-governance.js; then
+            echo 'BLOQUEIO: path fora do ownership Universal Input V1 foi aceito'
+            exit 1
+          fi
+          echo 'UNIVERSAL_INPUT_U0_FAIL_CLOSED=PASS'
+
+      - name: Diff check
+        run: git diff --check
