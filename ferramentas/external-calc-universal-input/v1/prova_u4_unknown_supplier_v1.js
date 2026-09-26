@@ -31,7 +31,7 @@ const canonical = parseTextSource({
 const knownSchema = applySupplierProfiles(baseSchema, {
   profiles: [expected.supplier]
 });
-const unknownSchema = applySupplierProfiles(baseSchema, { profiles: [] });
+const unknownSchema = applyUnknownSupplierBoundaryFallback(baseSchema, canonical);
 
 const baseline = interpretCanonical({
   document: canonical,
