@@ -307,11 +307,82 @@ function isolatedNonSemanticCandidates(allowedRoles = null) {
 const h7 = isolatedNonSemanticCandidates();
 const h8 = isolatedNonSemanticCandidates(new Set(['unknown', 'product_header', 'note']));
 
+function normalizedField(record, field) {
+  const value = record?.fields?.[field];
+  if (field === 'model' && value && typeof value === 'object') return value.id ?? value.label ?? null;
+  return value ?? null;
+}
+
+function exactSafeMatch(candidate, expected) {
+  if (normalizedField(candidate, 'price') !== normalizedField(expected, 'price')) return false;
+  return ['model', 'capacity_gb', 'condition', 'color']
+    .every(field => normalizedField(candidate, field) === normalizedField(expected, field));
+}
+
+function partialSafeMatch(candidate, expected) {
+  if (normalizedField(candidate, 'price') !== normalizedField(expected, 'price')) return false;
+  let degraded = false;
+  for (const field of ['model', 'capacity_gb', 'condition', 'color']) {
+    const actual = normalizedField(candidate, field);
+    const baselineValue = normalizedField(expected, field);
+    if (actual == null) {
+      if (baselineValue != null) degraded = true;
+      continue;
+    }
+    if (baselineValue == null || actual !== baselineValue) return false;
+  }
+  return degraded;
+}
+
+const unsafeGroups = {};
+const safetyMatched = new Set();
+for (const candidate of unknown.records || []) {
+  const priceLine = traceSource(candidate, 'price');
+  const sameLine = (baseline.records || [])
+    .map((record, index) => ({ record, index }))
+    .filter(item => !safetyMatched.has(item.index) && traceSource(item.record, 'price') === priceLine);
+
+  let match = sameLine.find(item => exactSafeMatch(candidate, item.record));
+  if (!match) match = sameLine.find(item => partialSafeMatch(candidate, item.record));
+  if (match) {
+    safetyMatched.add(match.index);
+    continue;
+  }
+
+  const conflictFields = [];
+  if (sameLine.length > 0) {
+    for (const field of ['model', 'capacity_gb', 'condition', 'color']) {
+      const actual = normalizedField(candidate, field);
+      if (actual == null) continue;
+      const anyEqual = sameLine.some(item => normalizedField(item.record, field) === actual);
+      if (!anyEqual) conflictFields.push(field);
+    }
+    if (normalizedField(candidate, 'price') != null
+        && !sameLine.some(item => normalizedField(item.record, 'price') === normalizedField(candidate, 'price'))) {
+      conflictFields.push('price');
+    }
+  }
+
+  let preceding = null;
+  for (const line of sortedSupplierBoundaries) {
+    if (line > priceLine) break;
+    preceding = line;
+  }
+  const precedingRole = preceding == null ? 'none' : (blocks[preceding - 1]?.top_role || 'missing');
+  const key = JSON.stringify({
+    reason: sameLine.length ? 'identity_conflict' : 'new_price_source',
+    conflict_fields: conflictFields.sort(),
+    preceding_supplier_role: precedingRole
+  });
+  unsafeGroups[key] = (unsafeGroups[key] || 0) + 1;
+}
+
 const boundaryHeuristics = {
   supplier_boundaries: supplierBoundaryLines.size,
   supplier_top_roles: supplierRoleCounts,
   extra_preceding_supplier_roles: extraPrecedingSupplierRoles,
   p0_boundary_count: badBoundaryLines.size,
+  unsafe_assignment_groups: unsafeGroups,
   p0_boundary_feature_groups: p0BoundaryFeatureCounts,
   non_p0_supplier_feature_group_count: Object.keys(nonP0SupplierFeatureCounts).length,
   h1_unknown_then_product: evaluateCandidateSet(structuralCandidates(1)),
