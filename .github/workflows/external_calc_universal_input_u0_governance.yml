@@ -41,6 +41,24 @@ jobs:
           node ferramentas/external-calc-proof-governance/v1/prova_universal_input_u0_ownership.js | tee /tmp/universal-input-u0.log
           grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_U0_OWNERSHIP=PASS checks=4$' /tmp/universal-input-u0.log
 
+      - name: Prove Universal Input B1-B3 contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_universal_input_v1.js | tee /tmp/universal-input-b1-b3.log
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_B1_B3=PASS checks=9
+      - name: Prove fail-closed outside Universal Input V1
+        run: |
+          set -euo pipefail
+          if PROOF_GOVERNANCE_CHANGED_FILES='ferramentas/external-calc-universal-input-v2/unsafe.js' node ferramentas/external-calc-proof-governance/v1/proof-governance.js; then
+            echo 'BLOQUEIO: path fora do ownership Universal Input V1 foi aceito'
+            exit 1
+          fi
+          echo 'UNIVERSAL_INPUT_U0_FAIL_CLOSED=PASS'
+
+      - name: Diff check
+        run: git diff --check
+ /tmp/universal-input-b1-b3.log
+
       - name: Enforce changed-file ownership
         run: |
           set -euo pipefail
