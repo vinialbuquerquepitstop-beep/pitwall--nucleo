@@ -43,7 +43,7 @@ const baseline = interpretCanonical({
 
 const unknown = interpretCanonical({
   document: canonical,
-  schema: applySupplierProfiles(baseSchema, { profiles: [] }),
+  schema: applyUnknownSupplierBoundaryFallback(baseSchema, canonical),
   knowledge
 }, { documentId: 'u4-real-unknown' });
 
