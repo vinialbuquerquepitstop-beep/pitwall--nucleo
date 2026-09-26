@@ -71,7 +71,8 @@ function boundaryReviewForBaseline(record, unknown) {
 
   const segment = (unknown.segments || []).find(item => item.line_number === supplierLine);
   return (segment?.context_events || []).some(event =>
-    event.reason === 'unknown_supplier_boundary'
+    event.field === '_unknown_supplier_boundary'
+      && event.reason === 'supplier_boundary'
   );
 }
 
