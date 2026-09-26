@@ -48,6 +48,91 @@ const unknown = interpretCanonical({
 assertCriticalProvenance(unknown, canonical);
 
 const metrics = compareUnknownSupplier(baseline, unknown);
+
+function traceSource(record, field) {
+  const item = (record.trace || []).find(entry => entry.field === field);
+  return item?.sources?.find(value => Number.isInteger(value)) || null;
+}
+
+function multiset(records) {
+  const map = new Map();
+  for (const record of records || []) {
+    const model = record.fields?.model?.id || record.fields?.model || null;
+    const signature = JSON.stringify({
+      model,
+      capacity_gb: record.fields?.capacity_gb ?? null,
+      condition: record.fields?.condition ?? null,
+      color: record.fields?.color ?? null,
+      price: record.fields?.price ?? null
+    });
+    if (!map.has(signature)) map.set(signature, []);
+    map.get(signature).push(record);
+  }
+  return map;
+}
+
+const baselineBuckets = multiset(baseline.records);
+const extras = [];
+for (const record of unknown.records || []) {
+  const model = record.fields?.model?.id || record.fields?.model || null;
+  const signature = JSON.stringify({
+    model,
+    capacity_gb: record.fields?.capacity_gb ?? null,
+    condition: record.fields?.condition ?? null,
+    color: record.fields?.color ?? null,
+    price: record.fields?.price ?? null
+  });
+  const bucket = baselineBuckets.get(signature) || [];
+  if (bucket.length) bucket.pop();
+  else extras.push(record);
+}
+
+const baselineSegments = new Map((baseline.segments || []).map(segment => [segment.line_number, segment]));
+const unknownSegments = new Map((unknown.segments || []).map(segment => [segment.line_number, segment]));
+const criticalContext = ['model', 'capacity_gb', 'condition', 'color'];
+const contextDrift = Object.fromEntries(criticalContext.map(field => [field, 0]));
+let extrasUnderKnownSupplierContext = 0;
+let extrasWithInheritedCritical = 0;
+let extrasWithDirectPrice = 0;
+
+for (const record of extras) {
+  const priceLine = traceSource(record, 'price');
+  const baselineSegment = baselineSegments.get(priceLine);
+  const unknownSegment = unknownSegments.get(priceLine);
+
+  if (baselineSegment?.inherited_context?.supplier) {
+    extrasUnderKnownSupplierContext += 1;
+  }
+
+  let inherited = false;
+  for (const field of criticalContext) {
+    const before = JSON.stringify(baselineSegment?.inherited_context?.[field] ?? null);
+    const after = JSON.stringify(unknownSegment?.inherited_context?.[field] ?? null);
+    if (before !== after) contextDrift[field] += 1;
+
+    const trace = (record.trace || []).find(item => item.field === field);
+    if ((trace?.rules || []).some(rule => rule === 'context_inheritance' || rule.startsWith('anchor_precedence:'))) {
+      inherited = true;
+    }
+  }
+  if (inherited) extrasWithInheritedCritical += 1;
+
+  const priceTrace = (record.trace || []).find(item => item.field === 'price');
+  if ((priceTrace?.rules || []).includes('direct_extraction')) {
+    extrasWithDirectPrice += 1;
+  }
+}
+
+console.log(JSON.stringify({
+  u4_diagnostic: {
+    wrong_price: metrics.wrong_price,
+    extra_records: extras.length,
+    extras_under_known_supplier_context: extrasUnderKnownSupplierContext,
+    extras_with_inherited_critical_context: extrasWithInheritedCritical,
+    extras_with_direct_price: extrasWithDirectPrice,
+    context_drift_counts: contextDrift
+  }
+}));
 assert(metrics.baseline_records > 0, 'baseline real sem records');
 assert.strictEqual(metrics.wrong_price, 0, 'supplier desconhecido criou assinatura de preco nova');
 assert.strictEqual(metrics.supplier_invented, 0, 'supplier desconhecido foi inventado');
