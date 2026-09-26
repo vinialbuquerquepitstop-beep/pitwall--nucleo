@@ -24,7 +24,8 @@ const MIME_TYPES = new Map([
 ]);
 
 const ADAPTERS = new Map([
-  ['txt', 'text-native-v1']
+  ['txt', 'text-native-v1'],
+  ['csv', 'csv-native-v1']
 ]);
 
 function routeError(reason, message, details = {}) {

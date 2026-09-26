@@ -60,7 +60,7 @@ check('FormatRouter falha fechado em conflito de tipo', () => {
 
 check('FormatRouter nao finge adapter ainda nao implementado', () => {
   assert.throws(
-    () => routeSource({ filename: 'lista.csv', mime_type: 'text/csv' }),
+    () => routeSource({ filename: 'lista.xlsx', mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
     error => error.code === 'UNSUPPORTED_FORMAT' && error.reason === 'ADAPTER_NOT_IMPLEMENTED'
   );
 });

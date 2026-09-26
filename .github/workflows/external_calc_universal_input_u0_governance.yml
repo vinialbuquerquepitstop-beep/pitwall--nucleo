@@ -47,6 +47,12 @@ jobs:
           node ferramentas/external-calc-universal-input/v1/prova_universal_input_v1.js | tee /tmp/universal-input-b1-b3.log
           grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_B1_B3=PASS checks=10$' /tmp/universal-input-b1-b3.log
 
+      - name: Prove Universal Input B4 CsvAdapter
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_csv_adapter_v1.js | tee /tmp/universal-input-b4-csv.log
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_B4_CSV=PASS checks=7$' /tmp/universal-input-b4-csv.log
+
       - name: Prove frozen Interpreter Core local regression
         run: |
           set -euo pipefail
