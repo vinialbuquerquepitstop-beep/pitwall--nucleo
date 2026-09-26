@@ -369,10 +369,35 @@ for (const candidate of unknown.records || []) {
     preceding = line;
   }
   const precedingRole = preceding == null ? 'none' : (blocks[preceding - 1]?.top_role || 'missing');
+  const candidateColorTrace = (candidate.trace || []).find(item => item.field === 'color');
+  const baselineColorTraces = sameLine.map(item =>
+    (item.record.trace || []).find(trace => trace.field === 'color')
+  ).filter(Boolean);
+  const unknownBoundaryEvent = preceding == null ? false : (unknownSegments.get(preceding)?.context_events || [])
+    .some(event => event.reason === 'unknown_supplier_boundary');
+  const candidateColorLine = candidateColorTrace?.sources?.find(value => Number.isInteger(value)) ?? null;
+  const baselineColorLines = baselineColorTraces
+    .map(trace => trace.sources?.find(value => Number.isInteger(value)) ?? null)
+    .filter(value => value != null);
+  const candidateColorRole = candidateColorLine == null
+    ? 'none'
+    : (blocks[candidateColorLine - 1]?.top_role || 'missing');
+
   const key = JSON.stringify({
     reason: sameLine.length ? 'identity_conflict' : 'new_price_source',
     conflict_fields: conflictFields.sort(),
-    preceding_supplier_role: precedingRole
+    preceding_supplier_role: precedingRole,
+    unknown_boundary_event_present: unknownBoundaryEvent,
+    price_line_offset_from_boundary: preceding == null || priceLine == null ? null : priceLine - preceding,
+    candidate_color_line_offset_from_boundary: preceding == null || candidateColorLine == null ? null : candidateColorLine - preceding,
+    candidate_color_role: candidateColorRole,
+    candidate_color_rules: (candidateColorTrace?.rules || []).slice().sort(),
+    baseline_color_line_offsets_from_boundary: baselineColorLines
+      .map(line => preceding == null ? null : line - preceding)
+      .sort((a, b) => (a ?? 0) - (b ?? 0)),
+    baseline_color_rule_groups: baselineColorTraces
+      .map(trace => (trace.rules || []).slice().sort().join('+'))
+      .sort()
   });
   unsafeGroups[key] = (unsafeGroups[key] || 0) + 1;
 }
