@@ -4,6 +4,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const { applySupplierProfiles } = require('../../interpreter-core/v1/supplier-profile-adapter');
+const { scoreRoles } = require('../../interpreter-core/v1/core');
 const { parseTextSource } = require('./text-adapter');
 const { interpretCanonical } = require('./canonical-interpreter-bridge');
 const { assertCriticalProvenance } = require('./provenance-resolver');
@@ -124,6 +125,65 @@ for (const record of extras) {
   }
 }
 
+const supplierBoundaryLines = new Set(
+  (baseline.segments || [])
+    .filter(segment => (segment.context_events || []).some(event => event.reason === 'supplier_boundary'))
+    .map(segment => segment.line_number)
+);
+
+const blocks = canonical.blocks.map((block, index) => ({
+  line: index + 1,
+  text: block.text,
+  top_role: scoreRoles(block.text)[0]?.role || 'none'
+}));
+
+function nextNonEmpty(startIndex, limit) {
+  const out = [];
+  for (let i = startIndex + 1; i < blocks.length && out.length < limit; i += 1) {
+    if (blocks[i].text.trim() !== '') out.push(blocks[i]);
+  }
+  return out;
+}
+
+function evaluateCandidateSet(lines) {
+  let hits = 0;
+  for (const line of lines) if (supplierBoundaryLines.has(line)) hits += 1;
+  return {
+    candidates: lines.length,
+    hits,
+    precision: lines.length ? hits / lines.length : 1,
+    recall: supplierBoundaryLines.size ? hits / supplierBoundaryLines.size : 1
+  };
+}
+
+function structuralCandidates(windowSize) {
+  const lines = [];
+  for (let i = 0; i < blocks.length; i += 1) {
+    if (blocks[i].top_role !== 'unknown') continue;
+    const next = nextNonEmpty(i, windowSize);
+    const firstProductIndex = next.findIndex(item => item.top_role === 'product_header');
+    if (firstProductIndex < 0) continue;
+    const beforeProduct = next.slice(0, firstProductIndex);
+    if (beforeProduct.some(item => item.top_role === 'price_line')) continue;
+    lines.push(blocks[i].line);
+  }
+  return lines;
+}
+
+const supplierRoleCounts = {};
+for (const line of supplierBoundaryLines) {
+  const role = blocks[line - 1]?.top_role || 'missing';
+  supplierRoleCounts[role] = (supplierRoleCounts[role] || 0) + 1;
+}
+
+const boundaryHeuristics = {
+  supplier_boundaries: supplierBoundaryLines.size,
+  supplier_top_roles: supplierRoleCounts,
+  h1_unknown_then_product: evaluateCandidateSet(structuralCandidates(1)),
+  h2_unknown_within_2: evaluateCandidateSet(structuralCandidates(2)),
+  h3_unknown_within_3: evaluateCandidateSet(structuralCandidates(3))
+};
+
 console.log(JSON.stringify({
   u4_diagnostic: {
     wrong_price: metrics.wrong_price,
@@ -131,7 +191,8 @@ console.log(JSON.stringify({
     extras_under_known_supplier_context: extrasUnderKnownSupplierContext,
     extras_with_inherited_critical_context: extrasWithInheritedCritical,
     extras_with_direct_price: extrasWithDirectPrice,
-    context_drift_counts: contextDrift
+    context_drift_counts: contextDrift,
+    boundary_heuristics: boundaryHeuristics
   }
 }));
 assert(metrics.baseline_records > 0, 'baseline real sem records');
