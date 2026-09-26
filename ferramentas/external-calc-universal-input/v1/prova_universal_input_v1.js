@@ -33,6 +33,14 @@ function collectKeys(value, keys = new Set()) {
   return keys;
 }
 
+check('CanonicalDocument JSON Schema e JSON valido e declara a versao V1', () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(__dirname, 'canonical-document.schema.json'), 'utf8'));
+  assert.strictEqual(schema.$id, 'external-calc/canonical-document/v1');
+  assert.strictEqual(schema.properties.schema_version.const, '1.0');
+  assert(schema.required.includes('blocks'));
+  assert(schema.required.includes('warnings'));
+});
+
 check('FormatRouter seleciona TextAdapter por extensao e MIME coerentes', () => {
   const route = routeSource({
     filename: 'lista.txt',
