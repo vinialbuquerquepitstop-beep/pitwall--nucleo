@@ -30,6 +30,34 @@ function assertNullablePositiveInteger(value, field) {
   }
 }
 
+function validateCell(cell, field) {
+  if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
+    fail('SOURCE_CORRUPTED', field + ' invalido');
+  }
+  assertNonEmptyString(cell.cell_id, field + '.cell_id');
+  if (!Number.isInteger(cell.column) || cell.column < 1) {
+    fail('SOURCE_CORRUPTED', field + '.column invalido');
+  }
+  if (!Object.prototype.hasOwnProperty.call(cell, 'raw')) {
+    fail('SOURCE_CORRUPTED', field + '.raw obrigatorio');
+  }
+  if (cell.cell_ref != null && (typeof cell.cell_ref !== 'string' || !/^[A-Za-z]+[1-9]\d*$/.test(cell.cell_ref))) {
+    fail('SOURCE_CORRUPTED', field + '.cell_ref invalido');
+  }
+  if (cell.value_type != null && typeof cell.value_type !== 'string') {
+    fail('SOURCE_CORRUPTED', field + '.value_type invalido');
+  }
+  if (cell.formula != null && typeof cell.formula !== 'string') {
+    fail('SOURCE_CORRUPTED', field + '.formula invalido');
+  }
+  if (cell.style_index != null && typeof cell.style_index !== 'string') {
+    fail('SOURCE_CORRUPTED', field + '.style_index invalido');
+  }
+  if (cell.shared_string_index != null && (!Number.isInteger(cell.shared_string_index) || cell.shared_string_index < 0)) {
+    fail('SOURCE_CORRUPTED', field + '.shared_string_index invalido');
+  }
+}
+
 function validateCanonicalDocument(document) {
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
     fail('SOURCE_CORRUPTED', 'CanonicalDocument deve ser objeto');
@@ -74,6 +102,12 @@ function validateCanonicalDocument(document) {
     }
     if (typeof block.text !== 'string') {
       fail('SOURCE_CORRUPTED', 'block.text deve ser string');
+    }
+    if (block.cells != null) {
+      if (!Array.isArray(block.cells)) {
+        fail('SOURCE_CORRUPTED', 'block.cells deve ser array');
+      }
+      block.cells.forEach((cell, cellIndex) => validateCell(cell, `block.cells[${cellIndex}]`));
     }
     const provenance = block.provenance;
     if (!provenance || typeof provenance !== 'object' || Array.isArray(provenance)) {
