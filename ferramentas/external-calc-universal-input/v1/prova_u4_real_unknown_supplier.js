@@ -10,6 +10,7 @@ const { interpretCanonical } = require('./canonical-interpreter-bridge');
 const { assertCriticalProvenance } = require('./provenance-resolver');
 const { applyUnknownSupplierBoundaryFallback } = require('./unknown-supplier-boundary');
 const { compareUnknownSupplier } = require('./u4-unknown-supplier-metrics');
+const { validateUnknownSupplierPairing } = require('./unknown-supplier-safety-validator');
 
 const rawPath = process.argv[2];
 const supplierProfilesPath = process.argv[3];
@@ -41,11 +42,12 @@ const baseline = interpretCanonical({
   knowledge
 }, { documentId: 'u4-real-known' });
 
-const unknown = interpretCanonical({
+const unknownSchema = applyUnknownSupplierBoundaryFallback(baseSchema, canonical);
+const unknown = validateUnknownSupplierPairing(interpretCanonical({
   document: canonical,
-  schema: applyUnknownSupplierBoundaryFallback(baseSchema, canonical),
+  schema: unknownSchema,
   knowledge
-}, { documentId: 'u4-real-unknown' });
+}, { documentId: 'u4-real-unknown' }), unknownSchema);
 
 assertCriticalProvenance(unknown, canonical);
 
