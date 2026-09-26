@@ -1,5 +1,6 @@
 'use strict';
 const fs = require('node:fs');
+const path = require('node:path');
 const assert = require('node:assert');
 const { crc32, readZipEntries } = require('./xlsx-zip-reader');
 const { safeXml } = require('./xlsx-xml');
@@ -8,7 +9,7 @@ const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 let checks=0;
 function check(name,fn){fn();checks+=1;console.log('OK '+checks+' - '+name);}
-function fixture(){return Buffer.from(fs.readFileSync('./xlsx-multi-sheet.base64.txt','utf8').trim(),'base64');}
+function fixture(){return Buffer.from(fs.readFileSync(path.join(__dirname,'fixtures','xlsx-multi-sheet.base64.txt'),'utf8').trim(),'base64');}
 
 function storedZip(entries, options={}) {
   const locals=[]; const centrals=[]; let offset=0;
