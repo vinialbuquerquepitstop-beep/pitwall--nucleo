@@ -5,7 +5,8 @@ const { execFileSync } = require('node:child_process');
 const OWNERS = [
   { owner: 'UNIVERSAL_INPUT', patterns: [
     /^ferramentas\/external-calc-universal-input\/v1\//,
-    /^docs\/calculadora\/EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0\.md$/
+    /^docs\/calculadora\/EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0\.md$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_UNIVERSAL_INPUT_U2_EQUIVALENCE_GATE_V0\.md$/
   ] },
   { owner: 'C03_C04_MARKET_POLICY', patterns: [
     /^docs\/calculadora\/EXTERNAL_CALC_C03_C04_PRODUCTION_POLICY_PROPOSAL_V1\.md$/,
@@ -78,6 +79,7 @@ const OWNERS = [
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
   { owner: 'WORKFLOW_GOVERNANCE', patterns: [
     /^\.github\/workflows\/external_calc_universal_input_u0_governance\.yml$/,
+    /^\.github\/workflows\/external_calc_universal_input_u2_equivalence\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_queue_api_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_runtime_api_v0\.yml$/,
     /^\.github\/workflows\/external_calc_c01_review_candidate_persistence_v0\.yml$/,
