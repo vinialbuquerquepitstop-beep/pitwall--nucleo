@@ -47,6 +47,33 @@ jobs:
           node ferramentas/external-calc-universal-input/v1/prova_universal_input_v1.js | tee /tmp/universal-input-b1-b3.log
           grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_B1_B3=PASS checks=10$' /tmp/universal-input-b1-b3.log
 
+      - name: Prove Universal Input B4 CsvAdapter
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_csv_adapter_v1.js | tee /tmp/universal-input-b4-csv.log
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_B4_CSV=PASS checks=7        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js | tee /tmp/interpreter-local-gate.log
+          grep -q '^GATE_LOCAL=PASS' /tmp/interpreter-local-gate.log
+
+      - name: Enforce changed-file ownership
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-proof-governance/v1/proof-governance.js
+
+      - name: Prove fail-closed outside Universal Input V1
+        run: |
+          set -euo pipefail
+          if PROOF_GOVERNANCE_CHANGED_FILES='ferramentas/external-calc-universal-input-v2/unsafe.js' node ferramentas/external-calc-proof-governance/v1/proof-governance.js; then
+            echo 'BLOQUEIO: path fora do ownership Universal Input V1 foi aceito'
+            exit 1
+          fi
+          echo 'UNIVERSAL_INPUT_U0_FAIL_CLOSED=PASS'
+
+      - name: Diff check
+        run: git diff --check
+ /tmp/universal-input-b4-csv.log
+
       - name: Prove frozen Interpreter Core local regression
         run: |
           set -euo pipefail
