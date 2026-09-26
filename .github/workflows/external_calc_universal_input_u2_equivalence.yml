@@ -1,0 +1,175 @@
+name: External Calc - Universal Input U2 Equivalence
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-universal-input/v1/canonical-interpreter-bridge.js'
+      - 'ferramentas/external-calc-universal-input/v1/prova_u2_equivalence_v1.js'
+      - 'ferramentas/external-calc-universal-input/v1/prova_u2_real_corpus_equivalence.js'
+      - 'ferramentas/external-calc-universal-input/v1/text-adapter.js'
+      - 'ferramentas/external-calc-universal-input/v1/csv-adapter.js'
+      - 'ferramentas/interpreter-core/v1/core.js'
+      - 'ferramentas/interpreter-core/v1/supplier-profile-adapter.js'
+      - 'ferramentas/interpreter-core/v1/domains/apple-iphone-v0.schema.json'
+      - 'ferramentas/interpreter-core/v1/domains/apple-iphone-v0.knowledge.json'
+      - 'docs/calculadora/EXTERNAL_CALC_UNIVERSAL_INPUT_U2_EQUIVALENCE_GATE_V0.md'
+      - '.github/workflows/external_calc_universal_input_u2_equivalence.yml'
+  workflow_dispatch:
+    inputs:
+      load_id:
+        description: 'Private read-only calc_carga UUID'
+        required: false
+        default: '6c4d3491-f85b-4015-8393-9798ab1ce758'
+
+permissions:
+  contents: read
+
+jobs:
+  u2-local-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Prove U2 local equivalence
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_u2_equivalence_v1.js | tee /tmp/u2-local.log
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_U2_LOCAL=PASS checks=8 strict_cases=6 new_silent_wrong_price=0$' /tmp/u2-local.log
+
+      - name: Diff check
+        run: git diff --check
+
+  u2-real-corpus-equivalence:
+    needs: u2-local-equivalence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LOAD_ID: ${{ github.event.inputs.load_id || '6c4d3491-f85b-4015-8393-9798ab1ce758' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install PostgreSQL client 17
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y postgresql-client-17 >/dev/null
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Prepare private read-only U2 input
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "FALHA: SUPABASE_DB_URL secret ausente."
+            exit 1
+          fi
+
+          if ! [[ "$LOAD_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "FALHA: load_id invalido."
+            exit 1
+          fi
+
+          OWNER_ID="$(
+            psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1               -c "select u.id::text
+                    from public.app_usuario u
+                    join public.calc_carga c on c.tenant_id = u.tenant_id
+                   where c.id = '$LOAD_ID'::uuid
+                     and u.ativo
+                     and u.papel = 'dono'
+                   order by u.id
+                   limit 1"
+          )"
+
+          if [ -z "$OWNER_ID" ]; then
+            echo "FALHA: dono ativo nao encontrado para o tenant da carga."
+            exit 1
+          fi
+
+          CLAIMS="{\"sub\":\"$OWNER_ID\"}"
+
+          psql "$SUPABASE_DB_URL" --no-psqlrc -X -qAt -v ON_ERROR_STOP=1             -v claims="$CLAIMS" -v load_id="$LOAD_ID" <<'SQL'
+          \o /dev/null
+          select set_config('request.jwt.claims', :'claims', false);
+
+          \o /tmp/u2_raw.b64
+          select encode(convert_to(texto_bruto, 'UTF8'), 'base64')
+            from public.calc_carga
+           where id = :'load_id'::uuid
+             and texto_bruto is not null;
+
+          \o /tmp/u2_supplier_profiles.json
+          select jsonb_build_object(
+                   'contract_version', 'supplier-profiles/v1',
+                   'profiles',
+                   coalesce(
+                     (
+                       select jsonb_agg(
+                                jsonb_build_object(
+                                  'id', f.codigo,
+                                  'label', f.nome,
+                                  'aliases',
+                                  coalesce(
+                                    (
+                                      select jsonb_agg(a.texto order by length(a.texto) desc, a.texto)
+                                        from public.calc_alias a
+                                       where a.tenant_id = f.tenant_id
+                                         and a.tipo = 'fornecedor'
+                                         and a.aponta = f.codigo
+                                    ),
+                                    '[]'::jsonb
+                                  )
+                                )
+                                order by length(f.nome) desc, f.nome
+                              )
+                         from public.calc_fornecedor f
+                        where f.tenant_id = c.tenant_id
+                          and f.ativo
+                     ),
+                     '[]'::jsonb
+                   )
+                 )::text
+            from public.calc_carga c
+           where c.id = :'load_id'::uuid;
+          \o
+          SQL
+
+          test -s /tmp/u2_raw.b64
+          test -s /tmp/u2_supplier_profiles.json
+          base64 --decode /tmp/u2_raw.b64 > /tmp/u2_raw.txt
+          node -e "const x=JSON.parse(require('fs').readFileSync('/tmp/u2_supplier_profiles.json','utf8')); if(!Array.isArray(x.profiles)||x.profiles.length===0) process.exit(1);"
+          echo "U2_PRIVATE_INPUT_READY=1"
+
+      - name: Prove U2 real-corpus equivalence
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_u2_real_corpus_equivalence.js             /tmp/u2_raw.txt /tmp/u2_supplier_profiles.json | tee /tmp/u2-real.log
+
+          grep -q '^EXTERNAL_CALC_UNIVERSAL_INPUT_U2_REAL=PASS .* new_silent_wrong_price=0$' /tmp/u2-real.log
+          echo "U2_REAL_CORPUS_GATE=PASS"
+
+      - name: Cleanup private U2 files
+        if: always()
+        run: |
+          rm -f /tmp/u2_raw.b64 /tmp/u2_raw.txt                 /tmp/u2_supplier_profiles.json /tmp/u2-real.log
