@@ -1,0 +1,42 @@
+name: External Calc - Universal Input U3 Provenance
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ferramentas/external-calc-universal-input/v1/**'
+      - 'ferramentas/interpreter-core/v1/**'
+      - 'docs/calculadora/EXTERNAL_CALC_UNIVERSAL_INPUT_U3_PROVENANCE_GATE_V0.md'
+      - '.github/workflows/external_calc_universal_input_u3_provenance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  u3-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Prove U3 provenance
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-universal-input/v1/prova_u3_provenance_v1.js | tee /tmp/u3.log
+          grep -Eq '^EXTERNAL_CALC_UNIVERSAL_INPUT_U3=PASS checks=7 critical_fields=[1-9][0-9]* price_fields=[1-9][0-9]* unresolved_critical_provenance=0$' /tmp/u3.log
+
+      - name: Frozen Interpreter regression
+        run: |
+          set -euo pipefail
+          node ferramentas/interpreter-core/v1/gate_interpreter_ready_local.js | tee /tmp/interpreter.log
+          grep -q '^GATE_LOCAL=PASS$' /tmp/interpreter.log
+
+      - name: Diff check
+        run: git diff --check
