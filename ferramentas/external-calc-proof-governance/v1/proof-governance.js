@@ -38,7 +38,8 @@ const OWNERS = [
   ] },
   { owner: 'SALES_PRODUCT_T04', patterns: [
     /^ferramentas\/external-calc-sales-product\/v0\//,
-    /^supabase\/migrations\/20260923061000_external_calc_sales_product_context_v0\.sql$/
+    /^supabase\/migrations\/20260923061000_external_calc_sales_product_context_v0\.sql$/,
+    /^supabase\/migrations\/20260930190000_external_calc_home_product_projection_v1\.sql$/
   ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
@@ -105,7 +106,8 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_ai_advisor_a4\.yml$/,
     /^\.github\/workflows\/external_calc_ai_advisor_a41_production\.yml$/,
     /^\.github\/workflows\/external_calc_research_provider\.yml$/,
-    /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/
+    /^\.github\/workflows\/external_calc_simular_venda_t04\.yml$/,
+    /^\.github\/workflows\/external_calc_home_product_projection_v1\.yml$/
   ] }
 ];
 
