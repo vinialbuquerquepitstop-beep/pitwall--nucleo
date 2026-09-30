@@ -2,6 +2,7 @@
 const crypto=require('crypto');
 const {calculateInstallments}=require('../../external-calc-c02/v1/c02-calculator');
 const {coefficientFromRate}=require('../../external-calc-store-rate/v1/store-rate-resolver');
+const {buildHomeProjection}=require('./home-product-projection');
 
 const PRODUCT_OPTIONS_VERSION='external-calc-product-options/v0';
 const OFFER_OPTIONS_VERSION='external-calc-offer-options/v0';
@@ -194,9 +195,10 @@ function resolveSimulation(candidates,policy,rateProfile,command){
 }
 function createSalesProductService({source}={}){
  if(!source)throw new Error('source obrigatorio');
- for(const m of ['loadMembership','loadCurrentOffers','loadActiveTradeInPolicy','loadActiveRateProfile'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
+ for(const m of ['loadMembership','loadCurrentOffers','loadHomeContext','loadActiveTradeInPolicy','loadActiveRateProfile'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
  async function ctx(auth){const m=await source.loadMembership({auth_user_id:str(auth,'auth_user_id')});if(!m||!m.ativo||!['dono','validador','vendedor'].includes(m.papel))fail('PRODUCT_FORBIDDEN');return m;}
  return {
+  async getHome({auth_user_id,generated_at}){await ctx(auth_user_id);return buildHomeProjection(await source.loadHomeContext(),{generated_at});},
   async listProductOptions({auth_user_id,command}){await ctx(auth_user_id);return listProductOptions(await source.loadCurrentOffers(),command);},
   async listOfferOptions({auth_user_id,command}){await ctx(auth_user_id);return listOfferOptions(await source.loadCurrentOffers(),command);},
   async resolveVariant({auth_user_id,command}){await ctx(auth_user_id);return resolveVariant(await source.loadCurrentOffers(),command);},

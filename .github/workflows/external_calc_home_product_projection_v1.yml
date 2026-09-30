@@ -1,0 +1,25 @@
+name: External Calc Home Product Projection V1
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-sales-product/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/runtime.js'
+      - 'supabase/migrations/20260930190000_external_calc_home_product_projection_v1.sql'
+      - '.github/workflows/external_calc_home_product_projection_v1.yml'
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Home projection invariants
+        run: node ferramentas/external-calc-sales-product/v0/prova_home_product_projection_v1.js
+      - name: Syntax check integration files
+        run: |
+          node --check ferramentas/external-calc-sales-product/v0/home-product-projection.js
+          node --check ferramentas/external-calc-sales-product/v0/postgres-sales-product-source.js
+          node --check ferramentas/external-calc-sales-product/v0/sales-product-service.js
+          node --check ferramentas/external-calc-sales-product/v0/sales-product-api.js
+          node --check ferramentas/external-calc-runtime/v0/runtime.js
