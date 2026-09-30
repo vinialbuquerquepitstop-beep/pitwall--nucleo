@@ -12,7 +12,7 @@ assert.match(api,/path===PRODUCT_OPTIONS_PATH\?await service\.listProductOptions
 assert.match(api,/path===OFFER_OPTIONS_PATH\?await service\.listOfferOptions/);
 assert.match(service,/async listProductOptions\(\{auth_user_id,command\}\)\{await ctx\(auth_user_id\);return listProductOptions\(await source\.loadCurrentOffers\(\),command\);\}/);
 assert.match(service,/async listOfferOptions\(\{auth_user_id,command\}\)\{await ctx\(auth_user_id\);return listOfferOptions\(await source\.loadCurrentOffers\(\),command\);\}/);
-assert.match(runtime,/PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH/);
-assert.match(runtime,/\[PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH\]\.includes\(url\.pathname\)/);
+assert.match(runtime,/HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH/);
+assert.match(runtime,/\[HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH\]\.includes\(url\.pathname\)/);
 
 console.log('EXTERNAL_CALC_PRODUCT_OPTIONS_RUNTIME_WIRING=PASS');
