@@ -23,9 +23,9 @@ function createTrackedModelApiV0({env}={}){
    if(method==='GET')return json(200,{api_version:'external-calc-tracked-model-api/v0',result:{tracking_version:'external-calc-tracked-model/v0',items:await rpc(env,token,'extcalc_product_tracked_models_v0')}});
    const command=await body(request);
    if(path===TRACKED_MODELS_PATH){
-    const allowed=new Set(['model_id','capacity_gb','condition']);for(const k of Object.keys(command))if(!allowed.has(k))throw Object.assign(new Error('campo proibido: '+k),{code:'TRACKED_MODEL_INVALID'});
-    if(typeof command.model_id!=='string'||!command.model_id.trim()||(command.capacity_gb!=null&&(!Number.isInteger(command.capacity_gb)||command.capacity_gb<=0)))throw Object.assign(new Error('modelo invalido'),{code:'TRACKED_MODEL_INVALID'});
-    const result=await rpc(env,token,'extcalc_product_track_model_v0',{p_model_id:command.model_id.trim(),p_capacity_gb:command.capacity_gb??null,p_condition:command.condition??null});
+    const allowed=new Set(['model_id','capacity_gb','condition','customer_name','customer_phone']);for(const k of Object.keys(command))if(!allowed.has(k))throw Object.assign(new Error('campo proibido: '+k),{code:'TRACKED_MODEL_INVALID'});
+    if(typeof command.model_id!=='string'||!command.model_id.trim()||(command.capacity_gb!=null&&(!Number.isInteger(command.capacity_gb)||command.capacity_gb<=0))||typeof command.customer_name!=='string'||!command.customer_name.trim()||command.customer_name.trim().length>120||typeof command.customer_phone!=='string'||!command.customer_phone.trim()||command.customer_phone.trim().length>40)throw Object.assign(new Error('modelo ou cliente invalido'),{code:'TRACKED_MODEL_INVALID'});
+    const result=await rpc(env,token,'extcalc_product_track_model_v1',{p_model_id:command.model_id.trim(),p_customer_name:command.customer_name.trim(),p_customer_phone:command.customer_phone.trim(),p_capacity_gb:command.capacity_gb??null,p_condition:command.condition??null});
     return json(200,{api_version:'external-calc-tracked-model-api/v0',result});
    }
    if(Object.keys(command).length!==1||typeof command.tracked_model_id!=='string'||!command.tracked_model_id.trim())throw Object.assign(new Error('tracked_model_id obrigatorio'),{code:'TRACKED_MODEL_INVALID'});
