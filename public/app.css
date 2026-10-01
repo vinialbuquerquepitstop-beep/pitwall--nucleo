@@ -4375,3 +4375,30 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .aq-summary{grid-template-columns:1fr}
   .aq-top{align-items:flex-start}
 }
+
+
+/* PITSQUAD REAL ACQUISITION V0 */
+.aq-action-panel{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);
+  padding:14px;margin-bottom:12px
+}
+.aq-action-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.aq-action-head strong{display:block;font-size:13px;color:var(--text)}
+.aq-action-head span{display:block;font-size:11.5px;color:var(--dim);margin-top:2px}
+.aq-action-form{display:grid;grid-template-columns:1.1fr 1fr .8fr 1fr auto;gap:7px;align-items:center}
+.aq-action-form input{
+  min-width:0;height:36px;border:1px solid var(--line);border-radius:8px;
+  padding:0 9px;background:var(--surface);color:var(--text);font:inherit;font-size:12px
+}
+.aq-action-form .btn-cad{height:36px;white-space:nowrap}
+.aq-action-list{margin-top:10px;border-top:1px solid var(--line)}
+.aq-action-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.aq-action-row:last-child{border-bottom:0}
+.aq-created{margin-top:9px;padding:9px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--line)}
+.aq-created strong,.aq-created span{display:block;font-size:11.5px}
+.aq-created span{margin-top:3px;color:var(--dim);overflow-wrap:anywhere}
+@media(max-width:760px){
+  .aq-action-form{grid-template-columns:1fr}
+  .aq-action-form .btn-cad{width:100%}
+  .aq-action-row{align-items:flex-start;flex-direction:column}
+}
