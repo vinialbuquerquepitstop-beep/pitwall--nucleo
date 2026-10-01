@@ -67,7 +67,7 @@ small{display:block;margin-top:26px;color:#94a3b8;font-size:10px;line-height:1.4
   <div class="eyebrow" id="eyebrow">Atendimento</div>
   <h1 id="title">Vamos continuar pelo WhatsApp.</h1>
   <p>Informe seu número. A equipe recebe seu contato junto com a referência correta desta ação.</p>
-  <form id="form">
+  <form id="form"><input id="company" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0">
     <label for="whatsapp">Seu WhatsApp</label>
     <input id="whatsapp" name="whatsapp" inputmode="tel" autocomplete="tel" placeholder="(21) 99999-9999" required>
     <button id="submit" type="submit">Quero atendimento</button>
@@ -91,7 +91,7 @@ form.addEventListener('submit',async(e)=>{
     const r=await fetch('/api/pitsquad/acquisition/capture',{
       method:'POST',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({token,whatsapp:document.getElementById('whatsapp').value})
+      body:JSON.stringify({token,whatsapp:document.getElementById('whatsapp').value,company:document.getElementById('company').value})
     });
     const d=await r.json();
     if(!r.ok||!d.ok) throw new Error(d.reason||'CAPTURE_FAILED');
@@ -135,11 +135,16 @@ async function handlePitsquad(request, env, url) {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/pitsquad/acquisition/capture') {
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > 2048) return json({ ok: false, reason: 'PAYLOAD_TOO_LARGE' }, 413);
+
     let body = null;
     try { body = await request.json(); } catch { return json({ ok: false, reason: 'INVALID_JSON' }, 400); }
     const token = String(body?.token || '').trim();
     const whatsapp = String(body?.whatsapp || '').trim();
+    const company = String(body?.company || '').trim();
 
+    if (company) return json({ ok: false, reason: 'BOT_REJECTED' }, 400);
     if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ ok: false, reason: 'INVALID_TOKEN' }, 400);
     if (!whatsapp || whatsapp.length > 40) return json({ ok: false, reason: 'INVALID_WHATSAPP' }, 400);
 
