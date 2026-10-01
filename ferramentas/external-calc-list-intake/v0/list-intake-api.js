@@ -67,6 +67,18 @@ function finalizeBundleIdentity(bundle){
      record.fields.model=resolved&&resolved.entity_id
        ? {id:resolved.entity_id,label:resolved.value,attributes:resolved.attributes||{}}
        : {id:fallbackModelId(rawModel),label:rawModel.trim(),attributes:{identity_source:'supplier-list-fallback-v0'}};
+     if(!Number.isInteger(record.fields.capacity_gb)&&Number.isInteger(record.fields.model?.attributes?.capacity_gb)){
+       record.fields.capacity_gb=record.fields.model.attributes.capacity_gb;
+       record.trace.push({
+         field:'capacity_gb',
+         chosen:record.fields.capacity_gb,
+         sources:modelTrace?.sources||[],
+         derived_from:modelTrace?.sources||[],
+         rules:['list_intake:model_capacity_attribute'],
+         alternatives:[],
+         score:modelTrace?.score??0.96
+       });
+     }
      if(modelTrace){
        modelTrace.chosen=record.fields.model;
        modelTrace.rules=[...(modelTrace.rules||[]),resolved&&resolved.entity_id?'list_intake:canonical_model':'list_intake:fallback_model_id'];
