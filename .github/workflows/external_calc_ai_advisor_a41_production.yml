@@ -126,6 +126,7 @@ jobs:
 
           echo "AI_ADVISOR_A41_OPENAI_HTTP_STATUS=${code}"
           if [ "${code}" != "200" ]; then
+            rc=0
             node -e '
               const fs = require("fs");
               let payload = {};
@@ -141,8 +142,8 @@ jobs:
                 console.log("AI_ADVISOR_A41_OPENAI_STATE=READY_PENDING_CREDITS");
                 process.exit(42);
               }
-            '
-            rc=$?
+              process.exit(1);
+            ' || rc=$?
             if [ "${rc}" = "42" ]; then
               echo "AI_ADVISOR_A41_OPENAI_SMOKE=PENDING_CREDITS"
               exit 0
