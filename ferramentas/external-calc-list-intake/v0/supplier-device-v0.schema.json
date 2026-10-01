@@ -31,7 +31,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|AirPods|AirTag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung)\\b)(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|AirPods|AirTag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
           "flags": "i",
           "group": 1,
           "transform": "trim",
