@@ -36,4 +36,15 @@ assert.ok(partition.auto.length>=15,'lista REAL COMERCIO deve autopromover a amp
 assert.ok(partition.review.length<=3,'revisao deve ser excecao, nao pedágio');
 assert.ok(partition.auto.every(item=>item.promoted.domain_outcome==='VALID'));
 assert.ok(partition.auto.every(item=>item.promoted.review===null));
+const ambiguityBreakdown=parsed.queue.unresolved_ambiguities.reduce((acc,item)=>{
+  const key=(item.field||'_structural')+':'+(item.cause||'unknown');
+  acc[key]=(acc[key]||0)+1;
+  return acc;
+},{});
+const invalidBreakdown=parsed.queue.invalid_items.reduce((acc,item)=>{
+  const key=item.cause||'unknown';
+  acc[key]=(acc[key]||0)+1;
+  return acc;
+},{});
+console.log('REAL_COMERCIO_DIAGNOSTICS ambiguities='+JSON.stringify(ambiguityBreakdown)+' invalid='+JSON.stringify(invalidBreakdown));
 console.log('EXTERNAL_CALC_LIST_INTAKE_V0=PASS candidates='+parsed.queue.candidates.length+' auto='+partition.auto.length+' review='+partition.review.length);
