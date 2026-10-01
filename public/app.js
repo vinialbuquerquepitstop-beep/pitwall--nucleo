@@ -8,12 +8,13 @@ function aqCard(x){
   else if("LINKED"===st)acoes='<button class="btn-acao" data-acao="aq-open" data-id="'+c(x.lead_id||"")+'" data-contact="'+c(x.contact_ref||"")+'">Abrir lead</button><button class="btn-acao" data-acao="aq-result" data-input="'+c(x.id)+'">Ver resultado</button>';
   return '<article class="aq-card aq-'+c(st.toLowerCase())+'"><div class="aq-top"><div><div class="aq-ref">'+c(x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(aqData(x.occurred_at))+(x.campaign_ref?' · '+c(x.campaign_ref):"")+'</div></div><span class="chip">'+c(st)+'</span></div><div class="aq-contact">'+c(contato||x.contact_ref||"")+(x.lead_code?' · '+c(x.lead_code):"")+(x.lead_nome?' · '+c(x.lead_nome):"")+'</div>'+(x.resolution_reason?'<div class="aq-reason">'+c(x.resolution_reason)+'</div>':"")+'<div class="card-acoes">'+acoes+'</div><div class="aq-result" data-aq-result="'+c(x.id)+'"></div></article>'
 }
+function aqWhatsLink(x){var ref=String(x&&x.acquisition_ref||"").trim(),rotulo=String(x&&x.label||x&&x.campaign_ref||"").trim(),txt="Oi! Vim por uma ação da Pitstop"+(rotulo?" sobre "+rotulo:"")+". ["+ref+"]";return"https://wa.me/5521991205744?text="+encodeURIComponent(txt)}
 function aqAcaoCard(x){
-  var link=location.origin+"/a/"+x.public_token;
+  var link=aqWhatsLink(x);
   return '<div class="aq-action-row"><div><div class="aq-ref">'+c(x.label||x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(x.acquisition_ref||"")+(x.campaign_ref?' · '+c(x.campaign_ref):"")+' · '+c(String(x.inputs||0))+' entrada'+(1===Number(x.inputs||0)?"":"s")+'</div></div><button class="btn-acao" data-acao="aq-copy-link" data-link="'+c(link)+'">Copiar link</button></div>'
 }
 function aqActionPanel(){
-  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Nova ação rastreada</strong><span>Gere um link para campanha, story, bio ou mensagem.</span></div></div><div class="aq-action-form"><input id="aqRef" placeholder="Referência" value="'+c(aqNovaRef())+'"><input id="aqCampaign" placeholder="Campanha (opcional)"><input id="aqSource" placeholder="Fonte (opcional)"><input id="aqLabel" placeholder="Nome visível (opcional)"><button class="btn-cad" data-acao="aq-action-create">Criar link</button></div><div id="aqActionMsg"></div>'+(aqAcoes.length?'<div class="aq-action-list">'+aqAcoes.slice(0,5).map(aqAcaoCard).join("")+'</div>':"")+'</section>'
+  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Nova ação rastreada</strong><span>Gere um link direto para o WhatsApp da Pitstop, com a referência desta ação.</span></div></div><div class="aq-action-form"><input id="aqRef" placeholder="Referência" value="'+c(aqNovaRef())+'"><input id="aqCampaign" placeholder="Campanha (opcional)"><input id="aqSource" placeholder="Fonte (opcional)"><input id="aqLabel" placeholder="Nome visível (opcional)"><button class="btn-cad" data-acao="aq-action-create">Criar link</button></div><div id="aqActionMsg"></div>'+(aqAcoes.length?'<div class="aq-action-list">'+aqAcoes.slice(0,5).map(aqAcaoCard).join("")+'</div>':"")+'</section>'
 }
 async function renderAquisicao(sil){
   var e=E("lista");if(!sil)e.innerHTML='<div class="estado carregando">Lendo entradas de aquisição...</div>';
@@ -30,7 +31,7 @@ async function aqCriarAcao(btn){
   if(!ref||!String(ref.value||"").trim()){I("Referência obrigatória",!0);return}
   var d=await O("pitsquad_create_acquisition_action_v0",{p_acquisition_ref:ref.value,p_campaign_ref:camp&&camp.value||null,p_source:src&&src.value||null,p_label:lab&&lab.value||null},btn);
   if(!d)return;
-  var link=location.origin+"/a/"+d.public_token;
+  var link=aqWhatsLink(d);
   if(navigator.clipboard&&navigator.clipboard.writeText)try{await navigator.clipboard.writeText(link)}catch(e){}
   if(msg)msg.innerHTML='<div class="aq-created"><strong>Link criado e copiado.</strong><span>'+c(link)+'</span></div>';
   I("Ação rastreada criada");
