@@ -101,7 +101,7 @@ function isKnownNonCommercialLine(raw){
  if(/^📲\s*\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}\s*$/u.test(line))return true;
  if(/^(?:🛡\s*)?garantia\s*$/iu.test(line))return true;
  if(/^(?:📃\s*)?pol[ií]ticas\s*$/iu.test(line))return true;
- if(/n[aã]o estornamos pix|cr[eé]dito loja|diferen[cç]a entre data de compra e garantia/iu.test(line))return true;
+ if(/n[aã]o estornamos pix|cr[eé]dito loja|diferen[cç]a entre data de compra e garantia|lacrados?\s*:\s*apple/iu.test(line))return true;
  if(/^(?:📱|💻|⌚|📲|🎧)?\s*\*?(?:celular|macbook|watch|ipad|airpods)\s*[—–-]?\s*(?:lacrado|lacrados)?\*?\s*$/iu.test(line))return true;
  return false;
 }
