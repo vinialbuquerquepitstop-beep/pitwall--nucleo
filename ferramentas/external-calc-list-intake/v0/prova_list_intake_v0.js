@@ -124,6 +124,27 @@ console.log('HELDOUT_CAMPO_GRANDE='+JSON.stringify({
   invalid:campoGrandeParsed.queue.invalid_items
 }));
 
+const observeHeldout=(label,filename)=>{
+  const content=fs.readFileSync(path.join(__dirname,'fixtures/heldout',filename),'utf8');
+  const parsedHeldout=buildQueue({filename,mime_type:'text/plain',content});
+  console.log(label+'='+JSON.stringify({
+    candidates:parsedHeldout.queue.candidates.length,
+    offers:parsedHeldout.queue.candidates.map(c=>({
+      model:c.interpreted_offer.model?.label??null,
+      capacity_gb:c.interpreted_offer.capacity_gb??null,
+      color:c.interpreted_offer.color??null,
+      price:c.interpreted_offer.price?.amount_minor??null,
+      condition:c.interpreted_offer.condition??null
+    })),
+    ambiguities:parsedHeldout.queue.unresolved_ambiguities.map(item=>({
+      field:item.field,cause:item.cause,raw:item.raw,sources:item.sources
+    })),
+    invalid:parsedHeldout.queue.invalid_items
+  }));
+};
+observeHeldout('HELDOUT_PRONTA_ENTREGA','estoque-atualizado-pronta-entrega-2026-10-01.txt');
+observeHeldout('HELDOUT_IPHONE_NEW_LACRADO','iphone-new-lacrado-2026-10-01.txt');
+
 const ambiguityBreakdown=parsed.queue.unresolved_ambiguities.reduce((acc,item)=>{
   const key=(item.field||'_structural')+':'+(item.cause||'unknown');
   acc[key]=(acc[key]||0)+1;
