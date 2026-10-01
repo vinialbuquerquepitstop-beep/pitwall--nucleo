@@ -31,6 +31,8 @@ assert.ok(offers.some(o=>o.model.label.includes('MacBook pro M5 14" 24/1tb')&&o.
 assert.strictEqual(countLabel('iPad Air 11 M4 128GB Wi-Fi'),3);
 assert.strictEqual(countLabel('AirPods'),1);
 const partition=partitionCandidates(parsed.queue);
+console.log('REAL_COMERCIO_RESIDUAL_AMBIGUITIES='+JSON.stringify(parsed.queue.unresolved_ambiguities.map(item=>({field:item.field,cause:item.cause,raw:item.raw,sources:item.sources}))));
+console.log('REAL_COMERCIO_RESIDUAL_INVALID='+JSON.stringify(parsed.queue.invalid_items));
 assert.strictEqual(parsed.queue.unresolved_ambiguities.length,0,'lista REAL COMERCIO nao deve deixar ambiguidade estrutural falsa');
 assert.strictEqual(parsed.queue.invalid_items.length,0,'linhas vazias, divisores e metadados nao devem aparecer como invalidos');
 assert.strictEqual(partition.auto.length+partition.review.length,18);
