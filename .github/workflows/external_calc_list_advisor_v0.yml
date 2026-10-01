@@ -1,0 +1,61 @@
+name: External Calc - List Advisor V0
+
+on:
+  push:
+    branches:
+      - external-calc-list-advisor-v0
+    paths:
+      - 'ferramentas/external-calc-list-advisor/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/runtime.js'
+      - 'ferramentas/external-calc-list-intake/v0/auto-promotion-authority.js'
+      - '.github/workflows/external_calc_list_advisor_v0.yml'
+  pull_request:
+    branches:
+      - external-calc-supplier-advisor-context-v0
+    paths:
+      - 'ferramentas/external-calc-list-advisor/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/runtime.js'
+      - 'ferramentas/external-calc-list-intake/v0/auto-promotion-authority.js'
+      - '.github/workflows/external_calc_list_advisor_v0.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-list-advisor-v0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  list-advisor-v0:
+    name: List Advisor V0 contract gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Prove AI list interpretation contract
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-list-advisor/v0/prova_list_advisor_v0.js | tee /tmp/list-advisor.log
+          grep -q '^EXTERNAL_CALC_LIST_ADVISOR_V0=PASS checks=5$' /tmp/list-advisor.log
+          node ferramentas/external-calc-list-advisor/v0/prova_list_advisor_c01_bridge_v0.js | tee /tmp/list-advisor-c01.log
+          grep -q '^EXTERNAL_CALC_LIST_ADVISOR_C01_BRIDGE_V0=PASS$' /tmp/list-advisor-c01.log
+
+      - name: Syntax check runtime wiring
+        run: |
+          set -euo pipefail
+          node --check ferramentas/external-calc-runtime/v0/runtime.js
+          node --check ferramentas/external-calc-list-advisor/v0/list-advisor.js
+          node --check ferramentas/external-calc-list-advisor/v0/openai-list-provider.js
+          node --check ferramentas/external-calc-list-advisor/v0/list-advisor-api.js
+          node --check ferramentas/external-calc-list-advisor/v0/list-advisor-c01-bridge.js
+
+      - name: Diff check
+        run: git diff --check
