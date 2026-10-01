@@ -4,8 +4,9 @@ const crypto = require('node:crypto');
 const { parseTextSource } = require('../../external-calc-universal-input/v1/text-adapter');
 const { parseCsvSource } = require('../../external-calc-universal-input/v1/csv-adapter');
 const { canonicalToRawDocument } = require('../../external-calc-universal-input/v1/canonical-interpreter-bridge');
-const { runC01ReadOnlySlice } = require('../../external-calc-c01/v1/c01-readonly-bridge');
-const schema = require('../../interpreter-core/v1/domains/apple-iphone-v0.schema.json');
+const { interpretResolved, buildKnowledgeIndex, resolveEntityCandidate } = require('../../interpreter-core/v1/core');
+const { mapBundleToC01ReviewQueue } = require('../../external-calc-c01/v1/c01-readonly-bridge');
+const schema = require('./supplier-device-v0.schema.json');
 const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.knowledge.json');
 
 const LIST_INTAKE_PATH='/api/external-calc/v0/list-intake';
@@ -37,6 +38,57 @@ function normalizeBody(value){
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
  return value;
 }
+function fallbackModelId(label){
+ const slug=String(label)
+   .normalize('NFD')
+   .replace(/[\u0300-\u036f]/g,'')
+   .toLocaleLowerCase('pt-BR')
+   .replace(/gb\b/g,'')
+   .replace(/[^a-z0-9]+/g,'-')
+   .replace(/^-+|-+$/g,'')
+   .replace(/-+/g,'-');
+ if(!slug)throw Object.assign(new Error('modelo sem identidade utilizavel'),{code:'LIST_INTAKE_MODEL_ID_INVALID'});
+ return slug.slice(0,96);
+}
+function finalizeBundleIdentity(bundle){
+ const index=buildKnowledgeIndex(knowledge);
+ const resolverField={name:'model',resolver:{kind:'entity',entity_kind:'model',match:['alias','label']}};
+ for(const record of bundle.records||[]){
+   const rawModel=record?.fields?.model;
+   if(typeof rawModel==='string'&&rawModel.trim()){
+     const modelTrace=(record.trace||[]).find(item=>item.field==='model');
+     const resolved=resolveEntityCandidate({
+       field:'model',
+       value:rawModel.trim(),
+       score:modelTrace?.score??0.97,
+       evidence:{line_number:modelTrace?.sources?.[0]??null}
+     },resolverField,index);
+     record.fields.model=resolved&&resolved.entity_id
+       ? {id:resolved.entity_id,label:resolved.value,attributes:resolved.attributes||{}}
+       : {id:fallbackModelId(rawModel),label:rawModel.trim(),attributes:{identity_source:'supplier-list-fallback-v0'}};
+     if(modelTrace){
+       modelTrace.chosen=record.fields.model;
+       modelTrace.rules=[...(modelTrace.rules||[]),resolved&&resolved.entity_id?'list_intake:canonical_model':'list_intake:fallback_model_id'];
+     }
+   }
+   if(!Number.isInteger(record?.fields?.capacity_gb)&&Number.isInteger(record?.fields?.capacity_tb)&&record.fields.capacity_tb>0){
+     record.fields.capacity_gb=record.fields.capacity_tb*1024;
+     const tbTrace=(record.trace||[]).find(item=>item.field==='capacity_tb');
+     record.trace=(record.trace||[]).filter(item=>item.field!=='capacity_tb');
+     record.trace.push({
+       field:'capacity_gb',
+       chosen:record.fields.capacity_gb,
+       sources:tbTrace?.sources||[],
+       derived_from:tbTrace?.sources||[],
+       rules:['list_intake:tb_to_gb'],
+       alternatives:[],
+       score:tbTrace?.score??null
+     });
+   }
+   delete record.fields.capacity_tb;
+ }
+ return bundle;
+}
 function sourceType(filename,mime){
  const lower=filename.toLowerCase();
  if(lower.endsWith('.csv')||String(mime||'').toLowerCase().split(';')[0].trim()==='text/csv')return 'csv';
@@ -59,7 +111,8 @@ function buildQueue(body){
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
  const analysis_id='analysis_'+hash.slice(0,24);
  const source_id='source_'+hash.slice(0,24);
- const queue=runC01ReadOnlySlice({analysis_id,source_id,currency:'BRL',document:raw,schema,knowledge});
+ const bundle=finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}));
+ const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }
 function createListIntakeApiV0({env}={}){
