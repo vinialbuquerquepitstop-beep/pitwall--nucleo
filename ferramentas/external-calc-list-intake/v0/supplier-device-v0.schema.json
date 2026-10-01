@@ -69,6 +69,22 @@
           "group": 1,
           "transform": "integer",
           "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "\\biPhone\\s+1[1-7](?:e)?(?:\\s+(?:Pro\\s+Max|Pro|Plus|Air))?\\s+(64|128|256|512)(?:\\s*GB)?\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^\\s*\\*?(?:11|12|13|14|15|16|17)(?:\\s+(?:PRO\\s+MAX|PRO|PLUS|AIR))?\\s+(64|128|256|512)(?:\\s*GB)?\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.96
         }
       ]
     },
