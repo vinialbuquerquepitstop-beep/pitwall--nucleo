@@ -30,6 +30,10 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1\.md$/
   ] },
+  { owner: 'TRACKED_MODEL_HISTORY', patterns: [
+    /^ferramentas\/external-calc-tracked-model\/v0\//,
+    /^supabase\/migrations\/20261001113500_external_calc_tracked_model_v0\.sql$/
+  ] },
   { owner: 'TRADE_IN_POLICY', patterns: [
     /^supabase\/migrations\/20260923052000_external_calc_store_trade_in_policy_v0\.sql$/,
     /^supabase\/migrations\/20260923053000_external_calc_store_trade_in_policy_indexes_v0\.sql$/,

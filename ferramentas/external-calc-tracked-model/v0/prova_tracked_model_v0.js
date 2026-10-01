@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const api=fs.readFileSync('ferramentas/external-calc-tracked-model/v0/tracked-model-api.js','utf8');
+const worker=fs.readFileSync('worker/external-calc-worker.mjs','utf8');
+const migration=fs.readFileSync('supabase/migrations/20261001113500_external_calc_tracked_model_v0.sql','utf8');
+assert.match(api,/TRACKED_MODELS_PATH='\/api\/external-calc\/v0\/tracked-models'/);
+assert.match(api,/extcalc_product_tracked_models_v0/);
+assert.match(api,/extcalc_product_track_model_v0/);
+assert.match(api,/extcalc_product_untrack_model_v0/);
+assert.match(worker,/createTrackedModelApiV0/);
+assert.match(worker,/trackedModelApi\.matches\(url\.pathname\)/);
+assert.match(migration,/create table if not exists public\.extcalc_tracked_model/);
+assert.match(migration,/create table if not exists public\.extcalc_price_snapshot/);
+assert.match(migration,/after insert or update of c01_snapshot,domain_outcome,freshness_status/);
+assert.doesNotMatch(api,/service_role/i);
+console.log('EXTERNAL_CALC_TRACKED_MODEL_V0=PASS');
