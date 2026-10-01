@@ -34,8 +34,7 @@ const OWNERS = [
     /^pitsquad\/whatsapp-worker\.mjs$/
   ] },
   { owner: 'LIST_INTAKE', patterns: [
-    /^ferramentas\/external-calc-list-intake\/v0\//,
-    /^ferramentas\/interpreter-core\/v1\/domains\/supplier-device-v0\.schema\.json$/
+    /^ferramentas\/external-calc-list-intake\/v0\//
   ] },
   { owner: 'TRACKED_MODEL_HISTORY', patterns: [
     /^ferramentas\/external-calc-tracked-model\/v0\//,

@@ -1,9 +1,9 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "supplier-device-v0",
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "entity_type": "offer",
-  "description": "Schema generico de lista de fornecedor para dispositivos. Preserva identidade textual quando nao ha entidade canonica.",
+  "description": "Schema generico de entrada de listas de dispositivos. Identidade canonica/fallback e finalizada pelo adapter de intake antes de C01.",
   "fields": [
     {
       "name": "supplier",
@@ -28,15 +28,6 @@
       "required": true,
       "context_inheritable": true,
       "context_anchor": true,
-      "resolver": {
-        "kind": "entity",
-        "entity_kind": "model",
-        "match": [
-          "alias",
-          "label"
-        ],
-        "fallback_to_raw": true
-      },
       "extractors": [
         {
           "kind": "regex",
@@ -70,20 +61,25 @@
           "group": 1,
           "transform": "integer",
           "score": 0.95
-        },
+        }
+      ]
+    },
+    {
+      "name": "capacity_tb",
+      "type": "integer",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
         {
           "kind": "regex",
           "pattern": "(?:/|\\b)([124])\\s*TB\\b",
           "flags": "i",
           "group": 1,
-          "transform": "tb_to_gb",
+          "transform": "integer",
           "score": 0.96
         }
-      ],
-      "derive_from_entity_attribute": {
-        "field": "model",
-        "attribute": "capacity_gb"
-      }
+      ]
     },
     {
       "name": "condition",
@@ -187,6 +183,6 @@
   "metadata": {
     "scope": "generic device supplier lists",
     "mode": "operational_review_required",
-    "identity_fallback": "raw text -> deterministic slug in C01"
+    "identity_finalization": "list-intake adapter before C01"
   }
 }
