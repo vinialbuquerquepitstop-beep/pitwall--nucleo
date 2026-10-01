@@ -28,6 +28,7 @@ assert.strictEqual(countLabel('PocoF8 Pro 5G 12/256GB'),2);
 assert.strictEqual(countLabel('PocoF8 Pro 5G 12/512gb'),1);
 assert.strictEqual(countLabel('PocoF8 Ultra 5G 12/256gb'),1);
 assert.ok(offers.some(o=>o.model.label.includes('MacBook pro M5 14" 24/1tb')&&o.capacity_gb===1024));
+console.log('REAL_COMERCIO_MODELS='+JSON.stringify(offers.map(o=>({label:o.model.label,capacity_gb:o.capacity_gb,color:o.color,price:o.price.amount_minor}))));
 assert.strictEqual(countLabel('iPad Air 11 M4 128GB Wi-Fi'),3);
 assert.strictEqual(countLabel('AirPods'),1);
 const partition=partitionCandidates(parsed.queue);
