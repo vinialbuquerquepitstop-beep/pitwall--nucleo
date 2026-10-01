@@ -213,7 +213,8 @@ function createAdvisorRuntimeService(options = {}) {
           offer_revision: loaded.offer_revision
         },
         c05_decision_output: loaded.c05_decision_output,
-        evidence_records: loaded.evidence_records
+        evidence_records: loaded.evidence_records,
+        supplier_context: loaded.supplier_context ?? null
       });
 
       const envelope = await executor.execute({
