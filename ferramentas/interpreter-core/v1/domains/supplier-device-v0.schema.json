@@ -1,0 +1,192 @@
+{
+  "contract_version": "domain-schema/v1",
+  "schema_id": "supplier-device-v0",
+  "schema_version": "0.1.0",
+  "entity_type": "offer",
+  "description": "Schema generico de lista de fornecedor para dispositivos. Preserva identidade textual quando nao ha entidade canonica.",
+  "fields": [
+    {
+      "name": "supplier",
+      "type": "string",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9 .&'_-]{2,80}?)\\s*[—–-]\\s*ATACADO\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.98
+        }
+      ]
+    },
+    {
+      "name": "model",
+      "type": "string",
+      "required": true,
+      "context_inheritable": true,
+      "context_anchor": true,
+      "resolver": {
+        "kind": "entity",
+        "entity_kind": "model",
+        "match": [
+          "alias",
+          "label"
+        ],
+        "fallback_to_raw": true
+      },
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|AirPods|AirTag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung)\\b)(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.97
+        }
+      ]
+    },
+    {
+      "name": "capacity_gb",
+      "type": "integer",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b\\d{1,3}\\s*/\\s*(\\d{2,4})\\s*GB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.98
+        },
+        {
+          "kind": "regex",
+          "pattern": "\\b(64|128|256|512)\\s*GB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "(?:/|\\b)([124])\\s*TB\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "tb_to_gb",
+          "score": 0.96
+        }
+      ],
+      "derive_from_entity_attribute": {
+        "field": "model",
+        "attribute": "capacity_gb"
+      }
+    },
+    {
+      "name": "condition",
+      "type": "string",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "\\b(Lacrado|Lacrados|Novo|Novos|CPO|Seminovo|Seminovos|Usado|Usados)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.93
+        }
+      ],
+      "value_map": {
+        "Lacrado": "Lacrado",
+        "Lacrados": "Lacrado",
+        "Novo": "Novo",
+        "Novos": "Novo",
+        "CPO": "CPO",
+        "Seminovo": "Seminovo",
+        "Seminovos": "Seminovo",
+        "Usado": "Usado",
+        "Usados": "Usado"
+      }
+    },
+    {
+      "name": "color",
+      "type": "string",
+      "required": false,
+      "context_inheritable": true,
+      "context_anchor": false,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "🎨\\s*\\*?([^*\\n]+?)\\s*\\*?$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.98
+        }
+      ]
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true,
+      "context_inheritable": false,
+      "context_anchor": false,
+      "record_trigger": true,
+      "extractors": [
+        {
+          "kind": "regex",
+          "pattern": "(?:💰|💵)\\s*\\*?\\s*(?:R\\$|\\$)?\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.995
+        },
+        {
+          "kind": "regex",
+          "pattern": "(?:R\\$|\\$)\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.99
+        },
+        {
+          "kind": "regex",
+          "pattern": "\\*?\\s*([0-9]{4,6}(?:,[0-9]{1,2})?)\\s*\\*?\\s*$",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.9
+        }
+      ]
+    }
+  ],
+  "structural_roles": [
+    "header",
+    "product_header",
+    "variant",
+    "price_line",
+    "condition",
+    "note",
+    "noise",
+    "unknown"
+  ],
+  "validators": [],
+  "context_policy": {
+    "reset_on_timestamp": true,
+    "anchor_resets_other_context": true,
+    "preserve_on_anchor": [
+      "supplier",
+      "condition"
+    ]
+  },
+  "metadata": {
+    "scope": "generic device supplier lists",
+    "mode": "operational_review_required",
+    "identity_fallback": "raw text -> deterministic slug in C01"
+  }
+}

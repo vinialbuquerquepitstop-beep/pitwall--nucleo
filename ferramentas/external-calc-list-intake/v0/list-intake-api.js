@@ -5,7 +5,7 @@ const { parseTextSource } = require('../../external-calc-universal-input/v1/text
 const { parseCsvSource } = require('../../external-calc-universal-input/v1/csv-adapter');
 const { canonicalToRawDocument } = require('../../external-calc-universal-input/v1/canonical-interpreter-bridge');
 const { runC01ReadOnlySlice } = require('../../external-calc-c01/v1/c01-readonly-bridge');
-const schema = require('../../interpreter-core/v1/domains/apple-iphone-v0.schema.json');
+const schema = require('../../interpreter-core/v1/domains/supplier-device-v0.schema.json');
 const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.knowledge.json');
 
 const LIST_INTAKE_PATH='/api/external-calc/v0/list-intake';

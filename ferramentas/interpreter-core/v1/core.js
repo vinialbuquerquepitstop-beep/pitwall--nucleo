@@ -143,6 +143,10 @@ function applyTransform(value, transform = 'identity') {
     const n = parseGenericNumber(value);
     return Number.isInteger(n) ? n : null;
   }
+  if (transform === 'tb_to_gb') {
+    const n = parseGenericNumber(value);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 1024) : null;
+  }
   throw new Error(`transform desconhecido: ${transform}`);
 }
 
@@ -1306,6 +1310,31 @@ function composeRecords(segments, schema = {}, knowledge = {}) {
         }
 
         if (resolved.state === 'unresolved') {
+          if (field.resolver?.fallback_to_raw === true) {
+            inferred = true;
+            fieldsOut[field.name] = String(sourceCandidate.value).trim();
+            trace.push({
+              field: field.name,
+              chosen: fieldsOut[field.name],
+              sources: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+              derived_from: [],
+              rules: ['resolver:raw_fallback'],
+              alternatives: [],
+              score: sourceCandidate.score ?? null
+            });
+            learningProposals.push({
+              proposal_id: `learn-${segment.segment_id}-${field.name}`,
+              kind: 'local_resolution',
+              payload: {
+                field: field.name,
+                entity_kind: field.resolver.entity_kind,
+                raw: sourceCandidate.value
+              },
+              evidence: [resolved.source_line || sourceCandidate.evidence?.line_number || segment.line_number],
+              score: sourceCandidate.score ?? null
+            });
+            continue;
+          }
           blocked = true;
           ambiguities.push({
             ambiguity_id: `amb-${segment.segment_id}-${field.name}-unresolved`,

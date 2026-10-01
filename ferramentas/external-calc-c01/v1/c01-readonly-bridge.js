@@ -48,6 +48,20 @@ function validateMoney(value, expectedCurrency = null) {
   return { amount_minor: value.amount_minor, currency };
 }
 
+function fallbackModelId(label) {
+  const slug = String(label)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/\bgb\b/g, '')
+    .replace(/\btb\b/g, 'tb')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-');
+  if (!slug) throw new Error('model interpretado sem identidade utilizavel');
+  return slug.slice(0, 96);
+}
+
 function normalizeModel(value) {
   if (value && typeof value === 'object' && typeof value.id === 'string') {
     const attributes =
@@ -68,7 +82,8 @@ function normalizeModel(value) {
     };
   }
   if (typeof value === 'string' && value.trim()) {
-    return { id: null, label: value.trim(), attributes: {} };
+    const label = value.trim();
+    return { id: fallbackModelId(label), label, attributes: { identity_source: 'raw_fallback_v1' } };
   }
   throw new Error('model interpretado ausente ou invalido');
 }
