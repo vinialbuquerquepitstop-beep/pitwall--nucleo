@@ -195,13 +195,10 @@ function resolveSimulation(candidates,policy,rateProfile,command){
 }
 function createSalesProductService({source}={}){
  if(!source)throw new Error('source obrigatorio');
- for(const m of ['loadMembership','loadCurrentOffers','loadHomeContext','loadActiveTradeInPolicy','loadActiveRateProfile','listTrackedModels','trackModel','untrackModel'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
+ for(const m of ['loadMembership','loadCurrentOffers','loadHomeContext','loadActiveTradeInPolicy','loadActiveRateProfile'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
  async function ctx(auth){const m=await source.loadMembership({auth_user_id:str(auth,'auth_user_id')});if(!m||!m.ativo||!['dono','validador','vendedor'].includes(m.papel))fail('PRODUCT_FORBIDDEN');return m;}
  return {
   async getHome({auth_user_id,generated_at}){await ctx(auth_user_id);return buildHomeProjection(await source.loadHomeContext(),{generated_at});},
-  async listTrackedModels({auth_user_id}){await ctx(auth_user_id);return {tracking_version:'external-calc-tracked-model/v0',items:await source.listTrackedModels()};},
-  async trackModel({auth_user_id,command}){await ctx(auth_user_id);if(!command||typeof command!=='object'||Array.isArray(command))fail('TRACKED_MODEL_INVALID');for(const k of Object.keys(command))if(!['model_id','capacity_gb','condition'].includes(k))fail('TRACKED_MODEL_INVALID','campo proibido: '+k);const model_id=str(command.model_id,'model_id');const capacity_gb=command.capacity_gb==null?null:command.capacity_gb;const condition=command.condition==null?null:str(command.condition,'condition');if(capacity_gb!=null&&(!Number.isInteger(capacity_gb)||capacity_gb<=0))fail('TRACKED_MODEL_INVALID','capacity_gb invalida');return await source.trackModel({model_id,capacity_gb,condition});},
-  async untrackModel({auth_user_id,command}){await ctx(auth_user_id);if(!command||typeof command!=='object'||Array.isArray(command)||Object.keys(command).some(k=>k!=='tracked_model_id'))fail('TRACKED_MODEL_INVALID');return await source.untrackModel({tracked_model_id:str(command.tracked_model_id,'tracked_model_id')});},
   async listProductOptions({auth_user_id,command}){await ctx(auth_user_id);return listProductOptions(await source.loadCurrentOffers(),command);},
   async listOfferOptions({auth_user_id,command}){await ctx(auth_user_id);return listOfferOptions(await source.loadCurrentOffers(),command);},
   async resolveVariant({auth_user_id,command}){await ctx(auth_user_id);return resolveVariant(await source.loadCurrentOffers(),command);},

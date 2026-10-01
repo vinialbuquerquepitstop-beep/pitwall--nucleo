@@ -1,6 +1,8 @@
 import runtimeModule from '../ferramentas/external-calc-runtime/v0/runtime.js';
+import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tracked-model-api.js';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
+const { createTrackedModelApiV0 } = trackedModelModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -165,6 +167,9 @@ export default {
     const url = new URL(request.url);
     const pitsquad = await handlePitsquad(request, env, url);
     if (pitsquad) return pitsquad;
+
+    const trackedModelApi = createTrackedModelApiV0({ env });
+    if (trackedModelApi.matches(url.pathname)) return trackedModelApi.handle(request);
 
     const runtime = createExternalCalcWorkerRuntime({ env });
     return runtime.fetch(request);

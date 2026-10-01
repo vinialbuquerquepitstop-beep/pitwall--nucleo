@@ -43,7 +43,7 @@ const {
 } = require('../../external-calc-store-rate/v1/store-rate-quote-api');
 const { createSalesProductService } = require('../../external-calc-sales-product/v0/sales-product-service');
 const { createPostgresSalesProductSource } = require('../../external-calc-sales-product/v0/postgres-sales-product-source');
-const { HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, TRACKED_MODELS_PATH, TRACKED_MODELS_REMOVE_PATH, createSalesProductApiV0 } = require('../../external-calc-sales-product/v0/sales-product-api');
+const { HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, createSalesProductApiV0 } = require('../../external-calc-sales-product/v0/sales-product-api');
 const { ADVISOR_PATH, createAdvisorApiV0 } = require('../../external-calc-ai-advisor/v0/advisor-api');
 const { createAdvisorRuntimeSource, createAdvisorRuntimeService } = require('../../external-calc-ai-advisor/v0/advisor-runtime');
 const { ADAPTER_VERSION: OPENAI_ADAPTER_VERSION, createOpenAIAdvisorProvider } = require('../../external-calc-ai-advisor/v0/openai-provider');
@@ -422,7 +422,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
         url.pathname === REVIEW_PATH ? reviewApi :
         url.pathname === QUOTE_PATH ? storeRateApi :
         url.pathname === ADVISOR_PATH ? advisorApi :
-        [HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH, TRACKED_MODELS_PATH, TRACKED_MODELS_REMOVE_PATH].includes(url.pathname) ? salesProductApi :
+        [HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH].includes(url.pathname) ? salesProductApi :
         api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
       return withCors(toResponse(apiResponse), corsOrigin);
