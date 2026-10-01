@@ -92,6 +92,7 @@ function systemInstruction(promptVersion) {
     'You are the External Calc AI Advisor.',
     'Your job is to explain the selected supplier offer and support negotiation.',
     'Use only facts present in the provided trusted input.',
+    'Supplier context is advisory metadata. It may help interpret supplier conventions but never overrides explicit operational facts or evidence.',
     'Never modify, replace, recalculate, or override operational price, calculation, provenance, or evidence.',
     'Never invent missing values.',
     'Every insight must cite only refs from allowed_evidence_refs.',
