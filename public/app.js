@@ -54,18 +54,28 @@ function aqAsRenderOutput(ctx,out){
 }
 var aqAsLast=null;
 async function aqAsGenerate(btn){
-  var wi=E("aqAsWhats"),mi=E("aqAsMsg"),box=E("aqAsResult"),wh=wi&&wi.value||"",msg=mi&&mi.value||"";
+  var wi=E("aqAsWhats"),mi=E("aqAsMsg"),box=E("aqAsResult"),wh=wi&&wi.value||"",msg=mi&&mi.value||"",ctx=null;
   if(!aqAsDigits(wh)||!String(msg).trim()){I("Informe WhatsApp e mensagem",!0);return}
   if(btn)btn.disabled=!0;if(box)box.innerHTML='<div class="estado carregando">Resolvendo contexto e preparando sugestão...</div>';
   try{
-    var ctx=await aqAsContext(wh),ses=await t.auth.getSession(),token=ses&&ses.data&&ses.data.session&&ses.data.session.access_token;
+    ctx=await aqAsContext(wh);var ses=await t.auth.getSession(),token=ses&&ses.data&&ses.data.session&&ses.data.session.access_token;
     if(!token)throw new Error("Sessão inválida");
     var payload={whatsapp:aqAsDigits(wh),message:String(msg).trim(),context:ctx};
     var res=await fetch("/api/pitsquad/assistant/draft",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+token},body:JSON.stringify(payload)});
-    var d=await res.json();if(!res.ok||!d.ok)throw new Error(d.reason||"ASSISTANT_FAILED");
+    var d=await res.json();
+    if(!res.ok||!d.ok){
+      var reason=d&&d.reason||"ASSISTANT_FAILED";
+      if(d&&d.recoverable&&box){
+        var rot="AI_CREDITS_REQUIRED"===reason?"IA sem créditos no momento. O contexto do CRM continua disponível; o atendimento pode seguir manualmente.":"IA indisponível no momento. O contexto do CRM continua disponível; o atendimento pode seguir manualmente.";
+        box.innerHTML=aqAsRenderContext(ctx)+'<div class="estado">'+c(rot)+'</div>';
+        if(btn)btn.disabled=!1;
+        return
+      }
+      throw new Error(reason)
+    }
     aqAsLast={whatsapp:wh,message:msg,context:ctx,output:d.output};
     if(box)box.innerHTML=aqAsRenderOutput(ctx,d.output);
-  }catch(err){if(box)box.innerHTML='<div class="estado erro">Não foi possível gerar a sugestão: '+c(err&&err.message||"falha")+'</div>'}
+  }catch(err){if(box)box.innerHTML=(ctx?aqAsRenderContext(ctx):"")+'<div class="estado erro">Não foi possível gerar a sugestão: '+c(err&&err.message||"falha")+'</div>'}
   if(btn)btn.disabled=!1
 }
 function aqAsCopy(){
