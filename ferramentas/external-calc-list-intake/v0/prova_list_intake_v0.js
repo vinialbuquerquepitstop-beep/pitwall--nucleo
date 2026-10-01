@@ -101,6 +101,29 @@ assert.deepStrictEqual(
   'emojis inline devem expandir variantes de cor'
 );
 
+const fs=require('fs');
+const path=require('path');
+const campoGrandeHeldout=fs.readFileSync(path.join(__dirname,'fixtures/heldout/campo-grande-grade-a-2026-10-01.txt'),'utf8');
+const campoGrandeParsed=buildQueue({
+  filename:'campo-grande-grade-a-2026-10-01.txt',
+  mime_type:'text/plain',
+  content:campoGrandeHeldout
+});
+console.log('HELDOUT_CAMPO_GRANDE='+JSON.stringify({
+  candidates:campoGrandeParsed.queue.candidates.length,
+  offers:campoGrandeParsed.queue.candidates.map(c=>({
+    model:c.interpreted_offer.model?.label??null,
+    capacity_gb:c.interpreted_offer.capacity_gb??null,
+    color:c.interpreted_offer.color??null,
+    price:c.interpreted_offer.price?.amount_minor??null,
+    condition:c.interpreted_offer.condition??null
+  })),
+  ambiguities:campoGrandeParsed.queue.unresolved_ambiguities.map(item=>({
+    field:item.field,cause:item.cause,raw:item.raw,sources:item.sources
+  })),
+  invalid:campoGrandeParsed.queue.invalid_items
+}));
+
 const ambiguityBreakdown=parsed.queue.unresolved_ambiguities.reduce((acc,item)=>{
   const key=(item.field||'_structural')+':'+(item.cause||'unknown');
   acc[key]=(acc[key]||0)+1;
