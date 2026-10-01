@@ -160,7 +160,12 @@ async function handlePitsquadAssistant(request, env, url) {
   const context = body?.context || null;
   if (!message || message.length > 4000) return json({ ok: false, reason: 'INVALID_MESSAGE' }, 400);
   if (!whatsapp || whatsapp.length > 40) return json({ ok: false, reason: 'INVALID_WHATSAPP' }, 400);
-  if (!env.OPENAI_API_KEY) return json({ ok: false, reason: 'AI_NOT_CONFIGURED' }, 503);
+  if (!env.OPENAI_API_KEY) return json({ ok: false, reason: 'AI_NOT_CONFIGURED', recoverable: true, assistant_state: 'MANUAL_ONLY' }, 503);
+
+  const model = env.PITSQUAD_ASSISTANT_OPENAI_MODEL || 'gpt-5.6-luna';
+  const maxOutputTokens = Math.min(Math.max(Number(env.PITSQUAD_ASSISTANT_MAX_OUTPUT_TOKENS || 700), 128), 1200);
+  const timeoutMs = Math.min(Math.max(Number(env.PITSQUAD_ASSISTANT_TIMEOUT_MS || 12000), 3000), 30000);
+  const reasoningEffort = env.PITSQUAD_ASSISTANT_REASONING_EFFORT || 'none';
 
   const schema = {
     type: 'object',
@@ -178,20 +183,44 @@ async function handlePitsquadAssistant(request, env, url) {
     required: ['intent','summary','missing_information','recommended_action','draft_reply','confidence','requires_human_approval','evidence_refs']
   };
 
-  const ai = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: 'Bearer ' + env.OPENAI_API_KEY
-    },
-    body: JSON.stringify({
-      model: env.PITSQUAD_ASSISTANT_OPENAI_MODEL || 'gpt-5.6',
-      input: assistantPrompt({ message, whatsapp, context }),
-      text: { format: { type: 'json_schema', name: 'pitsquad_assistant_output', strict: true, schema } }
-    })
-  });
+  let ai = null;
+  try {
+    ai = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + env.OPENAI_API_KEY
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+      body: JSON.stringify({
+        model,
+        store: false,
+        reasoning: { effort: reasoningEffort },
+        max_output_tokens: maxOutputTokens,
+        input: assistantPrompt({ message, whatsapp, context }),
+        text: { format: { type: 'json_schema', name: 'pitsquad_assistant_output', strict: true, schema } }
+      })
+    });
+  } catch (error) {
+    const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+    return json({
+      ok: false,
+      reason: timedOut ? 'AI_TIMEOUT' : 'AI_UNAVAILABLE',
+      recoverable: true,
+      assistant_state: 'MANUAL_ONLY'
+    }, 503);
+  }
   const raw = await ai.json().catch(() => null);
-  if (!ai.ok) return json({ ok: false, reason: 'AI_FAILED' }, 502);
+  if (!ai.ok) {
+    const providerCode = raw?.error?.code || null;
+    const creditsRequired = ai.status === 429 && ['credit_balance_exhausted', 'insufficient_quota'].includes(providerCode || raw?.error?.type);
+    return json({
+      ok: false,
+      reason: creditsRequired ? 'AI_CREDITS_REQUIRED' : 'AI_FAILED',
+      recoverable: true,
+      assistant_state: 'MANUAL_ONLY'
+    }, creditsRequired ? 503 : 502);
+  }
   let outputText = raw?.output_text || '';
   if (!outputText && Array.isArray(raw?.output)) {
     for (const item of raw.output) for (const part of (item?.content || [])) {
@@ -206,7 +235,15 @@ async function handlePitsquadAssistant(request, env, url) {
   for (const ev of (Array.isArray(context?.events) ? context.events : [])) if (ev?.id) allowedRefs.push('CRM:lead_evento:' + ev.id);
   for (const acq of (Array.isArray(context?.acquisition) ? context.acquisition : [])) if (acq?.id) allowedRefs.push('CRM:acquisition_input:' + acq.id);
   output.evidence_refs = (Array.isArray(output.evidence_refs) ? output.evidence_refs : []).filter((ref) => allowedRefs.includes(ref));
-  return json({ ok: true, output });
+  return json({
+    ok: true,
+    output,
+    meta: {
+      model,
+      usage: raw?.usage || null,
+      assistant_state: 'AI_READY'
+    }
+  });
 }
 
 async function handlePitsquad(request, env, url) {
