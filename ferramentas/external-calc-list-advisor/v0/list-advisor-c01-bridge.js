@@ -191,6 +191,7 @@ function createPostgresAdvisorC01Sink(options={}) {
   return {
     async persist({interpretation,content,analysis_id,source_id,supplier_id}) {
       const bridged=bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id});
+      await rpc('extcalc_bind_source_supplier_v0',{p_source_id:source_id,p_supplier_id:supplier_id});
       let persisted=0,auto_promoted=0,review_required=0,idempotent=0;
       for(const item of bridged.partition.auto){
         const a=await rpc('extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
