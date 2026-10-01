@@ -12,6 +12,7 @@ on:
       - 'ferramentas/external-calc-runtime/v0/**'
       - 'ferramentas/external-calc-api/v0/**'
       - 'ferramentas/external-calc-tracked-model/v0/**'
+      - 'ferramentas/external-calc-list-intake/v0/**'
       - 'supabase/migrations/20261001113500_external_calc_tracked_model_v0.sql'
       - 'supabase/migrations/20261001123000_external_calc_tracked_model_client_v0.sql'
   workflow_dispatch:
@@ -68,6 +69,12 @@ jobs:
           set -euo pipefail
           node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js | tee /tmp/runtime.log
           grep -q '^EXTERNAL_CALC_RUNTIME_V0=PASS checks=12$' /tmp/runtime.log
+
+      - name: Prove List Intake V0
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-list-intake/v0/prova_list_intake_v0.js | tee /tmp/list-intake.log
+          grep -q '^EXTERNAL_CALC_LIST_INTAKE_V0=PASS' /tmp/list-intake.log
 
       - name: Prove Tracked Model V0
         run: |
