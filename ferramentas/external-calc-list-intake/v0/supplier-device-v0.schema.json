@@ -31,7 +31,23 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|AirPods|AirTag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|Air\\s*Pods|Air\\s*Tag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:11|12|13|14|15|16|17)(?:\\s+(?:PRO\\s+MAX|PRO|PLUS|AIR))?\\s+(?:64|128|256|512)\\s*GB?(?:\\s+\\*?A\\*?)?(?:\\s*🇺🇸)?)[^\\n]*$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.96
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:Apple\\s+)?Pencil\\s+(?:Pro|USB-?C|USBC))\\b[^\\n]*$",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -61,6 +77,22 @@
           "group": 1,
           "transform": "integer",
           "score": 0.95
+        },
+        {
+          "kind": "regex",
+          "pattern": "\\biPhone\\s+1[1-7](?:e)?(?:\\s+(?:Pro\\s+Max|Pro|Plus|Air))?\\s+(64|128|256|512)(?:\\s*GB)?\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^\\s*\\*?(?:11|12|13|14|15|16|17)(?:\\s+(?:PRO\\s+MAX|PRO|PLUS|AIR))?\\s+(64|128|256|512)(?:\\s*GB)?\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "integer",
+          "score": 0.96
         }
       ]
     },
@@ -136,7 +168,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "(?:💰|💵)\\s*\\*?\\s*(?:R\\$|\\$)?\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "pattern": "(?:💰|💵)\\s*\\*?\\s*(?:R\\$|\\$)?\\s*([0-9]{1,6}(?:\\.[0-9]{3})*(?:,[0-9]{1,2})?)",
           "flags": "i",
           "group": 1,
           "transform": "number",
@@ -144,7 +176,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "(?:R\\$|\\$)\\s*([0-9]{1,3}(?:[.]?[0-9]{3})+(?:,[0-9]{1,2})?|[0-9]{4,6}(?:,[0-9]{1,2})?)",
+          "pattern": "(?:R\\$|\\$)\\s*([0-9]{1,6}(?:\\.[0-9]{3})*(?:,[0-9]{1,2})?)",
           "flags": "i",
           "group": 1,
           "transform": "number",
@@ -152,7 +184,7 @@
         },
         {
           "kind": "regex",
-          "pattern": "\\*?\\s*([0-9]{4,6}(?:,[0-9]{1,2})?)\\s*\\*?\\s*$",
+          "pattern": "^\\s*\\*?\\s*([0-9]{4,6}(?:,[0-9]{1,2})?)\\s*\\*?\\s*$",
           "flags": "i",
           "group": 1,
           "transform": "number",
