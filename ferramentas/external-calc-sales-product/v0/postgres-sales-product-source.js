@@ -12,7 +12,10 @@ function createPostgresSalesProductSource(options={}){
   async loadCurrentOffers(){const p=await rpc('extcalc_product_current_offers_v0');return Array.isArray(p)?p:[];},
   async loadHomeContext(){const p=await rpc('extcalc_product_home_context_v1');return Array.isArray(p)?p:[];},
   async loadActiveTradeInPolicy(){return await rpc('extcalc_product_trade_in_policy_v0');},
-  async loadActiveRateProfile(){return await rpc('extcalc_product_store_rate_profile_v0');}
+  async loadActiveRateProfile(){return await rpc('extcalc_product_store_rate_profile_v0');},
+  async listTrackedModels(){const p=await rpc('extcalc_product_tracked_models_v0');return Array.isArray(p)?p:[];},
+  async trackModel(command){return await rpc('extcalc_product_track_model_v0',{p_model_id:req(command.model_id,'model_id'),p_capacity_gb:command.capacity_gb??null,p_condition:command.condition??null});},
+  async untrackModel(command){return await rpc('extcalc_product_untrack_model_v0',{p_tracked_model_id:req(command.tracked_model_id,'tracked_model_id')});}
  };
 }
 module.exports={createPostgresSalesProductSource};
