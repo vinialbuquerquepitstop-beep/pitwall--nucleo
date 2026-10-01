@@ -91,6 +91,7 @@ function assertCandidateOutput(output) {
 function createListAdvisorService(options = {}) {
   const supplierSource = options.supplierSource;
   const provider = options.provider;
+  const c01Sink = options.c01Sink || null;
   if (!supplierSource || typeof supplierSource.load !== 'function') throw new Error('supplierSource.load obrigatorio');
   if (!provider || typeof provider.interpret !== 'function') throw new Error('provider.interpret obrigatorio');
 
@@ -117,14 +118,33 @@ function createListAdvisorService(options = {}) {
         }
       };
       const candidate = assertCandidateOutput(await provider.interpret(request));
-      return {
+      const inputHash = stableHash(input.content);
+      const identityHash = stableHash(inputHash + '|supplier:' + supplier.supplier_id);
+      const analysisId = 'analysis_' + identityHash.slice(0, 24);
+      const sourceId = 'source_' + identityHash.slice(0, 24);
+      const interpretation = {
         contract_version: CONTRACT_VERSION,
         supplier_id: supplier.supplier_id,
         supplier_name: supplier.name,
-        input_hash: stableHash(input.content),
+        input_hash: inputHash,
         context_fingerprint: stableHash(JSON.stringify(request.supplier_context)),
         offers: candidate.offers,
         ambiguities: candidate.ambiguities
+      };
+      const c01 = c01Sink && typeof c01Sink.persist === 'function'
+        ? await c01Sink.persist({
+            interpretation,
+            content: input.content,
+            analysis_id: analysisId,
+            source_id: sourceId,
+            supplier_id: supplier.supplier_id
+          })
+        : null;
+      return {
+        ...interpretation,
+        analysis_id: analysisId,
+        source_id: sourceId,
+        c01
       };
     }
   };
