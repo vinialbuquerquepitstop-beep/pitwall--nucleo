@@ -90,6 +90,65 @@ function finalizeBundleIdentity(bundle){
  }
  return bundle;
 }
+function normalizedDiagnosticLine(value){
+ return String(value??'').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+}
+function isKnownNonCommercialLine(raw){
+ const line=normalizedDiagnosticLine(raw);
+ if(!line)return true;
+ if(/^[━─—_=*•·\-\s]+$/u.test(line))return true;
+ if(/^📍\s*/u.test(line))return true;
+ if(/^📲\s*\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}\s*$/u.test(line))return true;
+ if(/^(?:🛡\s*)?garantia\s*$/iu.test(line))return true;
+ if(/^(?:📃\s*)?pol[ií]ticas\s*$/iu.test(line))return true;
+ if(/n[aã]o estornamos pix|cr[eé]dito loja|diferen[cç]a entre data de compra e garantia/iu.test(line))return true;
+ if(/^(?:📱|💻|⌚|📲|🎧)?\s*\*?(?:celular|macbook|watch|ipad|airpods)\s*[—–-]?\s*(?:lacrado|lacrados)?\*?\s*$/iu.test(line))return true;
+ return false;
+}
+function refineInterpreterDiagnostics(bundle){
+ const usedLines=new Set();
+ for(const record of bundle.records||[]){
+   for(const item of record.trace||[]){
+     for(const line of item.sources||[])if(Number.isSafeInteger(line))usedLines.add(line);
+   }
+ }
+ const segmentByLine=new Map((bundle.segments||[])
+   .filter(segment=>Number.isSafeInteger(segment?.line_number))
+   .map(segment=>[segment.line_number,segment]));
+
+ const suppressedAmbiguities=[];
+ bundle.ambiguities=(bundle.ambiguities||[]).filter(item=>{
+   if(item?.cause!=='structural_role_unknown')return true;
+   const sources=(item.sources||[]).filter(Number.isSafeInteger);
+   const used=sources.length>0&&sources.every(line=>usedLines.has(line));
+   const metadata=sources.length>0&&sources.every(line=>isKnownNonCommercialLine(segmentByLine.get(line)?.raw));
+   if(used||metadata){suppressedAmbiguities.push(item);return false;}
+   return true;
+ });
+
+ const suppressedInvalid=[];
+ bundle.invalid=(bundle.invalid||[]).filter(item=>{
+   const sources=(item.sources||[]).filter(Number.isSafeInteger);
+   const raw=sources.length?segmentByLine.get(sources[0])?.raw:item.raw;
+   if(item?.cause==='empty-line'||item?.cause==='symbols-only'||isKnownNonCommercialLine(raw)){
+     suppressedInvalid.push(item);
+     return false;
+   }
+   return true;
+ });
+
+ bundle.diagnostics={
+   ...(bundle.diagnostics||{}),
+   suppressed_structural_ambiguities:suppressedAmbiguities.length,
+   suppressed_noncommercial_invalid:suppressedInvalid.length
+ };
+ bundle.metrics={
+   ...(bundle.metrics||{}),
+   n_ambiguous:bundle.ambiguities.length,
+   n_invalid:bundle.invalid.length
+ };
+ return bundle;
+}
 function sourceType(filename,mime){
  const lower=filename.toLowerCase();
  if(lower.endsWith('.csv')||String(mime||'').toLowerCase().split(';')[0].trim()==='text/csv')return 'csv';
@@ -112,7 +171,7 @@ function buildQueue(body){
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
  const analysis_id='analysis_'+hash.slice(0,24);
  const source_id='source_'+hash.slice(0,24);
- const bundle=finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}));
+ const bundle=refineInterpreterDiagnostics(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null})));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }
