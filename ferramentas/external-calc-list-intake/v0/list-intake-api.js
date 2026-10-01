@@ -253,11 +253,12 @@ function expandColorVariants(bundle){
    }
 
    if(!colors.length){
+     const lastSegmentLine=Math.max(priceLine,...segmentByLine.keys());
      const stop=Math.min(
-       Number.isSafeInteger(nextPrice)?nextPrice-1:Infinity,
-       Number.isFinite(nextModel)?nextModel-1:Infinity
+       Number.isSafeInteger(nextPrice)?nextPrice-1:lastSegmentLine,
+       Number.isFinite(nextModel)?nextModel-1:lastSegmentLine
      );
-     if(Number.isFinite(stop)&&stop>=priceLine+1){
+     if(stop>=priceLine+1){
        colors=collect(priceLine+1,stop);
      }
    }
