@@ -49,6 +49,7 @@ const { createAdvisorRuntimeSource, createAdvisorRuntimeService } = require('../
 const { ADAPTER_VERSION: OPENAI_ADAPTER_VERSION, createOpenAIAdvisorProvider } = require('../../external-calc-ai-advisor/v0/openai-provider');
 const { createListAdvisorService, createPostgresSupplierContextSource } = require('../../external-calc-list-advisor/v0/list-advisor');
 const { createOpenAIListAdvisorProvider } = require('../../external-calc-list-advisor/v0/openai-list-provider');
+const { createPostgresAdvisorC01Sink } = require('../../external-calc-list-advisor/v0/list-advisor-c01-bridge');
 const { PATH: LIST_ADVISOR_PATH, createListAdvisorApiV0 } = require('../../external-calc-list-advisor/v0/list-advisor-api');
 
 const API_PREFIX = '/api/external-calc/';
@@ -450,9 +451,16 @@ function createExternalCalcWorkerRuntime(options = {}) {
           promptVersion: listAdvisorConfig.promptVersion,
           fetchImpl
         });
+        const listAdvisorC01Sink = createPostgresAdvisorC01Sink({
+          supabaseUrl: config.supabaseUrl,
+          anonKey: config.anonKey,
+          accessToken,
+          fetchImpl
+        });
         listAdvisorService = createListAdvisorService({
           supplierSource: supplierContextSource,
-          provider: listAdvisorProvider
+          provider: listAdvisorProvider,
+          c01Sink: listAdvisorC01Sink
         });
       }
 
