@@ -29,7 +29,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/external-calc/*", "/api/pitsquad/acquisition/*", "/a/*"],
+    "run_worker_first": ["/api/external-calc/*", "/api/pitsquad/acquisition/*", "/api/pitsquad/whatsapp/*", "/a/*"],
     // Qualquer rota que nao casar com um arquivo devolve o index.html
     // (200), em vez de 404. Protege o link de recovery de senha.
     "not_found_handling": "single-page-application"
