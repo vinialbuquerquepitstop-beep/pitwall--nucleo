@@ -30,6 +30,9 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_STORE_RATE_PROFILE_BACKEND_IMPLEMENTATION_V1\.md$/,
     /^docs\/calculadora\/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1\.md$/
   ] },
+  { owner: 'LIST_INTAKE', patterns: [
+    /^ferramentas\/external-calc-list-intake\/v0\//
+  ] },
   { owner: 'TRACKED_MODEL_HISTORY', patterns: [
     /^ferramentas\/external-calc-tracked-model\/v0\//,
     /^supabase\/migrations\/20261001113500_external_calc_tracked_model_v0\.sql$/,

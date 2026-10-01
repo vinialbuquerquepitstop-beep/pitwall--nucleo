@@ -1,9 +1,11 @@
 /* deploy-whatsapp-webhook-v1 */
 import runtimeModule from '../ferramentas/external-calc-runtime/v0/runtime.js';
 import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tracked-model-api.js';
+import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-intake-api.js';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
+const { createListIntakeApiV0 } = listIntakeModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -296,6 +298,9 @@ export default {
 
     const pitsquad = await handlePitsquad(request, env, url);
     if (pitsquad) return pitsquad;
+
+    const listIntakeApi = createListIntakeApiV0({ env });
+    if (listIntakeApi.matches(url.pathname)) return listIntakeApi.handle(request);
 
     const trackedModelApi = createTrackedModelApiV0({ env });
     if (trackedModelApi.matches(url.pathname)) return trackedModelApi.handle(request);
