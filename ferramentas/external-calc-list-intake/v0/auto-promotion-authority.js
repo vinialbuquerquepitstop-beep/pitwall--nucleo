@@ -19,7 +19,7 @@ function linkedMaterialAmbiguities(candidate,ambiguities){
   const lines=sourceSet(candidate);
   return (ambiguities||[]).filter(item=>{
     const field=item?.field;
-    if(field&& !CRITICAL_FIELDS.has(field))return false;
+    if(!field || !CRITICAL_FIELDS.has(field))return false;
     return (item?.sources||[]).some(line=>lines.has(line));
   });
 }
