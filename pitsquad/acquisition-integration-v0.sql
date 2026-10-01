@@ -60,7 +60,7 @@ begin
     return jsonb_build_object('ok', false, 'state', 'INVALID', 'reason', 'MISSING_ACQUISITION_REF');
   end if;
 
-  v_digitos := regexp_replace(coalesce(p_whatsapp,''), '\\D', '', 'g');
+  v_digitos := regexp_replace(coalesce(p_whatsapp,''), '\D', '', 'g');
   if length(v_digitos) in (10,11) then
     v_digitos := '55' || v_digitos;
   end if;
