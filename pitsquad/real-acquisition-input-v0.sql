@@ -177,8 +177,50 @@ begin
     v_digitos := '55' || v_digitos;
   end if;
 
-  if v_digitos !~ '^[0-9]{10,15}$' then
+  if v_digitos !~ '^[0-9]{10,15}
+    tenant_id,acquisition_ref,contact_ref,campaign_ref,source,occurred_at
+  )
+  values(
+    v_action.tenant_id,
+    v_action.acquisition_ref,
+    v_digitos,
+    v_action.campaign_ref,
+    v_action.source,
+    now()
+  )
+  on conflict (tenant_id,acquisition_ref,contact_ref)
+  do update set
+    campaign_ref=coalesce(public.pitsquad_acquisition_input.campaign_ref,excluded.campaign_ref),
+    source=coalesce(public.pitsquad_acquisition_input.source,excluded.source)
+  returning * into v_row;
+
+  return jsonb_build_object(
+    'ok',true,
+    'state',v_row.status,
+    'input_id',v_row.id
+  );
+end;
+$function$;
+
+revoke all on function public.pitsquad_public_acquisition_action_v0(uuid) from public;
+revoke all on function public.pitsquad_public_capture_acquisition_v0(uuid,text) from public;
+grant execute on function public.pitsquad_public_acquisition_action_v0(uuid) to anon, authenticated;
+grant execute on function public.pitsquad_public_capture_acquisition_v0(uuid,text) to anon, authenticated;
+ then
     return jsonb_build_object('ok',false,'state','INVALID','reason','INVALID_WHATSAPP');
+  end if;
+
+  -- V0 anti-abuse: cap burst volume per tracked action.
+  -- Existing contact retries stay idempotent and do not create extra rows.
+  if (
+    select count(*)
+    from public.pitsquad_acquisition_input i
+    where i.tenant_id=v_action.tenant_id
+      and i.acquisition_ref=v_action.acquisition_ref
+      and i.occurred_at >= now() - interval '1 minute'
+      and i.contact_ref <> v_digitos
+  ) >= 30 then
+    return jsonb_build_object('ok',false,'state','RATE_LIMITED','reason','ACTION_BURST_LIMIT');
   end if;
 
   insert into public.pitsquad_acquisition_input(
