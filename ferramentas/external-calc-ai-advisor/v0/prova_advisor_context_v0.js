@@ -161,7 +161,10 @@ function requestFrom(fixture, overrides = {}) {
       ...(overrides.expected || {})
     },
     c05_decision_output: overrides.c05_decision_output || fixture.c05,
-    evidence_records: overrides.evidence_records || fixture.evidenceList
+    evidence_records: overrides.evidence_records || fixture.evidenceList,
+    supplier_context: Object.prototype.hasOwnProperty.call(overrides, 'supplier_context')
+      ? overrides.supplier_context
+      : null
   };
 }
 
@@ -283,6 +286,31 @@ check('evidencias elegiveis viram refs permitidas e permanecem rastreaveis', () 
     context.model_input.allowed_evidence_refs.includes(
       'decision_output:' + fixture.c05.decision_output_id
     )
+  );
+});
+
+check('supplier context entra como contexto consultivo sem substituir fatos', () => {
+  const fixture = readyFixture();
+  const context = buildAdvisorContext(requestFrom(fixture, {
+    supplier_context: {
+      supplier_id: '7cbb126f-0499-44af-8d0b-55c4547ff701',
+      name: 'Fornecedor Exemplo',
+      ai_context: 'Usa PM para Pro Max. Manter Anatel como variante distinta.'
+    }
+  }));
+  assert.strictEqual(context.model_input.supplier_context.name, 'Fornecedor Exemplo');
+  assert.strictEqual(
+    context.model_input.facts.offer.model.id,
+    fixture.c05.reviewed_offer.model.id
+  );
+  assert(
+    context.model_input.allowed_evidence_refs.includes(
+      'supplier_context:7cbb126f-0499-44af-8d0b-55c4547ff701'
+    )
+  );
+  assert.strictEqual(
+    context.model_input.guardrails.supplier_context_may_not_override_operational_facts,
+    true
   );
 });
 
