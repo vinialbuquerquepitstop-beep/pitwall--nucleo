@@ -11,7 +11,7 @@ on:
       - '.github/workflows/external_calc_list_advisor_v0.yml'
   pull_request:
     branches:
-      - external-calc-supplier-advisor-context-v0
+      - main
     paths:
       - 'ferramentas/external-calc-list-advisor/v0/**'
       - 'ferramentas/external-calc-runtime/v0/runtime.js'
