@@ -201,6 +201,11 @@ async function handlePitsquadAssistant(request, env, url) {
   let output = null;
   try { output = JSON.parse(outputText); } catch { return json({ ok: false, reason: 'AI_INVALID_OUTPUT' }, 502); }
   output.requires_human_approval = true;
+  const allowedRefs = [];
+  if (context?.lead?.lead_code) allowedRefs.push('CRM:lead:' + context.lead.lead_code);
+  for (const ev of (Array.isArray(context?.events) ? context.events : [])) if (ev?.id) allowedRefs.push('CRM:lead_evento:' + ev.id);
+  for (const acq of (Array.isArray(context?.acquisition) ? context.acquisition : [])) if (acq?.id) allowedRefs.push('CRM:acquisition_input:' + acq.id);
+  output.evidence_refs = (Array.isArray(output.evidence_refs) ? output.evidence_refs : []).filter((ref) => allowedRefs.includes(ref));
   return json({ ok: true, output });
 }
 
