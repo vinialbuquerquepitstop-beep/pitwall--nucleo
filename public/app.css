@@ -4343,3 +4343,35 @@ body:has(#lista[data-aba="fila"]) .sec-lista{
   .fila-alertas-grade{grid-template-columns:1fr}
   .fila-alerta-corpo span{white-space:normal}
 }
+
+
+/* PITSQUAD AQUISITION V0 */
+.aq-summary{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
+  background:var(--line);margin-bottom:12px
+}
+.aq-summary>div{background:var(--bg);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.aq-summary strong{font-family:var(--display);font-size:24px;font-weight:600;color:var(--text)}
+.aq-summary span{font-size:11.5px;color:var(--dim)}
+.aq-card{
+  border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;
+  background:var(--bg);margin-bottom:8px
+}
+.aq-card.aq-conflict{border-color:var(--morno-linha);background:var(--morno-bg)}
+.aq-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.aq-ref{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text);overflow-wrap:anywhere}
+.aq-meta,.aq-contact,.aq-reason{font-size:12px;line-height:1.45;color:var(--dim);margin-top:3px}
+.aq-contact{color:var(--text);margin-top:9px}
+.aq-reason{color:var(--morno-fg)}
+.aq-result{margin-top:8px}
+.aq-result-box{
+  display:flex;flex-direction:column;gap:3px;padding:9px 10px;
+  border:1px solid var(--line);border-radius:var(--radius-p);background:var(--surface)
+}
+.aq-result-box strong{font-size:12.5px;font-weight:600;color:var(--text)}
+.aq-result-box span{font-size:11.5px;line-height:1.45;color:var(--dim)}
+@media(max-width:560px){
+  .aq-summary{grid-template-columns:1fr}
+  .aq-top{align-items:flex-start}
+}
