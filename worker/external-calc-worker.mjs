@@ -115,6 +115,95 @@ form.addEventListener('submit',async(e)=>{
 </html>`;
 }
 
+
+async function validateOperatorSession(request, env) {
+  const auth = request.headers.get('authorization') || '';
+  if (!auth.startsWith('Bearer ')) return { ok: false, status: 401 };
+  const response = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
+    headers: { apikey: env.SUPABASE_ANON_KEY, authorization: auth }
+  });
+  if (!response.ok) return { ok: false, status: 401 };
+  return { ok: true, user: await response.json() };
+}
+
+function assistantPrompt(input) {
+  return [
+    'Você é o Assistente Operacional de WhatsApp da Pitstop Imports.',
+    'Sua função é ajudar um operador humano a responder uma mensagem recebida. Você nunca envia mensagens.',
+    'Use SOMENTE a mensagem recebida e o contexto CRM fornecido como evidência.',
+    'GUARDRAILS OBRIGATÓRIOS:',
+    '- nunca invente preço, estoque, garantia, prazo, condição comercial ou desconto;',
+    '- se uma informação necessária não estiver na evidência, registre em missing_information e não a afirme no draft;',
+    '- não altere status, perfil, cadência ou qualquer dado do CRM;',
+    '- não conceda desconto;',
+    '- autoridade comercial continua humana;',
+    '- requires_human_approval deve ser sempre true;',
+    '- evidence_refs deve listar apenas referências realmente presentes no contexto.',
+    'Responda em português do Brasil, com draft natural, curto e adequado a WhatsApp.',
+    'Mensagem recebida: ' + JSON.stringify(input.message || ''),
+    'WhatsApp informado: ' + JSON.stringify(input.whatsapp || ''),
+    'Contexto CRM: ' + JSON.stringify(input.context || null)
+  ].join('\n');
+}
+
+async function handlePitsquadAssistant(request, env, url) {
+  if (url.pathname !== '/api/pitsquad/assistant/draft') return null;
+  if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+  const session = await validateOperatorSession(request, env);
+  if (!session.ok) return json({ ok: false, reason: 'UNAUTHORIZED' }, session.status);
+
+  let body = null;
+  try { body = await request.json(); } catch { return json({ ok: false, reason: 'INVALID_JSON' }, 400); }
+  const message = String(body?.message || '').trim();
+  const whatsapp = String(body?.whatsapp || '').trim();
+  const context = body?.context || null;
+  if (!message || message.length > 4000) return json({ ok: false, reason: 'INVALID_MESSAGE' }, 400);
+  if (!whatsapp || whatsapp.length > 40) return json({ ok: false, reason: 'INVALID_WHATSAPP' }, 400);
+  if (!env.OPENAI_API_KEY) return json({ ok: false, reason: 'AI_NOT_CONFIGURED' }, 503);
+
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      intent: { type: 'string' },
+      summary: { type: 'string' },
+      missing_information: { type: 'array', items: { type: 'string' } },
+      recommended_action: { type: 'string' },
+      draft_reply: { type: 'string' },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+      requires_human_approval: { type: 'boolean' },
+      evidence_refs: { type: 'array', items: { type: 'string' } }
+    },
+    required: ['intent','summary','missing_information','recommended_action','draft_reply','confidence','requires_human_approval','evidence_refs']
+  };
+
+  const ai = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + env.OPENAI_API_KEY
+    },
+    body: JSON.stringify({
+      model: env.EXTCALC_ADVISOR_OPENAI_MODEL || 'gpt-5.6',
+      input: assistantPrompt({ message, whatsapp, context }),
+      text: { format: { type: 'json_schema', name: 'pitsquad_assistant_output', strict: true, schema } }
+    })
+  });
+  const raw = await ai.json().catch(() => null);
+  if (!ai.ok) return json({ ok: false, reason: 'AI_FAILED' }, 502);
+  let outputText = raw?.output_text || '';
+  if (!outputText && Array.isArray(raw?.output)) {
+    for (const item of raw.output) for (const part of (item?.content || [])) {
+      if (part?.type === 'output_text' && part?.text) outputText += part.text;
+    }
+  }
+  let output = null;
+  try { output = JSON.parse(outputText); } catch { return json({ ok: false, reason: 'AI_INVALID_OUTPUT' }, 502); }
+  output.requires_human_approval = true;
+  return json({ ok: true, output });
+}
+
 async function handlePitsquad(request, env, url) {
   if (request.method === 'GET' && url.pathname.startsWith('/a/')) {
     const token = url.pathname.slice(3).trim();
@@ -169,6 +258,9 @@ async function handlePitsquad(request, env, url) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    const assistant = await handlePitsquadAssistant(request, env, url);
+    if (assistant) return assistant;
 
     const whatsappWebhook = await handleWhatsAppWebhook(request, env, url);
     if (whatsappWebhook) return whatsappWebhook;
