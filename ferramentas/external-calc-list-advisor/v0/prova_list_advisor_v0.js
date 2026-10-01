@@ -25,10 +25,11 @@ const supplier = {
   ai_context: 'Usa PM para Pro Max. Manter Anatel como variante distinta.'
 };
 
-function serviceWith(candidate, capture) {
+function serviceWith(candidate, capture, c01Sink = null) {
   return createListAdvisorService({
     supplierSource: { async load(id) { assert.strictEqual(id, supplier.supplier_id); return supplier; } },
-    provider: { async interpret(request) { capture?.(request); return candidate; } }
+    provider: { async interpret(request) { capture?.(request); return candidate; } },
+    c01Sink
   });
 }
 
@@ -110,6 +111,35 @@ check('ambiguidade entre cores e capacidades pode ser preservada', async () => {
   assert.strictEqual(result.ambiguities[0].field, 'color_assignment');
 });
 
+
+check('interpretação pode seguir direto para persistência C01', async () => {
+  let persisted = null;
+  const sink = {
+    async persist(payload) {
+      persisted = payload;
+      return {
+        analysis_id: payload.analysis_id,
+        source_id: payload.source_id,
+        candidates: 1,
+        auto_promoted: 1,
+        review_required: 0,
+        persisted: 1,
+        idempotent: 0,
+        unresolved_ambiguities: 0
+      };
+    }
+  };
+  const result = await serviceWith(baseCandidate, null, sink).interpret({
+    supplier_id: supplier.supplier_id,
+    content: '17 pro 256gb\nBlue Anatel $ 6.900'
+  });
+  assert(persisted);
+  assert.strictEqual(persisted.supplier_id, supplier.supplier_id);
+  assert.strictEqual(result.c01.auto_promoted, 1);
+  assert(result.analysis_id.startsWith('analysis_'));
+  assert(result.source_id.startsWith('source_'));
+});
+
 check('validator rejeita campo inventado fora do contrato', () => {
   assert.throws(() => assertCandidateOutput({
     offers: [{ ...baseCandidate.offers[0], magical_fix: true }],
@@ -119,7 +149,7 @@ check('validator rejeita campo inventado fora do contrato', () => {
 
 process.on('beforeExit', () => {
   if (!process.exitCode) {
-    assert.strictEqual(checks, 4);
+    assert.strictEqual(checks, 5);
     console.log('EXTERNAL_CALC_LIST_ADVISOR_V0=PASS checks=' + checks);
   }
 });
