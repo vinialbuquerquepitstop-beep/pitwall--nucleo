@@ -33,11 +33,12 @@ function normalizedFilename(value,type){
 }
 function normalizeBody(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('body invalido'),{code:'LIST_INTAKE_INVALID'});
- const allowed=new Set(['filename','mime_type','content']);
+ const allowed=new Set(['filename','mime_type','content','supplier_id']);
  for(const k of Object.keys(value))if(!allowed.has(k))throw Object.assign(new Error('campo nao permitido: '+k),{code:'LIST_INTAKE_INVALID'});
  if(typeof value.content!=='string'||!value.content.trim())throw Object.assign(new Error('lista vazia'),{code:'LIST_INTAKE_INVALID'});
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
- return value;
+ if(value.supplier_id!=null&&(typeof value.supplier_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.supplier_id.trim())))throw Object.assign(new Error('supplier_id invalido'),{code:'LIST_INTAKE_INVALID'});
+ return {...value,supplier_id:value.supplier_id==null?null:value.supplier_id.trim().toLowerCase()};
 }
 
 const COLOR_TEXT_ALIASES=[
@@ -449,8 +450,9 @@ function buildQueue(body){
  const canonical=type==='csv'?parseCsvSource(source):parseTextSource(source);
  const raw=canonicalToRawDocument(canonical);
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
- const analysis_id='analysis_'+hash.slice(0,24);
- const source_id='source_'+hash.slice(0,24);
+ const identityHash=body.supplier_id?crypto.createHash('sha256').update(hash+'|supplier:'+body.supplier_id).digest('hex'):hash;
+ const analysis_id='analysis_'+identityHash.slice(0,24);
+ const source_id='source_'+identityHash.slice(0,24);
  const bundle=refineInterpreterDiagnostics(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}))));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
@@ -468,6 +470,9 @@ function createListIntakeApiV0({env}={}){
     let raw;try{raw=await request.json();}catch{throw Object.assign(new Error('JSON invalido'),{code:'LIST_INTAKE_INVALID'});}
     const command=normalizeBody(raw);
     const built=buildQueue(command);
+    if(command.supplier_id){
+      await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+    }
     const partition=partitionCandidates(built.queue);
     let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
     const review_reasons={};
@@ -493,6 +498,7 @@ function createListIntakeApiV0({env}={}){
       intake:{
         analysis_id:built.analysis_id,
         source_id:built.source_id,
+        supplier_id:command.supplier_id,
         source_type:built.type,
         filename:built.filename,
         content_hash:built.canonical.source.content_hash,
