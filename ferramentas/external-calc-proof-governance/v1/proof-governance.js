@@ -31,7 +31,12 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_PRODUCTION_STATUS_2026_09_22_V1\.md$/
   ] },
   { owner: 'PITSQUAD_RUNTIME', patterns: [
-    /^pitsquad\/whatsapp-worker\.mjs$/
+    /^pitsquad\/whatsapp-worker\.mjs$/,
+    /^pitsquad\/WHATSAPP_ASSISTANT_OPERATIONAL_SLICE_V0\.md$/
+  ] },
+  { owner: 'PITWALL_UI', patterns: [
+    /^public\/app\.js$/,
+    /^public\/app\.css$/
   ] },
   { owner: 'LIST_INTAKE', patterns: [
     /^ferramentas\/external-calc-list-intake\/v0\//,
