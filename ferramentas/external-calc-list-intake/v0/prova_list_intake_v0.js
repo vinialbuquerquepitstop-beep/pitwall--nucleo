@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('assert');
 const {buildQueue}=require('./list-intake-api');
+const {partitionCandidates}=require('./auto-promotion-authority');
 
 const sample=[
   'Fornecedor Alpha — ATACADO',
@@ -29,4 +30,10 @@ assert.strictEqual(countLabel('PocoF8 Ultra 5G 12/256gb'),1);
 assert.ok(offers.some(o=>o.model.label.includes('MacBook pro M5 14" 24/1tb')&&o.capacity_gb===1024));
 assert.strictEqual(countLabel('iPad Air 11 M4 128GB Wi-Fi'),3);
 assert.strictEqual(countLabel('AirPods'),1);
-console.log('EXTERNAL_CALC_LIST_INTAKE_V0=PASS candidates='+parsed.queue.candidates.length);
+const partition=partitionCandidates(parsed.queue);
+assert.strictEqual(partition.auto.length+partition.review.length,18);
+assert.ok(partition.auto.length>=15,'lista REAL COMERCIO deve autopromover a ampla maioria');
+assert.ok(partition.review.length<=3,'revisao deve ser excecao, nao pedágio');
+assert.ok(partition.auto.every(item=>item.promoted.domain_outcome==='VALID'));
+assert.ok(partition.auto.every(item=>item.promoted.review===null));
+console.log('EXTERNAL_CALC_LIST_INTAKE_V0=PASS candidates='+parsed.queue.candidates.length+' auto='+partition.auto.length+' review='+partition.review.length);

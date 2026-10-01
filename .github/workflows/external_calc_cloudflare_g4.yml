@@ -15,6 +15,7 @@ on:
       - 'ferramentas/external-calc-list-intake/v0/**'
       - 'supabase/migrations/20261001113500_external_calc_tracked_model_v0.sql'
       - 'supabase/migrations/20261001123000_external_calc_tracked_model_client_v0.sql'
+      - 'supabase/migrations/20261001145500_external_calc_c01_auto_promotion_v0.sql'
   workflow_dispatch:
     inputs:
       confirm_target:
