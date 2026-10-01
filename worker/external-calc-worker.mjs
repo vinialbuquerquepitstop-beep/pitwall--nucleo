@@ -185,7 +185,7 @@ async function handlePitsquadAssistant(request, env, url) {
       authorization: 'Bearer ' + env.OPENAI_API_KEY
     },
     body: JSON.stringify({
-      model: env.EXTCALC_ADVISOR_OPENAI_MODEL || 'gpt-5.6',
+      model: env.PITSQUAD_ASSISTANT_OPENAI_MODEL || 'gpt-5.6',
       input: assistantPrompt({ message, whatsapp, context }),
       text: { format: { type: 'json_schema', name: 'pitsquad_assistant_output', strict: true, schema } }
     })
