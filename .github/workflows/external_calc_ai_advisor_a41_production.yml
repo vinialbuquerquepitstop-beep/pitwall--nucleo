@@ -20,6 +20,7 @@ jobs:
     name: A4.1 preflight
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: external-calc-production
 
     steps:
       - name: Require main branch and exact target
