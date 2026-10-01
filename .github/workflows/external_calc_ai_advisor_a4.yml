@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-ai-advisor/v0/prova_advisor_context_v0.js | tee /tmp/a1.log
-          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=15$' /tmp/a1.log
+          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=16$' /tmp/a1.log
 
           node ferramentas/external-calc-ai-advisor/v0/prova_advisor_executor_v0.js | tee /tmp/a2.log
           grep -q '^AI_ADVISOR_A2_FIXTURES=PASS checks=15$' /tmp/a2.log

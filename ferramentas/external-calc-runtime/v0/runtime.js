@@ -47,6 +47,10 @@ const { HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE
 const { ADVISOR_PATH, createAdvisorApiV0 } = require('../../external-calc-ai-advisor/v0/advisor-api');
 const { createAdvisorRuntimeSource, createAdvisorRuntimeService } = require('../../external-calc-ai-advisor/v0/advisor-runtime');
 const { ADAPTER_VERSION: OPENAI_ADAPTER_VERSION, createOpenAIAdvisorProvider } = require('../../external-calc-ai-advisor/v0/openai-provider');
+const { createListAdvisorService, createPostgresSupplierContextSource } = require('../../external-calc-list-advisor/v0/list-advisor');
+const { createOpenAIListAdvisorProvider } = require('../../external-calc-list-advisor/v0/openai-list-provider');
+const { createPostgresAdvisorC01Sink } = require('../../external-calc-list-advisor/v0/list-advisor-c01-bridge');
+const { PATH: LIST_ADVISOR_PATH, createListAdvisorApiV0 } = require('../../external-calc-list-advisor/v0/list-advisor-api');
 
 const API_PREFIX = '/api/external-calc/';
 const OWNER_ROLE = 'dono';
@@ -236,6 +240,25 @@ function advisorServerConfig(env) {
   };
 }
 
+function listAdvisorServerConfig(env) {
+  const apiKey = typeof env?.OPENAI_API_KEY === 'string'
+    ? env.OPENAI_API_KEY.trim()
+    : '';
+  const model = typeof env?.EXTCALC_LIST_ADVISOR_OPENAI_MODEL === 'string'
+    ? env.EXTCALC_LIST_ADVISOR_OPENAI_MODEL.trim()
+    : (typeof env?.EXTCALC_ADVISOR_OPENAI_MODEL === 'string' ? env.EXTCALC_ADVISOR_OPENAI_MODEL.trim() : '');
+  const promptVersion = typeof env?.EXTCALC_LIST_ADVISOR_PROMPT_VERSION === 'string'
+    ? env.EXTCALC_LIST_ADVISOR_PROMPT_VERSION.trim()
+    : 'external-calc-list-advisor-prompt/v0';
+
+  return {
+    configured: Boolean(apiKey && model && promptVersion),
+    apiKey: apiKey || null,
+    model: model || null,
+    promptVersion: promptVersion || null
+  };
+}
+
 function toApiRequest(request, body) {
   const url = new URL(request.url);
   return {
@@ -413,6 +436,39 @@ function createExternalCalcWorkerRuntime(options = {}) {
         promptVersion: advisorConfig.promptVersion
       });
 
+      const listAdvisorConfig = listAdvisorServerConfig(env);
+      let listAdvisorService = null;
+      if (listAdvisorConfig.configured) {
+        const supplierContextSource = createPostgresSupplierContextSource({
+          supabaseUrl: config.supabaseUrl,
+          anonKey: config.anonKey,
+          accessToken,
+          fetchImpl
+        });
+        const listAdvisorProvider = createOpenAIListAdvisorProvider({
+          apiKey: listAdvisorConfig.apiKey,
+          model: listAdvisorConfig.model,
+          promptVersion: listAdvisorConfig.promptVersion,
+          fetchImpl
+        });
+        const listAdvisorC01Sink = createPostgresAdvisorC01Sink({
+          supabaseUrl: config.supabaseUrl,
+          anonKey: config.anonKey,
+          accessToken,
+          fetchImpl
+        });
+        listAdvisorService = createListAdvisorService({
+          supplierSource: supplierContextSource,
+          provider: listAdvisorProvider,
+          c01Sink: listAdvisorC01Sink
+        });
+      }
+
+      const listAdvisorApi = createListAdvisorApiV0({
+        service: listAdvisorService,
+        authenticate: advisorAuthContext
+      });
+
       let body = null;
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         body = await request.text();
@@ -422,6 +478,7 @@ function createExternalCalcWorkerRuntime(options = {}) {
         url.pathname === REVIEW_PATH ? reviewApi :
         url.pathname === QUOTE_PATH ? storeRateApi :
         url.pathname === ADVISOR_PATH ? advisorApi :
+        url.pathname === LIST_ADVISOR_PATH ? listAdvisorApi :
         [HOME_PATH, PRODUCT_OPTIONS_PATH, OFFER_OPTIONS_PATH, VARIANT_PATH, TRADE_IN_PATH, SIM_PATH].includes(url.pathname) ? salesProductApi :
         api;
       const apiResponse = await handler.handle(toApiRequest(request, body));
@@ -438,5 +495,6 @@ module.exports = {
   resolveIdentity,
   authorityServerConfig,
   advisorServerConfig,
+  listAdvisorServerConfig,
   createExternalCalcWorkerRuntime
 };

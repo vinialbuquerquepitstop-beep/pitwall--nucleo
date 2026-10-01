@@ -188,12 +188,31 @@ function normalizeEvidenceRecords(c05, evidenceRecords) {
   return safe;
 }
 
-function sourceRefs(c05, evidence) {
+function normalizeSupplierContext(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('supplier_context invalido');
+  }
+  const supplierId = assertNonEmpty(value.supplier_id, 'supplier_context.supplier_id');
+  const name = assertNonEmpty(value.name, 'supplier_context.name');
+  const aiContext = value.ai_context == null ? null : String(value.ai_context).trim() || null;
+  if (aiContext && aiContext.length > 2000) {
+    throw new Error('supplier_context.ai_context excede limite');
+  }
+  return {
+    supplier_id: supplierId,
+    name,
+    ai_context: aiContext
+  };
+}
+
+function sourceRefs(c05, evidence, supplierContext = null) {
   const refs = [
     'decision_output:' + c05.decision_output_id,
     'offer_revision:' + c05.offer_id + ':' + c05.offer_revision,
     'research_run:' + c05.research.research_run_id,
     'price_signal_run:' + c05.price_indicator.price_signal_run_id,
+    ...(supplierContext ? ['supplier_context:' + supplierContext.supplier_id] : []),
     ...evidence.map(item => 'evidence:' + item.evidence_id)
   ];
   return [...new Set(refs.filter(Boolean))];
@@ -237,7 +256,8 @@ function buildAdvisorContext(request) {
   }
 
   const evidence = normalizeEvidenceRecords(c05, request.evidence_records);
-  const refs = sourceRefs(c05, evidence);
+  const supplierContext = normalizeSupplierContext(request.supplier_context);
+  const refs = sourceRefs(c05, evidence, supplierContext);
   const facts = {
     offer: {
       supplier_id: c05.reviewed_offer.supplier_id == null
@@ -279,6 +299,7 @@ function buildAdvisorContext(request) {
 
   const modelInput = {
     task: 'EXPLAIN_SELECTED_OFFER_AND_SUPPORT_NEGOTIATION',
+    supplier_context: supplierContext,
     facts,
     allowed_evidence_refs: refs,
     guardrails: {
@@ -288,6 +309,8 @@ function buildAdvisorContext(request) {
       may_override_price: false,
       may_override_provenance: false,
       may_invent_missing_values: false,
+      supplier_context_is_advisory: true,
+      supplier_context_may_not_override_operational_facts: true,
       allowed_insight_types: [...ALLOWED_INSIGHT_TYPES]
     }
   };

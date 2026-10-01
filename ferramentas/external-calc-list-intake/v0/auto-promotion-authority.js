@@ -1,7 +1,7 @@
 'use strict';
 
 const AUTO_PROMOTION_VERSION='external-calc-c01-auto-promotion/v0';
-const CRITICAL_FIELDS=new Set(['model','price','capacity_gb','condition']);
+const CRITICAL_FIELDS=new Set(['model','price','capacity_gb','condition','color']);
 
 function traceByField(candidate){
   const out={};
@@ -45,7 +45,7 @@ function evaluateAutoPromotion(candidate,context={}){
   if(Number.isInteger(offer.capacity_gb)&&(typeof capacityScore!=='number'||capacityScore<0.90))reasons.push('CAPACITY_CONFIDENCE_LOW');
 
   const modelRules=Array.isArray(trace.model?.rules)?trace.model.rules:[];
-  if(!modelRules.some(rule=>['direct_extraction','list_intake:canonical_model','list_intake:fallback_model_id'].includes(rule))){
+  if(!modelRules.some(rule=>['direct_extraction','list_intake:canonical_model','list_intake:fallback_model_id','list_advisor:structured_output'].includes(rule))){
     reasons.push('MODEL_PROVENANCE_NOT_DIRECT');
   }
 

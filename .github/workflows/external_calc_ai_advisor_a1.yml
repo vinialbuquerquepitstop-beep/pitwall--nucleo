@@ -62,7 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-ai-advisor/v0/prova_advisor_context_v0.js | tee /tmp/advisor.log
-          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=15$' /tmp/advisor.log
+          grep -q '^AI_ADVISOR_A1_FIXTURES=PASS checks=16$' /tmp/advisor.log
 
       - name: Enforce read-only post-C05 boundary
         run: |
