@@ -71,19 +71,37 @@ function colorKey(value){
  return normalizeColorSearch(value).toLocaleLowerCase('pt-BR').replace(/\s+/g,'');
 }
 
-function extractColorTokens(raw){
- const line=String(raw??'').normalize('NFKC');
- const normalized=normalizeColorSearch(line);
- const padded=' '+normalized+' ';
+function findTextColorHits(value){
+ const normalized=normalizeColorSearch(value);
  const hits=[];
-
  const sorted=[...COLOR_TEXT_ALIASES].sort((a,b)=>normalizeColorSearch(b[0]).length-normalizeColorSearch(a[0]).length);
+ const occupied=[];
  for(const [alias,color] of sorted){
-   const needle=' '+normalizeColorSearch(alias)+' ';
-   const idx=padded.indexOf(needle);
-   if(idx>=0)hits.push({color,index:idx,score:0.98,via:'text'});
+   const needle=normalizeColorSearch(alias);
+   if(!needle)continue;
+   let from=0;
+   while(true){
+     const idx=normalized.indexOf(needle,from);
+     if(idx<0)break;
+     const before=idx===0?' ':normalized[idx-1];
+     const after=idx+needle.length>=normalized.length?' ':normalized[idx+needle.length];
+     const boundaryBefore=before===' ';
+     const boundaryAfter=after===' ';
+     const range=[idx,idx+needle.length];
+     const overlaps=occupied.some(([a,b])=>range[0]<b&&range[1]>a);
+     if(boundaryBefore&&boundaryAfter&&!overlaps){
+       occupied.push(range);
+       hits.push({color,index:idx,score:0.98,via:'text'});
+     }
+     from=idx+Math.max(needle.length,1);
+   }
  }
+ return hits.sort((a,b)=>a.index-b.index);
+}
 
+function findEmojiColorHits(value){
+ const line=String(value??'');
+ const hits=[];
  for(const [emoji,color] of COLOR_EMOJI_ALIASES){
    let from=0;
    while(true){
@@ -93,18 +111,65 @@ function extractColorTokens(raw){
      from=idx+emoji.length;
    }
  }
+ return hits.sort((a,b)=>a.index-b.index);
+}
 
- hits.sort((a,b)=>a.index-b.index||b.score-a.score);
+function cleanCompositeColor(value){
+ let out=String(value??'').normalize('NFKC');
+ out=out.replace(/(?:💰|💵).*$/u,' ');
+ out=out.replace(/\s*[-–—]\s*\d+%.*$/u,' ');
+ out=out.replace(/[🎨🫟*]+/gu,' ');
+ for(const [emoji] of COLOR_EMOJI_ALIASES)out=out.split(emoji).join(' ');
+ return out.replace(/\s+/g,' ').trim();
+}
+
+function extractColorTokens(raw){
+ const line=String(raw??'').normalize('NFKC').replace(/(?:💰|💵).*$/u,' ');
+ const explicitAlternative=/[\/|]/u.test(line);
+ const parts=explicitAlternative?line.split(/[\/|]/u):[line];
+ const all=[];
+
+ for(const part of parts){
+   if(!part.trim())continue;
+   const textHits=findTextColorHits(part);
+   const emojiHits=findEmojiColorHits(part);
+
+   if(textHits.length>1&&!explicitAlternative){
+     const composite=cleanCompositeColor(part);
+     if(composite){
+       all.push({color:composite,index:0,score:0.97,via:'text_composite'});
+       continue;
+     }
+   }
+
+   if(textHits.length===1&&emojiHits.length<=1){
+     all.push(textHits[0]);
+     continue;
+   }
+
+   if(textHits.length){
+     all.push(...textHits);
+     for(const emojiHit of emojiHits){
+       if(!textHits.some(textHit=>colorKey(textHit.color)===colorKey(emojiHit.color))){
+         all.push(emojiHit);
+       }
+     }
+     continue;
+   }
+
+   all.push(...emojiHits);
+ }
+
+ all.sort((a,b)=>a.index-b.index||b.score-a.score);
  const seen=new Set(),out=[];
- for(const hit of hits){
+ for(const hit of all){
    const key=colorKey(hit.color);
-   if(seen.has(key))continue;
+   if(!key||seen.has(key))continue;
    seen.add(key);
    out.push(hit);
  }
  return out;
 }
-
 function sanitizeModelLabel(value){
  let label=String(value??'').normalize('NFKC');
  label=label.replace(/🇺🇸/gu,' ');
