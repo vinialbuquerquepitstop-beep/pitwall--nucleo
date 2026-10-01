@@ -39,6 +39,207 @@ function normalizeBody(value){
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
  return value;
 }
+
+const COLOR_TEXT_ALIASES=[
+ ['CINZA ESPACIAL','Cinza espacial'],['SPACE GRAY','Cinza espacial'],['SPACEGRAY','Cinza espacial'],
+ ['ROSE GOLD','Rose Gold'],['ROSEGOLD','Rose Gold'],['MEIA NOITE','Meia-noite'],['MEIA-NOITE','Meia-noite'],
+ ['STARLIGHT','Starlight'],['MIDNIGHT','Meia-noite'],['GRAFITE','Grafite'],['GRAPHITE','Grafite'],
+ ['NATURAL','Natural'],['SILVER','Prata'],['PRATA','Prata'],['BRANCO','Branco'],['WHITE','Branco'],
+ ['PRETO','Preto'],['BLACK','Preto'],['AZUL','Azul'],['BLUE','Azul'],['ROXO','Roxo'],['PURPLE','Roxo'],
+ ['LILÁS','Lilás'],['LILAS','Lilás'],['VERMELHO','Vermelho'],['RED','Vermelho'],['VERDE','Verde'],
+ ['GREEN','Verde'],['ROSA','Rosa'],['PINK','Rosa'],['AMARELO','Gold'],['YELLOW','Gold'],
+ ['DOURADO','Gold'],['GOLD','Gold'],['DESERTO','Desert'],['DESERT','Desert'],['BLUSH','Blush'],
+ ['CINZA','Cinza'],['SPACE','Cinza espacial']
+];
+
+const COLOR_EMOJI_ALIASES=[
+ ['⚫','Preto'],['⚪','Branco'],['🔵','Azul'],['🟣','Roxo'],['🟡','Gold'],['🟢','Verde'],
+ ['🔴','Vermelho'],['🩷','Rosa'],['💛','Gold'],['🌹','Rosa'],['🔘','Natural'],['🩶','Cinza']
+];
+
+function normalizeColorSearch(value){
+ return String(value??'')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'')
+  .toLocaleUpperCase('pt-BR')
+  .replace(/[^A-Z0-9]+/g,' ')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
+function colorKey(value){
+ return normalizeColorSearch(value).toLocaleLowerCase('pt-BR').replace(/\s+/g,'');
+}
+
+function extractColorTokens(raw){
+ const line=String(raw??'').normalize('NFKC');
+ const normalized=normalizeColorSearch(line);
+ const padded=' '+normalized+' ';
+ const hits=[];
+
+ const sorted=[...COLOR_TEXT_ALIASES].sort((a,b)=>normalizeColorSearch(b[0]).length-normalizeColorSearch(a[0]).length);
+ for(const [alias,color] of sorted){
+   const needle=' '+normalizeColorSearch(alias)+' ';
+   const idx=padded.indexOf(needle);
+   if(idx>=0)hits.push({color,index:idx,score:0.98,via:'text'});
+ }
+
+ for(const [emoji,color] of COLOR_EMOJI_ALIASES){
+   let from=0;
+   while(true){
+     const idx=line.indexOf(emoji,from);
+     if(idx<0)break;
+     hits.push({color,index:idx,score:0.92,via:'emoji'});
+     from=idx+emoji.length;
+   }
+ }
+
+ hits.sort((a,b)=>a.index-b.index||b.score-a.score);
+ const seen=new Set(),out=[];
+ for(const hit of hits){
+   const key=colorKey(hit.color);
+   if(seen.has(key))continue;
+   seen.add(key);
+   out.push(hit);
+ }
+ return out;
+}
+
+function sanitizeModelLabel(value){
+ let label=String(value??'').normalize('NFKC');
+ label=label.replace(/🇺🇸/gu,' ');
+ label=label.replace(/\*?\bA\b\*?/giu,' ');
+ label=label.replace(/\b(?:CPO|LACRADOS?|SEMINOVOS?)\b/giu,' ');
+ label=label.replace(/\(\s*(?:gold|dourado|amarelo)\s*\)/giu,' ');
+ for(const [emoji] of COLOR_EMOJI_ALIASES)label=label.split(emoji).join(' ');
+ label=label.replace(/[‼🔥]+/gu,' ');
+ label=label.replace(/\*+/g,' ');
+ label=label.replace(/\s+/g,' ').trim();
+ if(/^(?:11|12|13|14|15|16|17)(?:\s|$)/i.test(label)&&!/^iphone\b/i.test(label)){
+   label='iPhone '+label;
+ }
+ return label;
+}
+
+function traceLine(record,field){
+ const item=(record.trace||[]).find(entry=>entry?.field===field);
+ return (item?.sources||[]).find(Number.isSafeInteger)??null;
+}
+
+function cloneRecord(record){
+ return JSON.parse(JSON.stringify(record));
+}
+
+function expandColorVariants(bundle){
+ const segmentByLine=new Map((bundle.segments||[])
+  .filter(segment=>Number.isSafeInteger(segment?.line_number))
+  .map(segment=>[segment.line_number,segment]));
+
+ const baseRecords=bundle.records||[];
+ const modelLines=[...new Set(baseRecords.map(r=>traceLine(r,'model')).filter(Number.isSafeInteger))].sort((a,b)=>a-b);
+ const pricesByModel=new Map();
+
+ for(const record of baseRecords){
+   const modelLine=traceLine(record,'model');
+   const priceLine=traceLine(record,'price');
+   if(!Number.isSafeInteger(modelLine)||!Number.isSafeInteger(priceLine))continue;
+   if(!pricesByModel.has(modelLine))pricesByModel.set(modelLine,[]);
+   pricesByModel.get(modelLine).push(priceLine);
+ }
+ for(const values of pricesByModel.values())values.sort((a,b)=>a-b);
+
+ const expanded=[];
+ for(const record of baseRecords){
+   const modelLine=traceLine(record,'model');
+   const priceLine=traceLine(record,'price');
+   if(!Number.isSafeInteger(modelLine)||!Number.isSafeInteger(priceLine)){
+     expanded.push(record);
+     continue;
+   }
+
+   const sameModelPrices=pricesByModel.get(modelLine)||[priceLine];
+   const currentPriceIndex=sameModelPrices.indexOf(priceLine);
+   const prevPrice=currentPriceIndex>0?sameModelPrices[currentPriceIndex-1]:null;
+   const nextPrice=currentPriceIndex>=0&&currentPriceIndex<sameModelPrices.length-1?sameModelPrices[currentPriceIndex+1]:null;
+   const nextModel=modelLines.find(line=>line>modelLine)??Infinity;
+
+   const collect=(start,end)=>{
+     const found=[];
+     for(let line=start;line<=end;line++){
+       const raw=segmentByLine.get(line)?.raw;
+       if(raw==null)continue;
+       for(const token of extractColorTokens(raw))found.push({...token,line});
+     }
+     const seen=new Set(),unique=[];
+     for(const token of found){
+       const key=colorKey(token.color);
+       if(seen.has(key))continue;
+       seen.add(key);
+       unique.push(token);
+     }
+     return unique;
+   };
+
+   let colors=collect(priceLine,priceLine);
+
+   if(!colors.length){
+     const start=Number.isSafeInteger(prevPrice)?prevPrice+1:modelLine;
+     colors=collect(start,priceLine);
+   }
+
+   if(!colors.length){
+     const stop=Math.min(
+       Number.isSafeInteger(nextPrice)?nextPrice-1:Infinity,
+       Number.isFinite(nextModel)?nextModel-1:Infinity
+     );
+     if(Number.isFinite(stop)&&stop>=priceLine+1){
+       colors=collect(priceLine+1,stop);
+     }
+   }
+
+   if(!colors.length&&typeof record.fields?.color==='string'&&record.fields.color.trim()){
+     colors=extractColorTokens(record.fields.color).map(token=>({
+       ...token,
+       line:traceLine(record,'color')??priceLine
+     }));
+     if(!colors.length){
+       colors=[{
+         color:record.fields.color.trim(),
+         line:traceLine(record,'color')??priceLine,
+         score:0.9,
+         via:'schema'
+       }];
+     }
+   }
+
+   if(!colors.length){
+     expanded.push(record);
+     continue;
+   }
+
+   colors.forEach((token,index)=>{
+     const next=cloneRecord(record);
+     next.record_id=colors.length>1?record.record_id+'-color-'+(index+1):record.record_id;
+     next.fields.color=token.color;
+     next.trace=(next.trace||[]).filter(item=>item?.field!=='color');
+     next.trace.push({
+       field:'color',
+       chosen:token.color,
+       sources:[token.line],
+       derived_from:[],
+       rules:['list_intake:color_'+token.via],
+       alternatives:[],
+       score:token.score
+     });
+     expanded.push(next);
+   });
+ }
+
+ bundle.records=expanded;
+ bundle.metrics={...(bundle.metrics||{}),n_records:expanded.length};
+ return bundle;
+}
+
 function fallbackModelId(label){
  const slug=String(label)
    .normalize('NFD')
@@ -57,16 +258,17 @@ function finalizeBundleIdentity(bundle){
  for(const record of bundle.records||[]){
    const rawModel=record?.fields?.model;
    if(typeof rawModel==='string'&&rawModel.trim()){
+     const normalizedModel=sanitizeModelLabel(rawModel);
      const modelTrace=(record.trace||[]).find(item=>item.field==='model');
      const resolved=resolveEntityCandidate({
        field:'model',
-       value:rawModel.trim(),
+       value:normalizedModel,
        score:modelTrace?.score??0.97,
        evidence:{line_number:modelTrace?.sources?.[0]??null}
      },resolverField,index);
      record.fields.model=resolved&&resolved.entity_id
        ? {id:resolved.entity_id,label:resolved.value,attributes:resolved.attributes||{}}
-       : {id:fallbackModelId(rawModel),label:rawModel.trim(),attributes:{identity_source:'supplier-list-fallback-v0'}};
+       : {id:fallbackModelId(normalizedModel),label:normalizedModel,attributes:{identity_source:'supplier-list-fallback-v0'}};
      if(!Number.isInteger(record.fields.capacity_gb)&&Number.isInteger(record.fields.model?.attributes?.capacity_gb)){
        record.fields.capacity_gb=record.fields.model.attributes.capacity_gb;
        record.trace.push({
@@ -183,7 +385,7 @@ function buildQueue(body){
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
  const analysis_id='analysis_'+hash.slice(0,24);
  const source_id='source_'+hash.slice(0,24);
- const bundle=refineInterpreterDiagnostics(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null})));
+ const bundle=refineInterpreterDiagnostics(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}))));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }

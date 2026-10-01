@@ -31,7 +31,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|AirPods|AirTag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|Air\\\\s*Pods|Air\\\\s*Tag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -44,6 +44,14 @@
           "group": 1,
           "transform": "trim",
           "score": 0.96
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\\\s*\\\\*?((?:Apple\\\\s+)?Pencil\\\\s+(?:Pro|USB-?C|USBC))\\\\b[^\\\\n]*$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.97
         }
       ]
     },

@@ -42,16 +42,63 @@ assert.ok(partition.auto.every(item=>item.promoted.domain_outcome==='VALID'));
 assert.ok(partition.auto.every(item=>item.promoted.review===null));
 
 const allImportsParsed=buildQueue({filename:'all-imports.txt',mime_type:'text/plain',content:"✨ LISTA COMPLETA – CELULARES📲✨\n\n🔥 IPHONES SEMINOVOS 🔥\n\n📲IPHONE 12 PRO 128GB⚪️\nR$1.950/ BATERIA 🔋 🟰100%\n\n📲IPHONE 13 PRO 128GB⚫️🔵(gold)\nR$2.350/ BATERIA🔋🟰100%\n\n📲IPHONE 13 PRO MAX 128 GB🟢🩶\nR$ 2.799/ BATERIA 🔋 🟰85%\n\n📲IPHONE 14 128GB ⚫️🟣🔵\nR$ 2.050/ BATERIA🔋🟰 100%\n\n📲IPHONE 14 256GB⚫️🔵\nR$2.350/ BATERIA 🔋 🟰90%\n\n📲IPHONE 14 PRO 128GB⚫️🟣\nR$2.799/ BATERIA 🔋 🟰83%\n\n📲IPHONE 15 128GB ⚫️\nR$2.550/ BATERIA 🔋 🟰100%\n\n📲IPHONE 15 128GB🔵\nR$2.650/BATERIA🔋🟰100%\n\n📲IPHONE 15 256 🩷\nR$ 2.850/ BATERIA 🔋 🟰 93%\n\n📲IPHONE 15 PRO 128GB 🩶\nR$3.450/ BATERIA 🔋 🟰90%\n\n📲IPHONE 15 PRO MAX 256GB 🔵🩶\nR$ 3.999/ BATERIA 🔋 🟰91%\n\n📲IPHONE 16 PLUS 128GB ⚫️\nR$3.799/ BATERIA 🔋 🟰91%\n\n📲IPHONE 16 PRO MAX 256 ⚪️(gold) ⚫️\nR$4.999/BATERIA🔋🟰92%\n\n🔥IPHONE LACRADO 🔥\n\n📲IPHONE 15 128GB ⚫️\nR$3.790/ BATERIA 🔋 🟰 100%\n\n📲IPHONE 16 PRO MAX 512🩶\nR$6.690/ BATERIA 🔋 🟰100%"});
-assert.strictEqual(allImportsParsed.queue.candidates.length,15,'All imports deve produzir 15 ofertas');
+assert.strictEqual(allImportsParsed.queue.candidates.length,25,'All imports deve produzir 25 variantes comerciais por cor');
 const allImportsOffers=allImportsParsed.queue.candidates.map(c=>c.interpreted_offer);
-assert.strictEqual(allImportsOffers.filter(o=>o.condition==='Seminovo').length,13,'All imports deve herdar 13 seminovos');
+assert.strictEqual(allImportsOffers.filter(o=>o.condition==='Seminovo').length,23,'All imports deve herdar 23 variantes seminovas');
 assert.strictEqual(allImportsOffers.filter(o=>o.condition==='Lacrado').length,2,'All imports deve herdar 2 lacrados');
 assert.ok(allImportsOffers.every(o=>Number.isInteger(o.capacity_gb)),'All imports deve resolver capacidade de todos os iPhones');
 
 const jtParsed=buildQueue({filename:'jt-telles.txt',mime_type:'text/plain',content:"*LISTA ATUALIZADA*🔥*17/08*\n______________________________\n1 MÊS DE GARANTIA✅\n🚨SEM SELO / SEM GARANTIA🚨\n🚨NÃO DAMOS GARANTIA DE BATERIA🚨\n\n11 64GB 🇺🇸\n*R$750*\n⚫️PRETO - 100%\n\n12 Pro 128GB 🇺🇸\n*R$1.800*\n🔵AZUL - 90%\n\n12 Pro Max 128GB\n*R$2.200*\n🟡GOLD - 78%\n⚫️GRAFITE - 89%\n⚪️ SILVER - 90%\n\n13 128GB *A*🇺🇸\n*R$1850*\n🔵AZUL - 86%\n⚫️PRETO - 66%\n🔴VERMELHO - 86%\n\n13 Pro 128GB *A*🇺🇸\n*R$2400*\n🟡GOLD - 85%\n⚪️SILVER - 85%\n⚫️GRAFITE - 100%\n🟢VERDE - 85%\n\n14 128GB *A*🇺🇸\n*R$2050*\n⚪️BRANCO - 85% 82% 83%\n🟡AMARELO - 77%\n\n14 256GB *A*🇺🇸\n*R$2300*\n⚫️PRETO - 84% 83%\n\n14 PLUS 128GB *A*🇺🇸\n*R$2.200*\n🟣ROXO - 83% 84% 91%\n\n14 Pro 128GB *A*🇺🇸\n*R$2750*\n🟣ROXO - 84% 91%\n🟡GOLD - 82% 91%\n\n14 PRO MAX 128GB *A🇺🇸*\n*R$3250*\n🟣ROXO - 80% 85% 91%\n\n15 128GB *A*🇺🇸\n*R$2650*\n🌹ROSA - 85%\n🔵AZUL - 85% 88%\n\n15 256GB *A*🇺🇸\n*R$2900*\n🌹ROSA - 93%\n⚫️ PRETO - 85% 88%\n\n15 PLUS 128GB *A*🇺🇸\n*R$2800*\n🌹ROSA - 85%\n\n15 PRO 128GB *A*🇺🇸\n*R$3.350*\n⚪️BRANCO - 80%\n⚫️PRETO - 88%\n\n15 PRO 256GB *A*🇺🇸\n*R$3.500*\n🔵AZUL - 81%\n\n15 PRO MAX 256GB *A*🇺🇸\n*R$4.100*\n🔵AZUL - 81% 90% 85% 84%\n⚪️BRANCO - 84% 83%\n⚫️PRETO - 88%\n\n16 128GB *A*🇺🇸\n*R$3.650*\n⚪️BRANCO - 91%\n\n16 PRO MAX 256GB *A*🇺🇸\n*R$5.100*\n💛DESERT - 90%\n⚪️BRANCO - 92%\n⚫️PRETO - 90%\n\n16 PRO MAX 512GB *A*🇺🇸\n*R$5.400*\n⚪️BRANCO - 91%"});
-assert.strictEqual(jtParsed.queue.candidates.length,19,'JT Telles shorthand deve produzir 19 ofertas');
+assert.strictEqual(jtParsed.queue.candidates.length,35,'JT Telles deve expandir 35 variantes comerciais por cor');
 assert.ok(jtParsed.queue.candidates.every(c=>c.interpreted_offer.model?.id),'JT Telles deve dar identidade a todos os modelos');
 assert.ok(jtParsed.queue.candidates.every(c=>Number.isInteger(c.interpreted_offer.capacity_gb)),'JT Telles deve extrair capacidade de todos os modelos');
+
+
+const colorSharedPrice=buildQueue({
+  filename:'color-shared-price.txt',
+  mime_type:'text/plain',
+  content:'📱15 PRO 128GB\n*AZUL🔵/ PRETO⚫️/ NATURAL🔘*\n*R$ 3.350,00*'
+});
+assert.deepStrictEqual(
+  colorSharedPrice.queue.candidates.map(c=>c.interpreted_offer.color).sort(),
+  ['Azul','Natural','Preto'],
+  'uma linha multicolor com preco comum deve expandir uma oferta por cor'
+);
+
+const colorOwnPrice=buildQueue({
+  filename:'color-own-price.txt',
+  mime_type:'text/plain',
+  content:'iPhone 17 256GB\n🫟 Preto💰R$4950\n🫟 Azul 💰R$4900'
+});
+assert.deepStrictEqual(
+  colorOwnPrice.queue.candidates
+    .map(c=>[c.interpreted_offer.color,c.interpreted_offer.price.amount_minor])
+    .sort((a,b)=>a[0].localeCompare(b[0],'pt-BR')),
+  [['Azul',490000],['Preto',495000]],
+  'preco por cor deve preservar cada combinacao'
+);
+
+const colorAfterPrice=buildQueue({
+  filename:'color-after-price.txt',
+  mime_type:'text/plain',
+  content:'12 Pro Max 128GB\n*R$2.200*\n🟡GOLD - 78%\n⚫️GRAFITE - 89%\n⚪️ SILVER - 90%'
+});
+assert.deepStrictEqual(
+  colorAfterPrice.queue.candidates.map(c=>c.interpreted_offer.color).sort(),
+  ['Gold','Grafite','Prata'],
+  'cores apos preco devem permanecer associadas ao modelo anterior'
+);
+
+const colorInlineEmoji=buildQueue({
+  filename:'color-inline.txt',
+  mime_type:'text/plain',
+  content:'iPhone 14 128GB ⚫️🟣🔵\nR$ 2.050'
+});
+assert.deepStrictEqual(
+  colorInlineEmoji.queue.candidates.map(c=>c.interpreted_offer.color).sort(),
+  ['Azul','Preto','Roxo'],
+  'emojis inline devem expandir variantes de cor'
+);
 
 const ambiguityBreakdown=parsed.queue.unresolved_ambiguities.reduce((acc,item)=>{
   const key=(item.field||'_structural')+':'+(item.cause||'unknown');
