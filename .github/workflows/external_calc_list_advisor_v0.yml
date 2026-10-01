@@ -42,7 +42,19 @@ jobs:
         run: |
           set -euo pipefail
           node ferramentas/external-calc-list-advisor/v0/prova_list_advisor_v0.js | tee /tmp/list-advisor.log
-          grep -q '^EXTERNAL_CALC_LIST_ADVISOR_V0=PASS checks=4$' /tmp/list-advisor.log
+          grep -q '^EXTERNAL_CALC_LIST_ADVISOR_V0=PASS checks=5 /tmp/list-advisor.log
+
+      - name: Syntax check runtime wiring
+        run: |
+          set -euo pipefail
+          node --check ferramentas/external-calc-runtime/v0/runtime.js
+          node --check ferramentas/external-calc-list-advisor/v0/list-advisor.js
+          node --check ferramentas/external-calc-list-advisor/v0/openai-list-provider.js
+          node --check ferramentas/external-calc-list-advisor/v0/list-advisor-api.js
+
+      - name: Diff check
+        run: git diff --check
+ /tmp/list-advisor.log
 
       - name: Syntax check runtime wiring
         run: |
