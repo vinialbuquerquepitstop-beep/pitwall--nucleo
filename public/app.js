@@ -24,7 +24,7 @@ function aqAsDigits(v){var d=String(v||"").replace(/\D/g,"");if(10===d.length||1
 async function aqAsContext(whatsapp){
   var dig=aqAsDigits(whatsapp),suf=dig.slice(-11);
   if(!suf)return{resolution:"INVALID_PHONE",lead:null,events:[],acquisition:[]};
-  var lr=await t.from("v_lead").select("id,lead_code,nome,whatsapp_digitos,produto,condicao,perfil,origem,status,situacao,observacoes,proximo_contato,ultima_resposta,ultimo_toque_em,respondido_em,nivel,veredito,valor_oferta,trafego_ref,trafego_campanha,trafego_data_contato").like("whatsapp_digitos","%"+suf).limit(3);
+  var lr=await t.from("v_lead").select("id,lead_code,nome,whatsapp_digitos,produto,condicao,perfil,origem,status,situacao,observacoes,proximo_contato,ultima_resposta,ultimo_toque_em,respondido_em,nivel,veredito,valor_oferta").like("whatsapp_digitos","%"+suf).limit(3);
   if(lr.error)throw lr.error;
   var matches=(lr.data||[]).filter(function(x){return aqAsDigits(x.whatsapp_digitos).slice(-11)===suf});
   if(1!==matches.length)return{resolution:matches.length?"AMBIGUOUS":"NOT_FOUND",lead:null,candidates:matches.map(function(x){return{lead_id:x.id,lead_code:x.lead_code,nome:x.nome}}),events:[],acquisition:[]};
