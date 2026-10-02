@@ -32,9 +32,15 @@ check('documento canonico de access control exige ownership explicito', () => {
 });
 
 check('governance pode evoluir a propria prova explicitamente', () => {
-  const r = classifyFiles(['ferramentas/external-calc-proof-governance/v1/proof-governance.js']);
+  const r = classifyFiles([
+    'ferramentas/external-calc-proof-governance/v1/proof-governance.js',
+    'ferramentas/external-calc-persistence/v0/lifecycle-repository.js',
+    '.github/workflows/external_calc_lifecycle_persistence_v0.yml'
+  ]);
   assert.deepStrictEqual(r.unknown, []);
   assert(r.requiredOwners.includes('PROOF_GOVERNANCE'));
+  assert(r.requiredOwners.includes('LIFECYCLE_PERSISTENCE'));
+  assert(r.requiredOwners.includes('WORKFLOW_GOVERNANCE'));
 });
 
 check('AI Advisor exige ownership explicito em A1 A2 e A3', () => {
