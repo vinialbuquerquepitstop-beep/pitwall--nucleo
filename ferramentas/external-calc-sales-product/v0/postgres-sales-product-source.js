@@ -10,6 +10,14 @@ function createPostgresSalesProductSource(options={}){
  return {
   async loadMembership({auth_user_id}){const p=new URLSearchParams({id:'eq.'+req(auth_user_id,'auth_user_id'),select:'id,tenant_id,papel,ativo',limit:'2'});const r=await fetchImpl(url(base,'/rest/v1/app_usuario?'+p),{headers:headers(key,token)});const rows=await json(r);return r.ok&&Array.isArray(rows)&&rows.length===1?rows[0]:null;},
   async loadCurrentOffers(){const p=await rpc('extcalc_product_current_offers_v0');return Array.isArray(p)?p:[];},
+  async loadSourceExecution({analysis_id,offer_id,offer_revision}){
+    if(!Number.isInteger(offer_revision)||offer_revision<1)throw new Error('offer_revision invalida');
+    return await rpc('extcalc_product_source_execution_v0',{
+      p_analysis_id:req(analysis_id,'analysis_id'),
+      p_offer_id:req(offer_id,'offer_id'),
+      p_offer_revision:offer_revision
+    });
+  },
   async loadHomeContext(){const p=await rpc('extcalc_product_home_context_v1');return Array.isArray(p)?p:[];},
   async loadActiveTradeInPolicy(){return await rpc('extcalc_product_trade_in_policy_v0');},
   async loadActiveRateProfile(){return await rpc('extcalc_product_store_rate_profile_v0');}
