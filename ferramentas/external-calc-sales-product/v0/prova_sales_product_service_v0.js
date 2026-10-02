@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('assert');
-const {listProductOptions,listOfferOptions,resolveVariant,resolveTradeIn,resolveSimulation}=require('./sales-product-service');
+const {listProductOptions,listOfferOptions,normalizeSourceExecutionCommand,resolveVariant,resolveTradeIn,resolveSimulation,createSalesProductService}=require('./sales-product-service');
 const offer=(id,supplier,model,label,cap,color,price)=>({contract_version:'external-calc-c01-readonly/v1',analysis_id:'a',offer_id:id,offer_revision:1,execution_status:'SUCCEEDED',domain_outcome:'VALID',freshness_status:'CURRENT',offer_identity_fingerprint:'i'+id,offer_value_fingerprint:'v'+id,reviewed_offer:{supplier_id:supplier,model:{id:model,label,attributes:{display_label:label}},capacity_gb:cap,color,price:{amount_minor:price,currency:'BRL'}}});
 const offers=[
  offer('purple','S1','iphone14pm','iPhone 14 Pro Max',256,'Deep Purple',310000),
@@ -34,6 +34,11 @@ assert.strictEqual(silverOptions.items.length,1);
 assert.strictEqual(silverOptions.items[0].offer_id,'sale-silver');
 assert.throws(()=>listOfferOptions(offers,{model_id:'iphone17pm',limit:101}),e=>e.code==='OFFER_OPTIONS_INVALID');
 
+const sourceRef=normalizeSourceExecutionCommand({analysis_id:'a',offer_id:'sale-silver',offer_revision:1});
+assert.deepStrictEqual(sourceRef,{analysis_id:'a',offer_id:'sale-silver',offer_revision:1});
+assert.throws(()=>normalizeSourceExecutionCommand({analysis_id:'a',offer_id:'sale-silver',offer_revision:1,tenant_id:'forbidden'}),e=>e.code==='SOURCE_EXECUTION_INVALID');
+assert.throws(()=>normalizeSourceExecutionCommand({analysis_id:'a',offer_id:'sale-silver',offer_revision:0}),e=>e.code==='SOURCE_EXECUTION_INVALID');
+
 assert.throws(()=>resolveVariant(offers,{supplier_id:'OUT',model_id:'iphone17pm',capacity_gb:256}),e=>e.code==='VARIANT_COLOR_REQUIRED');
 const v=resolveVariant(offers,{supplier_id:'OUT',model_id:'iphone17pm',capacity_gb:256,color:'Silver'});
 assert.strictEqual(v.offer_id,'sale-silver');assert.strictEqual(v.price.amount_minor,600000);
@@ -60,4 +65,27 @@ const realSix=resolveSimulation(offers,policy,realSixRate,{analysis_id:'a',offer
 assert.strictEqual(realSix.total.amount_minor,106803);
 assert.strictEqual(realSix.total.amount_minor-Math.round(realSix.total.amount_minor*0.0637),100000);
 
-console.log('EXTERNAL_CALC_SALES_PRODUCT_T04_DOMAIN=PASS');
+(async()=>{
+ const calls=[];
+ const service=createSalesProductService({source:{
+   async loadMembership(){return {ativo:true,papel:'vendedor'};},
+   async loadCurrentOffers(){return offers;},
+   async loadSourceExecution(q){calls.push(q);return {source_execution_id:'10000000-0000-4000-8000-000000000001',...q,execution_status:'SUCCEEDED',freshness_status:'CURRENT'};},
+   async loadHomeContext(){return [];},
+   async loadActiveTradeInPolicy(){return policy;},
+   async loadActiveRateProfile(){return rate;}
+ }});
+ const resolved=await service.resolveSourceExecution({auth_user_id:'seller',command:{analysis_id:'a',offer_id:'sale-silver',offer_revision:1}});
+ assert.strictEqual(resolved.source_execution_id,'10000000-0000-4000-8000-000000000001');
+ assert.deepStrictEqual(calls,[{analysis_id:'a',offer_id:'sale-silver',offer_revision:1}]);
+ const missing=createSalesProductService({source:{
+   async loadMembership(){return {ativo:true,papel:'vendedor'};},
+   async loadCurrentOffers(){return offers;},
+   async loadSourceExecution(){return null;},
+   async loadHomeContext(){return [];},
+   async loadActiveTradeInPolicy(){return policy;},
+   async loadActiveRateProfile(){return rate;}
+ }});
+ await assert.rejects(()=>missing.resolveSourceExecution({auth_user_id:'seller',command:{analysis_id:'a',offer_id:'sale-silver',offer_revision:1}}),e=>e.code==='SOURCE_EXECUTION_NOT_FOUND');
+ console.log('EXTERNAL_CALC_SALES_PRODUCT_T04_DOMAIN=PASS');
+})().catch(e=>{console.error(e);process.exit(1)});
