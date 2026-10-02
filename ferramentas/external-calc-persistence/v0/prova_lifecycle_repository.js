@@ -152,11 +152,8 @@ check('bundle materializa Analysis Offer OfferRevision Execution Run Evidence Hu
   assert.deepStrictEqual(bundle.runs.map(item => item.contract_id), ['C02','C03','C04','C05']);
   assert.strictEqual(bundle.evidence.length, 3);
   assert.strictEqual(bundle.human_review.review_id, REVIEW_ID);
-});
 
-check('bundle aceita tenant UUID canônico do PostgreSQL usado em produção', () => {
-  const { req, result } = fixture();
-  const bundle = buildPersistenceBundle({
+  const productionTenantBundle = buildPersistenceBundle({
     tenant_id: PRODUCTION_TENANT_ID,
     execution_id: EXECUTION_ID,
     review_id: REVIEW_ID,
@@ -164,9 +161,8 @@ check('bundle aceita tenant UUID canônico do PostgreSQL usado em produção', (
     request: req,
     service_result: result
   });
-
-  assert.strictEqual(bundle.analysis.tenant_id, PRODUCTION_TENANT_ID);
-  assert.strictEqual(bundle.execution.tenant_id, PRODUCTION_TENANT_ID);
+  assert.strictEqual(productionTenantBundle.analysis.tenant_id, PRODUCTION_TENANT_ID);
+  assert.strictEqual(productionTenantBundle.execution.tenant_id, PRODUCTION_TENANT_ID);
 });
 
 check('bundle preserva snapshots exatos de request e response', () => {
