@@ -1,0 +1,26 @@
+name: External Calc - Supplier Price History V0
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261002014500_external_calc_supplier_price_history_v0.sql"
+      - "ferramentas/external-calc-tracked-model/v0/prova_supplier_price_history_v0.js"
+      - ".github/workflows/external_calc_supplier_price_history_v0.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  supplier-price-history-v0:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+
+      - name: Prove supplier price history projection
+        run: node ferramentas/external-calc-tracked-model/v0/prova_supplier_price_history_v0.js
