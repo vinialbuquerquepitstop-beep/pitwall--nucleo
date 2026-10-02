@@ -109,7 +109,33 @@ function createOpenAIListAdvisorProvider(options = {}) {
         })
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw Object.assign(new Error('provider HTTP ' + response.status), { code: 'PROVIDER_HTTP' });
+      if (!response.ok) {
+        const providerType = typeof payload?.error?.type === 'string' ? payload.error.type : null;
+        const providerCode = typeof payload?.error?.code === 'string' ? payload.error.code : null;
+        const rateLimited = response.status === 429;
+        const quotaExhausted =
+          rateLimited &&
+          ['insufficient_quota', 'credit_balance_exhausted'].includes(providerCode || providerType);
+
+        const code = quotaExhausted
+          ? 'PROVIDER_QUOTA_EXHAUSTED'
+          : rateLimited
+            ? 'PROVIDER_RATE_LIMITED'
+            : 'PROVIDER_HTTP';
+
+        const message = quotaExhausted
+          ? 'OpenAI sem quota/créditos disponíveis para o List Advisor.'
+          : rateLimited
+            ? 'OpenAI aplicou limite temporário ao List Advisor.'
+            : 'provider HTTP ' + response.status;
+
+        throw Object.assign(new Error(message), {
+          code,
+          provider_status: response.status,
+          provider_type: providerType,
+          provider_code: providerCode
+        });
+      }
       const text = extractOutputText(payload);
       try { return JSON.parse(text); }
       catch { throw Object.assign(new Error('provider JSON invalido'), { code: 'PROVIDER_INVALID_RESPONSE' }); }
