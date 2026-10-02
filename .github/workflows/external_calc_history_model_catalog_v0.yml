@@ -1,0 +1,26 @@
+name: External Calc - History Model Catalog V0
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261002173000_external_calc_history_model_catalog_v0.sql"
+      - "ferramentas/external-calc-tracked-model/v0/prova_history_model_catalog_v0.js"
+      - ".github/workflows/external_calc_history_model_catalog_v0.yml"
+      - "ferramentas/external-calc-proof-governance/v1/proof-governance.js"
+  push:
+    paths:
+      - "supabase/migrations/20261002173000_external_calc_history_model_catalog_v0.sql"
+      - "ferramentas/external-calc-tracked-model/v0/prova_history_model_catalog_v0.js"
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: node ferramentas/external-calc-tracked-model/v0/prova_history_model_catalog_v0.js

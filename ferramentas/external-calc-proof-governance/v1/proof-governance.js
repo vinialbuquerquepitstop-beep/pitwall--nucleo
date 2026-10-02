@@ -52,7 +52,9 @@ const OWNERS = [
     /^supabase\/migrations\/20261001113500_external_calc_tracked_model_v0\.sql$/,
     /^supabase\/migrations\/20261001123000_external_calc_tracked_model_client_v0\.sql$/,
     /^supabase\/migrations\/20261002014500_external_calc_supplier_price_history_v0\.sql$/,
-    /^\.github\/workflows\/external_calc_supplier_price_history_v0\.yml$/
+    /^supabase\/migrations\/20261002173000_external_calc_history_model_catalog_v0\.sql$/,
+    /^\.github\/workflows\/external_calc_supplier_price_history_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_history_model_catalog_v0\.yml$/
   ] },
   { owner: 'MOVEMENT_FEED_READ_PROJECTION', patterns: [
     /^supabase\/migrations\/20261002160000_external_calc_movement_feed_v0\.sql$/,
