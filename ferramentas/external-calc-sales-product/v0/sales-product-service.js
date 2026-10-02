@@ -110,6 +110,13 @@ function listOfferOptions(candidates,command){
    items
  };
 }
+function normalizeSourceExecutionCommand(c){
+ if(!c||typeof c!=='object'||Array.isArray(c))fail('SOURCE_EXECUTION_INVALID');
+ const allowed=new Set(['analysis_id','offer_id','offer_revision']);
+ for(const k of Object.keys(c))if(!allowed.has(k))fail('SOURCE_EXECUTION_INVALID','campo proibido: '+k);
+ if(!Number.isInteger(c.offer_revision)||c.offer_revision<1)fail('SOURCE_EXECUTION_INVALID','offer_revision invalida');
+ return {analysis_id:str(c.analysis_id,'analysis_id'),offer_id:str(c.offer_id,'offer_id'),offer_revision:c.offer_revision};
+}
 function normalizeVariantCommand(c){
  if(!c||typeof c!=='object'||Array.isArray(c))fail('VARIANT_SELECTION_INVALID');
  const allowed=new Set(['supplier_id','model_id','capacity_gb','color']);
@@ -195,15 +202,30 @@ function resolveSimulation(candidates,policy,rateProfile,command){
 }
 function createSalesProductService({source}={}){
  if(!source)throw new Error('source obrigatorio');
- for(const m of ['loadMembership','loadCurrentOffers','loadHomeContext','loadActiveTradeInPolicy','loadActiveRateProfile'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
+ for(const m of ['loadMembership','loadCurrentOffers','loadSourceExecution','loadHomeContext','loadActiveTradeInPolicy','loadActiveRateProfile'])if(typeof source[m]!=='function')throw new Error('source.'+m+' obrigatorio');
  async function ctx(auth){const m=await source.loadMembership({auth_user_id:str(auth,'auth_user_id')});if(!m||!m.ativo||!['dono','validador','vendedor'].includes(m.papel))fail('PRODUCT_FORBIDDEN');return m;}
  return {
   async getHome({auth_user_id,generated_at}){await ctx(auth_user_id);return buildHomeProjection(await source.loadHomeContext(),{generated_at});},
   async listProductOptions({auth_user_id,command}){await ctx(auth_user_id);return listProductOptions(await source.loadCurrentOffers(),command);},
   async listOfferOptions({auth_user_id,command}){await ctx(auth_user_id);return listOfferOptions(await source.loadCurrentOffers(),command);},
+  async resolveSourceExecution({auth_user_id,command}){
+    await ctx(auth_user_id);
+    const q=normalizeSourceExecutionCommand(command);
+    const found=await source.loadSourceExecution(q);
+    if(!found||typeof found.source_execution_id!=='string'||!found.source_execution_id.trim())fail('SOURCE_EXECUTION_NOT_FOUND');
+    if(found.analysis_id!==q.analysis_id||found.offer_id!==q.offer_id||found.offer_revision!==q.offer_revision)fail('SOURCE_EXECUTION_CONFLICT');
+    return {
+      source_execution_id:found.source_execution_id,
+      analysis_id:q.analysis_id,
+      offer_id:q.offer_id,
+      offer_revision:q.offer_revision,
+      execution_status:found.execution_status??null,
+      freshness_status:found.freshness_status??null
+    };
+  },
   async resolveVariant({auth_user_id,command}){await ctx(auth_user_id);return resolveVariant(await source.loadCurrentOffers(),command);},
   async estimateTradeIn({auth_user_id,command}){await ctx(auth_user_id);const [offers,p]=await Promise.all([source.loadCurrentOffers(),source.loadActiveTradeInPolicy()]);return resolveTradeIn(offers,p,command);},
   async simulateSale({auth_user_id,command}){await ctx(auth_user_id);const [offers,p,r]=await Promise.all([source.loadCurrentOffers(),source.loadActiveTradeInPolicy(),source.loadActiveRateProfile()]);return resolveSimulation(offers,p,r,command);}
  };
 }
-module.exports={PRODUCT_OPTIONS_VERSION,OFFER_OPTIONS_VERSION,VARIANT_VERSION,TRADE_IN_VERSION,SIM_VERSION,listProductOptions,listOfferOptions,resolveVariant,resolveTradeIn,resolveSimulation,createSalesProductService};
+module.exports={PRODUCT_OPTIONS_VERSION,OFFER_OPTIONS_VERSION,VARIANT_VERSION,TRADE_IN_VERSION,SIM_VERSION,listProductOptions,listOfferOptions,normalizeSourceExecutionCommand,resolveVariant,resolveTradeIn,resolveSimulation,createSalesProductService};
