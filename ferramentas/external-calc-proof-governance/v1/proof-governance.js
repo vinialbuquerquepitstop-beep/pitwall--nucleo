@@ -61,7 +61,8 @@ const OWNERS = [
   { owner: 'SALES_PRODUCT_T04', patterns: [
     /^ferramentas\/external-calc-sales-product\/v0\//,
     /^supabase\/migrations\/20260923061000_external_calc_sales_product_context_v0\.sql$/,
-    /^supabase\/migrations\/20260930190000_external_calc_home_product_projection_v1\.sql$/
+    /^supabase\/migrations\/20260930190000_external_calc_home_product_projection_v1\.sql$/,
+    /^supabase\/migrations\/20261002010000_external_calc_source_execution_bridge_v0\.sql$/
   ] },
   { owner: 'BETA_STORE_TEAM_ACCESS', patterns: [
     /^supabase\/migrations\/20260922213000_external_calc_beta_store_team_access_v0\.sql$/,
