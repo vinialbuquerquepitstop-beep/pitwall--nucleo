@@ -28,15 +28,17 @@ using (tenant_id=privado.fn_tenant_atual());
 
 grant select on table public.pitsquad_internal_transition_receipt to authenticated;
 
-create or replace function public.pitsquad_apply_internal_decision_v0(
-  p_contract_id uuid
+create or replace function public.pitsquad_apply_internal_decision_internal_v0(
+  p_tenant uuid,
+  p_contract_id uuid,
+  p_actor uuid default null
 )
 returns jsonb
 language plpgsql
-set search_path to 'public','privado'
+security definer
+set search_path to 'public'
 as $function$
 declare
-  v_tenant uuid := privado.fn_tenant_atual();
   v_contract public.pitsquad_decision_contract%rowtype;
   v_run public.pitsquad_acquisition_run%rowtype;
   v_learning public.pitsquad_learning_candidate%rowtype;
@@ -44,13 +46,9 @@ declare
   v_from jsonb;
   v_to jsonb;
 begin
-  if v_tenant is null then
-    return jsonb_build_object('ok',false,'state','INVALID','reason','NO_TENANT');
-  end if;
-
   select * into v_contract
   from public.pitsquad_decision_contract
-  where id=p_contract_id and tenant_id=v_tenant;
+  where id=p_contract_id and tenant_id=p_tenant;
 
   if not found then
     return jsonb_build_object('ok',false,'state','INVALID','reason','CONTRACT_NOT_FOUND');
@@ -67,7 +65,7 @@ begin
 
   select * into v_run
   from public.pitsquad_acquisition_run
-  where id=v_contract.run_id and tenant_id=v_tenant;
+  where id=v_contract.run_id and tenant_id=p_tenant;
 
   if not found then
     return jsonb_build_object('ok',false,'state','INVALID','reason','RUN_NOT_FOUND');
@@ -82,7 +80,7 @@ begin
 
     select * into v_learning
     from public.pitsquad_learning_candidate
-    where id=v_run.learning_candidate_id and tenant_id=v_tenant;
+    where id=v_run.learning_candidate_id and tenant_id=p_tenant;
 
     if not found then
       return jsonb_build_object('ok',false,'state','INVALID','reason','LEARNING_CANDIDATE_NOT_FOUND');
@@ -101,13 +99,12 @@ begin
     update public.pitsquad_learning_candidate
     set status='RETAINED'
     where id=v_learning.id
-      and tenant_id=v_tenant
+      and tenant_id=p_tenant
       and status='CANDIDATE';
 
-    -- learning trigger refreshes the AcquisitionRun.
     select * into v_run
     from public.pitsquad_acquisition_run
-    where id=v_contract.run_id and tenant_id=v_tenant;
+    where id=v_contract.run_id and tenant_id=p_tenant;
 
     v_to := jsonb_build_object(
       'learning_status','RETAINED',
@@ -117,15 +114,15 @@ begin
 
     update public.pitsquad_decision_contract
     set status='COMPLETE'
-    where id=v_contract.id and tenant_id=v_tenant;
+    where id=v_contract.id and tenant_id=p_tenant;
 
     insert into public.pitsquad_internal_transition_receipt(
       tenant_id,contract_id,run_id,action,from_state,to_state,
       execution_status,reason,executed_by
     )
     values(
-      v_tenant,v_contract.id,v_run.id,v_contract.recommended_action,
-      v_from,v_to,'EXECUTED','SAFE_INTERNAL_STATE_TRANSITION',auth.uid()
+      p_tenant,v_contract.id,v_run.id,v_contract.recommended_action,
+      v_from,v_to,'EXECUTED','SAFE_INTERNAL_STATE_TRANSITION',p_actor
     )
     on conflict (tenant_id,contract_id)
     do nothing
@@ -134,7 +131,7 @@ begin
     if v_receipt.id is null then
       select * into v_receipt
       from public.pitsquad_internal_transition_receipt
-      where tenant_id=v_tenant and contract_id=v_contract.id
+      where tenant_id=p_tenant and contract_id=v_contract.id
       limit 1;
     end if;
 
@@ -159,5 +156,64 @@ begin
 end;
 $function$;
 
+revoke all on function public.pitsquad_apply_internal_decision_internal_v0(uuid,uuid,uuid) from public;
+
+create or replace function public.pitsquad_apply_internal_decision_v0(
+  p_contract_id uuid
+)
+returns jsonb
+language plpgsql
+set search_path to 'public','privado'
+as $function$
+declare
+  v_tenant uuid := privado.fn_tenant_atual();
+begin
+  if v_tenant is null then
+    return jsonb_build_object('ok',false,'state','INVALID','reason','NO_TENANT');
+  end if;
+
+  return public.pitsquad_apply_internal_decision_internal_v0(
+    v_tenant,
+    p_contract_id,
+    auth.uid()
+  );
+end;
+$function$;
+
 revoke all on function public.pitsquad_apply_internal_decision_v0(uuid) from public;
 grant execute on function public.pitsquad_apply_internal_decision_v0(uuid) to authenticated;
+
+create or replace function public.pitsquad_a00_safe_internal_trigger_v0()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+begin
+  if new.status='OPEN'
+     and new.authority_required='NONE'
+     and new.approval_state='NOT_REQUIRED'
+     and new.recommended_action='RETER_COMO_PROVA_TECNICA' then
+    perform public.pitsquad_apply_internal_decision_internal_v0(new.tenant_id,new.id,null);
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists trg_pitsquad_a00_safe_internal on public.pitsquad_decision_contract;
+create trigger trg_pitsquad_a00_safe_internal
+after insert or update of recommended_action,authority_required,approval_state
+on public.pitsquad_decision_contract
+for each row execute function public.pitsquad_a00_safe_internal_trigger_v0();
+
+-- Backfill the currently-open safe contracts.
+select public.pitsquad_apply_internal_decision_internal_v0(
+  d.tenant_id,
+  d.id,
+  null
+)
+from public.pitsquad_decision_contract d
+where d.status='OPEN'
+  and d.authority_required='NONE'
+  and d.approval_state='NOT_REQUIRED'
+  and d.recommended_action='RETER_COMO_PROVA_TECNICA';
