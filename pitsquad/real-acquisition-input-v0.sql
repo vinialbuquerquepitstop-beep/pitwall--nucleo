@@ -87,6 +87,45 @@ begin
 end;
 $function$;
 
+create or replace function public.pitsquad_close_acquisition_action_v0(
+  p_acquisition_ref text
+)
+returns jsonb
+language plpgsql
+set search_path to 'public','privado'
+as $function$
+declare
+  v_tenant uuid := privado.fn_tenant_atual();
+  v_row public.pitsquad_acquisition_action%rowtype;
+begin
+  if v_tenant is null then
+    return jsonb_build_object('ok',false,'state','INVALID','reason','NO_TENANT');
+  end if;
+
+  update public.pitsquad_acquisition_action
+     set status='CLOSED',
+         closed_at=coalesce(closed_at,now())
+   where tenant_id=v_tenant
+     and acquisition_ref=trim(coalesce(p_acquisition_ref,''))
+     and status<>'CLOSED'
+  returning * into v_row;
+
+  if not found then
+    return jsonb_build_object('ok',false,'state','INVALID','reason','ACTION_NOT_FOUND_OR_ALREADY_CLOSED');
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'state','CLOSED',
+    'acquisition_ref',v_row.acquisition_ref,
+    'closed_at',v_row.closed_at
+  );
+end;
+$function$;
+
+revoke all on function public.pitsquad_close_acquisition_action_v0(text) from public;
+grant execute on function public.pitsquad_close_acquisition_action_v0(text) to authenticated;
+
 create or replace function public.pitsquad_list_acquisition_actions_v0()
 returns jsonb
 language plpgsql
@@ -118,7 +157,8 @@ begin
   ) order by a.created_at desc),'[]'::jsonb)
   into v_items
   from public.pitsquad_acquisition_action a
-  where a.tenant_id=v_tenant;
+  where a.tenant_id=v_tenant
+    and a.status='ACTIVE';
 
   return jsonb_build_object('ok',true,'items',v_items);
 end;
