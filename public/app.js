@@ -29,7 +29,7 @@ async function aqManualRegister(btn){
     if(cap.error)throw cap.error;
     var d=cap.data||{};
     if(!d.ok){
-      var rot={MISSING_TRACKING_REF:"A mensagem não contém uma referência [PS-AQ-...].",ACTION_NOT_FOUND_OR_CLOSED:"A referência não corresponde a uma ação ativa.",INVALID_WHATSAPP:"WhatsApp inválido.",INVALID_MESSAGE:"Mensagem inválida."};
+      var rot={MISSING_TRACKING_REF:"A mensagem não contém uma referência [PS-AQ-...].",ACTION_NOT_FOUND_OR_CLOSED:"A referência "+(d.acquisition_ref||"lida")+" não corresponde a uma ação ativa.",INVALID_WHATSAPP:"WhatsApp inválido.",INVALID_MESSAGE:"Mensagem inválida."};
       throw new Error(rot[d.reason]||d.reason||"CAPTURE_FAILED")
     }
     var rr=await t.rpc("pitsquad_resolve_acquisition_input_v0",{p_input_id:d.input_id});
