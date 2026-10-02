@@ -20,6 +20,11 @@ const OWNERS = [
   { owner: 'EXECUTION_AUTHORITY', patterns: [
     /^ferramentas\/external-calc-authority\/v0\//
   ] },
+  { owner: 'LIFECYCLE_PERSISTENCE', patterns: [
+    /^ferramentas\/external-calc-persistence\/v0\//,
+    /^supabase\/migrations\/20260919_external_calc_lifecycle_persistence_v0\.sql$/,
+    /^supabase\/migrations\/20260919_external_calc_persistence_fk_indexes_v0\.sql$/
+  ] },
   { owner: 'C02_CALCULATION', patterns: [/^ferramentas\/external-calc-c02\/v1\//] },
   { owner: 'STORE_RATE_PROFILE_PERSISTENCE', patterns: [
     /^supabase\/migrations\/20260922230000_external_calc_user_rate_profile_persistence_v1\.sql$/,
@@ -113,6 +118,7 @@ const OWNERS = [
     /^\.github\/workflows\/external_calc_authority_runtime_binding_v0\.yml$/,
     /^\.github\/workflows\/external_calc_product_execution_authority_v0\.yml$/,
     /^\.github\/workflows\/external_calc_runtime_postgres_v0\.yml$/,
+    /^\.github\/workflows\/external_calc_lifecycle_persistence_v0\.yml$/,
     /^\.github\/workflows\/external_calc_authority_production_config_v0\.yml$/,
     /^\.github\/workflows\/external_calc_proof_governance_v1\.yml$/,
     /^\.github\/workflows\/external_calc_cloudflare_g4\.yml$/,
