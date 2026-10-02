@@ -54,6 +54,11 @@ const OWNERS = [
     /^supabase\/migrations\/20261002014500_external_calc_supplier_price_history_v0\.sql$/,
     /^\.github\/workflows\/external_calc_supplier_price_history_v0\.yml$/
   ] },
+  { owner: 'MOVEMENT_FEED_READ_PROJECTION', patterns: [
+    /^supabase\/migrations\/20261002160000_external_calc_movement_feed_v0\.sql$/,
+    /^ferramentas\/external-calc-tracked-model\/v0\/prova_movement_feed_v0\.js$/,
+    /^\.github\/workflows\/external_calc_movement_feed_v0\.yml$/
+  ] },
   { owner: 'TRADE_IN_POLICY', patterns: [
     /^supabase\/migrations\/20260923052000_external_calc_store_trade_in_policy_v0\.sql$/,
     /^supabase\/migrations\/20260923053000_external_calc_store_trade_in_policy_indexes_v0\.sql$/,

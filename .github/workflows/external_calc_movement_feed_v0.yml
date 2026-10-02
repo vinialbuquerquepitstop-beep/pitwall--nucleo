@@ -1,0 +1,20 @@
+name: External Calc Movement Feed V0
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261002160000_external_calc_movement_feed_v0.sql"
+      - "ferramentas/external-calc-tracked-model/v0/prova_movement_feed_v0.js"
+      - ".github/workflows/external_calc_movement_feed_v0.yml"
+  workflow_dispatch:
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prove movement projection boundary
+        run: node ferramentas/external-calc-tracked-model/v0/prova_movement_feed_v0.js
