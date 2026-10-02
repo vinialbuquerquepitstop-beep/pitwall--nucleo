@@ -14,6 +14,7 @@ const TENANT_ID = '00000000-0000-4000-8000-000000000001';
 const EXECUTION_ID = '10000000-0000-4000-8000-000000000001';
 const REVIEW_ID = '20000000-0000-4000-8000-000000000001';
 const PERSISTED_AT = '2026-09-19T20:30:00.000Z';
+const PRODUCTION_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 let ok = 0;
 function check(name, fn) {
@@ -151,6 +152,17 @@ check('bundle materializa Analysis Offer OfferRevision Execution Run Evidence Hu
   assert.deepStrictEqual(bundle.runs.map(item => item.contract_id), ['C02','C03','C04','C05']);
   assert.strictEqual(bundle.evidence.length, 3);
   assert.strictEqual(bundle.human_review.review_id, REVIEW_ID);
+
+  const productionTenantBundle = buildPersistenceBundle({
+    tenant_id: PRODUCTION_TENANT_ID,
+    execution_id: EXECUTION_ID,
+    review_id: REVIEW_ID,
+    persisted_at: PERSISTED_AT,
+    request: req,
+    service_result: result
+  });
+  assert.strictEqual(productionTenantBundle.analysis.tenant_id, PRODUCTION_TENANT_ID);
+  assert.strictEqual(productionTenantBundle.execution.tenant_id, PRODUCTION_TENANT_ID);
 });
 
 check('bundle preserva snapshots exatos de request e response', () => {
