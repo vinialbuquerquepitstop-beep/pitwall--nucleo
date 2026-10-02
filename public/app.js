@@ -3,11 +3,11 @@ window.PitWall=function(){"use strict";var a="https://unjzpyexgtbcmjfgcqrx.supab
 function aqData(v){if(!v)return"";var d=new Date(v);return isNaN(d.getTime())?String(v):d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
 function aqNovaRef(){var d=new Date(),p=function(n){return String(n).padStart(2,"0")};return"PS-AQ-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())}
 function aqCard(x){
-  var st=String(x.status||"PENDING"), contato=f(x.contact_ref||""), acoes="";
+  var st=String(x.status||"PENDING"), modo=String(x.input_mode||"REAL"), contato=f(x.contact_ref||""), acoes="";
   if("PENDING"===st)acoes='<button class="btn-acao" data-acao="aq-create" data-id="'+c(x.id)+'" data-contact="'+c(x.contact_ref||"")+'">Cadastrar lead</button><button class="btn-acao" data-acao="aq-resolve" data-id="'+c(x.id)+'">Tentar vincular</button><button class="btn-acao" data-acao="aq-discard" data-id="'+c(x.id)+'">Descartar</button>';
   else if("CONFLICT"===st)acoes='<button class="btn-acao" data-acao="aq-resolve" data-id="'+c(x.id)+'">Revisar vínculo</button><button class="btn-acao" data-acao="aq-discard" data-id="'+c(x.id)+'">Descartar</button>';
   else if("LINKED"===st)acoes='<button class="btn-acao" data-acao="aq-open" data-id="'+c(x.lead_id||"")+'" data-contact="'+c(x.contact_ref||"")+'">Abrir lead</button><button class="btn-acao" data-acao="aq-result" data-input="'+c(x.id)+'">Ver resultado</button>';
-  return '<article class="aq-card aq-'+c(st.toLowerCase())+'"><div class="aq-top"><div><div class="aq-ref">'+c(x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(aqData(x.occurred_at))+(x.campaign_ref?' · '+c(x.campaign_ref):"")+'</div></div><span class="chip">'+c(st)+'</span></div><div class="aq-contact">'+c(contato||x.contact_ref||"")+(x.lead_code?' · '+c(x.lead_code):"")+(x.lead_nome?' · '+c(x.lead_nome):"")+'</div>'+(x.resolution_reason?'<div class="aq-reason">'+c(x.resolution_reason)+'</div>':"")+'<div class="card-acoes">'+acoes+'</div><div class="aq-result" data-aq-result="'+c(x.id)+'"></div></article>'
+  return '<article class="aq-card aq-'+c(st.toLowerCase())+'"><div class="aq-top"><div><div class="aq-ref">'+c(x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(aqData(x.occurred_at))+(x.campaign_ref?' · '+c(x.campaign_ref):"")+' · '+c(modo)+'</div></div><span class="chip">'+c(st)+'</span></div><div class="aq-contact">'+c(contato||x.contact_ref||"")+(x.lead_code?' · '+c(x.lead_code):"")+(x.lead_nome?' · '+c(x.lead_nome):"")+'</div>'+(x.resolution_reason?'<div class="aq-reason">'+c(x.resolution_reason)+'</div>':"")+'<div class="card-acoes">'+acoes+'</div><div class="aq-result" data-aq-result="'+c(x.id)+'"></div></article>'
 }
 function aqWhatsLink(x){var ref=String(x&&x.acquisition_ref||"").trim(),rotulo=String(x&&x.label||x&&x.campaign_ref||"").trim(),txt="Oi! Vim por uma ação da Pitstop"+(rotulo?" sobre "+rotulo:"")+". ["+ref+"]";return ref?"https://wa.me/5521991205744?text="+encodeURIComponent(txt):""}
 function aqLandingLink(x){var token=String(x&&x.public_token||"").trim();return token?window.location.origin+"/a/"+encodeURIComponent(token):""}
@@ -17,15 +17,15 @@ function aqAcaoCard(x){
 }
 
 function aqManualPanel(){
-  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Registrar contato recebido</strong><span>Cole o WhatsApp e a mensagem recebida. A referência [PS-AQ-...] é lida da própria mensagem e preservada como evidência.</span></div><span class="chip">manual · rastreado</span></div><div class="aq-action-form"><input id="aqManualWhats" type="tel" inputmode="tel" placeholder="WhatsApp do cliente"><textarea id="aqManualMsg" placeholder="Cole aqui a mensagem recebida, incluindo [PS-AQ-...]"></textarea><button class="btn-cad" data-acao="aq-manual-register">Registrar entrada</button></div><div id="aqManualResult"></div></section>'
+  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Registrar contato recebido</strong><span>Cole o WhatsApp e a mensagem recebida. A referência [PS-AQ-...] é lida da própria mensagem e preservada como evidência.</span></div><span class="chip">manual · rastreado</span></div><div class="aq-action-form"><input id="aqManualWhats" type="tel" inputmode="tel" placeholder="WhatsApp do cliente"><textarea id="aqManualMsg" placeholder="Cole aqui a mensagem recebida, incluindo [PS-AQ-...]"></textarea><select id="aqManualMode" aria-label="Tipo da entrada"><option value="REAL">Cliente real</option><option value="TEST">Teste operacional</option></select><button class="btn-cad" data-acao="aq-manual-register">Registrar entrada</button></div><div id="aqManualResult"></div></section>'
 }
 async function aqManualRegister(btn){
-  var wi=E("aqManualWhats"),mi=E("aqManualMsg"),box=E("aqManualResult"),wh=wi&&wi.value||"",msg=mi&&mi.value||"";
+  var wi=E("aqManualWhats"),mi=E("aqManualMsg"),mo=E("aqManualMode"),box=E("aqManualResult"),wh=wi&&wi.value||"",msg=mi&&mi.value||"",mode=mo&&mo.value||"REAL";
   if(!String(wh).trim()||!String(msg).trim()){I("Informe WhatsApp e mensagem",!0);return}
   if(btn)btn.disabled=!0;
   if(box)box.innerHTML='<div class="estado carregando">Registrando entrada rastreada...</div>';
   try{
-    var cap=await t.rpc("pitsquad_capture_manual_message_v1",{p_whatsapp:wh,p_message:msg});
+    var cap=await t.rpc("pitsquad_capture_manual_message_v1",{p_whatsapp:wh,p_message:msg,p_input_mode:mode});
     if(cap.error)throw cap.error;
     var d=cap.data||{};
     if(!d.ok){
