@@ -254,3 +254,50 @@ from public.pitsquad_decision_contract d
 where d.status='OPEN'
   and d.authority_required='HUMAN'
   and d.approval_state='PENDING';
+
+
+create or replace function public.pitsquad_list_pending_approvals_v0()
+returns jsonb
+language plpgsql
+stable
+set search_path to 'public','privado'
+as $function$
+declare
+  v_tenant uuid := privado.fn_tenant_atual();
+  v_items jsonb;
+begin
+  if v_tenant is null then
+    return jsonb_build_object('ok',false,'reason','NO_TENANT');
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'approval_id',a.id,
+    'decision_contract_id',a.decision_contract_id,
+    'run_id',a.run_id,
+    'run_ref',d.run_ref,
+    'requested_action',a.requested_action,
+    'rationale',a.rationale,
+    'approval_state',a.approval_state,
+    'requested_at',a.requested_at,
+    'execution_contract_id',e.id,
+    'execution_state',e.execution_state,
+    'block_reason',e.block_reason,
+    'adapter',e.adapter
+  ) order by a.requested_at desc),'[]'::jsonb)
+  into v_items
+  from public.pitsquad_approval_contract a
+  join public.pitsquad_decision_contract d
+    on d.id=a.decision_contract_id
+   and d.tenant_id=a.tenant_id
+  left join public.pitsquad_execution_contract e
+    on e.approval_contract_id=a.id
+   and e.tenant_id=a.tenant_id
+  where a.tenant_id=v_tenant
+    and a.approval_state='PENDING';
+
+  return jsonb_build_object('ok',true,'items',v_items);
+end;
+$function$;
+
+revoke all on function public.pitsquad_list_pending_approvals_v0() from public;
+grant execute on function public.pitsquad_list_pending_approvals_v0() to authenticated;
