@@ -17,6 +17,8 @@ begin
   end if;
 end $$;
 
+drop function if exists public.pitsquad_capture_manual_message_v1(text,text);
+
 create or replace function public.pitsquad_capture_manual_message_v1(
   p_whatsapp text,
   p_message text,
