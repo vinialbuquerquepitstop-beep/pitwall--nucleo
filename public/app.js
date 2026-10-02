@@ -38,12 +38,14 @@ async function aqManualRegister(btn){
     if("LINKED"===r.state){
       if(box)box.innerHTML='<div class="aq-created"><strong>Entrada registrada e vinculada.</strong><span>'+c(d.acquisition_ref||"")+' · lead '+c(r.lead_code||"existente")+'</span></div>';
       I("Aquisição vinculada ao lead");
+      if(btn)btn.disabled=!1;
       await renderAquisicao(!0);
       return
     }
     if("CONFLICT"===r.state){
       if(box)box.innerHTML='<div class="estado erro"><strong>Entrada registrada, mas há conflito de vínculo.</strong><br>'+c(r.reason||"Revisão necessária")+'</div>';
       I("Aquisição precisa de revisão",!0);
+      if(btn)btn.disabled=!1;
       await renderAquisicao(!0);
       return
     }
