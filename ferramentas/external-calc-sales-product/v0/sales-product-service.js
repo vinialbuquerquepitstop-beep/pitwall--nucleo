@@ -114,8 +114,12 @@ function normalizeSourceExecutionCommand(c){
  if(!c||typeof c!=='object'||Array.isArray(c))fail('SOURCE_EXECUTION_INVALID');
  const allowed=new Set(['analysis_id','offer_id','offer_revision']);
  for(const k of Object.keys(c))if(!allowed.has(k))fail('SOURCE_EXECUTION_INVALID','campo proibido: '+k);
+ const analysisId=typeof c.analysis_id==='string'?c.analysis_id.trim():'';
+ const offerId=typeof c.offer_id==='string'?c.offer_id.trim():'';
+ if(!analysisId)fail('SOURCE_EXECUTION_INVALID','analysis_id obrigatorio');
+ if(!offerId)fail('SOURCE_EXECUTION_INVALID','offer_id obrigatorio');
  if(!Number.isInteger(c.offer_revision)||c.offer_revision<1)fail('SOURCE_EXECUTION_INVALID','offer_revision invalida');
- return {analysis_id:str(c.analysis_id,'analysis_id'),offer_id:str(c.offer_id,'offer_id'),offer_revision:c.offer_revision};
+ return {analysis_id:analysisId,offer_id:offerId,offer_revision:c.offer_revision};
 }
 function normalizeVariantCommand(c){
  if(!c||typeof c!=='object'||Array.isArray(c))fail('VARIANT_SELECTION_INVALID');
