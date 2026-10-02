@@ -51,7 +51,8 @@ const OWNERS = [
     /^ferramentas\/external-calc-tracked-model\/v0\//,
     /^supabase\/migrations\/20261001113500_external_calc_tracked_model_v0\.sql$/,
     /^supabase\/migrations\/20261001123000_external_calc_tracked_model_client_v0\.sql$/,
-    /^supabase\/migrations\/20261002014500_external_calc_supplier_price_history_v0\.sql$/
+    /^supabase\/migrations\/20261002014500_external_calc_supplier_price_history_v0\.sql$/,
+    /^\.github\/workflows\/external_calc_supplier_price_history_v0\.yml$/
   ] },
   { owner: 'TRADE_IN_POLICY', patterns: [
     /^supabase\/migrations\/20260923052000_external_calc_store_trade_in_policy_v0\.sql$/,
