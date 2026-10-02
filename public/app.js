@@ -9,7 +9,7 @@ function aqCard(x){
   else if("LINKED"===st)acoes='<button class="btn-acao" data-acao="aq-open" data-id="'+c(x.lead_id||"")+'" data-contact="'+c(x.contact_ref||"")+'">Abrir lead</button><button class="btn-acao" data-acao="aq-result" data-input="'+c(x.id)+'">Ver resultado</button>';
   return '<article class="aq-card aq-'+c(st.toLowerCase())+'"><div class="aq-top"><div><div class="aq-ref">'+c(x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(aqData(x.occurred_at))+(x.campaign_ref?' · '+c(x.campaign_ref):"")+'</div></div><span class="chip">'+c(st)+'</span></div><div class="aq-contact">'+c(contato||x.contact_ref||"")+(x.lead_code?' · '+c(x.lead_code):"")+(x.lead_nome?' · '+c(x.lead_nome):"")+'</div>'+(x.resolution_reason?'<div class="aq-reason">'+c(x.resolution_reason)+'</div>':"")+'<div class="card-acoes">'+acoes+'</div><div class="aq-result" data-aq-result="'+c(x.id)+'"></div></article>'
 }
-function aqWhatsLink(x){var ref=String(x&&x.acquisition_ref||"").trim(),rotulo=String(x&&x.label||x&&x.campaign_ref||"").trim(),txt="Oi! Vim por uma ação da Pitstop"+(rotulo?" sobre "+rotulo:"")+". ["+ref+"]";return"https://wa.me/5521991205744?text="+encodeURIComponent(txt)}
+function aqWhatsLink(x){var token=String(x&&x.public_token||"").trim();return token?window.location.origin+"/a/"+encodeURIComponent(token):""}
 function aqAcaoCard(x){
   var link=aqWhatsLink(x);
   return '<div class="aq-action-row"><div><div class="aq-ref">'+c(x.label||x.acquisition_ref||"")+'</div><div class="aq-meta">'+c(x.acquisition_ref||"")+(x.campaign_ref?' · '+c(x.campaign_ref):"")+' · '+c(String(x.inputs||0))+' entrada'+(1===Number(x.inputs||0)?"":"s")+'</div></div><button class="btn-acao" data-acao="aq-copy-link" data-link="'+c(link)+'">Copiar link</button></div>'
@@ -84,7 +84,7 @@ function aqAsCopy(){
 }
 
 function aqActionPanel(){
-  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Nova ação rastreada</strong><span>Gere um link direto para o WhatsApp da Pitstop, com a referência desta ação.</span></div></div><div class="aq-action-form"><input id="aqRef" placeholder="Referência" value="'+c(aqNovaRef())+'"><input id="aqCampaign" placeholder="Campanha (opcional)"><input id="aqSource" placeholder="Fonte (opcional)"><input id="aqLabel" placeholder="Nome visível (opcional)"><button class="btn-cad" data-acao="aq-action-create">Criar link</button></div><div id="aqActionMsg"></div>'+(aqAcoes.length?'<div class="aq-action-list">'+aqAcoes.slice(0,5).map(aqAcaoCard).join("")+'</div>':"")+'</section>'
+  return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Nova ação rastreada</strong><span>Gere um link rastreado para captar o contato com a referência correta antes do atendimento.</span></div></div><div class="aq-action-form"><input id="aqRef" placeholder="Referência" value="'+c(aqNovaRef())+'"><input id="aqCampaign" placeholder="Campanha (opcional)"><input id="aqSource" placeholder="Fonte (opcional)"><input id="aqLabel" placeholder="Nome visível (opcional)"><button class="btn-cad" data-acao="aq-action-create">Criar link</button></div><div id="aqActionMsg"></div>'+(aqAcoes.length?'<div class="aq-action-list">'+aqAcoes.slice(0,5).map(aqAcaoCard).join("")+'</div>':"")+'</section>'
 }
 async function renderAquisicao(sil){
   var e=E("lista");if(!sil)e.innerHTML='<div class="estado carregando">Lendo entradas de aquisição...</div>';
