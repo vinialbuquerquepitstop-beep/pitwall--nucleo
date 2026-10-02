@@ -49,7 +49,10 @@ function assertNonEmpty(value, field) {
 
 function assertUuid(value, field) {
   const normalized = assertNonEmpty(value, field).toLowerCase();
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized)) {
+  // Match PostgreSQL's canonical UUID text representation.
+  // Tenant IDs are server-derived and may use reserved/sentinel UUID values
+  // that do not encode an RFC 4122 version/variant nibble.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(normalized)) {
     throw new Error(`${field} deve ser UUID`);
   }
   return normalized;
