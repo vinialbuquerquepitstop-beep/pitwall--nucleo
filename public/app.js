@@ -991,8 +991,9 @@ function pscpMediaSnapshot(){
     ["ROLLBACK_READINESS","UNKNOWN","Ainda não exercitado em publicação real."]
   ]
 }
-function pscpApprovalsHTML(items){
+function pscpApprovalsHTML(items,readState,readError){
   items=items||[];
+  if("UNKNOWN"===readState)return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Aprovações abertas</strong><span>A leitura falhou; não inferir zero pendências.</span></div>'+pscpChip("UNKNOWN")+'</div><div class="estado erro"><strong>Estado preservado como UNKNOWN.</strong><br>'+c(readError||"Falha de leitura")+'</div></section>';
   return '<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Aprovações abertas</strong><span>Authority chain real já existente; o Control Panel apenas aponta para a operação.</span></div>'+pscpChip(items.length?String(items.length)+" PENDING":"0 PENDING")+'</div>'+
     (items.length?items.slice(0,5).map(function(x){return pscpBoundaryRow(x.run_ref||"Decision",x.approval_state||"PENDING",(x.requested_action||"")+" · "+(x.rationale||""))}).join(""):'<div class="estado"><strong>Nenhuma aprovação pendente.</strong></div>')+
     (items.length?'<div class="card-acoes"><button class="btn-acao" data-acao="pend-ir" data-aba="aquisicao">Abrir Aquisição</button></div>':"")+'</section>'
@@ -1028,8 +1029,8 @@ async function renderControl(sil){
   if(E("topoSub"))E("topoSub").textContent="cockpit operacional · dados reais + evidência auditada";
   e.innerHTML='<section class="aq-action-panel"><div class="aq-action-head"><div><strong>Pitsquad Control Panel</strong><span>Foundation V1 provada · EX-08 aguardando pré-requisitos reais de mídia.</span></div>'+pscpChip("WAITING")+'</div>'+
     '<div class="aq-summary"><div><strong>'+c(h.state)+'</strong><span>Tracking</span></div><div><strong>WAITING</strong><span>Publication</span></div><div><strong>'+c(approvalState)+'</strong><span>Approvals</span></div></div>'+
-    '<div class="estado"><strong>Estado operacional: WAITING</strong><br>O sistema de aquisição/tracking está utilizável no escopo provado; a próxima fronteira de mídia depende de CTWA/publicação real. WAITING não é ACCOUNT_BROKEN.</div></section>'+
-    pscpTrackingHTML(h)+pscpMediaHTML()+pscpApprovalsHTML(approvals)+pscpNextHTML()
+    '<div class="estado"><strong>Fronteira de mídia: WAITING</strong><br>Este estado descreve readiness para a próxima ação real de mídia. Tracking mantém seu próprio estado acima; WAITING não é ACCOUNT_BROKEN.</div></section>'+
+    pscpTrackingHTML(h)+pscpMediaHTML()+pscpApprovalsHTML(approvals,rap.error?"UNKNOWN":"KNOWN",rap.error&&rap.error.message)+pscpNextHTML()
 }
 async function renderDash(sil){
 var e=E("lista");
