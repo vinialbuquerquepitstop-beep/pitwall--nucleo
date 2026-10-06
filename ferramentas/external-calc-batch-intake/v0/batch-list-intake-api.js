@@ -99,12 +99,75 @@ function supplierSignalText(filename, content) {
   return [filename, ...String(content).split(/\r?\n/).filter((line) => line.trim()).slice(0, 14)].join('\n');
 }
 
+function isGenericSupplierHeading(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) return true;
+  return /^(estoque|estoque atualizado|lista|lista atualizada|tabela|tabela atualizada|precos|precos atualizados|disponiveis|disponivel|novidades|promocao|promocoes|ofertas|bom dia|boa tarde|boa noite|comunicado|comunicado importante|atualizacao|atualizado|atualizada)$/i.test(normalized);
+}
+
+function parseWhatsAppHeader(line) {
+  const source = String(line || '').replace(/^\u200e/, '');
+  let match = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:]+?)\s*:\s?(.*)$/.exec(source);
+  if (match) {
+    return { date: match[1], time: match[2], sender: match[3].trim(), first_line: match[4] || '' };
+  }
+  match = /^(\d{1,2}\/\d{1,2}\/\d{2,4}),\s*(\d{1,2}:\d{2}(?::\d{2})?)\s+-\s+([^:]+?)\s*:\s?(.*)$/.exec(source);
+  if (match) {
+    return { date: match[1], time: match[2], sender: match[3].trim(), first_line: match[4] || '' };
+  }
+  return null;
+}
+
+function splitWhatsAppExport(content) {
+  const lines = String(content || '').split(/\r?\n/);
+  const messages = [];
+  let current = null;
+
+  for (const line of lines) {
+    const header = parseWhatsAppHeader(line);
+    if (header) {
+      if (current) messages.push(current);
+      current = {
+        date: header.date,
+        time: header.time,
+        sender: header.sender,
+        lines: header.first_line ? [header.first_line] : []
+      };
+      continue;
+    }
+    if (current) current.lines.push(line);
+  }
+  if (current) messages.push(current);
+
+  if (messages.length < 1) return [];
+  const headerCount = lines.filter((line) => parseWhatsAppHeader(line)).length;
+  if (headerCount < 1) return [];
+
+  return messages.map((message, index) => ({
+    index: index + 1,
+    date: message.date,
+    time: message.time,
+    sender: message.sender,
+    content: message.lines.join('\n').trim()
+  }));
+}
+
+function looksLikeSupplierList(content) {
+  const normalized = normalizeText(content);
+  if (!normalized) return false;
+  const hasProduct = /\b(iphone|ipad|macbook|airpods|apple watch|watch|poco|samsung|xiaomi|galaxy|garmin|mac mini)\b/i.test(normalized);
+  const hasPrice = /r\$\s*\d{3,6}|\b\d{3,6}[,.]\d{2}\b|(?:^|\s)\d{3,5}(?:\s|$)/m.test(String(content));
+  return hasProduct && hasPrice;
+}
+
 function candidateSupplierHeader(content) {
   const lines = String(content).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 10);
   for (let index = 0; index < lines.length; index += 1) {
     const cleaned = cleanHeaderLine(lines[index]);
     const normalized = normalizeText(cleaned);
     if (!normalized || cleaned.length < 3 || cleaned.length > 120) continue;
+    if (isGenericSupplierHeading(cleaned)) continue;
+    if (parseWhatsAppHeader(lines[index])) continue;
     if (/^(av|avenida|rua|r |tel|telefone|whatsapp|garantia|politicas?)\b/.test(normalized)) continue;
     if (/\b(iphone|ipad|macbook|airpods|watch|poco|samsung|xiaomi|celular|lacrado|lacrados|seminovo|seminovos)\b/.test(normalized)) continue;
     if (/r\$|\b\d{3,6}[,.]\d{2}\b/.test(lines[index])) continue;
@@ -230,6 +293,106 @@ function entryKind(name) {
   return 'UNSUPPORTED';
 }
 
+async function processListUnit({ env, token, unit, suppliers, files }) {
+  const { filename, path, kind, content, origin } = unit;
+  let resolution = resolveExistingSupplier({ filename, content, suppliers });
+  let supplier = resolution.supplier;
+  let supplierState = resolution.state;
+  let confidence = resolution.confidence;
+  let candidate = null;
+
+  if (!supplier && resolution.state === 'NOT_FOUND') {
+    candidate = candidateSupplierHeader(content);
+    if (candidate?.confidence >= 0.95) {
+      const duplicate = suppliers.find((item) => normalizeText(item.name) === candidate.normalized_name);
+      if (duplicate) {
+        supplier = duplicate;
+        supplierState = 'MATCHED_EXISTING';
+        confidence = 0.99;
+      } else {
+        try {
+          supplier = await createSupplier(env, token, candidate);
+          suppliers.push(supplier);
+          supplierState = 'AUTO_CREATED';
+          confidence = candidate.confidence;
+        } catch (supplierError) {
+          files.push({
+            filename,
+            path,
+            origin,
+            status: 'SUPPLIER_CREATE_FAILED',
+            supplier: null,
+            supplier_candidate: candidate,
+            alternatives: resolution.alternatives,
+            intake: null,
+            message: supplierError.message
+          });
+          return;
+        }
+      }
+    }
+  }
+
+  if (!supplier) {
+    files.push({
+      filename,
+      path,
+      origin,
+      status: 'REVIEW_REQUIRED',
+      supplier: null,
+      supplier_candidate: candidate,
+      alternatives: resolution.alternatives,
+      intake: null,
+      message: resolution.state === 'AMBIGUOUS'
+        ? 'Mais de um fornecedor corresponde a esta lista.'
+        : 'Fornecedor nao identificado com confianca suficiente.'
+    });
+    return;
+  }
+
+  try {
+    const intake = await processListIntakeCommand({
+      env,
+      token,
+      rawCommand: {
+        supplier_id: supplier.supplier_id,
+        filename,
+        mime_type: kind === 'CSV' ? 'text/csv' : 'text/plain',
+        content
+      }
+    });
+    files.push({
+      filename,
+      path,
+      origin,
+      status: 'PROCESSED',
+      supplier: {
+        supplier_id: supplier.supplier_id,
+        name: supplier.name,
+        resolution: supplierState,
+        confidence
+      },
+      intake,
+      message: null
+    });
+  } catch (entryError) {
+    files.push({
+      filename,
+      path,
+      origin,
+      status: 'INTAKE_FAILED',
+      supplier: {
+        supplier_id: supplier.supplier_id,
+        name: supplier.name,
+        resolution: supplierState,
+        confidence
+      },
+      intake: null,
+      message: entryError instanceof Error ? entryError.message : 'falha ao interpretar lista'
+    });
+  }
+}
+
 async function processBatch({ env, token, command }) {
   const parsed = readZipEntries(command.bytes, LIMITS);
   const suppliers = await loadSuppliers(env, token);
@@ -257,98 +420,59 @@ async function processBatch({ env, token, command }) {
       continue;
     }
 
-    let resolution = resolveExistingSupplier({ filename, content, suppliers });
-    let supplier = resolution.supplier;
-    let supplierState = resolution.state;
-    let confidence = resolution.confidence;
-    let candidate = null;
-
-    if (!supplier && resolution.state === 'NOT_FOUND') {
-      candidate = candidateSupplierHeader(content);
-      if (candidate?.confidence >= 0.95) {
-        const duplicate = suppliers.find((item) => normalizeText(item.name) === candidate.normalized_name);
-        if (duplicate) {
-          supplier = duplicate;
-          supplierState = 'MATCHED_EXISTING';
-          confidence = 0.99;
-        } else {
-          try {
-            supplier = await createSupplier(env, token, candidate);
-            suppliers.push(supplier);
-            supplierState = 'AUTO_CREATED';
-            confidence = candidate.confidence;
-          } catch (supplierError) {
-            files.push({
-              filename,
-              path: entryPath,
-              status: 'SUPPLIER_CREATE_FAILED',
-              supplier: null,
-              supplier_candidate: candidate,
-              alternatives: resolution.alternatives,
-              intake: null,
-              message: supplierError.message
-            });
-            continue;
+    const whatsappMessages = kind === 'TXT' ? splitWhatsAppExport(content) : [];
+    if (whatsappMessages.length) {
+      let candidateMessages = 0;
+      for (const message of whatsappMessages) {
+        if (!looksLikeSupplierList(message.content)) continue;
+        candidateMessages += 1;
+        await processListUnit({
+          env,
+          token,
+          suppliers,
+          files,
+          unit: {
+            filename: `${filename} · mensagem ${message.index}`,
+            path: `${entryPath}#message-${message.index}`,
+            kind: 'TXT',
+            content: message.content,
+            origin: {
+              container_file: entryPath,
+              transport: 'WHATSAPP_EXPORT',
+              message_index: message.index,
+              sent_at: `${message.date} ${message.time}`,
+              sender: message.sender
+            }
           }
-        }
+        });
       }
-    }
-
-    if (!supplier) {
-      files.push({
-        filename,
-        path: entryPath,
-        status: 'REVIEW_REQUIRED',
-        supplier: null,
-        supplier_candidate: candidate,
-        alternatives: resolution.alternatives,
-        intake: null,
-        message: resolution.state === 'AMBIGUOUS'
-          ? 'Mais de um fornecedor corresponde ao arquivo.'
-          : 'Fornecedor nao identificado com confianca suficiente.'
-      });
+      if (candidateMessages === 0) {
+        files.push({
+          filename,
+          path: entryPath,
+          origin: { container_file: entryPath, transport: 'WHATSAPP_EXPORT' },
+          status: 'SKIPPED_NO_LIST_MESSAGES',
+          supplier: null,
+          intake: null,
+          message: 'Export do WhatsApp sem mensagens que parecam listas de fornecedor.'
+        });
+      }
       continue;
     }
 
-    try {
-      const intake = await processListIntakeCommand({
-        env,
-        token,
-        rawCommand: {
-          supplier_id: supplier.supplier_id,
-          filename,
-          mime_type: kind === 'CSV' ? 'text/csv' : 'text/plain',
-          content
-        }
-      });
-      files.push({
+    await processListUnit({
+      env,
+      token,
+      suppliers,
+      files,
+      unit: {
         filename,
         path: entryPath,
-        status: 'PROCESSED',
-        supplier: {
-          supplier_id: supplier.supplier_id,
-          name: supplier.name,
-          resolution: supplierState,
-          confidence
-        },
-        intake,
-        message: null
-      });
-    } catch (entryError) {
-      files.push({
-        filename,
-        path: entryPath,
-        status: 'INTAKE_FAILED',
-        supplier: {
-          supplier_id: supplier.supplier_id,
-          name: supplier.name,
-          resolution: supplierState,
-          confidence
-        },
-        intake: null,
-        message: entryError instanceof Error ? entryError.message : 'falha ao interpretar lista'
-      });
-    }
+        kind,
+        content,
+        origin: { container_file: entryPath, transport: 'FILE' }
+      }
+    });
   }
 
   const processed = files.filter((item) => item.status === 'PROCESSED');
@@ -365,7 +489,7 @@ async function processBatch({ env, token, command }) {
       processed: processed.length,
       review_required: files.filter((item) => item.status === 'REVIEW_REQUIRED').length,
       auto_created_suppliers: processed.filter((item) => item.supplier?.resolution === 'AUTO_CREATED').length,
-      skipped: files.filter((item) => item.status === 'SKIPPED_UNSUPPORTED').length,
+      skipped: files.filter((item) => item.status.startsWith('SKIPPED_')).length,
       rejected: files.filter((item) => item.status.startsWith('REJECTED_')).length,
       failed: files.filter((item) => item.status.endsWith('_FAILED')).length,
       candidates: processed.reduce((sum, item) => sum + (item.intake?.candidates || 0), 0),
@@ -407,6 +531,9 @@ module.exports = {
   LIMITS,
   normalizeText,
   candidateSupplierHeader,
+  parseWhatsAppHeader,
+  splitWhatsAppExport,
+  looksLikeSupplierList,
   resolveExistingSupplier,
   processBatch,
   createBatchListIntakeApiV0
