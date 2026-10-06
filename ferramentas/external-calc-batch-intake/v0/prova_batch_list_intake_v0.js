@@ -5,6 +5,8 @@ const { crc32 } = require('../../external-calc-universal-input/v1/xlsx-zip-reade
 const {
   normalizeText,
   candidateSupplierHeader,
+  splitWhatsAppExport,
+  looksLikeSupplierList,
   resolveExistingSupplier,
   processBatch
 } = require('./batch-list-intake-api');
@@ -111,6 +113,23 @@ assert.equal(normalizeText(candidate.name), 'quality distribuidora');
 assert.ok(candidate.confidence >= 0.95);
 assert.equal(candidate.phone, '21988887777');
 
+const whatsappSample = [
+  '[06/10/26, 02:11:19] Alb. : *👑 REAL COMÉRCIO — ATACADO*',
+  '📲 (21) 97171-9477',
+  'iPhone 15 128GB',
+  '💵 R$ 4.500,00',
+  '[06/10/26, 02:12:04] Alb. : ESTOQUE ATUALIZADO',
+  'iPhone 16 128GB',
+  '💵 R$ 3.550,00'
+].join('\n');
+const whatsappMessages = splitWhatsAppExport(whatsappSample);
+assert.equal(whatsappMessages.length, 2);
+assert.equal(whatsappMessages[0].sender, 'Alb.');
+assert.match(whatsappMessages[0].content, /REAL COMÉRCIO/);
+assert.equal(looksLikeSupplierList(whatsappMessages[0].content), true);
+assert.equal(looksLikeSupplierList(whatsappMessages[1].content), true);
+assert.equal(candidateSupplierHeader(whatsappMessages[1].content), null);
+
 const realList = [
   '*👑 REAL COMÉRCIO — ATACADO*',
   '📍 Av. Rio Branco – Centro RJ',
@@ -141,6 +160,7 @@ const zip = makeStoredZip([
   ['real-comercio.txt', realList],
   ['quality.txt', qualityList],
   ['sem-fornecedor.txt', unknownList],
+  ['_chat.txt', whatsappSample],
   ['foto.jpg', Buffer.from([0xff, 0xd8, 0xff, 0xd9])],
   ['outro-pacote.zip', Buffer.from('not-executed', 'utf8')]
 ]);
@@ -201,13 +221,13 @@ global.fetch = async (url, init = {}) => {
     });
 
     assert.equal(result.contract_version, 'external-calc-batch-supplier-intake/v0');
-    assert.equal(result.archive.entries_total, 5);
-    assert.equal(result.summary.processed, 2);
-    assert.equal(result.summary.review_required, 1);
+    assert.equal(result.archive.entries_total, 6);
+    assert.equal(result.summary.processed, 3);
+    assert.equal(result.summary.review_required, 2);
     assert.equal(result.summary.auto_created_suppliers, 1);
     assert.equal(result.summary.skipped, 1);
     assert.equal(result.summary.rejected, 1);
-    assert.ok(result.summary.candidates >= 2);
+    assert.ok(result.summary.candidates >= 3);
 
     const real = result.files.find((item) => item.filename === 'real-comercio.txt');
     assert.equal(real.status, 'PROCESSED');
@@ -223,6 +243,18 @@ global.fetch = async (url, init = {}) => {
     const unknown = result.files.find((item) => item.filename === 'sem-fornecedor.txt');
     assert.equal(unknown.status, 'REVIEW_REQUIRED');
     assert.equal(unknown.intake, null);
+
+    const chatReal = result.files.find((item) => item.path === '_chat.txt#message-1');
+    assert.equal(chatReal.status, 'PROCESSED');
+    assert.equal(chatReal.supplier.name, 'Real Comércio');
+    assert.equal(chatReal.origin.transport, 'WHATSAPP_EXPORT');
+    assert.equal(chatReal.origin.sender, 'Alb.');
+
+    const chatUnknown = result.files.find((item) => item.path === '_chat.txt#message-2');
+    assert.equal(chatUnknown.status, 'REVIEW_REQUIRED');
+    assert.equal(chatUnknown.supplier, null);
+    assert.equal(chatUnknown.supplier_candidate, null);
+    assert.equal(chatUnknown.origin.transport, 'WHATSAPP_EXPORT');
 
     assert.equal(result.files.find((item) => item.filename === 'foto.jpg').status, 'SKIPPED_UNSUPPORTED');
     assert.equal(result.files.find((item) => item.filename === 'outro-pacote.zip').status, 'REJECTED_NESTED_ARCHIVE');
