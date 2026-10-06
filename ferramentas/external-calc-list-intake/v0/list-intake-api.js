@@ -457,6 +457,54 @@ function buildQueue(body){
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }
+async function processListIntakeCommand({env,token,rawCommand}={}){
+ if(!env)throw new Error('env obrigatorio');
+ if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
+ const command=normalizeBody(rawCommand);
+ const built=buildQueue(command);
+ if(command.supplier_id){
+   await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+ }
+ const partition=partitionCandidates(built.queue);
+ let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
+ const review_reasons={};
+
+ for(const item of partition.auto){
+   const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
+   persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
+   const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
+   auto_promoted+=1;
+   if(promoted?.idempotent===true)idempotent+=1;
+ }
+
+ for(const item of partition.review){
+   const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
+   persisted+=1;if(saved?.idempotent===true)idempotent+=1;
+   review_required+=1;
+   for(const reason of item.assessment.reasons){
+     review_reasons[reason]=(review_reasons[reason]||0)+1;
+   }
+ }
+
+ return {
+   analysis_id:built.analysis_id,
+   source_id:built.source_id,
+   supplier_id:command.supplier_id,
+   source_type:built.type,
+   filename:built.filename,
+   content_hash:built.canonical.source.content_hash,
+   candidates:built.queue.candidates.length,
+   persisted,
+   auto_promoted,
+   review_required,
+   review_reasons,
+   idempotent,
+   unresolved_ambiguities:built.queue.unresolved_ambiguities.length,
+   invalid_items:built.queue.invalid_items.length,
+   warnings:built.queue.warnings
+ };
+}
+
 function createListIntakeApiV0({env}={}){
  if(!env)throw new Error('env obrigatorio');
  return {
@@ -468,51 +516,8 @@ function createListIntakeApiV0({env}={}){
    try{
     const token=bearer(request);if(!token)return out(401,{error:{code:'UNAUTHENTICATED',message:'autenticacao obrigatoria'}},origin);
     let raw;try{raw=await request.json();}catch{throw Object.assign(new Error('JSON invalido'),{code:'LIST_INTAKE_INVALID'});}
-    const command=normalizeBody(raw);
-    const built=buildQueue(command);
-    if(command.supplier_id){
-      await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
-    }
-    const partition=partitionCandidates(built.queue);
-    let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
-    const review_reasons={};
-
-    for(const item of partition.auto){
-      const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-      persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
-      const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
-      auto_promoted+=1;
-      if(promoted?.idempotent===true)idempotent+=1;
-    }
-
-    for(const item of partition.review){
-      const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-      persisted+=1;if(saved?.idempotent===true)idempotent+=1;
-      review_required+=1;
-      for(const reason of item.assessment.reasons){
-        review_reasons[reason]=(review_reasons[reason]||0)+1;
-      }
-    }
-    return out(200,{
-      api_version:API_VERSION,
-      intake:{
-        analysis_id:built.analysis_id,
-        source_id:built.source_id,
-        supplier_id:command.supplier_id,
-        source_type:built.type,
-        filename:built.filename,
-        content_hash:built.canonical.source.content_hash,
-        candidates:built.queue.candidates.length,
-        persisted,
-        auto_promoted,
-        review_required,
-        review_reasons,
-        idempotent,
-        unresolved_ambiguities:built.queue.unresolved_ambiguities.length,
-        invalid_items:built.queue.invalid_items.length,
-        warnings:built.queue.warnings
-      }
-    },origin);
+    const intake=await processListIntakeCommand({env,token,rawCommand:raw});
+    return out(200,{api_version:API_VERSION,intake},origin);
    }catch(e){
     const code=e?.code||'LIST_INTAKE_FAILED';
     const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
@@ -521,4 +526,4 @@ function createListIntakeApiV0({env}={}){
   }
  };
 }
-module.exports={LIST_INTAKE_PATH,API_VERSION,buildQueue,createListIntakeApiV0};
+module.exports={LIST_INTAKE_PATH,API_VERSION,buildQueue,processListIntakeCommand,createListIntakeApiV0};
