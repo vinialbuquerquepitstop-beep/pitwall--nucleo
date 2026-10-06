@@ -47,6 +47,11 @@ const OWNERS = [
     /^ferramentas\/external-calc-list-intake\/v0\//,
     /^supabase\/migrations\/20261001145500_external_calc_c01_auto_promotion_v0\.sql$/
   ] },
+  { owner: 'BATCH_SUPPLIER_INTAKE', patterns: [
+    /^ferramentas\/external-calc-batch-intake\/v0\//,
+    /^docs\/calculadora\/EXTERNAL_CALC_BATCH_SUPPLIER_INTAKE_V0\.md$/,
+    /^\.github\/workflows\/external_calc_batch_supplier_intake_v0\.yml$/
+  ] },
   { owner: 'TRACKED_MODEL_HISTORY', patterns: [
     /^ferramentas\/external-calc-tracked-model\/v0\//,
     /^supabase\/migrations\/20261001113500_external_calc_tracked_model_v0\.sql$/,
