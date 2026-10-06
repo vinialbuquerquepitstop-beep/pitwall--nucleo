@@ -1,6 +1,6 @@
 -- External Calc — Movement Feed Projection V0 / COALESCE correction
--- PostgreSQL COALESCE is a special SQL expression and cannot be schema-qualified
--- as pg_catalog.coalesce(...). Recreate the projection with unqualified COALESCE.
+-- PostgreSQL COALESCE is a special SQL expression and cannot be schema-qualified.
+-- Recreate the projection with the standard unqualified expression.
 
 -- External Calc — Movement Feed Projection V0
 -- Tenant-scoped read projection for the approved Movimentacao screen.
