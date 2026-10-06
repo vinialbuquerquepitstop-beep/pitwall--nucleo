@@ -1,0 +1,32 @@
+name: External Calc - Batch Supplier Intake V0
+
+on:
+  pull_request:
+    paths:
+      - "ferramentas/external-calc-batch-intake/**"
+      - "ferramentas/external-calc-list-intake/**"
+      - "ferramentas/external-calc-universal-input/v1/xlsx-zip-reader.js"
+      - "worker/external-calc-worker.mjs"
+      - ".github/workflows/external_calc_batch_supplier_intake_v0.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ferramentas/external-calc-batch-intake/**"
+      - "ferramentas/external-calc-list-intake/**"
+      - "ferramentas/external-calc-universal-input/v1/xlsx-zip-reader.js"
+      - "worker/external-calc-worker.mjs"
+
+jobs:
+  batch-supplier-intake-v0:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Existing List Intake regression
+        run: node ferramentas/external-calc-list-intake/v0/prova_list_intake_v0.js
+      - name: Batch ZIP contract proof
+        run: node ferramentas/external-calc-batch-intake/v0/prova_batch_list_intake_v0.js
+      - name: Worker syntax
+        run: node --check worker/external-calc-worker.mjs
