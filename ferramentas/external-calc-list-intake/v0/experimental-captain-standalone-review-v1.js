@@ -4,6 +4,8 @@ const HEAD=/^\s*(?:⌚(?:️)?|🖌(?:️)?|🕶(?:️)?|🖱(?:️)?|🔌)\s*(.
 const PRICE=/^\s*💲\s*([1-9]\d{0,2}(?:\.\d{3})*|[1-9]\d{2,5})(?:\s+a unidade)?\s*$/iu;
 const BOX=/^\s*📦\s*Caixa com\s*(\d+)\s*:\s*💲\s*(\d{2,5})\s*$/iu;
 const VARIANT=/^\s*⚓️?\s+(.+)$/u;
+// Inline variant + currency belongs only to its current explicit accessory header.
+const INLINE_VARIANT=/^\s*⚓(?:️|\uFE0F)?\s*([^\/\n💲]{2,40}?)\s*\/\s*💲\s*([1-9]\d{0,2}(?:\.\d{3})*|[1-9]\d{2,5})\s*$/u;
 const SECTION=/^(?:Varejo|Atacado)(?:\s*\(.*\))?\s*$/iu;
 const RESET=/^(?:📳|💻|❌|🚨|🏴|🍏)/u;
 function reconcileStandaloneReview(input){
@@ -17,6 +19,16 @@ function reconcileStandaloneReview(input){
   if(!product)continue;
   const section=line.match(SECTION);
   if(section){tier=/^atacado/i.test(line)?'WHOLESALE':'RETAIL';variant=null;continue;}
+  const inline=line.match(INLINE_VARIANT);
+  if(inline){
+   rows.push({product:product.name,productLine:product.line,
+    variant:inline[1].trim(),variantLine:i+1,
+    tier:tier??'UNSPECIFIED',units:1,
+    amount_minor:Number(inline[2].replace(/\\./g,''))*100,priceLine:i+1,
+    review_required:true,autoPromote:false,reviewReason:'INLINE_ACCESSORY_PRICE_REVIEW'});
+   variant=null;
+   continue;
+  }
   const color=line.match(VARIANT);
   if(color){variant={label:color[1].trim(),line:i+1};continue;}
   const box=line.match(BOX);
