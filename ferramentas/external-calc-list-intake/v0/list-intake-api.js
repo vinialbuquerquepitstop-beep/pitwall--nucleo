@@ -45,7 +45,7 @@ const COLOR_TEXT_ALIASES=[
  ['CINZA ESPACIAL','Cinza espacial'],['SPACE GRAY','Cinza espacial'],['SPACEGRAY','Cinza espacial'],
  ['ROSE GOLD','Rose Gold'],['ROSEGOLD','Rose Gold'],['MEIA NOITE','Meia-noite'],['MEIA-NOITE','Meia-noite'],
  ['STARLIGHT','Starlight'],['MIDNIGHT','Meia-noite'],['GRAFITE','Grafite'],['GRAPHITE','Grafite'],
- ['NATURAL','Natural'],['SILVER','Prata'],['PRATA','Prata'],['BRANCO','Branco'],['WHITE','Branco'],
+ ['TEAL','Teal'],['NATURAL','Natural'],['SILVER','Prata'],['PRATA','Prata'],['BRANCO','Branco'],['WHITE','Branco'],
  ['PRETO','Preto'],['BLACK','Preto'],['AZUL','Azul'],['BLUE','Azul'],['ROXO','Roxo'],['PURPLE','Roxo'],
  ['LILÁS','Lilás'],['LILAS','Lilás'],['VERMELHO','Vermelho'],['RED','Vermelho'],['VERDE','Verde'],
  ['GREEN','Verde'],['ROSA','Rosa'],['PINK','Rosa'],['AMARELO','Gold'],['YELLOW','Gold'],
@@ -54,7 +54,7 @@ const COLOR_TEXT_ALIASES=[
 ];
 
 const COLOR_EMOJI_ALIASES=[
- ['⚫','Preto'],['⚪','Branco'],['🔵','Azul'],['🟣','Roxo'],['🟡','Gold'],['🟢','Verde'],
+ ['🩵','Teal'],['⚫','Preto'],['⚪','Branco'],['🔵','Azul'],['🟣','Roxo'],['🟡','Gold'],['🟢','Verde'],
  ['🔴','Vermelho'],['🩷','Rosa'],['💛','Gold'],['🌹','Rosa'],['🔘','Natural'],['🩶','Cinza']
 ];
 
