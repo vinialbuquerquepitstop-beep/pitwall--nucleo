@@ -224,3 +224,5 @@ console.log('EXTERNAL_CALC_LIST_INTAKE_V0=PASS candidates='+parsed.queue.candida
 require('./prova_scoped_price_boundaries_v2');
 
 require('./prova_captain_scoped_variants_v1');
+
+require('./prova_captain_standalone_review_v1');
