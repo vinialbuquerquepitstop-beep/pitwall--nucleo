@@ -119,6 +119,23 @@ assert.ok(!unverifiedHeader || unverifiedHeader.confidence < 0.95);
 const namedNoContact = candidateSupplierHeader('MEGA CENTER\niPhone 18 Pro Max 256GB\nPRETO 8.800');
 assert.ok(namedNoContact && namedNoContact.confidence < 0.95);
 
+// Real corpus: "ACESSÓRIOS APPLE" is a product category, not supplier identity.
+const unattributedCategory = [
+  '🍎 *ACESSÓRIOS APPLE* 🍎',
+  '📦 *ORIGINAIS • LACRADOS • DIRETO DO DISTRIBUIDOR*',
+  '📍 *AIRTAG*',
+  '🔹 4 Pack — R$ 590,00',
+  '🖱️ MAGIC MOUSE 3'
+].join('\n');
+for (const supplierName of ['Apple', 'Acessórios Apple', 'Magic Mouse']) {
+  const result = resolveExistingSupplier({
+    filename: '09b_supplier_unattributed_REVIEW_REQUIRED.txt',
+    content: unattributedCategory,
+    suppliers: [{ supplier_id: 'test-' + supplierName, name: supplierName, phone: null, city: null }]
+  });
+  assert.equal(result.state, 'NOT_FOUND', 'category cannot resolve supplier ' + supplierName);
+}
+
 const whatsappSample = [
   '[06/10/26, 02:11:19] Alb. : *👑 REAL COMÉRCIO — ATACADO*',
   '📲 (21) 97171-9477',

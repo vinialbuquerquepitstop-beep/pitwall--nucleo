@@ -249,10 +249,15 @@ function resolveExistingSupplier({ filename, content, suppliers }) {
     if (phone.length >= 10 && phones.has(phone)) score = Math.max(score, 1);
 
     const name = normalizeText(supplier.name);
-    if (name.length >= 4 && normalizedSignal.includes(name)) {
-      const firstLines = normalizeText(String(content).split(/\r?\n/).filter((line) => line.trim()).slice(0, 4).join(' '));
-      score = Math.max(score, firstLines.includes(name) ? 0.96 : 0.9);
-    }
+    // A product/category heading is not evidence of supplier identity.
+    // Only explicit commercial headings in the first lines may match by name.
+    const earlyLines = String(content).split(/\r?\n/).filter((line) => line.trim()).slice(0, 4);
+    const verifiedCommercialHeader = earlyLines.some((line) => {
+      const normalized = normalizeText(cleanHeaderLine(line));
+      return name.length >= 4 && normalized.includes(name)
+        && /\b(atacado|distribuidora|distribuidor|comercio|importados|importadora|loja)\b/.test(normalized);
+    });
+    if (verifiedCommercialHeader) score = Math.max(score, 0.96);
 
     const normalizedFilename = normalizeText(filename);
     if (name.length >= 4 && normalizedFilename.includes(name)) score = Math.max(score, 0.86);
