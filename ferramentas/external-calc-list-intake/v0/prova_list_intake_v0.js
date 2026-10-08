@@ -37,6 +37,39 @@ assert.strictEqual(tealByNameAndEmoji.queue.candidates[0].interpreted_offer.colo
 assert.strictEqual(tealByNameAndEmoji.queue.candidates[1].interpreted_offer.color,'Teal');
 assert.strictEqual(tealByNameAndEmoji.queue.candidates[1].interpreted_offer.price.amount_minor,420000);
 
+// Fonte ON CELL: cada linha de cor mantém o próprio preço. Capacidades ausentes exigem revisão.
+const onCellScoped = buildQueue({filename:'oncell-scoped.txt',mime_type:'text/plain',content:[
+  'ON CELL — LOJA',
+  '📲 17 PRO MAX 256 - ANATEL.',
+  '⚪️branco. 7100',
+  '📲 17 PRO MAX 256GB 🇺🇸',
+  '⚪️silver. 6900',
+  '📲17 PRO 256🇺🇸',
+  '⚪️silver. 6700',
+  '📲 16 128gb',
+  '⚪️white. 4300',
+  '🟣pink. 4300',
+  '🩵teal. 4200',
+  '⚫️black. 4250',
+  '💻 Macbook neo 256gb',
+  '⚪️silver 4800'
+].join('\n')});
+assert.strictEqual(onCellScoped.queue.candidates.length,8);
+assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.price.amount_minor),
+ [710000,690000,670000,430000,430000,420000,425000,480000]);
+assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.color),
+ ['Branco','Prata','Prata','Branco','Rosa','Teal','Preto','Prata']);
+const onCellAssessment=partitionCandidates(onCellScoped.queue);
+assert.strictEqual(onCellAssessment.review.length,2,'bare 256 iPhones sem capacidade devem revisar');
+assert.ok(onCellAssessment.review.every(x=>x.assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING')));
+// Não aceitar números fora de linhas coloridas (datas, contato, identificação comercial).
+const nonPriceContext=buildQueue({filename:'oncell-guard.txt',mime_type:'text/plain',content:[
+ '📲 16 128gb',
+ 'Contato 21999990000',
+ 'Retirada no dia 08 2026'
+].join('\n')});
+assert.strictEqual(nonPriceContext.queue.candidates.length,0);
+
 const real="*👑 REAL COMÉRCIO — ATACADO*\n\n📍 Av. Rio Branco – Centro RJ\n📲 (21) 97171-9477\n\n━━━━━━━━━━━━\n\n📱*Celular — Lacrado*\n\niPhone 17 pro 256gb\n🎨 Prata\n💵 *R$6.850,00*\n\n📱PocoF8 Pro 5G 12/256GB\n🎨 Blue\n💵 *3280,00*\n\n📱PocoF8 Pro 5G 12/256GB\n🎨 Black \n💵 *3349,00*\n\n📱PocoF8 Pro 5G 12/512gb\n🎨 Blue\n💵 *3639,00*\n\n📱PocoF8 Ultra 5G 12/256gb \n🎨 Black \n💵 *4550,00*\n\n━━━━━━━━━━━━\n\n💻 MacBook — Lacrados\n\n💻 MacBook Neo a18 13\" 8/256gb \n🎨 Blush\n💵*4.785,00*\n\n💻 MacBook Air M5 13\" 16/512gb\n🎨 SkyBlue\n💵*8.450,00*\n\n💻 MacBook pro M5 14\" 16/512gb\n🎨 Meia noite \n💵*11.500,00*\n\n💻 MacBook pro M5 14\" 16/1tb\n🎨 Meia noite \n💵*12.649,00*\n\n💻 MacBook pro M5 14\" 24/1tb\n🎨 Meia noite \n💵*14.998,00*\n\n💻 MacBook pro M5 pro 14\" 24/1tb\n🎨 Preto espacial  \n💵*16.289,00*\n\n💻 Mac Mini m4 16/512gb\n💵*6.050,00*\n\n━━━━━━━━━━━━\n\n⌚Watch lacrados \n\n⌚ Apple Watch SE 3 40mm GPS\n🎨 Starlight Aluminum Case com Sport Band Starligh\n*💵 R$  1.778,00*\n\n⌚ Garmin Forerunner 165\n🎨 Preto e Cinza Ardosia\n*💵 R$ 1.600,00*\n\n━━━━━━━━━━━━\n\n📲 iPad — Lacrados \n\n📲 iPad Air 11 M4 128GB Wi-Fi  \n🎨 Cinza Espacial \n*💵 R$ 4798,00*\n\n📲 iPad Air 11 M4 128GB Wi-Fi  \n🎨 Blue \n*💵 R$ 4950,00*\n\n📲 iPad Air 11 M4 128GB Wi-Fi  \n🎨 Starligth \n*💵 R$ 4897,59*\n\n━━━━━━━━━━━━\n\n🎧 AirPods — Lacrado\n\n🎧 AirPods Pro 3ª Geração\n*💵 R$ 1.467,00*\n\n━━━━━━━━━━━━\n\n🛡 Garantia\n* Lacrados: Apple\n\n📃 Políticas\n* Não estornamos PIX (crédito loja)\n* Lacrados podem apresentar diferença entre data de compra e garantia";
 const parsed=buildQueue({filename:'real-comercio.txt',mime_type:'text/plain',content:real});
 assert.strictEqual(parsed.queue.candidates.length,18,'lista REAL COMERCIO deve produzir 18 ofertas');
