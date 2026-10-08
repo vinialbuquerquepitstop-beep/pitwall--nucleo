@@ -23,4 +23,29 @@ const reset=parse('💻 MACBOOK AIR M5 13 16/512GB\n💲(9100)\n❇️Midnight\n
 assert.deepStrictEqual(reset.map(x=>x.price),[9100,null]);
 const noContact=parse('📲 Contato 21999990000\n💲(9000)\n❇️Branco');
 assert.equal(noContact.length,0);
+// Real-source shape: one implausibly cheap variant must be reviewed, not silently normalized.
+const iphonePriceOutlier=parse([
+ ' iPhone 16 128 GB',
+ '❇️Azul 💲(415)',
+ '❇️Preto 💲(4200)',
+ '❇️Branco 💲(4250)',
+ '❇️ROSA 💲(4250)'
+].join('\n'));
+assert.equal(iphonePriceOutlier.length,4);
+assert.equal(iphonePriceOutlier[0].price,415);
+assert.equal(iphonePriceOutlier[0].needsReview,true);
+assert.deepStrictEqual(iphonePriceOutlier[0].reviewReasons,['SIBLING_PRICE_OUTLIER']);
+assert.ok(iphonePriceOutlier.slice(1).every(r=>r.needsReview===false));
+assert.ok(iphonePriceOutlier.every(r=>r.autoPromote===false));
+// A different product with a lower price must NOT trigger a cross-product outlier.
+const independentProducts=parse([
+ '🎧 AirPods 4',
+ '💲(850)',
+ '❇️Branco',
+ '💻 MacBook Neo 8/256GB',
+ '💲(4800)',
+ '❇️Silver'
+].join('\n'));
+assert.equal(independentProducts.length,2);
+assert.ok(independentProducts.every(r=>r.needsReview===false));
 console.log('EXTERNAL_CALC_SCOPED_BOUNDARIES_V2=PASS pairs=11 negative=4 no_auto_promotion=true');
