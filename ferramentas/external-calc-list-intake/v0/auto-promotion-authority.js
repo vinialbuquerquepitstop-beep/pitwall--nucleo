@@ -24,7 +24,7 @@ function linkedMaterialAmbiguities(candidate,ambiguities){
   });
 }
 function hasCapacityToken(label){
-  return /(?:\b\d{2,4}\s*GB\b|(?:\/|\b)[124]\s*TB\b|\b\d{1,3}\s*\/\s*\d{2,4}\s*GB\b)/i.test(String(label||''));
+  return /(?:\b\d{2,4}\s*GB\b|(?:\/|\b)[124]\s*TB\b|\b\d{1,3}\s*\/\s*\d{2,4}\s*GB\b|\b(?:iPhone\s+)?1[1-8](?:\s+(?:Pro\s+Max|Pro|Plus|Air))?\s+(?:64|128|256|512)\b)/i.test(String(label||''));
 }
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];

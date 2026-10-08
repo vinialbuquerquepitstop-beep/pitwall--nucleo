@@ -40,6 +40,15 @@ assert.ok(offers.some(o=>o.model.label.includes('MacBook pro M5 14" 24/1tb')&&o.
 console.log('REAL_COMERCIO_MODELS='+JSON.stringify(offers.map(o=>({label:o.model.label,capacity_gb:o.capacity_gb,color:o.color,price:o.price.amount_minor}))));
 assert.strictEqual(countLabel('iPad Air 11 M4 128GB Wi-Fi'),3);
 assert.strictEqual(countLabel('AirPods'),1);
+// Corpus ON CELL: a capacidade aparece sem GB na linha do modelo.
+// Se o valor da capacidade se perder na interpretação, nunca auto-promover.
+const bareCapacityCandidate=JSON.parse(JSON.stringify(parsed.queue.candidates[0]));
+bareCapacityCandidate.interpreted_offer.model.label='iPhone 17 PRO MAX 256';
+bareCapacityCandidate.interpreted_offer.capacity_gb=null;
+const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate],unresolved_ambiguities:[]});
+assert.strictEqual(bareCapacityReview.auto.length,0,'iPhone 17 256 sem capacidade resolvida nao pode auto-promover');
+assert.deepStrictEqual(bareCapacityReview.review[0].assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING'),true);
+
 const partition=partitionCandidates(parsed.queue);
 console.log('REAL_COMERCIO_RESIDUAL_AMBIGUITIES='+JSON.stringify(parsed.queue.unresolved_ambiguities.map(item=>({field:item.field,cause:item.cause,raw:item.raw,sources:item.sources}))));
 console.log('REAL_COMERCIO_RESIDUAL_INVALID='+JSON.stringify(parsed.queue.invalid_items));
