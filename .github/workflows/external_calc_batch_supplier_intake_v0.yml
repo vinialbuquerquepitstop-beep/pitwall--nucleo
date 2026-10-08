@@ -28,5 +28,7 @@ jobs:
         run: node ferramentas/external-calc-list-intake/v0/prova_list_intake_v0.js
       - name: Batch ZIP contract proof
         run: node ferramentas/external-calc-batch-intake/v0/prova_batch_list_intake_v0.js
+      - name: Unseen supplier gate regression (positive and fail-closed)
+        run: node ferramentas/external-calc-list-intake/v0/prova_unseen_suppliers_gate_v1.js
       - name: Worker syntax
         run: node --check worker/external-calc-worker.mjs
