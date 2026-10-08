@@ -221,3 +221,4 @@ const invalidBreakdown=parsed.queue.invalid_items.reduce((acc,item)=>{
 },{});
 console.log('REAL_COMERCIO_DIAGNOSTICS ambiguities='+JSON.stringify(ambiguityBreakdown)+' invalid='+JSON.stringify(invalidBreakdown));
 console.log('EXTERNAL_CALC_LIST_INTAKE_V0=PASS candidates='+parsed.queue.candidates.length+' auto='+partition.auto.length+' review='+partition.review.length);
+require('./prova_scoped_price_boundaries_v2');
