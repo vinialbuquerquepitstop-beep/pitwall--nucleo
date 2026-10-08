@@ -113,6 +113,12 @@ assert.equal(normalizeText(candidate.name), 'quality distribuidora');
 assert.ok(candidate.confidence >= 0.95);
 assert.equal(candidate.phone, '21988887777');
 
+// Unknown supplier without contact/location must abstain: uppercase category/catalog titles are not a seller identity.
+const unverifiedHeader = candidateSupplierHeader('GARMIN — TABELA ATUALIZADA\\n⌚ FENIX 9 43mm — R$ 5.950');
+assert.ok(!unverifiedHeader || unverifiedHeader.confidence < 0.95);
+const namedNoContact = candidateSupplierHeader('MEGA CENTER\\niPhone 18 Pro Max 256GB\\nPRETO 8.800');
+assert.ok(namedNoContact && namedNoContact.confidence < 0.95);
+
 const whatsappSample = [
   '[06/10/26, 02:11:19] Alb. : *👑 REAL COMÉRCIO — ATACADO*',
   '📲 (21) 97171-9477',
