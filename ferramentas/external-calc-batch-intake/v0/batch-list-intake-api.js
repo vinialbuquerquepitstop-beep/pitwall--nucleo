@@ -190,7 +190,8 @@ function candidateSupplierHeader(content) {
       name,
       normalized_name: normalizeText(name),
       phone: extractPhones(nearby)[0] || null,
-      confidence: index <= 2 && (hasContactContext || uppercaseRatio > 0.8) ? 0.97 : 0.78
+      // Uppercase alone is not proof of a supplier: category headings in real lists are often uppercase.
+      confidence: index <= 2 && hasContactContext && uppercaseRatio > 0.8 ? 0.97 : 0.78
     };
   }
   return null;
