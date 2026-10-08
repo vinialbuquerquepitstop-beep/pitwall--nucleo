@@ -45,7 +45,8 @@ const OWNERS = [
   ] },
   { owner: 'LIST_INTAKE', patterns: [
     /^ferramentas\/external-calc-list-intake\/v0\//,
-    /^supabase\/migrations\/20261001145500_external_calc_c01_auto_promotion_v0\.sql$/
+    /^supabase\/migrations\/20261001145500_external_calc_c01_auto_promotion_v0\.sql$/,
+    /^docs\/calculadora\/EXTERNAL_CALC_UNSEEN_SUPPLIERS_RELEASE_GATE_V1\.md$/
   ] },
   { owner: 'BATCH_SUPPLIER_INTAKE', patterns: [
     /^ferramentas\/external-calc-batch-intake\/v0\//,
