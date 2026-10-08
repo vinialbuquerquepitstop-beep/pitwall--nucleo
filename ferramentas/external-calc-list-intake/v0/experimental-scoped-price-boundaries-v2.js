@@ -22,6 +22,26 @@ function extractScopedRows(text){
     needsReview:price===null,autoPromote:false});
   }
  }
+ // Compare only variants of the exact same source model line, never across products.
+ // This is a review signal, not an automatic correction of the supplier's price.
+ const grouped=new Map();
+ for(const row of rows){
+  const k=row.modelLine;
+  if(!grouped.has(k))grouped.set(k,[]);
+  grouped.get(k).push(row);
+ }
+ for(const siblings of grouped.values()){
+  const values=siblings.map(r=>r.price).filter(v=>Number.isFinite(v)&&v>0).sort((a,b)=>a-b);
+  if(values.length<3)continue;
+  const midpoint=Math.floor(values.length/2);
+  const median=values.length%2?values[midpoint]:(values[midpoint-1]+values[midpoint])/2;
+  for(const row of siblings){
+   if(row.price!==null&&(row.price*3<median || row.price>median*3)){
+    row.needsReview=true;
+    row.reviewReasons=['SIBLING_PRICE_OUTLIER'];
+   }
+  }
+ }
  return rows;
 }
 module.exports={extractScopedRows};
