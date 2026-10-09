@@ -22,7 +22,7 @@ function reconcileShadowSource(content){
    const priceLine=item.priceLine;
    // A source line is evidence only when line indexes genuinely exist in THIS document.
    if(!Number.isSafeInteger(modelLine)||modelLine<1||modelLine>lines.length)continue;
-   if(!Number.isSafeInteger(priceLine)||priceLine<1||priceLine>lines.length)continue;
+   if(priceLine!==null && (!Number.isSafeInteger(priceLine)||priceLine<1||priceLine>lines.length))continue;
    if(variantLine!=null&&(!Number.isSafeInteger(variantLine)||variantLine<1||variantLine>lines.length))continue;
    const amountMinor=item.amount_minor??(Number.isInteger(item.price)?item.price*100:null);
    // Standalone separators/category banners have no price and are not offers.
@@ -36,9 +36,9 @@ function reconcileShadowSource(content){
    candidates.push({
     engine,model:item.model??item.product,variant:item.color??item.variant??null,
     amount_minor:amountMinor,modelLine,variantLine:variantLine??null,priceLine,
-    source_fingerprint:sha(lines.slice(Math.max(0,modelLine-1),priceLine).join('\n')),
+    source_fingerprint:sha(lines.slice(Math.max(0,modelLine-1),priceLine??variantLine??modelLine).join('\n')),
     disposition:'REVIEW_REQUIRED',autoPromote:false,
-    reviewReasons:['SHADOW_PROTOTYPE_NOT_C01_VALIDATED',...(item.reviewReasons??[]),
+    reviewReasons:['SHADOW_PROTOTYPE_NOT_C01_VALIDATED',...(amountMinor===null?['PRICE_MISSING']:[]),...(item.reviewReasons??[]),
       ...(item.reviewReason?[item.reviewReason]:[]),
       ...(item.needsReview?['SOURCE_REQUIRES_REVIEW']:[])]
    });
