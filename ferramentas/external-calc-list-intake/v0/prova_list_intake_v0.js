@@ -238,3 +238,5 @@ require('./prova_shadow_c01_review_preflight_v1');
 require('./prova_shadow_authority_gate_v1');
 
 require('./prova_shadow_supplier_resolution_preflight_v1');
+
+require('./prova_shadow_integrated_readonly_v1');
