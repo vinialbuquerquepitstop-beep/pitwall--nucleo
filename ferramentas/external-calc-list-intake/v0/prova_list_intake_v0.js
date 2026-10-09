@@ -240,3 +240,5 @@ require('./prova_shadow_authority_gate_v1');
 require('./prova_shadow_supplier_resolution_preflight_v1');
 
 require('./prova_shadow_integrated_readonly_v1');
+
+require('./prova_private_integrated_shadow_corpus_v1');
