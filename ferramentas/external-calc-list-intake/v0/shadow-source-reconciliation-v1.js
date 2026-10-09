@@ -28,7 +28,7 @@ function reconcileShadowSource(content){
    // Standalone separators/category banners have no price and are not offers.
    // Suppress only a narrow, explicitly recognized group; other missing prices stay review-required.
    const variantText=String(item.color??item.variant??'').trim();
-   const decoration=amountMinor===null && (
+   const decoration=(
      /^(?:LANÇAMENTO|IPHONE CPO)\s*❇️?$/iu.test(variantText)
      || /^[❇️\s]{2,}$/u.test(variantText)
    );
