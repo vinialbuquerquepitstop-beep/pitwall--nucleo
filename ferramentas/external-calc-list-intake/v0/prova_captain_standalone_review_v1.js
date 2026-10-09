@@ -39,4 +39,16 @@ const disconnected=reconcile('💲6.000\n⌚️ULTRA PRETO 4 49MM');
 assert.equal(disconnected.length,0);
 assert.equal(reconcile('🖱️MAGIC MOUSE\n⚓️PRETO/ 💲500\n📳18 PRO MAX 512 LL/A\n⚓️AZUL / 💲12.000').length,1);
 assert.equal(reconcile('⚓️PRETO/ 💲500\n🖱️MAGIC MOUSE').length,0);
+// A previously untested inline thousands price was incorrectly parsed as R$ 30,00.
+const inlineThousand=reconcile([
+ '🖱️MAGIC MOUSE',
+ '⚓️PRETO/ 💲3.000',
+ '⌚️ULTRA PRETO 4 49MM',
+ '💲6.000'
+].join('\n'));
+assert.equal(inlineThousand.length,2);
+assert.equal(inlineThousand[0].amount_minor,300000);
+assert.equal(inlineThousand[1].amount_minor,600000);
+assert.equal(inlineThousand[0].autoPromote,false);
+assert.equal(inlineThousand[0].review_required,true);
 console.log('EXTERNAL_CALC_CAPTAIN_STANDALONE_REVIEW_V1=PASS rows=12 negative=4 auto_promotion=false');
