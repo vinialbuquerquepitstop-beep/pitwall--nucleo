@@ -24,4 +24,18 @@ const deterministic=reconcile(text);
 assert.deepStrictEqual(r.candidates,deterministic.candidates);
 // These results are intentionally NOT persisted, and cannot be passed to C01 as valid candidates.
 assert.ok(r.candidates.every(x=>x.reviewReasons.includes('SHADOW_PROTOTYPE_NOT_C01_VALIDATED')));
+const shared=reconcile([
+ '🎧 AirPods Pro Max 2USB-C',
+ '💲(2900)',
+ '❇️PURPLE',
+ '❇️ORANGE',
+ '❇️LILAS',
+ '💲(3000)',
+ '❇️STARLIGHT'
+].join('\n'));
+assert.equal(shared.shadow_candidates,4);
+assert.equal(shared.shared_price_scope_lines,1);
+assert.equal(shared.overlapping_price_lines,0);
+assert.ok(shared.candidates.every(x=>!x.reviewReasons.includes('MULTIPLE_PARSERS_SAME_PRICE_LINE')));
+assert.ok(shared.candidates.every(x=>x.disposition==='REVIEW_REQUIRED'&&x.autoPromote===false));
 console.log('EXTERNAL_CALC_SHADOW_RECONCILIATION_V1=PASS review_only=true');
