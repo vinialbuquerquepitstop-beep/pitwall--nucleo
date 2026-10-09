@@ -234,3 +234,5 @@ require('./prova_shadow_source_reconciliation_v1');
 require('./prova_shadow_corpus_report_v1');
 
 require('./prova_shadow_c01_review_preflight_v1');
+
+require('./prova_shadow_authority_gate_v1');
