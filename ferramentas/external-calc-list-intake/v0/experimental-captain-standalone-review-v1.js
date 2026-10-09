@@ -24,7 +24,7 @@ function reconcileStandaloneReview(input){
    rows.push({product:product.name,productLine:product.line,
     variant:inline[1].trim(),variantLine:i+1,
     tier:tier??'UNSPECIFIED',units:1,
-    amount_minor:Number(inline[2].replace(/\\./g,''))*100,priceLine:i+1,
+    amount_minor:Number(inline[2].replace(/\./g,''))*100,priceLine:i+1,
     review_required:true,autoPromote:false,reviewReason:'INLINE_ACCESSORY_PRICE_REVIEW'});
    variant=null;
    continue;
