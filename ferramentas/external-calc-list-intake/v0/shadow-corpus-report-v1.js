@@ -16,13 +16,14 @@ function reportShadowCorpus(directory){
   const engines={};
   for(const c of data.candidates)engines[c.engine]=(engines[c.engine]||0)+1;
   return {filename,sha256:sha(bytes),source_lines:data.source_lines,
-   shadow_candidates:data.shadow_candidates,overlapping_price_lines:data.overlapping_price_lines,
+   shadow_candidates:data.shadow_candidates,shared_price_scope_lines:data.shared_price_scope_lines,overlapping_price_lines:data.overlapping_price_lines,
    invalid_amounts:invalid,unknown_amounts:missing,engines,
    review_required:data.review_required,auto_promoted:data.auto_promoted};
  });
  return {contract_version:'external-calc-shadow-corpus-report/v1',
   files_seen:files.length,total_shadow_candidates:files.reduce((a,f)=>a+f.shadow_candidates,0),
   total_overlap_lines:files.reduce((a,f)=>a+f.overlapping_price_lines,0),
+  total_shared_price_scope_lines:files.reduce((a,f)=>a+f.shared_price_scope_lines,0),
   auto_promoted:0,ground_truth_reconciled:false,batch_integrated:false,
   release_status:'NO_GO',files};
 }

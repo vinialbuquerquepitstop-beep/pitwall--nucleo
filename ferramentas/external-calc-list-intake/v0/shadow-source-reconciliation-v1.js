@@ -41,15 +41,24 @@ function reconcileShadowSource(content){
   if(!byPriceLine.has(k))byPriceLine.set(k,[]);
   byPriceLine.get(k).push(row);
  }
+ let overlappingPriceLines=0,sharedPriceScopeLines=0;
  for(const matches of byPriceLine.values()){
-  if(matches.length>1){
-   for(const row of matches){row.reviewReasons.push('MULTIPLE_PARSERS_SAME_PRICE_LINE');}
+  if(matches.length<=1)continue;
+  const scopes=new Set(matches.map(row=>[row.engine,row.modelLine,row.amount_minor].join('|')));
+  // Multiple colors may legitimately inherit the same price inside one model block.
+  // A conflict exists only when the price line is attributed across distinct scopes.
+  if(scopes.size===1){
+   sharedPriceScopeLines++;
+   continue;
   }
+  overlappingPriceLines++;
+  for(const row of matches){row.reviewReasons.push('MULTIPLE_PARSERS_SAME_PRICE_LINE');}
  }
  return {contract_version:'external-calc-shadow-reconciliation/v1',
   source_sha256:sha(content),source_lines:lines.length,
   shadow_candidates:candidates.length,
-  overlapping_price_lines:[...byPriceLine.values()].filter(x=>x.length>1).length,
+  shared_price_scope_lines:sharedPriceScopeLines,
+  overlapping_price_lines:overlappingPriceLines,
   review_required:candidates.length,auto_promoted:0,
   candidates};
 }
