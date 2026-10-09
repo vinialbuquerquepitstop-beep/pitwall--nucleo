@@ -14,6 +14,7 @@ function reconcileShadowSource(content){
   ['CAPTAIN_STANDALONE',reconcileStandaloneReview]
  ];
  const candidates=[];
+ let nonOfferMarkers=0;
  for(const [engine,fn] of engines){
   for(const item of fn(content)){
    const modelLine=item.modelLine??item.productLine;
@@ -24,6 +25,14 @@ function reconcileShadowSource(content){
    if(!Number.isSafeInteger(priceLine)||priceLine<1||priceLine>lines.length)continue;
    if(variantLine!=null&&(!Number.isSafeInteger(variantLine)||variantLine<1||variantLine>lines.length))continue;
    const amountMinor=item.amount_minor??(Number.isInteger(item.price)?item.price*100:null);
+   // Standalone separators/category banners have no price and are not offers.
+   // Suppress only a narrow, explicitly recognized group; other missing prices stay review-required.
+   const variantText=String(item.color??item.variant??'').trim();
+   const decoration=amountMinor===null && (
+     /^(?:LANÇAMENTO|IPHONE CPO)\s*❇️?$/iu.test(variantText)
+     || /^[❇️\s]{2,}$/u.test(variantText)
+   );
+   if(decoration){nonOfferMarkers++;continue;}
    candidates.push({
     engine,model:item.model??item.product,variant:item.color??item.variant??null,
     amount_minor:amountMinor,modelLine,variantLine:variantLine??null,priceLine,
@@ -37,6 +46,7 @@ function reconcileShadowSource(content){
  }
  const byPriceLine=new Map();
  for(const row of candidates){
+  if(row.priceLine===null)continue;
   const k=row.priceLine;
   if(!byPriceLine.has(k))byPriceLine.set(k,[]);
   byPriceLine.get(k).push(row);
@@ -56,7 +66,7 @@ function reconcileShadowSource(content){
  }
  return {contract_version:'external-calc-shadow-reconciliation/v1',
   source_sha256:sha(content),source_lines:lines.length,
-  shadow_candidates:candidates.length,
+  shadow_candidates:candidates.length,non_offer_markers:nonOfferMarkers,
   shared_price_scope_lines:sharedPriceScopeLines,
   overlapping_price_lines:overlappingPriceLines,
   review_required:candidates.length,auto_promoted:0,
