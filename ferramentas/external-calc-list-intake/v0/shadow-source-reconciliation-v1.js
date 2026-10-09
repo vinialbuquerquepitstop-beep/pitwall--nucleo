@@ -1,0 +1,56 @@
+'use strict';
+// Shadow-only reconciliation. NEVER invoke C01 persistence or auto promotion here.
+const {extractScopedRows}=require('./experimental-scoped-price-boundaries-v2');
+const {extractCaptainScopedVariants}=require('./experimental-captain-scoped-variants-v1');
+const {reconcileStandaloneReview}=require('./experimental-captain-standalone-review-v1');
+const crypto=require('node:crypto');
+const sha=t=>crypto.createHash('sha256').update(String(t)).digest('hex');
+
+function reconcileShadowSource(content){
+ const lines=String(content).split(/\r?\n/);
+ const engines=[
+  ['MEGA_SCOPED',extractScopedRows],
+  ['CAPTAIN_VARIANTS',extractCaptainScopedVariants],
+  ['CAPTAIN_STANDALONE',reconcileStandaloneReview]
+ ];
+ const candidates=[];
+ for(const [engine,fn] of engines){
+  for(const item of fn(content)){
+   const modelLine=item.modelLine??item.productLine;
+   const variantLine=item.variantLine;
+   const priceLine=item.priceLine;
+   // A source line is evidence only when line indexes genuinely exist in THIS document.
+   if(!Number.isSafeInteger(modelLine)||modelLine<1||modelLine>lines.length)continue;
+   if(!Number.isSafeInteger(priceLine)||priceLine<1||priceLine>lines.length)continue;
+   if(variantLine!=null&&(!Number.isSafeInteger(variantLine)||variantLine<1||variantLine>lines.length))continue;
+   const amountMinor=item.amount_minor??(Number.isInteger(item.price)?item.price*100:null);
+   candidates.push({
+    engine,model:item.model??item.product,variant:item.color??item.variant??null,
+    amount_minor:amountMinor,modelLine,variantLine:variantLine??null,priceLine,
+    source_fingerprint:sha(lines.slice(Math.max(0,modelLine-1),priceLine).join('\n')),
+    disposition:'REVIEW_REQUIRED',autoPromote:false,
+    reviewReasons:['SHADOW_PROTOTYPE_NOT_C01_VALIDATED',...(item.reviewReasons??[]),
+      ...(item.reviewReason?[item.reviewReason]:[]),
+      ...(item.needsReview?['SOURCE_REQUIRES_REVIEW']:[])]
+   });
+  }
+ }
+ const byPriceLine=new Map();
+ for(const row of candidates){
+  const k=row.priceLine;
+  if(!byPriceLine.has(k))byPriceLine.set(k,[]);
+  byPriceLine.get(k).push(row);
+ }
+ for(const matches of byPriceLine.values()){
+  if(matches.length>1){
+   for(const row of matches){row.reviewReasons.push('MULTIPLE_PARSERS_SAME_PRICE_LINE');}
+  }
+ }
+ return {contract_version:'external-calc-shadow-reconciliation/v1',
+  source_sha256:sha(content),source_lines:lines.length,
+  shadow_candidates:candidates.length,
+  overlapping_price_lines:[...byPriceLine.values()].filter(x=>x.length>1).length,
+  review_required:candidates.length,auto_promoted:0,
+  candidates};
+}
+module.exports={reconcileShadowSource};
