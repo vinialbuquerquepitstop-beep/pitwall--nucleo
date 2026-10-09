@@ -38,4 +38,27 @@ assert.equal(shared.shared_price_scope_lines,1);
 assert.equal(shared.overlapping_price_lines,0);
 assert.ok(shared.candidates.every(x=>!x.reviewReasons.includes('MULTIPLE_PARSERS_SAME_PRICE_LINE')));
 assert.ok(shared.candidates.every(x=>x.disposition==='REVIEW_REQUIRED'&&x.autoPromote===false));
+// Real Mega Storia labels are section decorations, not saleable variants.
+const decorated=reconcile([
+ '🥇 IPHONE LACRADO GARANTIA 1 ANO PELA APPLE 🥇',
+ '❇️LANÇAMENTO❇️',
+ ' IPhone 18 PRO 256 GB E-Sim',
+ '💲(8000)',
+ '❇️BLACK',
+ '❇️❇️❇️❇️❇️',
+ ' iPhone 15 128 GB',
+ '💲(3650)',
+ '❇️ Azul 💲(3650)',
+ '❇️IPHONE CPO❇️'
+].join('\n'));
+assert.equal(decorated.non_offer_markers,3);
+assert.equal(decorated.overlapping_price_lines,0);
+assert.ok(decorated.candidates.every(c=>c.amount_minor!==null));
+// A genuine price-less color is reviewable, not a phantom overlapping price.
+const unpriced=reconcile('🎧 AirPods 4\n❇️BRANCO\n❇️PRETO');
+assert.equal(unpriced.shadow_candidates,2);
+assert.equal(unpriced.non_offer_markers,0);
+assert.equal(unpriced.overlapping_price_lines,0);
+assert.ok(unpriced.candidates.every(c=>c.amount_minor===null&&c.reviewReasons.includes('PRICE_MISSING')));
+assert.ok(unpriced.candidates.every(c=>c.autoPromote===false));
 console.log('EXTERNAL_CALC_SHADOW_RECONCILIATION_V1=PASS review_only=true');
