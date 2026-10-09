@@ -230,3 +230,5 @@ require('./prova_captain_standalone_review_v1');
 require('./prova_private_corpus_benchmark_v1');
 
 require('./prova_shadow_source_reconciliation_v1');
+
+require('./prova_shadow_corpus_report_v1');
