@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {auditIntegratedShadow}=require('./shadow-integrated-readonly-v1');
+const {auditUnmatchedPriceEvidence}=require('./shadow-unmatched-price-evidence-v1');
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
 function runPrivateIntegratedCorpus({directory,suppliers=[]}={}){
  if(typeof directory!=='string'||!fs.statSync(directory).isDirectory())
@@ -18,6 +19,7 @@ function runPrivateIntegratedCorpus({directory,suppliers=[]}={}){
   const bytes=fs.readFileSync(full);
   const text=bytes.toString('utf8');
   const audit=auditIntegratedShadow({filename,content:text,suppliers});
+  const monetaryEvidence=auditUnmatchedPriceEvidence(text);
   const reasons={};
   for(const entry of audit.decisions){
    for(const reason of entry.reasons)reasons[reason]=(reasons[reason]||0)+1;
@@ -30,6 +32,9 @@ function runPrivateIntegratedCorpus({directory,suppliers=[]}={}){
    file_sha256:digest(bytes),
    file_label_sha256:digest(filename),
    supplier_state:audit.supplier.state,
+   price_like_lines:monetaryEvidence.price_like_lines,
+   unmatched_price_like_lines:monetaryEvidence.unmatched_price_like_lines,
+   unmatched_line_fingerprints:monetaryEvidence.evidence.filter(e=>!e.covered_by_shadow).map(e=>({line:e.line,fingerprint:e.fingerprint})),
    interpreted:audit.summary.interpreted,
    blocked:audit.summary.blocked,
    persisted:0,auto_promoted:0,
@@ -43,6 +48,8 @@ function runPrivateIntegratedCorpus({directory,suppliers=[]}={}){
   unknown_supplier_matches:files.filter(x=>x.supplier_state==='UNKNOWN_REVIEW_ONLY').length,
   ambiguous_supplier_matches:files.filter(x=>x.supplier_state==='AMBIGUOUS_REVIEW_ONLY').length,
   interpreted:files.reduce((n,x)=>n+x.interpreted,0),
+  price_like_lines:files.reduce((n,x)=>n+x.price_like_lines,0),
+  unmatched_price_like_lines:files.reduce((n,x)=>n+x.unmatched_price_like_lines,0),
   blocked:files.reduce((n,x)=>n+x.blocked,0),
   persisted:0,auto_promoted:0,c01_candidates_created:0,
   source_level_truth_verified:false,
