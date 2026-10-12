@@ -116,15 +116,19 @@ check('cabecalho de fornecedor desconhecido nao e necessario para resolver produ
   );
 });
 
-check('cabecalho sem GB seguido de emoji resolve modelo e capacidade', () => {
+check('cabecalho sem GB seguido de emojis preserva modelo e expande cores disponiveis', () => {
   const result = run(
     'apple-9',
     '📲IPHONE 16 PRO MAX 256 ⚪️ (gold) ⚫️\nR$4.999/BATERIA🔋🟰92%'
   );
-  assert.strictEqual(result.records.length, 1);
-  assert.strictEqual(result.records[0].fields.model.id, 'iphone_16_pro_max_256gb');
-  assert.strictEqual(result.records[0].fields.capacity_gb, 256);
-  assert.strictEqual(result.records[0].fields.price, 4999);
+  assert.strictEqual(result.records.length, 3);
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_16_pro_max_256gb'));
+  assert.ok(result.records.every(record => record.fields.capacity_gb === 256));
+  assert.ok(result.records.every(record => record.fields.price === 4999));
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Branco', 'Gold', 'Preto']
+  );
 });
 
 check('preco com R$ pode ter texto e emoji depois sem perder o gatilho', () => {
@@ -500,6 +504,56 @@ check('catalogo real: Purple canoniza para Lilas', () => {
   );
   assert.strictEqual(result.records.length, 1);
   assert.strictEqual(result.records[0].fields.color, 'Lilás');
+});
+
+check('emoji preto na linha do modelo vira cor disponivel', () => {
+  const result = run(
+    'apple-color-symbol-black',
+    '🔥 IPHONES SEMINOVOS 🔥\n📲IPHONE 15 128GB ⚫️\nR$2.550/ BATERIA 🔋 🟰100%'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.model.id, 'iphone_15_128gb');
+  assert.strictEqual(result.records[0].fields.color, 'Preto');
+  assert.strictEqual(result.records[0].fields.price, 2550);
+  assert.strictEqual(result.records[0].fields.condition, 'Seminovo');
+});
+
+check('multiplos emojis de cor expandem cores disponiveis sem capturar emoji decorativo', () => {
+  const result = run(
+    'apple-color-symbol-multi',
+    '📲 iPhone 17 256GB Lacrado ⚫️ ⚪️ 🔵\nR$ 5.299 🔋100%'
+  );
+  assert.strictEqual(result.records.length, 3);
+  assert.deepStrictEqual(
+    result.records.map(record => record.fields.color).sort(),
+    ['Azul', 'Branco', 'Preto']
+  );
+  assert.ok(result.records.every(record => record.fields.price === 5299));
+  assert.ok(result.records.every(record => record.fields.model.id === 'iphone_17_256gb'));
+});
+
+check('Amarelo e Dourado canonizam para Gold', () => {
+  const amarelo = run(
+    'apple-color-amarelo-gold',
+    'iPhone 17 256GB Amarelo Lacrado R$ 5.299'
+  );
+  const dourado = run(
+    'apple-color-dourado-gold',
+    'iPhone 17 256GB Dourado Lacrado R$ 5.299'
+  );
+  assert.strictEqual(amarelo.records.length, 1);
+  assert.strictEqual(amarelo.records[0].fields.color, 'Gold');
+  assert.strictEqual(dourado.records.length, 1);
+  assert.strictEqual(dourado.records[0].fields.color, 'Gold');
+});
+
+check('emoji amarelo canoniza para Gold conforme vocabulario operacional', () => {
+  const result = run(
+    'apple-color-symbol-yellow',
+    'iPhone 17 256GB Lacrado 🟡 R$ 5.299'
+  );
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].fields.color, 'Gold');
 });
 
 check('shadow Apple nunca habilita persistencia nem escrita de preco', () => {
