@@ -14,7 +14,8 @@ assert.deepStrictEqual(rows.slice(0,5).map(x=>x.price),[2900,2900,2900,3000,3000
 assert.deepStrictEqual(rows.slice(5).map(x=>x.price),[850,130,9100,8850,8850,8950]);
 assert.equal(rows.length,11);
 assert.ok(rows.every(x=>x.autoPromote===false));
-assert.ok(rows.every(x=>Number.isInteger(x.modelLine)&&Number.isInteger(x.variantLine)&&Number.isInteger(x.priceLine)));
+assert.ok(rows.every(x=>Number.isInteger(x.modelLine)&&Number.isInteger(x.priceLine)));
+assert.ok(rows.every(x=>x.color===null ? x.variantLine===null && x.needsReview===true : Number.isInteger(x.variantLine)));
 const noPrice=parse('🎧 AirPods 4\n❇️Branco');
 assert.equal(noPrice[0].price,null);assert.equal(noPrice[0].needsReview,true);
 const blockedSection=parse('🎧 AirPods 4\n💲(850)\n❇️Branco\n🥇 Acessórios Apple Garantia\n💲(150)\n❇️Azul');
@@ -48,4 +49,42 @@ const independentProducts=parse([
 ].join('\n'));
 assert.equal(independentProducts.length,2);
 assert.ok(independentProducts.every(r=>r.needsReview===false));
+// Mega Storia five real-source price-line shapes (only synthetic isolated snippets committed).
+const megaAccessories=parse([
+ '🔌Fonte turbo USB-C ORIGINAL APPLE',
+ '💲(130)',
+ '〽️CABO USB-C —> Lightning ORIGINAL APPLE',
+ '💲(120)',
+ '〽️CABO USB-C IPhone 15 ORIGINAL APPLE',
+ '💲(130)'
+].join('\n'));
+assert.equal(megaAccessories.length,3);
+assert.deepStrictEqual(megaAccessories.map(x=>x.price),[130,120,130]);
+assert.deepStrictEqual(megaAccessories.map(x=>x.priceLine),[2,4,6]);
+assert.ok(megaAccessories.every(x=>x.color===null&&x.variantLine===null&&x.autoPromote===false&&x.needsReview));
+assert.ok(megaAccessories.every(x=>x.reviewReasons.includes('STANDALONE_ACCESSORY_PRICE_REVIEW')));
+const flaggedCountryPrices=parse([
+ ' iPhone 17 256 GB🇺🇸',
+ '❇️Branco 💲(5370)',
+ '❇️ Azul     💲(5270) 🇯🇵🇺🇸',
+ '❇️ Preto. 💲(5330 )',
+ '❇️LAVANDER 💲(5370)🇺🇸'
+].join('\n'));
+assert.equal(flaggedCountryPrices.length,4);
+assert.deepStrictEqual(flaggedCountryPrices.map(x=>x.price),[5370,5270,5330,5370]);
+assert.deepStrictEqual(flaggedCountryPrices.map(x=>x.priceLine),[2,3,4,5]);
+assert.deepStrictEqual(flaggedCountryPrices.map(x=>x.color),['Branco','Azul','Preto.','LAVANDER']);
+assert.ok(flaggedCountryPrices.every(x=>x.autoPromote===false));
+const crossProduct=parse([
+ '🔌 Fonte USB-C', '💲(130)',
+ '❇️Azul',
+ '💲(999)',
+ '〽️ CABO USB-C', '💲(120)',
+ '❇️Preto'
+].join('\n'));
+assert.equal(crossProduct.length,2);
+assert.ok(crossProduct.every(x=>x.color===null));
+assert.deepStrictEqual(crossProduct.map(x=>x.price),[130,120]);
+const fakeAccessory=parse('📲Contato\n💲(130)\n❇️Preto');
+assert.equal(fakeAccessory.length,0);
 console.log('EXTERNAL_CALC_SCOPED_BOUNDARIES_V2=PASS pairs=11 negative=4 no_auto_promotion=true');

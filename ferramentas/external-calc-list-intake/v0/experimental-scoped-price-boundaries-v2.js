@@ -1,7 +1,9 @@
 'use strict';
 // Isolated read-only prototype. Never feed these rows into C01 or automatic promotion.
 const MONEY=/^\s*💲\s*\(\s*([1-9]\d{2,5})\s*\)\s*$/u;
-const COLOR=/^\s*❇️\s*([^💲\n]+?)(?:\s*💲\s*\(\s*([1-9]\d{2,5})\s*\))?\s*$/u;
+const COLOR=/^\s*❇️\s*([^💲\n]+?)(?:\s*💲\s*\(\s*([1-9]\d{2,5})\s*\)\s*(?:[🇦-🇿]{2,8})?)?\s*$/u;
+// A direct standalone accessory price is valid only under an explicit accessory header.
+const DIRECT_ACCESSORY=/^\s*(?:🔌|〽️)\s*(?:fonte|cabo)\b/iu;
 const PRODUCT=/\b(?:air\s*pods|pencil|pincel|magic\s*mouse|fonte|cabo|macbook|imac|ipad|iphone|watch|apple\s*tv)\b/i;
 const SECTION=/\b(?:lacrado|garantia|categoria|acess[oó]rios)\b/i;
 function extractScopedRows(text){
@@ -11,9 +13,17 @@ function extractScopedRows(text){
   const line=lines[i].trim();if(!line)continue;
   const color=line.match(COLOR),money=line.match(MONEY);
   if(!color&&!money&&SECTION.test(line)&&!/\d/.test(line)){model=null;scope=null;continue;}
-  if(!color&&!money&&PRODUCT.test(line)){model={label:line,line:i+1};scope=null;continue;}
+  if(!color&&!money&&PRODUCT.test(line)){model={label:line,line:i+1,standalone:DIRECT_ACCESSORY.test(line)};scope=null;continue;}
   if(!model)continue;
-  if(money){scope={amount:Number(money[1]),line:i+1};continue;}
+  if(money){
+   if(model.standalone){
+    rows.push({model:model.label,modelLine:model.line,color:null,price:Number(money[1]),
+     priceLine:i+1,variantLine:null,needsReview:true,
+     reviewReasons:['STANDALONE_ACCESSORY_PRICE_REVIEW'],autoPromote:false});
+    model=null;scope=null;continue;
+   }
+   scope={amount:Number(money[1]),line:i+1};continue;
+  }
   if(color){
    const inline=color[2]?Number(color[2]):null;
    const price=inline||scope?.amount||null;
