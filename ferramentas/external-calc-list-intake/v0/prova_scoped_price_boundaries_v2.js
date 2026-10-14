@@ -14,7 +14,8 @@ assert.deepStrictEqual(rows.slice(0,5).map(x=>x.price),[2900,2900,2900,3000,3000
 assert.deepStrictEqual(rows.slice(5).map(x=>x.price),[850,130,9100,8850,8850,8950]);
 assert.equal(rows.length,11);
 assert.ok(rows.every(x=>x.autoPromote===false));
-assert.ok(rows.every(x=>Number.isInteger(x.modelLine)&&Number.isInteger(x.variantLine)&&Number.isInteger(x.priceLine)));
+assert.ok(rows.every(x=>Number.isInteger(x.modelLine)&&Number.isInteger(x.priceLine)));
+assert.ok(rows.every(x=>x.color===null ? x.variantLine===null && x.needsReview===true : Number.isInteger(x.variantLine)));
 const noPrice=parse('🎧 AirPods 4\n❇️Branco');
 assert.equal(noPrice[0].price,null);assert.equal(noPrice[0].needsReview,true);
 const blockedSection=parse('🎧 AirPods 4\n💲(850)\n❇️Branco\n🥇 Acessórios Apple Garantia\n💲(150)\n❇️Azul');
