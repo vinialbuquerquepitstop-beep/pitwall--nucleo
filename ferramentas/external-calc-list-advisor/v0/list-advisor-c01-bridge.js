@@ -167,7 +167,17 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
       invalid_items:0
     }
   };
-  return {queue,partition:partitionCandidates(queue)};
+  const partition=partitionCandidates(queue,{supplierVerified:Boolean(supplier_id)});
+  // Source lineage is a prerequisite for automatic C01 promotion.
+  for(const item of [...partition.auto]){
+    const lines=item.candidate?.review_evidence?.source_lines||[];
+    if(lines.length && lines.every(line=>Number.isSafeInteger(line.line_number)&&line.raw?.trim()))continue;
+    item.assessment.eligible=false;
+    item.assessment.reasons.push('SOURCE_LINE_MISSING');
+    partition.review.push({candidate:item.candidate,assessment:item.assessment});
+    partition.auto.splice(partition.auto.indexOf(item),1);
+  }
+  return {queue,partition};
 }
 
 function createPostgresAdvisorC01Sink(options={}) {
