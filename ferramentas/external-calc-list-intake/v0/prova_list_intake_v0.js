@@ -11,6 +11,13 @@ const sample=[
 ].join('\n');
 const first=buildQueue({filename:'lista.txt',mime_type:'text/plain',content:sample});
 const second=buildQueue({filename:'lista.txt',mime_type:'text/plain',content:sample});
+
+const supplierUnknown=partitionCandidates(first.queue,{supplierVerified:false});
+assert.strictEqual(supplierUnknown.auto.length,0,'no supplier: must not auto-promote');
+assert.ok(supplierUnknown.review.every(x=>x.assessment.reasons.includes('SUPPLIER_IDENTITY_UNVERIFIED')));
+const supplierBound=partitionCandidates(first.queue,{supplierVerified:true});
+assert.strictEqual(supplierBound.auto.length,1,'verified supplier preserves valid promotion');
+
 assert.strictEqual(first.analysis_id,second.analysis_id);
 assert.strictEqual(first.source_id,second.source_id);
 assert.ok(first.queue.candidates.length>=1);
