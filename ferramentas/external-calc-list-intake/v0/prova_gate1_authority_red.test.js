@@ -74,3 +74,25 @@ test('intake without supplier id never invokes automatic C01 promotion RPC',asyn
   assert.ok(!calls.includes('extcalc_bind_source_supplier_v0'));
  }finally{globalThis.fetch=previousFetch;}
 });
+
+test('unverified supplier RPC receipt must abort before any candidate persistence',async()=>{
+ const {processListIntakeCommand}=require('./list-intake-api');
+ const previousFetch=globalThis.fetch;
+ const calls=[];
+ globalThis.fetch=async(url)=>{
+  const name=String(url).split('/rpc/')[1];
+  calls.push(name);
+  return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,source_id:'source_wrong',supplier_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'})};
+ };
+ try{
+  await assert.rejects(
+   processListIntakeCommand({
+    env:{SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'synthetic'},
+    token:'synthetic-token',
+    rawCommand:{supplier_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',filename:'supplier-confirmation.txt',content:'iPhone 16 Pro 256GB\\nPreto\\nR$ 4.000,00'}
+   }),
+   e=>e.code==='EXTCALC_SUPPLIER_BINDING_UNVERIFIED'
+  );
+  assert.deepEqual(calls,['extcalc_bind_source_supplier_v0']);
+ }finally{globalThis.fetch=previousFetch;}
+});
