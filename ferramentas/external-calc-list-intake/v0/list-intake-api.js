@@ -465,7 +465,7 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(command.supplier_id){
    await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
  }
- const partition=partitionCandidates(built.queue);
+ const partition=partitionCandidates(built.queue,{supplierVerified:Boolean(command.supplier_id)});
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
  const review_reasons={};
 
