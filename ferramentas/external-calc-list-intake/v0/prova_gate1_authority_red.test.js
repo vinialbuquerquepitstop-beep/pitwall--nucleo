@@ -1,6 +1,5 @@
 'use strict';
-// Gate 1 RED tests. Deterministic, synthetic, no DB writes.
-// Expected to fail until supplier authority and outlier policy are explicitly enforced.
+// Gate 1 regression assertions. Deterministic, synthetic, no DB writes.
 const assert=require('node:assert/strict');
 const {test}=require('node:test');
 const {evaluateAutoPromotion}=require('./auto-promotion-authority');
@@ -36,4 +35,14 @@ test('explicit flagged abnormal price must not be eligible for automatic promoti
 test('linked material ambiguity requires review',()=>{
  const decision=evaluateAutoPromotion(candidate(),{ambiguities:[{field:'price',ambiguity_id:'a1',sources:[1]}]});
  assert.equal(decision.eligible,false);
+});
+
+test('missing supplier state must fail closed even if all other signals are strong',()=>{
+ const decision=evaluateAutoPromotion(candidate(),{ambiguities:[]});
+ assert.equal(decision.eligible,false);
+ assert.ok(decision.reasons.includes('SUPPLIER_NOT_RESOLVED'));
+});
+test('resolved supplier and clean synthetic candidate may remain eligible',()=>{
+ const decision=evaluateAutoPromotion(candidate(),{supplier_state:'RESOLVED',ambiguities:[]});
+ assert.equal(decision.eligible,true);
 });
