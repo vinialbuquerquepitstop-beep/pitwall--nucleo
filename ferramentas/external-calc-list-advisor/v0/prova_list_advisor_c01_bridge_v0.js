@@ -35,4 +35,14 @@ assert(result.queue.candidates[0].provenance_refs.includes('supplier_variant:Ana
 assert.strictEqual(result.queue.unresolved_ambiguities.length,1);
 assert.strictEqual(result.queue.unresolved_ambiguities[0].sources[0],4);
 assert.strictEqual(result.partition.review.length>=1,true);
+const mismatched=JSON.parse(JSON.stringify(interpretation));
+mismatched.offers=[{...mismatched.offers[0],source_excerpt:'nonexistent supplier line'}];
+mismatched.ambiguities=[];
+const unmatchedResult=bridgeListAdvisorToC01({
+  interpretation:mismatched,content,
+  analysis_id:'analysis_missing_source',source_id:'source_missing_source',supplier_id:supplierId
+});
+assert.strictEqual(unmatchedResult.partition.auto.length,0,'no auto promotion without source evidence');
+assert.strictEqual(unmatchedResult.partition.review.length,1);
+assert.ok(unmatchedResult.partition.review[0].assessment.reasons.includes('SOURCE_LINE_MISSING'));
 console.log('EXTERNAL_CALC_LIST_ADVISOR_C01_BRIDGE_V0=PASS');
