@@ -462,10 +462,15 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
  const command=normalizeBody(rawCommand);
  const built=buildQueue(command);
+ let supplierState='UNKNOWN_REVIEW_ONLY';
  if(command.supplier_id){
-   await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+   const binding=await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+   if(binding?.ok!==true||binding?.source_id!==built.source_id||binding?.supplier_id!==command.supplier_id){
+     throw Object.assign(new Error('vinculo de fornecedor nao confirmado'),{code:'EXTCALC_SUPPLIER_BINDING_UNVERIFIED'});
+   }
+   supplierState='RESOLVED';
  }
- const partition=partitionCandidates(built.queue,{supplier_state:command.supplier_id?'RESOLVED':'UNKNOWN_REVIEW_ONLY'});
+ const partition=partitionCandidates(built.queue,{supplier_state:supplierState});
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
  const review_reasons={};
 
