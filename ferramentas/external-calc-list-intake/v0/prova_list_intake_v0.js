@@ -18,6 +18,28 @@ assert.ok(supplierUnknown.review.every(x=>x.assessment.reasons.includes('SUPPLIE
 const supplierBound=partitionCandidates(first.queue,{supplierVerified:true});
 assert.strictEqual(supplierBound.auto.length,1,'verified supplier preserves valid promotion');
 
+// Gate 1: never silently promote a material price discrepancy among like-for-like variants.
+const siblingAnomaly=buildQueue({filename:'sibling-outlier.txt',mime_type:'text/plain',content:[
+  'iPhone 16 128GB','🎨 Azul','💵 415',
+  'iPhone 16 128GB','🎨 Preto','💵 4200',
+  'iPhone 16 128GB','🎨 Branco','💵 4250',
+  'iPhone 16 128GB','🎨 Rosa','💵 4300'
+].join('\n')});
+const siblingDecision=partitionCandidates(siblingAnomaly.queue,{supplierVerified:true});
+assert.strictEqual(siblingDecision.review.length,1,'one source-relative price outlier must require review');
+assert.ok(siblingDecision.review[0].assessment.reasons.includes('SIBLING_PRICE_OUTLIER'));
+assert.strictEqual(siblingDecision.review[0].candidate.interpreted_offer.price.amount_minor,41500);
+assert.strictEqual(siblingDecision.auto.length,3,'other comparable prices must remain eligible');
+const differentProducts=buildQueue({filename:'cross-product-prices.txt',mime_type:'text/plain',content:[
+  'Apple Pencil USB-C','💵 415',
+  'iPhone 16 128GB','🎨 Preto','💵 4200',
+  'iPhone 16 128GB','🎨 Branco','💵 4250',
+  'iPhone 16 128GB','🎨 Rosa','💵 4300'
+].join('\n')});
+const independentDecision=partitionCandidates(differentProducts.queue,{supplierVerified:true});
+assert.ok(independentDecision.review.every(x=>!x.assessment.reasons.includes('SIBLING_PRICE_OUTLIER')),
+  'different products must not share price baselines');
+
 assert.strictEqual(first.analysis_id,second.analysis_id);
 assert.strictEqual(first.source_id,second.source_id);
 assert.ok(first.queue.candidates.length>=1);
