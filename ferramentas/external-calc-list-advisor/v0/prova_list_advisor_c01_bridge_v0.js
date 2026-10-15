@@ -45,4 +45,23 @@ const unmatchedResult=bridgeListAdvisorToC01({
 assert.strictEqual(unmatchedResult.partition.auto.length,0,'no auto promotion without source evidence');
 assert.strictEqual(unmatchedResult.partition.review.length,1);
 assert.ok(unmatchedResult.partition.review[0].assessment.reasons.includes('SOURCE_LINE_MISSING'));
+const inaccurate=JSON.parse(JSON.stringify(interpretation));
+inaccurate.offers=[{...inaccurate.offers[0],price_amount_minor:699000}];
+inaccurate.ambiguities=[];
+const inaccurateResult=bridgeListAdvisorToC01({
+ interpretation:inaccurate,content,
+ analysis_id:'analysis_wrong_price',source_id:'source_wrong_price',supplier_id:supplierId
+});
+assert.strictEqual(inaccurateResult.partition.auto.length,0,'wrong source price must never auto promote');
+assert.ok(inaccurateResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
+const sourceMissingPrice=JSON.parse(JSON.stringify(interpretation));
+sourceMissingPrice.offers=[{...sourceMissingPrice.offers[0],source_excerpt:'17 pro 256gb'}];
+sourceMissingPrice.ambiguities=[];
+const missingPriceResult=bridgeListAdvisorToC01({
+ interpretation:sourceMissingPrice,content,
+ analysis_id:'analysis_absent_price',source_id:'source_absent_price',supplier_id:supplierId
+});
+assert.strictEqual(missingPriceResult.partition.auto.length,0);
+assert.ok(missingPriceResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
+assert.equal(result.partition.auto.length,1,'valid BRL thousands formatting still auto eligible');
 console.log('EXTERNAL_CALC_LIST_ADVISOR_C01_BRIDGE_V0=PASS');
