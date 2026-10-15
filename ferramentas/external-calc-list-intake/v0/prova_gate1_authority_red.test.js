@@ -46,3 +46,31 @@ test('resolved supplier and clean synthetic candidate may remain eligible',()=>{
  const decision=evaluateAutoPromotion(candidate(),{supplier_state:'RESOLVED',ambiguities:[]});
  assert.equal(decision.eligible,true);
 });
+
+test('intake without supplier id never invokes automatic C01 promotion RPC',async()=>{
+ const {processListIntakeCommand}=require('./list-intake-api');
+ const previousFetch=globalThis.fetch;
+ const calls=[];
+ globalThis.fetch=async(url,request)=>{
+  const name=String(url).split('/rpc/')[1];
+  calls.push(name);
+  return {ok:true,status:200,text:async()=>JSON.stringify({idempotent:false})};
+ };
+ try{
+  const result=await processListIntakeCommand({
+   env:{SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'synthetic'},
+   token:'synthetic-token',
+   rawCommand:{filename:'gate1-unknown-supplier.txt',content:[
+    'iPhone 16 Pro 256GB',
+    'Preto',
+    'R$ 4.000,00'
+   ].join('\\n')}
+  });
+  assert.ok(result.candidates>=1,'fixture must produce at least one candidate');
+  assert.equal(result.auto_promoted,0);
+  assert.equal(result.review_required,result.candidates);
+  assert.equal(result.review_reasons.SUPPLIER_NOT_RESOLVED,result.candidates);
+  assert.ok(!calls.includes('extcalc_persist_auto_promoted_c01_v0'));
+  assert.ok(!calls.includes('extcalc_bind_source_supplier_v0'));
+ }finally{globalThis.fetch=previousFetch;}
+});
