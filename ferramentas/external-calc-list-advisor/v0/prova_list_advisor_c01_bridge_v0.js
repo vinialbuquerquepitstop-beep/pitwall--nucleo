@@ -64,4 +64,23 @@ const missingPriceResult=bridgeListAdvisorToC01({
 assert.strictEqual(missingPriceResult.partition.auto.length,0);
 assert.ok(missingPriceResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
 assert.equal(result.partition.auto.length,1,'valid BRL thousands formatting still auto eligible');
+const mixedSource=JSON.parse(JSON.stringify(interpretation));
+mixedSource.offers=[{...mixedSource.offers[0],source_excerpt:'Blue Anatel $ 6.900\nOther model $ 8.200'}];
+mixedSource.ambiguities=[];
+const mixedContent=content+'\nOther model $ 8.200';
+const mixedResult=bridgeListAdvisorToC01({
+ interpretation:mixedSource,content:mixedContent,
+ analysis_id:'analysis_mixed',source_id:'source_mixed',supplier_id:supplierId
+});
+assert.strictEqual(mixedResult.partition.auto.length,0);
+assert.ok(mixedResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_SCOPE_AMBIGUOUS'));
+const multiPrice=JSON.parse(JSON.stringify(interpretation));
+multiPrice.offers=[{...multiPrice.offers[0],source_excerpt:'Blue Anatel $ 6.900 or $ 8.200'}];
+multiPrice.ambiguities=[];
+const multiPriceResult=bridgeListAdvisorToC01({
+ interpretation:multiPrice,content:content+'\nBlue Anatel $ 6.900 or $ 8.200',
+ analysis_id:'analysis_multi_price',source_id:'source_multi_price',supplier_id:supplierId
+});
+assert.strictEqual(multiPriceResult.partition.auto.length,0);
+assert.ok(multiPriceResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_SCOPE_AMBIGUOUS'));
 console.log('EXTERNAL_CALC_LIST_ADVISOR_C01_BRIDGE_V0=PASS');
