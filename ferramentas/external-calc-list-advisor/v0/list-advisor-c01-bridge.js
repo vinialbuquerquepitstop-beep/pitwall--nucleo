@@ -184,9 +184,16 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
     const hasSourceLine=lines.length && lines.every(line=>Number.isSafeInteger(line.line_number)&&line.raw?.trim());
     const amount=item.candidate?.interpreted_offer?.price?.amount_minor;
     const excerpt=interpretation.offers[queue.candidates.indexOf(item.candidate)]?.source_excerpt;
-    if(hasSourceLine && excerptContainsPrice(excerpt,amount))continue;
+    const nonemptyExcerptLines=String(excerpt||'').split(/\r?\n/).filter(line=>line.trim());
+    // A multi-line commercial block may contain a different product/price.
+    // Without line-level price ownership it is unsafe to auto-approve.
+    const multiLineScope=nonemptyExcerptLines.length>1;
+    const monetaryTokens=[...String(excerpt||'').matchAll(/(?:R\$|\$|💵|💰)\s*([1-9]\d*(?:[.,]\d+)*)/gu)];
+    const multipleExplicitPrices=new Set(monetaryTokens.map(match=>match[1])).size>1;
+    if(hasSourceLine && excerptContainsPrice(excerpt,amount) && !multiLineScope && !multipleExplicitPrices)continue;
     item.assessment.eligible=false;
-    item.assessment.reasons.push(hasSourceLine?'SOURCE_PRICE_UNVERIFIED':'SOURCE_LINE_MISSING');
+    item.assessment.reasons.push(!hasSourceLine?'SOURCE_LINE_MISSING'
+      :multiLineScope||multipleExplicitPrices?'SOURCE_PRICE_SCOPE_AMBIGUOUS':'SOURCE_PRICE_UNVERIFIED');
     partition.review.push({candidate:item.candidate,assessment:item.assessment});
     partition.auto.splice(partition.auto.indexOf(item),1);
   }
