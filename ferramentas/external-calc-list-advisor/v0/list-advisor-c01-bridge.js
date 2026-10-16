@@ -72,6 +72,16 @@ function makeTrace(offer, lines) {
   if(offer.variant) trace.push({field:'variant',chosen:offer.variant,sources:lines,derived_from:[],rules:['list_advisor:structured_output'],alternatives:[],score});
   return trace;
 }
+function excerptContainsPrice(excerpt, amountMinor) {
+  if(!Number.isSafeInteger(amountMinor)||amountMinor<=0)return false;
+  const reais=Math.floor(amountMinor/100);
+  const cents=String(amountMinor%100).padStart(2,'0');
+  const whole=String(reais);
+  const grouped=whole.replace(/\B(?=(\d{3})+(?!\d))/g,'[.,]');
+  const variants=[whole,grouped].filter((item,index,array)=>array.indexOf(item)===index);
+  const expression=new RegExp('(?<!\\d)(?:'+variants.join('|')+')(?:[.,]'+cents+')?(?!\\d)','u');
+  return expression.test(String(excerpt||''));
+}
 function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id}) {
   if(!interpretation||interpretation.contract_version!=='external-calc-list-advisor/v0') throw new Error('List Advisor interpretation v0 obrigatoria');
   if(interpretation.supplier_id!==supplier_id) throw new Error('supplier_id divergente');
@@ -167,7 +177,27 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
       invalid_items:0
     }
   };
-  return {queue,partition:partitionCandidates(queue)};
+  const partition=partitionCandidates(queue,{supplierVerified:Boolean(supplier_id)});
+  // Source lineage is a prerequisite for automatic C01 promotion.
+  for(const item of [...partition.auto]){
+    const lines=item.candidate?.review_evidence?.source_lines||[];
+    const hasSourceLine=lines.length && lines.every(line=>Number.isSafeInteger(line.line_number)&&line.raw?.trim());
+    const amount=item.candidate?.interpreted_offer?.price?.amount_minor;
+    const excerpt=interpretation.offers[queue.candidates.indexOf(item.candidate)]?.source_excerpt;
+    const nonemptyExcerptLines=String(excerpt||'').split(/\r?\n/).filter(line=>line.trim());
+    // A multi-line commercial block may contain a different product/price.
+    // Without line-level price ownership it is unsafe to auto-approve.
+    const multiLineScope=nonemptyExcerptLines.length>1;
+    const monetaryTokens=[...String(excerpt||'').matchAll(/(?:R\$|\$|💵|💰)\s*([1-9]\d*(?:[.,]\d+)*)/gu)];
+    const multipleExplicitPrices=new Set(monetaryTokens.map(match=>match[1])).size>1;
+    if(hasSourceLine && excerptContainsPrice(excerpt,amount) && !multiLineScope && !multipleExplicitPrices)continue;
+    item.assessment.eligible=false;
+    item.assessment.reasons.push(!hasSourceLine?'SOURCE_LINE_MISSING'
+      :multiLineScope||multipleExplicitPrices?'SOURCE_PRICE_SCOPE_AMBIGUOUS':'SOURCE_PRICE_UNVERIFIED');
+    partition.review.push({candidate:item.candidate,assessment:item.assessment});
+    partition.auto.splice(partition.auto.indexOf(item),1);
+  }
+  return {queue,partition};
 }
 
 function createPostgresAdvisorC01Sink(options={}) {

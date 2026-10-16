@@ -28,6 +28,7 @@ function hasCapacityToken(label){
 }
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];
+  if(context.supplierVerified===false)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
   if(!candidate||candidate.contract_version!=='external-calc-c01-readonly/v1')reasons.push('CANDIDATE_CONTRACT_INVALID');
   if(candidate?.execution_status!=='SUCCEEDED')reasons.push('EXECUTION_NOT_SUCCEEDED');
   if(candidate?.freshness_status!=='CURRENT')reasons.push('NOT_CURRENT');
@@ -85,11 +86,39 @@ function promoteCandidate(candidate,assessment){
     ]
   };
 }
-function partitionCandidates(queue){
+function siblingPriceOutliers(candidates){
+  const groups=new Map();
+  for(const candidate of candidates||[]){
+    const offer=candidate?.interpreted_offer||{};
+    const price=offer.price?.amount_minor;
+    if(!offer.model?.id||!Number.isSafeInteger(price)||price<=0)continue;
+    const key=JSON.stringify([offer.model.id,offer.capacity_gb??null,offer.condition??null]);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push({candidate,price});
+  }
+  const outliers=new Set();
+  for(const siblings of groups.values()){
+    // At least three independent price observations for the same product identity.
+    const prices=[...new Set(siblings.map(x=>x.price))].sort((a,b)=>a-b);
+    if(prices.length<3)continue;
+    const mid=Math.floor(prices.length/2);
+    const median=prices.length%2?prices[mid]:(prices[mid-1]+prices[mid])/2;
+    for(const {candidate,price} of siblings){
+      if(price*3<median||price>median*3)outliers.add(candidate);
+    }
+  }
+  return outliers;
+}
+function partitionCandidates(queue,context={}){
   const auto=[];
   const review=[];
+  const priceOutliers=siblingPriceOutliers(queue?.candidates);
   for(const candidate of queue?.candidates||[]){
-    const assessment=evaluateAutoPromotion(candidate,{ambiguities:queue?.unresolved_ambiguities||[]});
+    const assessment=evaluateAutoPromotion(candidate,{...context,ambiguities:queue?.unresolved_ambiguities||[]});
+    if(priceOutliers.has(candidate)){
+      assessment.eligible=false;
+      assessment.reasons.push('SIBLING_PRICE_OUTLIER');
+    }
     if(assessment.eligible)auto.push({candidate,promoted:promoteCandidate(candidate,assessment),assessment});
     else review.push({candidate,assessment});
   }
