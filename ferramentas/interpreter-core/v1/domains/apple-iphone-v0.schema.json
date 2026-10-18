@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "apple-iphone-v0",
-  "schema_version": "0.8.10",
+  "schema_version": "0.8.11",
   "entity_type": "offer",
   "description": "Shadow schema para ofertas de iPhone. Dados de dominio ficam aqui, fora do Core.",
   "fields": [
@@ -162,6 +162,15 @@
       "extractors": [
         {
           "kind": "regex",
+          "pattern": "(⚫️?|⚪️?|🔵|🟢|🟣|🔴|🟡|🟠)",
+          "flags": "u",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.9,
+          "match_mode": "all"
+        },
+        {
+          "kind": "regex",
           "pattern": "\\b(Black\\s+Ocean\\s+Band|Black\\s+Titanium|Blue\\s+Anatel|Orange\\s+Anatel|Silver\\s+Anatel|Jet\\s+Black|Space\\s+Black|Space\\s+Gray|Rosa\\s+Blush|Rose\\s+Gold|Sky\\s+Blue|Azul\\s+Profundo|Azul\\s+Anatel|Laranja\\s+Anatel|Pacific\\s+Blue|Amarelo|Azul|Black|Blue|Branco|Cítrus|Desert|Dourado|Gold|Grafite|Green|Índigo|Laranja|Lavanda|Lilás|Midnight|Natural|Orange|Prateado|Preto|Rosa|Rose|Roxo|Silver|Starlight|Ultramarine|Verde|Vermelho|White|Purple)\\b",
           "flags": "i",
           "group": 1,
@@ -186,7 +195,9 @@
         "Dourado": "Gold",
         "Ultramarine": "Azul",
         "Pacific Blue": "Azul",
-        "Purple": "Lilás"
+        "Purple": "Lilás",
+        "Amarelo": "Gold",
+        "Gold": "Gold"
       },
       "pair_by_order_with_trigger": {
         "field": "price",
@@ -206,8 +217,21 @@
             "product_header"
           ],
           "min_leftover_tokens": 2,
-          "require_unique_adjacent_trigger": true
+          "require_unique_adjacent_trigger": true,
+          "allow_when_anchor_field_present": [
+            "model"
+          ]
         }
+      },
+      "literal_value_map": {
+        "⚫": "Preto",
+        "⚪": "Branco",
+        "🔵": "Azul",
+        "🟢": "Verde",
+        "🟣": "Roxo",
+        "🔴": "Vermelho",
+        "🟡": "Gold",
+        "🟠": "Laranja"
       }
     },
     {
@@ -503,6 +527,30 @@
         "preserve money-emoji long-header triggers for pairing while suppressing guarded final emission",
         "suppress short textual-currency price lines inheriting model exactly two lines above when no direct model/color anchors the line"
       ]
+    },
+    "color_symbol_vocabulary": {
+      "version": "v0",
+      "source": "live C01 review evidence on real calc_carga 6c4d3491-f85b-4015-8393-9798ab1ce758",
+      "rule": "color-circle symbols and supplier color terms are normalized to the same canonical business color vocabulary",
+      "global_symbols": {
+        "⚫": "Preto",
+        "⚪": "Branco",
+        "🔵": "Azul",
+        "🟢": "Verde",
+        "🟣": "Roxo",
+        "🔴": "Vermelho",
+        "🟡": "Gold",
+        "🟠": "Laranja"
+      },
+      "safety": "aliases are promoted only when explicitly approved or proven by reviewed list evidence; equivalent terms share one canonical color instead of becoming parallel colors",
+      "canonical_aliases": {
+        "Gold": [
+          "🟡",
+          "Amarelo",
+          "Dourado"
+        ]
+      },
+      "scope": "symbols may pair from the model anchor line to the immediately following price inside the same model block"
     }
   }
 }
