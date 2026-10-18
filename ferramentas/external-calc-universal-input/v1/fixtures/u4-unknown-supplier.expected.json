@@ -1,0 +1,20 @@
+{
+  "supplier": {
+    "id": "supplier_horizonte_u4",
+    "label": "Horizonte Devices U4"
+  },
+  "offers": [
+    {
+      "model": "iphone_17_256gb",
+      "price": 5299
+    },
+    {
+      "model": "iphone_15_128gb",
+      "price": 4299
+    },
+    {
+      "model": "iphone_13_pro_128gb",
+      "price": 3999
+    }
+  ]
+}
