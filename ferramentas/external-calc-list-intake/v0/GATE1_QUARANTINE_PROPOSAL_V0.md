@@ -29,6 +29,19 @@ As linhas que as próprias candidatas apontam mostram erros de autoridade: conte
 
 A tabela de quarentena não pode ser pública/editável por um cliente arbitrário: somente API de proprietário autorizado, com `auth.uid()`, tenant e papel `dono` verificados; não conceder permissões `PUBLIC` acidentalmente em funções `SECURITY DEFINER`. O contexto de autenticação real do Supabase continua não homologado fora da produção.
 
+## Simulação real SOMENTE-LEITURA: impacto da exclusão por análise
+
+Consulta de leitura executada em 20/10/2026, em `extcalc_offer_revision`, reproduzindo os filtros de `extcalc_product_current_offers_v0` e subtraindo apenas o par `tenant_id/analysis_id` afetado via `NOT EXISTS` em uma CTE, **sem inserir quarentena nem modificar snapshots**:
+
+| Métrica | Resultado |
+| --- | ---: |
+| Revisões `VALID / CURRENT / SUCCEEDED` com `reviewed_offer` não nulo, antes | **63** |
+| Revisões atuais pertencentes à análise afetada | **24** |
+| Revisões restantes na simulação, depois da exclusão da análise | **39** |
+| Total de revisões C01 persistidas, inalteradas | **64** |
+
+A simulação confirma a abrangência numérica deste filtro específico (24 isoladas, 39 restantes), **não comprova** os demais consumidores, autorização, ausência de acessos diretos ou rollback real. É proibido interpretar a simulação como quarentena ativada.
+
 ## Teste de pré-condição e plano de reversão
 
 1. Identificar **um único tenant** e **uma única source** relacionados à análise; os identificadores de origem e fingerprint devem coincidir. Nenhum outro `analysis_id` pode ser afetado.
