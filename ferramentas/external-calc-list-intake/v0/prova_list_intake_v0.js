@@ -15,6 +15,9 @@ const second=buildQueue({filename:'lista.txt',mime_type:'text/plain',content:sam
 const supplierUnknown=partitionCandidates(first.queue,{supplierVerified:false});
 assert.strictEqual(supplierUnknown.auto.length,0,'no supplier: must not auto-promote');
 assert.ok(supplierUnknown.review.every(x=>x.assessment.reasons.includes('SUPPLIER_IDENTITY_UNVERIFIED')));
+const supplierImplicit=partitionCandidates(first.queue);
+assert.strictEqual(supplierImplicit.auto.length,0,'missing verification context must fail closed');
+assert.ok(supplierImplicit.review.every(x=>x.assessment.reasons.includes('SUPPLIER_IDENTITY_UNVERIFIED')));
 const supplierBound=partitionCandidates(first.queue,{supplierVerified:true});
 assert.strictEqual(supplierBound.auto.length,1,'verified supplier preserves valid promotion');
 
@@ -88,7 +91,7 @@ assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.
  [710000,690000,670000,430000,430000,420000,425000,480000]);
 assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.color),
  ['Branco','Prata','Prata','Branco','Rosa','Teal','Preto','Prata']);
-const onCellAssessment=partitionCandidates(onCellScoped.queue);
+const onCellAssessment=partitionCandidates(onCellScoped.queue,{supplierVerified:true});
 assert.strictEqual(onCellAssessment.review.length,2,'bare 256 iPhones sem capacidade devem revisar');
 assert.ok(onCellAssessment.review.every(x=>x.assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING')));
 // Não aceitar números fora de linhas coloridas (datas, contato, identificação comercial).
@@ -120,11 +123,11 @@ assert.strictEqual(countLabel('AirPods'),1);
 const bareCapacityCandidate=JSON.parse(JSON.stringify(parsed.queue.candidates[0]));
 bareCapacityCandidate.interpreted_offer.model.label='iPhone 17 PRO MAX 256';
 bareCapacityCandidate.interpreted_offer.capacity_gb=null;
-const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate],unresolved_ambiguities:[]});
+const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate],unresolved_ambiguities:[]},{supplierVerified:true});
 assert.strictEqual(bareCapacityReview.auto.length,0,'iPhone 17 256 sem capacidade resolvida nao pode auto-promover');
 assert.deepStrictEqual(bareCapacityReview.review[0].assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING'),true);
 
-const partition=partitionCandidates(parsed.queue);
+const partition=partitionCandidates(parsed.queue,{supplierVerified:true});
 console.log('REAL_COMERCIO_RESIDUAL_AMBIGUITIES='+JSON.stringify(parsed.queue.unresolved_ambiguities.map(item=>({field:item.field,cause:item.cause,raw:item.raw,sources:item.sources}))));
 console.log('REAL_COMERCIO_RESIDUAL_INVALID='+JSON.stringify(parsed.queue.invalid_items));
 assert.strictEqual(parsed.queue.unresolved_ambiguities.length,0,'lista REAL COMERCIO nao deve deixar ambiguidade estrutural falsa');
@@ -273,3 +276,45 @@ require('./prova_shadow_integrated_readonly_v1');
 require('./prova_private_integrated_shadow_corpus_v1');
 
 require('./prova_shadow_unmatched_price_evidence_v1');
+
+// Gate 1: mock de RPC, somente sintético e sem escritas reais.
+// Um UUID informado não é comprovante de autorização.
+async function proveSupplierBindingFailClosed(){
+  const {processListIntakeCommand}=require('./list-intake-api');
+  const previousFetch=globalThis.fetch;
+  const calls=[];
+  globalThis.fetch=async(url,request)=>{
+    const name=String(url).split('/rpc/')[1];
+    calls.push(name);
+    if(name==='extcalc_bind_source_supplier_v0'){
+      const body=JSON.parse(request.body);
+      return {ok:true,status:200,text:async()=>JSON.stringify({
+        ok:true,source_id:'source_wrong',supplier_id:body.p_supplier_id
+      })};
+    }
+    return {ok:true,status:200,text:async()=>JSON.stringify({idempotent:false})};
+  };
+  const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'synthetic'};
+  try{
+    const withoutSupplier=await processListIntakeCommand({
+      env,token:'synthetic-token',rawCommand:{filename:'gate1-no-supplier.txt',content:sample}
+    });
+    assert.strictEqual(withoutSupplier.auto_promoted,0);
+    assert.strictEqual(withoutSupplier.review_required,withoutSupplier.candidates);
+    assert.strictEqual(withoutSupplier.review_reasons.SUPPLIER_IDENTITY_UNVERIFIED,withoutSupplier.candidates);
+    assert.ok(!calls.includes('extcalc_persist_auto_promoted_c01_v0'));
+    calls.length=0;
+    await assert.rejects(
+      processListIntakeCommand({env,token:'synthetic-token',rawCommand:{
+        filename:'gate1-wrong-receipt.txt',content:sample,
+        supplier_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      }}),
+      error=>error.code==='EXTCALC_SUPPLIER_BINDING_UNVERIFIED'
+    );
+    assert.deepStrictEqual(calls,['extcalc_bind_source_supplier_v0']);
+  } finally {
+    globalThis.fetch=previousFetch;
+  }
+}
+proveSupplierBindingFailClosed().catch(error=>{console.error(error);process.exitCode=1;});
+
