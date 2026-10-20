@@ -179,7 +179,7 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
   };
   const partition=partitionCandidates(queue,{supplierVerified:Boolean(supplier_id)});
   // Source lineage is a prerequisite for automatic C01 promotion.
-  for(const item of [...partition.auto]){
+  for(const item of [...partition.auto,...partition.review]){
     const lines=item.candidate?.review_evidence?.source_lines||[];
     const hasSourceLine=lines.length && lines.every(line=>Number.isSafeInteger(line.line_number)&&line.raw?.trim());
     const amount=item.candidate?.interpreted_offer?.price?.amount_minor;
@@ -192,10 +192,14 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
     const multipleExplicitPrices=new Set(monetaryTokens.map(match=>match[1])).size>1;
     if(hasSourceLine && excerptContainsPrice(excerpt,amount) && !multiLineScope && !multipleExplicitPrices)continue;
     item.assessment.eligible=false;
-    item.assessment.reasons.push(!hasSourceLine?'SOURCE_LINE_MISSING'
-      :multiLineScope||multipleExplicitPrices?'SOURCE_PRICE_SCOPE_AMBIGUOUS':'SOURCE_PRICE_UNVERIFIED');
-    partition.review.push({candidate:item.candidate,assessment:item.assessment});
-    partition.auto.splice(partition.auto.indexOf(item),1);
+    const reason=!hasSourceLine?'SOURCE_LINE_MISSING'
+      :multiLineScope||multipleExplicitPrices?'SOURCE_PRICE_SCOPE_AMBIGUOUS':'SOURCE_PRICE_UNVERIFIED';
+    if(!item.assessment.reasons.includes(reason))item.assessment.reasons.push(reason);
+    const autoIndex=partition.auto.indexOf(item);
+    if(autoIndex>=0){
+      partition.review.push({candidate:item.candidate,assessment:item.assessment});
+      partition.auto.splice(autoIndex,1);
+    }
   }
   return {queue,partition};
 }
