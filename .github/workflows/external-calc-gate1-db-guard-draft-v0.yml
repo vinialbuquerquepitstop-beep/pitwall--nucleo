@@ -5,6 +5,8 @@ on:
       - 'ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql'
       - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js'
       - '.github/workflows/external-calc-gate1-db-guard-draft-v0.yml'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql'
   workflow_dispatch:
 jobs:
   structural:
@@ -20,3 +22,46 @@ jobs:
         run: node --check ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js
       - name: Verify SQL draft structural invariants
         run: node ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gate1_synthetic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gate1_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: gate1_synthetic
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Compile C01 guard in isolated PostgreSQL 17
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql
+      - name: Exercise fail-closed and idempotence with synthetic data
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql 2>&1 | tee /tmp/gate1-postgres.log
+          grep -q 'EXTERNAL_CALC_GATE1_DB_GUARD_POSTGRES_SYNTHETIC_V0=PASS' /tmp/gate1-postgres.log
