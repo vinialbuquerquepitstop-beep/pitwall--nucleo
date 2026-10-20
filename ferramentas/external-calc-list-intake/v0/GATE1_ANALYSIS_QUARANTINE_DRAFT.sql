@@ -164,6 +164,44 @@ CREATE TRIGGER extcalc_quarantine_revision_write_guard_v0
 BEFORE INSERT OR UPDATE OR DELETE ON public.extcalc_offer_revision
 FOR EACH ROW EXECUTE FUNCTION privado.extcalc_quarantine_revision_write_guard_v0();
 
+
+-- C01 consumer-safe gateway: quote and any direct exact-C01 reference must use this RPC.
+-- Do not return quarantined, stale or non-valid revisions to calculation services.
+CREATE OR REPLACE FUNCTION public.extcalc_product_authoritative_c01_v0(
+  p_analysis_id text,p_offer_id text,p_offer_revision integer)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO ''
+AS $c01_gateway$
+DECLARE v_tenant uuid; v_result jsonb;
+BEGIN
+  SELECT m.tenant_id INTO v_tenant FROM privado.extcalc_product_membership_v0() m;
+  IF v_tenant IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='EXTCALC_PRODUCT_FORBIDDEN';
+  END IF;
+  IF nullif(pg_catalog.btrim(p_analysis_id),'') IS NULL
+    OR nullif(pg_catalog.btrim(p_offer_id),'') IS NULL
+    OR p_offer_revision IS NULL OR p_offer_revision<1 THEN
+    RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='EXTCALC_C01_REFERENCE_INVALID';
+  END IF;
+  IF EXISTS(SELECT 1 FROM privado.extcalc_analysis_quarantine_v0 q
+    WHERE q.tenant_id=v_tenant AND q.analysis_id=p_analysis_id AND q.active) THEN
+    RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='EXTCALC_ANALYSIS_QUARANTINED';
+  END IF;
+  SELECT r.c01_snapshot INTO v_result
+  FROM public.extcalc_offer_revision r
+  WHERE r.tenant_id=v_tenant AND r.analysis_id=pg_catalog.btrim(p_analysis_id)
+    AND r.offer_id=pg_catalog.btrim(p_offer_id) AND r.offer_revision=p_offer_revision
+    AND r.domain_outcome='VALID' AND r.freshness_status='CURRENT'
+    AND r.c01_snapshot->>'execution_status'='SUCCEEDED'
+    AND r.c01_snapshot->'reviewed_offer' IS NOT NULL;
+  RETURN v_result;
+END
+$c01_gateway$;
+REVOKE ALL ON FUNCTION public.extcalc_product_authoritative_c01_v0(text,text,integer)
+ FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.extcalc_product_authoritative_c01_v0(text,text,integer)
+ TO authenticated;
+
 -- Actual live function extcalc_product_current_offers_v0, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_product_current_offers_v0()
  RETURNS SETOF jsonb
