@@ -27,6 +27,8 @@ DECLARE
   receipt jsonb;
   error_message text;
   c01_result jsonb;
+  movement_result jsonb;
+  history_result jsonb;
 BEGIN
   PERFORM set_config('test.user_id',actor::text,false);
   PERFORM set_config('test.tenant_id',tenant::text,false);
@@ -75,10 +77,42 @@ BEGIN
       'other_identity_'||i,'other_value_'||i,'VALID','CURRENT');
   END LOOP;
 
+
+  -- Two examples, one from each analysis, exercise the production projections.
+  INSERT INTO public.extcalc_supplier(tenant_id,supplier_id,name) VALUES
+    (tenant,'33333333-3333-4333-8333-333333333333'::uuid,'Synthetic incident supplier'),
+    (tenant,'44444444-4444-4444-8444-444444444444'::uuid,'Synthetic safe supplier');
+  UPDATE public.extcalc_offer_revision SET
+    c01_snapshot=jsonb_build_object('analysis_id','analysis_incident',
+      'offer_id','off_1','offer_revision',1,'execution_status','SUCCEEDED',
+      'reviewed_offer',jsonb_build_object(
+        'model',jsonb_build_object('id','iphone-test','label','Synthetic Phone'),
+        'capacity_gb',256,'color','Blue','condition','LACRADO',
+        'supplier_id','33333333-3333-4333-8333-333333333333',
+        'price',jsonb_build_object('amount_minor',450000,'currency','BRL')))
+    WHERE tenant_id=tenant AND analysis_id='analysis_incident' AND offer_id='off_1';
+  UPDATE public.extcalc_offer_revision SET
+    c01_snapshot=jsonb_build_object('analysis_id','analysis_other',
+      'offer_id','safe_1','offer_revision',1,'execution_status','SUCCEEDED',
+      'reviewed_offer',jsonb_build_object(
+        'model',jsonb_build_object('id','iphone-test','label','Synthetic Phone'),
+        'capacity_gb',256,'color','Blue','condition','LACRADO',
+        'supplier_id','44444444-4444-4444-8444-444444444444',
+        'price',jsonb_build_object('amount_minor',460000,'currency','BRL')))
+    WHERE tenant_id=tenant AND analysis_id='analysis_other' AND offer_id='safe_1';
+
   SELECT count(*) INTO current_count FROM public.extcalc_product_current_offers_v0();
   IF current_count<>63 THEN RAISE EXCEPTION 'BEFORE EXPECTED 63, GOT %',current_count; END IF;
   SELECT count(*) INTO home_count FROM public.extcalc_product_home_context_v1();
   IF home_count<>63 THEN RAISE EXCEPTION 'HOME BEFORE EXPECTED 63, GOT %',home_count; END IF;
+
+  movement_result:=public.extcalc_movement_feed_v0(7);
+  history_result:=public.extcalc_supplier_price_history_v0('iphone-test',7,256,'Blue','LACRADO');
+  IF jsonb_array_length(movement_result->'items')<>2
+     OR jsonb_array_length(history_result->'suppliers')<>2 THEN
+    RAISE EXCEPTION 'BEFORE: movement/history should each have 2 offers % %',
+      movement_result,history_result;
+  END IF;
   c01_result:=public.extcalc_product_authoritative_c01_v0('analysis_incident','off_1',1);
   IF c01_result IS NULL OR c01_result->>'analysis_id' IS DISTINCT FROM 'analysis_incident' THEN
     RAISE EXCEPTION 'QUOTE C01 GATEWAY REJECTED CLEAN OFFER';
@@ -109,6 +143,19 @@ BEGIN
   IF current_count<>39 THEN RAISE EXCEPTION 'QUARANTINE EXPECTED 39, GOT %',current_count; END IF;
   SELECT count(*) INTO home_count FROM public.extcalc_product_home_context_v1();
   IF home_count<>39 THEN RAISE EXCEPTION 'QUARANTINE HOME EXPECTED 39, GOT %',home_count; END IF;
+
+  movement_result:=public.extcalc_movement_feed_v0(7);
+  history_result:=public.extcalc_supplier_price_history_v0('iphone-test',7,256,'Blue','LACRADO');
+  IF jsonb_array_length(movement_result->'items')<>1
+     OR jsonb_array_length(history_result->'suppliers')<>1 THEN
+    RAISE EXCEPTION 'ACTIVE: movement/history leaked quarantined offer % %',
+      movement_result,history_result;
+  END IF;
+  IF movement_result#>>'{items,0,analysis_id}' IS DISTINCT FROM 'analysis_other'
+     OR history_result#>>'{suppliers,0,current_offer,analysis_id}' IS DISTINCT FROM 'analysis_other' THEN
+    RAISE EXCEPTION 'ACTIVE: direct commercial projection includes quarantined incident';
+  END IF;
+
 
   BEGIN
     PERFORM public.extcalc_product_source_execution_v0('analysis_incident','off_1',1);
@@ -212,6 +259,14 @@ BEGIN
   END IF;
   c01_result:=public.extcalc_product_authoritative_c01_v0('analysis_incident','off_1',1);
   IF c01_result IS NULL THEN RAISE EXCEPTION 'QUOTE C01 NOT RESTORED AFTER REVOKE'; END IF;
+
+  movement_result:=public.extcalc_movement_feed_v0(7);
+  history_result:=public.extcalc_supplier_price_history_v0('iphone-test',7,256,'Blue','LACRADO');
+  IF jsonb_array_length(movement_result->'items')<>2
+     OR jsonb_array_length(history_result->'suppliers')<>2 THEN
+    RAISE EXCEPTION 'ROLLBACK: movement/history did not restore 2 sources % %',
+      movement_result,history_result;
+  END IF;
   IF (SELECT count(*) FROM public.extcalc_review_candidate)<>25 THEN
     RAISE EXCEPTION 'CANDIDATE HISTORY MODIFIED';
   END IF;
