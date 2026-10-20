@@ -61,6 +61,11 @@ jobs:
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql
           psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql
+      - name: Exercise fail-closed and idempotence with synthetic data
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql 2>&1 | tee /tmp/gate1-postgres.log
+          grep -q 'EXTERNAL_CALC_GATE1_DB_GUARD_POSTGRES_SYNTHETIC_V0=PASS' /tmp/gate1-postgres.log
       - name: Check full TXT and Advisor bridge against Postgres RPC
         run: |
           set -euo pipefail
@@ -69,8 +74,3 @@ jobs:
           grep -q 'GATE1_REAL_BRIDGE_TXT_ZIP_SHARED=PASS' /tmp/gate1-real-bridge.log
           grep -q 'GATE1_REAL_BRIDGE_ADVISOR=PASS' /tmp/gate1-real-bridge.log
           grep -q 'EXTERNAL_CALC_GATE1_REAL_BRIDGE_DB_V0=PASS' /tmp/gate1-real-bridge.log
-      - name: Exercise fail-closed and idempotence with synthetic data
-        run: |
-          set -euo pipefail
-          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql 2>&1 | tee /tmp/gate1-postgres.log
-          grep -q 'EXTERNAL_CALC_GATE1_DB_GUARD_POSTGRES_SYNTHETIC_V0=PASS' /tmp/gate1-postgres.log
