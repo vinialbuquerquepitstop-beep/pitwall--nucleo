@@ -21,6 +21,42 @@ assert.ok(supplierImplicit.review.every(x=>x.assessment.reasons.includes('SUPPLI
 const supplierBound=partitionCandidates(first.queue,{supplierVerified:true});
 assert.strictEqual(supplierBound.auto.length,1,'verified supplier preserves valid promotion');
 
+
+// C01 auto-promotion must have both model and price grounded in actual source lines.
+// Missing trace linkage or a fabricated line cannot be rescued by high confidence.
+const modelWithoutSource=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+delete modelWithoutSource.review_evidence.field_sources.model;
+const modelWithoutSourceDecision=partitionCandidates({
+  candidates:[modelWithoutSource],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(modelWithoutSourceDecision.auto.length,0);
+assert.ok(modelWithoutSourceDecision.review[0].assessment.reasons.includes('MODEL_SOURCE_UNVERIFIED'));
+
+const priceWithUnmatchedLine=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+priceWithUnmatchedLine.review_evidence.field_sources.price=[99999];
+const priceWithUnmatchedLineDecision=partitionCandidates({
+  candidates:[priceWithUnmatchedLine],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(priceWithUnmatchedLineDecision.auto.length,0);
+assert.ok(priceWithUnmatchedLineDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_UNVERIFIED'));
+
+const priceWithEmptyRaw=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+const priceRefs=new Set(priceWithEmptyRaw.review_evidence.field_sources.price);
+for(const line of priceWithEmptyRaw.review_evidence.source_lines){
+  if(priceRefs.has(line.line_number))line.raw='';
+}
+const priceWithEmptyRawDecision=partitionCandidates({
+  candidates:[priceWithEmptyRaw],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(priceWithEmptyRawDecision.auto.length,0);
+assert.ok(priceWithEmptyRawDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_UNVERIFIED'));
+
+const explicitOutlier=partitionCandidates({
+  candidates:[first.queue.candidates[0]],unresolved_ambiguities:[]
+},{supplierVerified:true,price_risk:'OUTLIER_REVIEW_REQUIRED'});
+assert.strictEqual(explicitOutlier.auto.length,0);
+assert.ok(explicitOutlier.review[0].assessment.reasons.includes('PRICE_OUTLIER_REVIEW_REQUIRED'));
+
 // Gate 1: never silently promote a material price discrepancy among like-for-like variants.
 const siblingAnomaly=buildQueue({filename:'sibling-outlier.txt',mime_type:'text/plain',content:[
   'iPhone 16 128GB','🎨 Azul','💵 415',
