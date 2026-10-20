@@ -135,6 +135,35 @@ REVOKE ALL ON FUNCTION public.extcalc_set_analysis_quarantine_v0(text,boolean,te
 GRANT EXECUTE ON FUNCTION public.extcalc_set_analysis_quarantine_v0(text,boolean,text,bigint,bigint)
  TO authenticated;
 
+-- Prevent all revision writes/replays during an active analysis quarantine.
+-- Unlike a consumer-only filter, this blocks stale Worker retries from mutating C01.
+CREATE OR REPLACE FUNCTION privado.extcalc_quarantine_revision_write_guard_v0()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $quarantine_write$
+DECLARE v_tenant uuid; v_analysis_id text;
+BEGIN
+  IF TG_OP='DELETE' THEN
+    v_tenant:=OLD.tenant_id;
+    v_analysis_id:=OLD.analysis_id;
+  ELSE
+    v_tenant:=NEW.tenant_id;
+    v_analysis_id:=NEW.analysis_id;
+  END IF;
+  IF EXISTS (SELECT 1 FROM privado.extcalc_analysis_quarantine_v0 q
+    WHERE q.tenant_id=v_tenant AND q.analysis_id=v_analysis_id AND q.active)
+  THEN
+    RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='EXTCALC_ANALYSIS_QUARANTINED';
+  END IF;
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END
+$quarantine_write$;
+REVOKE ALL ON FUNCTION privado.extcalc_quarantine_revision_write_guard_v0()
+ FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER extcalc_quarantine_revision_write_guard_v0
+BEFORE INSERT OR UPDATE OR DELETE ON public.extcalc_offer_revision
+FOR EACH ROW EXECUTE FUNCTION privado.extcalc_quarantine_revision_write_guard_v0();
+
 -- Actual live function extcalc_product_current_offers_v0, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_product_current_offers_v0()
  RETURNS SETOF jsonb
