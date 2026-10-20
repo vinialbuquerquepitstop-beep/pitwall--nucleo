@@ -36,9 +36,10 @@ globalThis.fetch=async(url,request)=>{
   assert(entry?.offer_id);
   const key=rpc+':'+entry.offer_id;
   const snapshot=JSON.stringify(entry);
-  if(seen.has(key))assert.equal(seen.get(key),snapshot,'retries must preserve exact JSON');
+  const idempotent=seen.has(key);
+  if(idempotent)assert.equal(seen.get(key),snapshot,'retries must preserve exact JSON');
   else seen.set(key,snapshot);
-  return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,idempotent:seen.get(key)===snapshot})};
+  return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,idempotent})};
 };
 
 async function main(){
