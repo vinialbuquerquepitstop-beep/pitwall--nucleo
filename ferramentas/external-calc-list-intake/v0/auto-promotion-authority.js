@@ -28,7 +28,7 @@ function hasCapacityToken(label){
 }
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];
-  if(context.supplierVerified===false)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
+  if(context.supplierVerified!==true)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
   if(!candidate||candidate.contract_version!=='external-calc-c01-readonly/v1')reasons.push('CANDIDATE_CONTRACT_INVALID');
   if(candidate?.execution_status!=='SUCCEEDED')reasons.push('EXECUTION_NOT_SUCCEEDED');
   if(candidate?.freshness_status!=='CURRENT')reasons.push('NOT_CURRENT');
