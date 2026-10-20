@@ -57,6 +57,23 @@ const explicitOutlier=partitionCandidates({
 assert.strictEqual(explicitOutlier.auto.length,0);
 assert.ok(explicitOutlier.review[0].assessment.reasons.includes('PRICE_OUTLIER_REVIEW_REQUIRED'));
 
+
+// Gate 1: the price field must agree with the source text, not just its line number.
+const {exactBRLAmountInText}=require('./source-price-evidence');
+assert.equal(exactBRLAmountInText('💵 R$ 4.500,00',450000),true);
+assert.equal(exactBRLAmountInText('🔵 4200',420000),true);
+assert.equal(exactBRLAmountInText('💰5,650',565000),true);
+assert.equal(exactBRLAmountInText('R$ 6.900,50',690050),true);
+assert.equal(exactBRLAmountInText('R$ 6.900,50',690000),false);
+assert.equal(exactBRLAmountInText('R$ 6.900',690050),false);
+assert.equal(exactBRLAmountInText('R$ 6.900,00',690050),false);
+assert.equal(exactBRLAmountInText('R$ 45.000',450000),false);
+const incorrectC01Price=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+incorrectC01Price.interpreted_offer.price.amount_minor=449000;
+const mismatchDecision=partitionCandidates({candidates:[incorrectC01Price],unresolved_ambiguities:[]},{supplierVerified:true});
+assert.equal(mismatchDecision.auto.length,0,'wrong amount must never auto-promote');
+assert.ok(mismatchDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_AMOUNT_UNVERIFIED'));
+
 // Gate 1: never silently promote a material price discrepancy among like-for-like variants.
 const siblingAnomaly=buildQueue({filename:'sibling-outlier.txt',mime_type:'text/plain',content:[
   'iPhone 16 128GB','🎨 Azul','💵 415',
