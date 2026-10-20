@@ -1,4 +1,5 @@
 'use strict';
+const { linkedPriceHasExactAmount }=require('./source-price-evidence');
 
 const AUTO_PROMOTION_VERSION='external-calc-c01-auto-promotion/v0';
 const CRITICAL_FIELDS=new Set(['model','price','capacity_gb','condition','color']);
@@ -49,6 +50,7 @@ function evaluateAutoPromotion(candidate,context={}){
   if(hasCapacityToken(offer.model?.label)&&!Number.isInteger(offer.capacity_gb))reasons.push('CAPACITY_EXPECTED_BUT_MISSING');
   if(!hasFieldSourceEvidence(candidate,'model'))reasons.push('MODEL_SOURCE_UNVERIFIED');
   if(!hasFieldSourceEvidence(candidate,'price'))reasons.push('PRICE_SOURCE_UNVERIFIED');
+  else if(!linkedPriceHasExactAmount(candidate))reasons.push('PRICE_SOURCE_AMOUNT_UNVERIFIED');
 
   const trace=traceByField(candidate);
   const modelScore=trace.model?.score;
