@@ -79,7 +79,7 @@ function excerptContainsPrice(excerpt, amountMinor) {
   const whole=String(reais);
   const grouped=whole.replace(/\B(?=(\d{3})+(?!\d))/g,'[.,]');
   const variants=[whole,grouped].filter((item,index,array)=>array.indexOf(item)===index);
-  const expression=new RegExp('(?<!\\d)(?:'+variants.join('|')+')(?:[.,]'+cents+')?(?!\\d)','u');
+  const expression=new RegExp('(?<![\\d.,])(?:'+variants.join('|')+')(?:[.,]'+cents+')?(?![\\d.,])','u');
   return expression.test(String(excerpt||''));
 }
 function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id}) {
@@ -221,7 +221,11 @@ function createPostgresAdvisorC01Sink(options={}) {
   return {
     async persist({interpretation,content,analysis_id,source_id,supplier_id}) {
       const bridged=bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id});
-      await rpc('extcalc_bind_source_supplier_v0',{p_source_id:source_id,p_supplier_id:supplier_id});
+      const binding=await rpc('extcalc_bind_source_supplier_v0',{p_source_id:source_id,p_supplier_id:supplier_id});
+      if(binding?.ok!==true||binding?.source_id!==source_id
+        ||String(binding?.supplier_id||'').toLowerCase()!==String(supplier_id||'').toLowerCase()){
+        throw new Error('EXTCALC_SUPPLIER_BINDING_UNVERIFIED');
+      }
       let persisted=0,auto_promoted=0,review_required=0,idempotent=0;
       for(const item of bridged.partition.auto){
         const a=await rpc('extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
