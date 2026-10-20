@@ -13,6 +13,8 @@ const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.kno
 const LIST_INTAKE_PATH='/api/external-calc/v0/list-intake';
 const API_VERSION='external-calc-list-intake-api/v0';
 const MAX_TEXT_BYTES=2*1024*1024;
+// Max 1 supplier-binding + 2 persistence subrequests per item = 25, < Free Worker 50.
+const MAX_INTAKE_OFFERS_PER_INVOCATION=12;
 
 function allowedOrigin(origin,env){
  if(!origin)return null;
@@ -33,11 +35,12 @@ function normalizedFilename(value,type){
 }
 function normalizeBody(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('body invalido'),{code:'LIST_INTAKE_INVALID'});
- const allowed=new Set(['filename','mime_type','content','supplier_id']);
+ const allowed=new Set(['filename','mime_type','content','supplier_id','page_offset']);
  for(const k of Object.keys(value))if(!allowed.has(k))throw Object.assign(new Error('campo nao permitido: '+k),{code:'LIST_INTAKE_INVALID'});
  if(typeof value.content!=='string'||!value.content.trim())throw Object.assign(new Error('lista vazia'),{code:'LIST_INTAKE_INVALID'});
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
  if(value.supplier_id!=null&&(typeof value.supplier_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.supplier_id.trim())))throw Object.assign(new Error('supplier_id invalido'),{code:'LIST_INTAKE_INVALID'});
+ if(value.page_offset!=null&&(!Number.isSafeInteger(value.page_offset)||value.page_offset<0))throw Object.assign(new Error('page_offset invalido'),{code:'LIST_INTAKE_INVALID'});
  return {...value,supplier_id:value.supplier_id==null?null:value.supplier_id.trim().toLowerCase()};
 }
 
@@ -447,7 +450,9 @@ function buildQueue(body){
  const type=sourceType(tentative,body.mime_type);
  const filename=normalizedFilename(body.filename,type);
  const source={filename,mime_type:body.mime_type||(type==='csv'?'text/csv':'text/plain'),content:body.content};
- const canonical=type==='csv'?parseCsvSource(source):parseTextSource(source);
+ // A stable document ID is necessary for retries: the default adapter generates UUIDs.
+ const options={idFactory:()=> 'intake-'+stableHash(source.content).slice(0,32)};
+ const canonical=type==='csv'?parseCsvSource(source,options):parseTextSource(source,options);
  const raw=canonicalToRawDocument(canonical);
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
  const identityHash=body.supplier_id?crypto.createHash('sha256').update(hash+'|supplier:'+body.supplier_id).digest('hex'):hash;
@@ -462,6 +467,17 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
  const command=normalizeBody(rawCommand);
  const built=buildQueue(command);
+ const total=built.queue.candidates.length;
+ const pageOffset=command.page_offset??0;
+ // Fail before any DB write if a legacy client sends a large, unpaged list.
+ if(command.page_offset==null&&total>MAX_INTAKE_OFFERS_PER_INVOCATION){
+   throw Object.assign(new Error('Lista extensa requer processamento paginado; atualize a tela antes de reenviar.'),{
+     code:'LIST_INTAKE_PAGING_REQUIRED',status:422
+   });
+ }
+ if(pageOffset>total||(total>0&&pageOffset===total)){
+   throw Object.assign(new Error('page_offset fora dos limites da lista'),{code:'LIST_INTAKE_INVALID',status:422});
+ }
  let supplierVerified=false;
  if(command.supplier_id){
    const binding=await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
@@ -473,10 +489,13 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    });
  }
  const partition=partitionCandidates(built.queue,{supplierVerified});
+ // Preserve the full list context; only database writes are divided across requests.
+ const ordered=[...partition.auto.map(item=>({kind:'auto',item})),...partition.review.map(item=>({kind:'review',item}))];
+ const page=ordered.slice(pageOffset,pageOffset+MAX_INTAKE_OFFERS_PER_INVOCATION);
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
  const review_reasons={};
 
- for(const item of partition.auto){
+ for(const {item} of page.filter(entry=>entry.kind==='auto')){
    const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
    persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
    const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
@@ -484,7 +503,7 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    if(promoted?.idempotent===true)idempotent+=1;
  }
 
- for(const item of partition.review){
+ for(const {item} of page.filter(entry=>entry.kind==='review')){
    const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
    persisted+=1;if(saved?.idempotent===true)idempotent+=1;
    review_required+=1;
@@ -500,7 +519,13 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    source_type:built.type,
    filename:built.filename,
    content_hash:built.canonical.source.content_hash,
-   candidates:built.queue.candidates.length,
+   candidates:total,
+   pagination:{
+     contract_version:'external-calc-list-intake-pagination/v0',
+     offset:pageOffset,processed_count:page.length,limit:MAX_INTAKE_OFFERS_PER_INVOCATION,
+     next_offset:pageOffset+page.length<total?pageOffset+page.length:null,
+     complete:pageOffset+page.length>=total
+   },
    persisted,
    auto_promoted,
    review_required,
@@ -527,10 +552,10 @@ function createListIntakeApiV0({env}={}){
     return out(200,{api_version:API_VERSION,intake},origin);
    }catch(e){
     const code=e?.code||'LIST_INTAKE_FAILED';
-    const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
+    const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_TOO_LARGE'?413:e?.status===422||code==='XLSX_NOT_ACTIVATED'?422:400;
     return out(status,{error:{code,message:e instanceof Error?e.message:'falha na entrada da lista'}},origin);
    }
   }
  };
 }
-module.exports={LIST_INTAKE_PATH,API_VERSION,buildQueue,processListIntakeCommand,createListIntakeApiV0};
+module.exports={LIST_INTAKE_PATH,API_VERSION,MAX_INTAKE_OFFERS_PER_INVOCATION,buildQueue,processListIntakeCommand,createListIntakeApiV0};
