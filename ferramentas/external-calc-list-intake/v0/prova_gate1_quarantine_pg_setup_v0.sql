@@ -30,3 +30,10 @@ CREATE TABLE public.extcalc_execution (
   freshness_status text NOT NULL,
   criado_em timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE public.extcalc_supplier (
+  tenant_id uuid NOT NULL,
+  supplier_id uuid NOT NULL,
+  name text NOT NULL,
+  PRIMARY KEY(tenant_id,supplier_id)
+);
