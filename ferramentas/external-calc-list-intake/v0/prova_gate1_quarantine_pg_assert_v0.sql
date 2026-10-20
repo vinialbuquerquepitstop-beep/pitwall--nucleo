@@ -113,6 +113,44 @@ BEGIN
     RAISE EXCEPTION 'DIRECT REFERENCE NOT BLOCKED: %',error_message;
   END IF;
 
+  -- Stale Worker retries must not recreate/update/delete a quarantined revision.
+  error_message:=null;
+  BEGIN
+    INSERT INTO public.extcalc_offer_revision(
+      tenant_id,analysis_id,offer_id,offer_revision,c01_contract_version,
+      c01_snapshot,offer_identity_fingerprint,offer_value_fingerprint,
+      domain_outcome,freshness_status)
+    VALUES(tenant,'analysis_incident','stale_retry',1,'c01-test/v0',
+      '{"execution_status":"SUCCEEDED","reviewed_offer":{}}'::jsonb,
+      'stale-identity','stale-value','VALID','CURRENT');
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS error_message=MESSAGE_TEXT;
+  END;
+  IF error_message IS DISTINCT FROM 'EXTCALC_ANALYSIS_QUARANTINED' THEN
+    RAISE EXCEPTION 'STALE INSERT NOT BLOCKED: %',error_message;
+  END IF;
+  error_message:=null;
+  BEGIN
+    UPDATE public.extcalc_offer_revision
+       SET freshness_status='STALE'
+     WHERE tenant_id=tenant AND analysis_id='analysis_incident' AND offer_id='off_1';
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS error_message=MESSAGE_TEXT;
+  END;
+  IF error_message IS DISTINCT FROM 'EXTCALC_ANALYSIS_QUARANTINED' THEN
+    RAISE EXCEPTION 'REVISION UPDATE NOT BLOCKED: %',error_message;
+  END IF;
+  error_message:=null;
+  BEGIN
+    DELETE FROM public.extcalc_offer_revision
+      WHERE tenant_id=tenant AND analysis_id='analysis_incident' AND offer_id='off_1';
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS error_message=MESSAGE_TEXT;
+  END;
+  IF error_message IS DISTINCT FROM 'EXTCALC_ANALYSIS_QUARANTINED' THEN
+    RAISE EXCEPTION 'REVISION DELETE NOT BLOCKED: %',error_message;
+  END IF;
+
   IF (SELECT count(*) FROM privado.extcalc_analysis_quarantine_event_v0)<>1 THEN
     RAISE EXCEPTION 'IDEMPOTENT RETRY CREATED EXTRA EVENT';
   END IF;
