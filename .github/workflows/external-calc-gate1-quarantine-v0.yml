@@ -5,6 +5,9 @@ on:
       - 'ferramentas/external-calc-list-intake/v0/GATE1_ANALYSIS_QUARANTINE_DRAFT.sql'
       - 'ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_setup_v0.sql'
       - 'ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_assert_v0.sql'
+      - 'ferramentas/external-calc-authority/v0/postgres-authority-source.js'
+      - 'ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js'
+      - 'ferramentas/external-calc-sales-product/v0/sales-product-service.js'
       - '.github/workflows/external-calc-gate1-quarantine-v0.yml'
   workflow_dispatch:
 permissions:
@@ -34,6 +37,13 @@ jobs:
       PGPASSWORD: postgres
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source quote RPC and sale service with synthetic fixtures
+        run: |
+          node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js
+          node ferramentas/external-calc-sales-product/v0/prova_sales_product_service_v0.js
       - name: PostgreSQL client
         run: |
           if ! command -v psql >/dev/null; then
