@@ -8,6 +8,8 @@ on:
       - 'ferramentas/external-calc-authority/v0/postgres-authority-source.js'
       - 'ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js'
       - 'ferramentas/external-calc-sales-product/v0/sales-product-service.js'
+      - 'ferramentas/external-calc-store-rate/v1/store-rate-quote-api.js'
+      - 'ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_g4_api.js'
       - '.github/workflows/external-calc-gate1-quarantine-v0.yml'
   workflow_dispatch:
 permissions:
@@ -44,6 +46,7 @@ jobs:
         run: |
           node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js
           node ferramentas/external-calc-sales-product/v0/prova_sales_product_service_v0.js
+          node ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_g4_api.js
       - name: PostgreSQL client
         run: |
           if ! command -v psql >/dev/null; then
