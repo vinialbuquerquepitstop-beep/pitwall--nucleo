@@ -6,7 +6,7 @@ const {buildQueue,processListIntakeCommand,MAX_INTAKE_OFFERS_PER_INVOCATION}=
   require('./list-intake-api');
 
 const supplier='33333333-3333-4333-8333-333333333333';
-const raw=Array.from({length:32},(_,i)=>[
+const raw=Array.from({length:80},(_,i)=>[
   'iPhone 15 128GB',
   '🎨 Preto',
   '💵 R$ '+(4500+i)+',00'
