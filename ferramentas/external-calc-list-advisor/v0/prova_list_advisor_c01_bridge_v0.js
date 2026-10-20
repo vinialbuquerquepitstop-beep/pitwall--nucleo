@@ -99,6 +99,29 @@ assert.strictEqual(fractionalResult.partition.auto.length,0,
   'price cannot auto-promote when source cents do not match');
 assert.ok(fractionalResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
 
+
+// A centavos-bearing amount cannot borrow the whole-reais source as evidence.
+const unmatchedCents=JSON.parse(JSON.stringify(interpretation));
+unmatchedCents.offers=[{...unmatchedCents.offers[0],price_amount_minor:690050}];
+unmatchedCents.ambiguities=[];
+const unmatchedCentsResult=bridgeListAdvisorToC01({
+  interpretation:unmatchedCents,content,
+  analysis_id:'analysis_missing_cents',source_id:'source_missing_cents',supplier_id:supplierId
+});
+assert.equal(unmatchedCentsResult.partition.auto.length,0);
+assert.ok(unmatchedCentsResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
+
+const matchingCents=JSON.parse(JSON.stringify(interpretation));
+matchingCents.offers=[{...matchingCents.offers[0],price_amount_minor:690050,
+  source_excerpt:'Blue Anatel $ 6.900,50'}];
+matchingCents.ambiguities=[];
+const matchingCentsResult=bridgeListAdvisorToC01({
+  interpretation:matchingCents,content:content.replace('Blue Anatel $ 6.900','Blue Anatel $ 6.900,50'),
+  analysis_id:'analysis_matching_cents',source_id:'source_matching_cents',supplier_id:supplierId
+});
+assert.equal(matchingCentsResult.partition.auto.length,1,
+  'exact source centavos should remain eligible');
+
 // A comprovacao deve vir da RPC, nunca apenas da presença do supplier_id.
 async function proveAdvisorSupplierReceipt(){
   const {createPostgresAdvisorC01Sink}=require('./list-advisor-c01-bridge');
