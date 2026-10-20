@@ -26,9 +26,20 @@ function linkedMaterialAmbiguities(candidate,ambiguities){
 function hasCapacityToken(label){
   return /(?:\b\d{2,4}\s*GB\b|(?:\/|\b)[124]\s*TB\b|\b\d{1,3}\s*\/\s*\d{2,4}\s*GB\b|\b(?:iPhone\s+)?1[1-8](?:\s+(?:Pro\s+Max|Pro|Plus|Air))?\s+(?:64|128|256|512)\b)/i.test(String(label||''));
 }
+function hasFieldSourceEvidence(candidate,field){
+  const evidence=candidate?.review_evidence;
+  const linked=evidence?.field_sources?.[field];
+  if(!Array.isArray(linked)||!linked.length)return false;
+  const lines=new Map((evidence?.source_lines||[])
+    .filter(item=>Number.isSafeInteger(item?.line_number)&&item.line_number>0
+      && typeof item.raw==='string'&&item.raw.trim())
+    .map(item=>[item.line_number,item.raw]));
+  return linked.every(number=>Number.isSafeInteger(number)&&number>0&&lines.has(number));
+}
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];
   if(context.supplierVerified!==true)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
+  if(context.price_risk==='OUTLIER_REVIEW_REQUIRED')reasons.push('PRICE_OUTLIER_REVIEW_REQUIRED');
   if(!candidate||candidate.contract_version!=='external-calc-c01-readonly/v1')reasons.push('CANDIDATE_CONTRACT_INVALID');
   if(candidate?.execution_status!=='SUCCEEDED')reasons.push('EXECUTION_NOT_SUCCEEDED');
   if(candidate?.freshness_status!=='CURRENT')reasons.push('NOT_CURRENT');
@@ -36,6 +47,8 @@ function evaluateAutoPromotion(candidate,context={}){
   if(!offer.model?.id||!offer.model?.label)reasons.push('MODEL_IDENTITY_MISSING');
   if(!Number.isSafeInteger(offer.price?.amount_minor)||offer.price.amount_minor<=0||offer.price.currency!=='BRL')reasons.push('PRICE_INVALID');
   if(hasCapacityToken(offer.model?.label)&&!Number.isInteger(offer.capacity_gb))reasons.push('CAPACITY_EXPECTED_BUT_MISSING');
+  if(!hasFieldSourceEvidence(candidate,'model'))reasons.push('MODEL_SOURCE_UNVERIFIED');
+  if(!hasFieldSourceEvidence(candidate,'price'))reasons.push('PRICE_SOURCE_UNVERIFIED');
 
   const trace=traceByField(candidate);
   const modelScore=trace.model?.score;
