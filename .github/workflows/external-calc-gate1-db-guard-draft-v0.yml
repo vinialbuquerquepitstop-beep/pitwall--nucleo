@@ -7,6 +7,7 @@ on:
       - '.github/workflows/external-calc-gate1-db-guard-draft-v0.yml'
       - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql'
       - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_real_bridge_fixture_v0.js'
   workflow_dispatch:
 jobs:
   structural:
@@ -60,6 +61,14 @@ jobs:
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql
           psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql
+      - name: Check full TXT and Advisor bridge against Postgres RPC
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-list-intake/v0/prova_gate1_db_real_bridge_fixture_v0.js > /tmp/gate1-real-bridge.sql
+          psql -v ON_ERROR_STOP=1 -f /tmp/gate1-real-bridge.sql 2>&1 | tee /tmp/gate1-real-bridge.log
+          grep -q 'GATE1_REAL_BRIDGE_TXT_ZIP_SHARED=PASS' /tmp/gate1-real-bridge.log
+          grep -q 'GATE1_REAL_BRIDGE_ADVISOR=PASS' /tmp/gate1-real-bridge.log
+          grep -q 'EXTERNAL_CALC_GATE1_REAL_BRIDGE_DB_V0=PASS' /tmp/gate1-real-bridge.log
       - name: Exercise fail-closed and idempotence with synthetic data
         run: |
           set -euo pipefail
