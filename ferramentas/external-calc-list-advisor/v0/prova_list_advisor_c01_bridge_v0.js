@@ -84,3 +84,41 @@ const multiPriceResult=bridgeListAdvisorToC01({
 assert.strictEqual(multiPriceResult.partition.auto.length,0);
 assert.ok(multiPriceResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_SCOPE_AMBIGUOUS'));
 console.log('EXTERNAL_CALC_LIST_ADVISOR_C01_BRIDGE_V0=PASS');
+
+// 6900,00 NAO deve corresponder a 6900,50 por prefixo numerico.
+// Teste de evidencia monetaria em centavos (somente dado sintetico).
+const fractional=JSON.parse(JSON.stringify(interpretation));
+fractional.offers=[{...fractional.offers[0],source_excerpt:'Blue Anatel $ 6.900,50'}];
+fractional.ambiguities=[];
+const fractionalResult=bridgeListAdvisorToC01({
+  interpretation:fractional,
+  content:content.replace('Blue Anatel $ 6.900','Blue Anatel $ 6.900,50'),
+  analysis_id:'analysis_fractional',source_id:'source_fractional',supplier_id:supplierId
+});
+assert.strictEqual(fractionalResult.partition.auto.length,0,
+  'price cannot auto-promote when source cents do not match');
+assert.ok(fractionalResult.partition.review[0].assessment.reasons.includes('SOURCE_PRICE_UNVERIFIED'));
+
+// A comprovacao deve vir da RPC, nunca apenas da presença do supplier_id.
+async function proveAdvisorSupplierReceipt(){
+  const {createPostgresAdvisorC01Sink}=require('./list-advisor-c01-bridge');
+  const calls=[];
+  const sink=createPostgresAdvisorC01Sink({
+    supabaseUrl:'https://example.supabase.co',
+    anonKey:'synthetic',accessToken:'synthetic',
+    fetchImpl:async(url)=> {
+      const endpoint=String(url).split('/rpc/')[1];
+      calls.push(endpoint);
+      return {ok:true,json:async()=>({
+        ok:true,source_id:'source_unrelated',supplier_id:supplierId
+      })};
+    }
+  });
+  await assert.rejects(
+    sink.persist({interpretation,content,analysis_id:'analysis_gate1',source_id:'source_gate1',supplier_id:supplierId}),
+    error=>String(error?.message||'').includes('EXTCALC_SUPPLIER_BINDING_UNVERIFIED')
+  );
+  assert.deepStrictEqual(calls,['extcalc_bind_source_supplier_v0']);
+}
+proveAdvisorSupplierReceipt().catch(error=>{console.error(error);process.exitCode=1;});
+
