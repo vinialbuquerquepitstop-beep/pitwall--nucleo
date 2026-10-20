@@ -612,7 +612,7 @@ begin
         else 'UNCHANGED'
       end as direction,
       (
-        select pg_catalog.coalesce(
+        select coalesce(
           pg_catalog.jsonb_agg(
             pg_catalog.jsonb_build_object(
               'amount_minor', p.amount_minor,
@@ -705,7 +705,7 @@ begin
       'biggest_increase', s.biggest_increase
     ),
     'suppliers', (
-      select pg_catalog.coalesce(
+      select coalesce(
         pg_catalog.jsonb_agg(j.item order by j.current_rank asc),
         '[]'::jsonb
       )
