@@ -48,7 +48,7 @@ const COLOR_TEXT_ALIASES=[
  ['CINZA ESPACIAL','Cinza espacial'],['SPACE GRAY','Cinza espacial'],['SPACEGRAY','Cinza espacial'],
  ['ROSE GOLD','Rose Gold'],['ROSEGOLD','Rose Gold'],['MEIA NOITE','Meia-noite'],['MEIA-NOITE','Meia-noite'],
  ['STARLIGHT','Starlight'],['MIDNIGHT','Meia-noite'],['GRAFITE','Grafite'],['GRAPHITE','Grafite'],
- ['TEAL','Teal'],['NATURAL','Natural'],['SILVER','Prata'],['PRATA','Prata'],['BRANCO','Branco'],['WHITE','Branco'],
+ ['TEAL','Teal'],['BORDÔ','Bordô'],['BORDO','Bordô'],['LARANJA','Laranja'],['ORANGE','Laranja'],['NATURAL','Natural'],['SILVER','Prata'],['PRATA','Prata'],['BRANCO','Branco'],['WHITE','Branco'],
  ['PRETO','Preto'],['BLACK','Preto'],['AZUL','Azul'],['BLUE','Azul'],['ROXO','Roxo'],['PURPLE','Roxo'],
  ['LILÁS','Lilás'],['LILAS','Lilás'],['VERMELHO','Vermelho'],['RED','Vermelho'],['VERDE','Verde'],
  ['GREEN','Verde'],['ROSA','Rosa'],['PINK','Rosa'],['AMARELO','Gold'],['YELLOW','Gold'],
@@ -57,7 +57,7 @@ const COLOR_TEXT_ALIASES=[
 ];
 
 const COLOR_EMOJI_ALIASES=[
- ['🩵','Teal'],['⚫','Preto'],['⚪','Branco'],['🔵','Azul'],['🟣','Roxo'],['🟡','Gold'],['🟢','Verde'],
+ ['🩵','Teal'],['🟠','Laranja'],['⚫','Preto'],['⚪','Branco'],['🔵','Azul'],['🟣','Roxo'],['🟡','Gold'],['🟢','Verde'],
  ['🔴','Vermelho'],['🩷','Rosa'],['💛','Gold'],['🌹','Rosa'],['🔘','Natural'],['🩶','Cinza']
 ];
 
@@ -129,8 +129,9 @@ function cleanCompositeColor(value){
 
 function extractColorTokens(raw){
  const line=String(raw??'').normalize('NFKC').replace(/(?:💰|💵).*$/u,' ');
- const explicitAlternative=/[\/|]/u.test(line);
- const parts=explicitAlternative?line.split(/[\/|]/u):[line];
+ const plusMeansAlternatives=/\s\+\s/u.test(line)&&/(?:\bcada\b|\bpor\s+cor\b|\bmesmo\s+valor\b)/iu.test(line);
+ const explicitAlternative=/[\/|]/u.test(line)||plusMeansAlternatives;
+ const parts=explicitAlternative?line.split(plusMeansAlternatives?/[\/|+]/u:/[\/|]/u):[line];
  const all=[];
 
  for(const part of parts){
