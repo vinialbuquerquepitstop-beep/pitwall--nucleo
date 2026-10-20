@@ -423,6 +423,26 @@ function makeSystem(source = makeAuthoritySource()) {
     assert.strictEqual(calls[0].init.headers.authorization, 'Bearer jwt-fixture');
   });
 
+  await check('cotacao bloqueada por C01 quarantined via RPC, sem fallback ao REST da tabela', async () => {
+    const endpoints=[];
+    const source=createPostgresAuthoritySource({
+      supabaseUrl:'https://example.supabase.co',
+      anonKey:'anon-fixture',accessToken:'jwt-fixture',
+      fetchImpl:async(url,init)=>{
+        endpoints.push(url);
+        assert.ok(url.includes('/rest/v1/rpc/extcalc_product_authoritative_c01_v0'));
+        assert.strictEqual(init.method,'POST');
+        return new Response(JSON.stringify({message:'EXTCALC_ANALYSIS_QUARANTINED'}),
+          {status:403,headers:{'content-type':'application/json'}});
+      }
+    });
+    await assert.rejects(
+      ()=>source.loadC01({tenant_id:TENANT,...command()}),
+      e=>e.code==='EXTCALC_ANALYSIS_QUARANTINED'
+    );
+    assert.strictEqual(endpoints.length,1,'quarantine must never fall back to table');
+  });
+
   await check('C02 vem de calc_dados e C03-C04 permanecem server-side', async () => {
     let calcCalls = 0;
     const source = createPostgresAuthoritySource({
