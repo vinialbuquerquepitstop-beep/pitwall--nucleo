@@ -37,6 +37,26 @@ function hasFieldSourceEvidence(candidate,field){
     .map(item=>[item.line_number,item.raw]));
   return linked.every(number=>Number.isSafeInteger(number)&&number>0&&lines.has(number));
 }
+
+// A source line that declares a new product between the traced model and
+// price invalidates inherited model context. Do not auto-promote a stale model.
+// This is a lineage safety check, not another product resolver.
+function hasInterveningProductHeader(candidate){
+  const refs=candidate?.review_evidence?.field_sources||{};
+  const modelRefs=refs.model;
+  const priceRefs=refs.price;
+  if(!Array.isArray(modelRefs)||!modelRefs.length||!Array.isArray(priceRefs)||!priceRefs.length)return false;
+  const modelLine=Math.max(...modelRefs.filter(Number.isSafeInteger));
+  const priceLine=Math.min(...priceRefs.filter(Number.isSafeInteger));
+  if(!Number.isFinite(modelLine)||!Number.isFinite(priceLine)||priceLine<=modelLine)return false;
+  const lines=candidate?.review_evidence?.source_lines||[];
+  if(!Array.isArray(lines))return false;
+  const productHeader=/\b(?:(?:iphone\s*)?1[3-9]e?\s*(?:pro\s*max|pro|plus|air|normal|padr[aã]o)?\s*(?:\d{2,4}\s*(?:GB|TB)|1\s*TB)|(?:macbook|ipad|airpods|apple watch|watch se|forerunner|vivoactive|f[eê]nix)\b)/i;
+  return lines.some(line=>
+    Number.isSafeInteger(line?.line_number)&&line.line_number>modelLine&&line.line_number<=priceLine&&
+    productHeader.test(String(line?.raw||'')));
+}
+
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];
   if(context.supplierVerified!==true)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
@@ -49,6 +69,7 @@ function evaluateAutoPromotion(candidate,context={}){
   if(!Number.isSafeInteger(offer.price?.amount_minor)||offer.price.amount_minor<=0||offer.price.currency!=='BRL')reasons.push('PRICE_INVALID');
   if(hasCapacityToken(offer.model?.label)&&!Number.isInteger(offer.capacity_gb))reasons.push('CAPACITY_EXPECTED_BUT_MISSING');
   if(!hasFieldSourceEvidence(candidate,'model'))reasons.push('MODEL_SOURCE_UNVERIFIED');
+  if(hasInterveningProductHeader(candidate))reasons.push('MODEL_CONTEXT_CROSSES_PRODUCT_HEADER');
   if(!hasFieldSourceEvidence(candidate,'price'))reasons.push('PRICE_SOURCE_UNVERIFIED');
   else if(!linkedPriceHasExactAmount(candidate))reasons.push('PRICE_SOURCE_AMOUNT_UNVERIFIED');
 
