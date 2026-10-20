@@ -26,6 +26,7 @@ DECLARE
   home_count bigint;
   receipt jsonb;
   error_message text;
+  c01_result jsonb;
 BEGIN
   PERFORM set_config('test.user_id',actor::text,false);
   PERFORM set_config('test.tenant_id',tenant::text,false);
@@ -78,6 +79,11 @@ BEGIN
   IF current_count<>63 THEN RAISE EXCEPTION 'BEFORE EXPECTED 63, GOT %',current_count; END IF;
   SELECT count(*) INTO home_count FROM public.extcalc_product_home_context_v1();
   IF home_count<>63 THEN RAISE EXCEPTION 'HOME BEFORE EXPECTED 63, GOT %',home_count; END IF;
+  c01_result:=public.extcalc_product_authoritative_c01_v0('analysis_incident','off_1',1);
+  IF c01_result IS NULL OR c01_result->>'analysis_id' IS DISTINCT FROM 'analysis_incident' THEN
+    RAISE EXCEPTION 'QUOTE C01 GATEWAY REJECTED CLEAN OFFER';
+  END IF;
+
 
   -- Tenant+role permissions, guard against wrong expected counts and no events on failure.
   PERFORM set_config('test.user_id','',false);
@@ -151,6 +157,25 @@ BEGIN
     RAISE EXCEPTION 'REVISION DELETE NOT BLOCKED: %',error_message;
   END IF;
 
+  error_message:=null;
+  BEGIN
+    PERFORM public.extcalc_product_authoritative_c01_v0('analysis_incident','off_1',1);
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS error_message=MESSAGE_TEXT;
+  END;
+  IF error_message IS DISTINCT FROM 'EXTCALC_ANALYSIS_QUARANTINED' THEN
+    RAISE EXCEPTION 'DIRECT QUOTE C01 NOT BLOCKED: %',error_message;
+  END IF;
+  c01_result:=public.extcalc_product_authoritative_c01_v0('analysis_other','safe_1',1);
+  IF c01_result IS NULL OR c01_result->>'analysis_id' IS DISTINCT FROM 'analysis_other' THEN
+    RAISE EXCEPTION 'UNRELATED QUOTE INCORRECTLY BLOCKED';
+  END IF;
+  IF has_function_privilege('anon',
+       'public.extcalc_product_authoritative_c01_v0(text,text,integer)','EXECUTE')
+      OR NOT has_function_privilege('authenticated',
+       'public.extcalc_product_authoritative_c01_v0(text,text,integer)','EXECUTE') THEN
+    RAISE EXCEPTION 'QUOTE GATEWAY UNSAFE ACL';
+  END IF;
   IF (SELECT count(*) FROM privado.extcalc_analysis_quarantine_event_v0)<>1 THEN
     RAISE EXCEPTION 'IDEMPOTENT RETRY CREATED EXTRA EVENT';
   END IF;
@@ -185,6 +210,8 @@ BEGIN
   IF (SELECT count(*) FROM privado.extcalc_analysis_quarantine_event_v0)<>2 THEN
     RAISE EXCEPTION 'AUDIT EVENT HISTORY NOT PRESERVED';
   END IF;
+  c01_result:=public.extcalc_product_authoritative_c01_v0('analysis_incident','off_1',1);
+  IF c01_result IS NULL THEN RAISE EXCEPTION 'QUOTE C01 NOT RESTORED AFTER REVOKE'; END IF;
   IF (SELECT count(*) FROM public.extcalc_review_candidate)<>25 THEN
     RAISE EXCEPTION 'CANDIDATE HISTORY MODIFIED';
   END IF;
