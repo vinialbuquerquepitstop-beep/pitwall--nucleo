@@ -1,4 +1,5 @@
 -- PostgreSQL 17 EPHEMERAL ONLY. Run after prova_gate1_db_guard_pg_setup_v0.sql
+ALTER TABLE public.extcalc_offer_revision ADD COLUMN criado_em timestamptz NOT NULL DEFAULT now();
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 -- Production return signature is deliberately NOT emulated in full.
