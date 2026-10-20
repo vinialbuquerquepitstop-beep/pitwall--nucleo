@@ -13,7 +13,7 @@ const api=createStoreRateQuoteApiV0({
  assert.strictEqual((await unauth.handle({method:'POST',path:QUOTE_PATH,body:'{}'})).status,401);
  const forbidden=createStoreRateQuoteApiV0({authenticate:async()=>({subject:'seller',can_execute_external_calc:false}),resolver:{resolveQuote(){throw new Error('never');}}});
  assert.strictEqual((await forbidden.handle({method:'POST',path:QUOTE_PATH,body:'{}'})).status,403);
- for(const [code,status] of [['RATE_PROFILE_NOT_CONFIGURED',422],['INSTALLMENT_RATE_NOT_CONFIGURED',422],['RATE_PROFILE_CONFLICT',409],['QUOTE_RECALCULATION_REQUIRED',409],['RATE_PROFILE_INVALID',400]]){
+ for(const [code,status] of [['RATE_PROFILE_NOT_CONFIGURED',422],['INSTALLMENT_RATE_NOT_CONFIGURED',422],['RATE_PROFILE_CONFLICT',409],['QUOTE_RECALCULATION_REQUIRED',409],['EXTCALC_ANALYSIS_QUARANTINED',409],['RATE_PROFILE_INVALID',400]]){
   const x=createStoreRateQuoteApiV0({authenticate:async()=>({subject:'u',can_execute_external_calc:true}),resolver:{async resolveQuote(){const e=new Error(code);e.code=code;throw e;}}});
   assert.strictEqual((await x.handle({method:'POST',path:QUOTE_PATH,body:'{}'})).status,status);
  }
