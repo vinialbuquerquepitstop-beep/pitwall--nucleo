@@ -158,7 +158,7 @@ begin
       WHERE quarantine.tenant_id=r.tenant_id AND quarantine.analysis_id=r.analysis_id
         AND quarantine.active);
 end;
-$function$
+$function$;
 
 -- Actual live function extcalc_product_home_context_v1, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_product_home_context_v1()
@@ -200,7 +200,7 @@ begin
       WHERE quarantine.tenant_id=r.tenant_id AND quarantine.analysis_id=r.analysis_id
         AND quarantine.active);
 end;
-$function$
+$function$;
 
 -- Actual live function extcalc_movement_feed_v0, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_movement_feed_v0(p_days integer DEFAULT 7)
@@ -436,7 +436,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 -- Actual live function extcalc_supplier_price_history_v0, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_supplier_price_history_v0(p_model_id text, p_days integer DEFAULT 7, p_capacity_gb integer DEFAULT NULL::integer, p_color text DEFAULT NULL::text, p_condition text DEFAULT NULL::text)
@@ -650,7 +650,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 -- Actual live function extcalc_product_source_execution_v0, amended by one quarantine guard.
 CREATE OR REPLACE FUNCTION public.extcalc_product_source_execution_v0(p_analysis_id text, p_offer_id text, p_offer_revision integer)
@@ -708,5 +708,4 @@ begin
 
   return v_result;
 end;
-$function$
-
+$function$;
