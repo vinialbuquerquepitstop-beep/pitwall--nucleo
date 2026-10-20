@@ -39,6 +39,13 @@ assert.equal(advisor.partition.review.length,0,'Advisor baseline should need no 
 cases.push({kind:'ADVISOR',source_id:'source_bridge_advisor',
   candidate:advisor.partition.auto[0].candidate,promoted:advisor.partition.auto[0].promoted});
 function q(s){return "'"+String(s).replace(/'/g,"''")+"'";}
+// PostgreSQL claims are connection-local: each psql invocation starts fresh.
+// This is an isolated test role; these synthetic values never exist in Supabase.
+process.stdout.write(
+  "SELECT set_config('test.user_id','11111111-1111-4111-8111-111111111111',false);\\n".replace('\\\\n','\\n')+
+  "SELECT set_config('test.tenant_id',"+q(tenant)+",false);\\n".replace('\\\\n','\\n')+
+  "SELECT set_config('test.papel','dono',false);\\n".replace('\\\\n','\\n')
+);
 for(const item of cases){
   const c=item.candidate,p=item.promoted;
   assert.equal(c.contract_version,'external-calc-c01-readonly/v1');
