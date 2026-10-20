@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { buildKnowledgeIndex, resolveEntityCandidate } = require('../../interpreter-core/v1/core');
 const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.knowledge.json');
 const { partitionCandidates } = require('../../external-calc-list-intake/v0/auto-promotion-authority');
+const { exactBRLAmountInText } = require('../../external-calc-list-intake/v0/source-price-evidence');
 
 const CONTRACT_VERSION = 'external-calc-c01-readonly/v1';
 const ENGINE_VERSION = 'external-calc-list-advisor/v0';
@@ -73,14 +74,7 @@ function makeTrace(offer, lines) {
   return trace;
 }
 function excerptContainsPrice(excerpt, amountMinor) {
-  if(!Number.isSafeInteger(amountMinor)||amountMinor<=0)return false;
-  const reais=Math.floor(amountMinor/100);
-  const cents=String(amountMinor%100).padStart(2,'0');
-  const whole=String(reais);
-  const grouped=whole.replace(/\B(?=(\d{3})+(?!\d))/g,'[.,]');
-  const variants=[whole,grouped].filter((item,index,array)=>array.indexOf(item)===index);
-  const expression=new RegExp('(?<![\\d.,])(?:'+variants.join('|')+')(?:[.,]'+cents+')?(?![\\d.,])','u');
-  return expression.test(String(excerpt||''));
+  return exactBRLAmountInText(excerpt,amountMinor);
 }
 function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id}) {
   if(!interpretation||interpretation.contract_version!=='external-calc-list-advisor/v0') throw new Error('List Advisor interpretation v0 obrigatoria');
