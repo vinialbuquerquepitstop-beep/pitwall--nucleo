@@ -1,11 +1,6 @@
--- DRAFT / GATE HUMANO OBRIGATORIO / NAO APLICAR EM PRODUCAO.
--- Fonte: pg_get_functiondef do projeto Supabase External Calc, inspecionada em 20/10/2026.
--- Gate 1: apenas proposta de hardening da RPC de auto-promocao C01.
--- Precisa de staging isolado, testes com Auth real, validacao de idempotencia,
--- e criacao de migration formal via Supabase CLI antes de qualquer deploy.
--- Esta camada confere integridade de vinculo/candidato, NAO atesta veracidade
--- do texto bruto (o candidate_snapshot ainda e produzido pelo backend).
--- Nao substitui a adjudicacao do corpus privado ou gate operacional.
+-- DRAFT ONLY. DO NOT DEPLOY TO PRODUCTION. AUTHENTICATED STAGING REQUIRED.
+-- Complete function sourced from read-only pg_get_functiondef on 2026-10-20.
+-- Matching a candidate snapshot is NOT independent verification of source truth.
 
 CREATE OR REPLACE FUNCTION public.extcalc_persist_auto_promoted_c01_v0(p_promoted jsonb)
  RETURNS jsonb
@@ -70,29 +65,25 @@ begin
   end if;
 
 
-  -- Gate 1 DB AUTHORITY: source binding is mandatory, not a caller assertion.
+  -- Authority: check tenant-bound source and previously persisted review candidate.
   select ss.supplier_id into v_bound_supplier
   from public.extcalc_source_supplier ss
-  where ss.tenant_id = v_tenant and ss.source_id = v_source_id;
+  where ss.tenant_id=v_tenant and ss.source_id=v_source_id;
   if not found then
     raise exception 'EXTCALC_AUTO_PROMOTION_SOURCE_UNBOUND';
   end if;
 
-  -- A previously persisted C01 review candidate must match this promotion.
   select c.candidate_snapshot into v_candidate
   from public.extcalc_review_candidate c
-  where c.tenant_id = v_tenant
-    and c.analysis_id = v_analysis_id
-    and c.offer_id = v_offer_id
-    and c.offer_revision = v_offer_revision;
+  where c.tenant_id=v_tenant and c.analysis_id=v_analysis_id
+    and c.offer_id=v_offer_id and c.offer_revision=v_offer_revision;
   if not found then
     raise exception 'EXTCALC_AUTO_PROMOTION_CANDIDATE_MISSING';
   end if;
 
   select o.source_id into v_candidate_source
   from public.extcalc_offer o
-  where o.tenant_id = v_tenant and o.analysis_id = v_analysis_id
-    and o.offer_id = v_offer_id;
+  where o.tenant_id=v_tenant and o.analysis_id=v_analysis_id and o.offer_id=v_offer_id;
   if v_candidate_source is distinct from v_source_id then
     raise exception 'EXTCALC_AUTO_PROMOTION_SOURCE_CONFLICT';
   end if;
@@ -109,83 +100,35 @@ begin
      or v_candidate->>'offer_identity_fingerprint' is distinct from v_identity_fp
      or v_candidate->>'offer_value_fingerprint' is distinct from v_value_fp
      or v_candidate->>'interpretation_run_id' is distinct from p_promoted->>'interpretation_run_id'
-     or p_promoted->>'stage' is distinct from 'READY'
-  then
+     or p_promoted->>'stage' is distinct from 'READY' then
     raise exception 'EXTCALC_AUTO_PROMOTION_CANDIDATE_MISMATCH';
   end if;
 
-  -- When Advisor carries a UUID supplier identity, it must match bound source.
+  -- A supplied supplier UUID must match the authoritative source binding.
   if p_promoted#>>'{interpreted_offer,supplier_id}' ~*
-      '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
-  values(v_tenant,v_analysis_id)
-  on conflict (tenant_id,analysis_id) do nothing;
-
-  insert into public.extcalc_offer(tenant_id,analysis_id,offer_id,source_id)
-  values(v_tenant,v_analysis_id,v_offer_id,v_source_id)
-  on conflict (tenant_id,analysis_id,offer_id) do nothing;
-
-  select source_id into v_existing_source
-  from public.extcalc_offer
-  where tenant_id=v_tenant and analysis_id=v_analysis_id and offer_id=v_offer_id;
-
-  if v_existing_source is distinct from v_source_id then raise exception 'EXTCALC_OFFER_ID_CONFLICT'; end if;
-
-  select c01_snapshot into v_existing
-  from public.extcalc_offer_revision
-  where tenant_id=v_tenant and analysis_id=v_analysis_id
-    and offer_id=v_offer_id and offer_revision=v_offer_revision;
-
-  if found then
-    if v_existing is distinct from p_promoted then raise exception 'EXTCALC_AUTO_PROMOTION_CONFLICT'; end if;
-    return pg_catalog.jsonb_build_object(
-      'ok',true,'analysis_id',v_analysis_id,'offer_id',v_offer_id,
-      'offer_revision',v_offer_revision,'idempotent',true
-    );
-  end if;
-
-  insert into public.extcalc_offer_revision(
-    tenant_id,analysis_id,offer_id,offer_revision,
-    c01_contract_version,c01_snapshot,
-    offer_identity_fingerprint,offer_value_fingerprint,
-    domain_outcome,freshness_status
-  ) values (
-    v_tenant,v_analysis_id,v_offer_id,v_offer_revision,
-    v_contract_version,p_promoted,
-    v_identity_fp,v_value_fp,
-    'VALID','CURRENT'
-  );
-
-  return pg_catalog.jsonb_build_object(
-    'ok',true,'analysis_id',v_analysis_id,'offer_id',v_offer_id,
-    'offer_revision',v_offer_revision,'idempotent',false
-  );
-end;
-$function$
-
-     and (p_promoted#>>'{interpreted_offer,supplier_id}')::uuid is distinct from v_bound_supplier
-  then
+      '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     and (p_promoted#>>'{interpreted_offer,supplier_id}')::uuid
+       is distinct from v_bound_supplier then
     raise exception 'EXTCALC_AUTO_PROMOTION_SUPPLIER_MISMATCH';
   end if;
 
-  -- Field-level provenance: price and model must trace to nonempty actual
-  -- lines carried by the immutable review-candidate snapshot.
+  -- Structural lineage: every model/price field source line must exist and be nonblank.
   for v_field_name in select unnest(array['model','price']) loop
     v_sources := v_candidate#>array['review_evidence','field_sources',v_field_name];
-    if coalesce(pg_catalog.jsonb_typeof(v_sources),'') <> 'array'
-       or pg_catalog.jsonb_array_length(coalesce(v_sources,'[]'::jsonb)) = 0
-    then
+    if coalesce(pg_catalog.jsonb_typeof(v_sources),'') <> 'array' then
+      raise exception 'EXTCALC_AUTO_PROMOTION_SOURCE_EVIDENCE_MISSING';
+    end if;
+    if pg_catalog.jsonb_array_length(v_sources)=0 then
       raise exception 'EXTCALC_AUTO_PROMOTION_SOURCE_EVIDENCE_MISSING';
     end if;
     if exists (
-      select 1
-      from pg_catalog.jsonb_array_elements_text(v_sources) as field_line(value)
+      select 1 from pg_catalog.jsonb_array_elements_text(v_sources) as field_line(value)
       where not exists (
-        select 1
-        from pg_catalog.jsonb_array_elements(
+        select 1 from pg_catalog.jsonb_array_elements(
           coalesce(v_candidate#>'{review_evidence,source_lines}','[]'::jsonb)
         ) as evidence_line(value)
-        where evidence_line.value->>'line_number' = field_line.value
-          and coalesce(pg_catalog.btrim(evidence_line.value->>'raw'),'') <> ''
+        where evidence_line.value->>'line_number'=field_line.value
+          and coalesce(pg_catalog.btrim(evidence_line.value->>'raw'),'')<>''
       )
     ) then
       raise exception 'EXTCALC_AUTO_PROMOTION_SOURCE_EVIDENCE_MISMATCH';
@@ -237,4 +180,3 @@ $function$
   );
 end;
 $function$
-
