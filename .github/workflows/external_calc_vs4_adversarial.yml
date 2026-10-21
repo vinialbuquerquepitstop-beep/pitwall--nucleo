@@ -1,0 +1,41 @@
+name: External Calc VS4 - Adversarial Post Freeze
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-generalization/v0/**'
+      - '.github/workflows/external_calc_vs4_adversarial.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adversarial:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and invariant baseline
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/generate-adversarial.mjs
+          node --check ferramentas/external-calc-generalization/v0/evaluate-adversarial.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs4-calibration.mjs
+      - name: Freeze source then generate and evaluate unknown seed
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/vs4-adversarial"
+          mkdir -p "$DIR"
+          git rev-parse HEAD > "$DIR/frozen_sha.txt"
+          SEED="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('hex'))")"
+          echo "::add-mask::$SEED"
+          node ferramentas/external-calc-generalization/v0/generate-adversarial.mjs --seed "$SEED" --count 48 --output "$DIR"
+          printf '%s\n' "$SEED" > "$DIR/seed_after_execution.txt"
+          node ferramentas/external-calc-generalization/v0/evaluate-adversarial.mjs --corpus "$DIR" --report "$DIR/report.json"
+      - name: Preserve first attempt even if gate fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs4-adversarial-first-attempt
+          path: ${{ runner.temp }}/vs4-adversarial/
+          retention-days: 14
