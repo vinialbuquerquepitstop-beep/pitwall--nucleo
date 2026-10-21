@@ -311,6 +311,64 @@ function expandColorVariants(bundle){
  return bundle;
 }
 
+
+// Wholesaler messages sometimes put "🔒 Lacrados" / "Original, lacrado"
+// after the last price of a model. Accept only explicit nearby evidence in the
+// same product block; never carry a previous condition into another model.
+function attachTrailingExplicitCondition(bundle){
+ const segments=new Map((bundle.segments||[])
+   .filter(s=>Number.isSafeInteger(s?.line_number))
+   .map(s=>[s.line_number,String(s.raw||'')]));
+ const records=bundle.records||[];
+ const modelLines=[...new Set(records.map(r=>traceLine(r,'model'))
+   .filter(Number.isSafeInteger))].sort((a,b)=>a-b);
+ const lastPriceByModel=new Map();
+ for(const record of records){
+   const modelLine=traceLine(record,'model'),priceLine=traceLine(record,'price');
+   if(!Number.isSafeInteger(modelLine)||!Number.isSafeInteger(priceLine))continue;
+   lastPriceByModel.set(modelLine,Math.max(lastPriceByModel.get(modelLine)||0,priceLine));
+ }
+ const matches=[];
+ for(const [modelLine,lastPrice] of lastPriceByModel){
+   const nextModel=modelLines.find(line=>line>modelLine)??Infinity;
+   const end=Math.min(lastPrice+2,nextModel-1);
+   const options=[];
+   for(let line=lastPrice+1;line<=end;line++){
+     const raw=segments.get(line);
+     if(!raw)continue;
+     const token=raw.match(/\b(Lacrados?|CPO|Seminovos?|Usados?|Caixa aberta)\b/iu);
+     if(!token)continue;
+     // A condition note must be brief and product-specific, never a
+     // general commercial notice or a section heading.
+     if(/(?:condi[cç][oõ]es comerciais|pre[cç]os v[aá]lidos|sujeitos? a|individua(l|is)mente)/iu.test(raw))continue;
+     const key=token[1].toLowerCase();
+     const value=key.startsWith('lacrado')?'Lacrado':
+       key.startsWith('seminovo')?'Seminovo':
+       key.startsWith('usado')?'Usado':
+       key==='cpo'?'CPO':'Caixa aberta';
+     options.push({line,value});
+   }
+   const values=[...new Set(options.map(x=>x.value))];
+   if(values.length!==1)continue;
+   matches.push({modelLine,line:options[0].line,value:values[0]});
+ }
+ for(const record of records){
+   if(record?.fields?.condition)continue;
+   const modelLine=traceLine(record,'model');
+   const found=matches.find(x=>x.modelLine===modelLine);
+   if(!found)continue;
+   record.fields.condition=found.value;
+   record.trace=record.trace||[];
+   record.trace.push({
+     field:'condition',chosen:found.value,sources:[found.line],
+     derived_from:[found.line],
+     rules:['list_intake:trailing_explicit_condition_same_model_block'],
+     alternatives:[],score:0.94
+   });
+ }
+ return bundle;
+}
+
 function fallbackModelId(label){
  const slug=String(label)
    .normalize('NFD')
@@ -459,7 +517,7 @@ function buildQueue(body){
  const identityHash=body.supplier_id?crypto.createHash('sha256').update(hash+'|supplier:'+body.supplier_id).digest('hex'):hash;
  const analysis_id='analysis_'+identityHash.slice(0,24);
  const source_id='source_'+identityHash.slice(0,24);
- const bundle=refineInterpreterDiagnostics(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}))));
+ const bundle=refineInterpreterDiagnostics(attachTrailingExplicitCondition(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null})))));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }
