@@ -6,6 +6,7 @@ on:
       - 'docs/external-calc/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1.md'
       - 'docs/external-calc/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53D_TRUSTED_SOURCE_CONTRACT_V0.md'
+      - 'docs/external-calc/EXTERNAL_CALC_VS53E_STAGING_ORIGINAL_SOURCE_PROPOSAL_V0.md'
       - 'ferramentas/external-calc-generalization/v0/**'
       - '.github/workflows/external_calc_generalization_method_v0.yml'
   workflow_dispatch:
