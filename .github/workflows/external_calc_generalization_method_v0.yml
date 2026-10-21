@@ -10,6 +10,7 @@ on:
       - 'docs/external-calc/EXTERNAL_CALC_VS53F_ORIGINAL_BYTES_PROOF_V0.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53G_STAGING_RLS_READONLY_MATRIX_V0.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53H_STAGING_GET_GUARD_V0.md'
+      - 'docs/external-calc/EXTERNAL_CALC_VS53I_POSTGRES_STAGING_CANDIDATE_V0.md'
       - 'ferramentas/external-calc-generalization/v0/**'
       - '.github/workflows/external_calc_generalization_method_v0.yml'
   workflow_dispatch:
@@ -91,6 +92,10 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/guarded-staging-read-transport.cjs
           node --check ferramentas/external-calc-generalization/v0/proof-vs53h.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs53h.mjs
+      - name: VS5.3i staging source DDL candidate static review (never execute SQL)
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/proof-vs53i.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53i.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
