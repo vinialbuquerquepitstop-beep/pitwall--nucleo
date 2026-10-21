@@ -461,8 +461,16 @@ function refineInterpreterDiagnostics(bundle){
 
  const suppressedAmbiguities=[];
  bundle.ambiguities=(bundle.ambiguities||[]).filter(item=>{
-   if(item?.cause!=='structural_role_unknown')return true;
    const sources=(item.sources||[]).filter(Number.isSafeInteger);
+   // Standalone commercial contact phone lines are metadata, not offers.
+   // Do not suppress arbitrary missing-model/price ambiguities.
+   if(item?.cause==='required_field_missing'&&sources.length>0&&
+      sources.every(line=>/^📲\s*\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}\s*$/u
+        .test(normalizedDiagnosticLine(segmentByLine.get(line)?.raw)))){
+     suppressedAmbiguities.push(item);
+     return false;
+   }
+   if(item?.cause!=='structural_role_unknown')return true;
    const used=sources.length>0&&sources.every(line=>usedLines.has(line));
    const metadata=sources.length>0&&sources.every(line=>isKnownNonCommercialLine(segmentByLine.get(line)?.raw));
    if(used||metadata){suppressedAmbiguities.push(item);return false;}
