@@ -141,6 +141,27 @@ try{
      assert(output.proposals.every(p=>['model','color','price','condition']
       .every(k=>p.source_spans[k]?.length)),'no unproven fields');
      console.log('VS2_DEV_ORACLE='+JSON.stringify({seed,...m}));
+     if(m.missing||m.unexpected){
+       const expectedByBlock=new Map();
+       for(const offer of x.oracle.offers){
+         if(!expectedByBlock.has(offer.block_id))expectedByBlock.set(offer.block_id,[]);
+         expectedByBlock.get(offer.block_id).push(offer);
+       }
+       for(let i=0;i<output.block_count;i++){
+         const key='block_'+String(i+1).padStart(3,'0');
+         const expect=expectedByBlock.get(key)||[];
+         const actual=output.proposals.filter(o=>o.block_id==='shadow-block-'+String(i+1).padStart(3,'0'));
+         const normalize=a=>JSON.stringify([a.model,a.capacity_gb,a.color,a.condition,a.price_minor]);
+         const expSig=expect.map(normalize).sort(),actSig=actual.map(normalize).sort();
+         if(JSON.stringify(expSig)!==JSON.stringify(actSig)){
+           console.log('VS2_DEV_MISMATCH='+JSON.stringify({seed,block:key,
+             expected:expect.map(o=>({model:o.model,color:o.color,condition:o.condition,price:o.price_minor,lineage:o.lineage})),
+             actual:actual.map(o=>({model:o.model,color:o.color,condition:o.condition,price:o.price_minor,source_spans:o.source_spans})),
+             abstentions:output.abstentions.filter(o=>o.block_id==='shadow-block-'+String(i+1).padStart(3,'0'))
+           }));
+         }
+       }
+     }
    }
  });
  console.log('EXTERNAL_CALC_VS2_ASSOCIATION_SHADOW=PASS checks='+checked);
