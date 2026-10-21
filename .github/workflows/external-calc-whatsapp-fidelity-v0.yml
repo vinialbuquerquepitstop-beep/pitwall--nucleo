@@ -1,0 +1,23 @@
+name: External Calc Gate 1 - WhatsApp Fidelity
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-list-intake/v0/supplier-device-v0.schema.json'
+      - 'ferramentas/external-calc-list-intake/v0/list-intake-api.js'
+      - 'ferramentas/external-calc-list-intake/v0/auto-promotion-authority.js'
+      - 'ferramentas/external-calc-list-intake/v0/fixtures/golden-whatsapp-vertice-58-v0.txt'
+      - 'ferramentas/external-calc-list-intake/v0/prova_whatsapp_vertice_58_v0.js'
+      - '.github/workflows/external-calc-whatsapp-fidelity-v0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate read-only 58-offer synthetic WhatsApp golden
+        run: node ferramentas/external-calc-list-intake/v0/prova_whatsapp_vertice_58_v0.js
