@@ -33,6 +33,13 @@ jobs:
           node ferramentas/external-calc-generalization/v0/compare-vs2.mjs --oracle "$DIR/oracle.json" --shadow "$DIR/associations.json" --report "$DIR/challenge_report.json"
           node ferramentas/external-calc-generalization/v0/run-review-shadow.mjs --source "$DIR/supplier.txt" --report "$DIR/review.json"
           node ferramentas/external-calc-generalization/v0/evaluate-vs4.mjs --oracle "$DIR/oracle.json" --association "$DIR/associations.json" --review "$DIR/review.json" --report "$DIR/vs4_metrics.json"
+          # Independent adversarial expectations: unsafe cases and legitimate
+          # cases mixed, with a second random seed created after source freeze.
+          ADV_SEED="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('hex'))")"
+          echo "::add-mask::$ADV_SEED"
+          node ferramentas/external-calc-generalization/v0/generate-adversarial.mjs --seed "$ADV_SEED" --count 48 --output "$DIR/adversarial"
+          printf '%s\n' "$ADV_SEED" > "$DIR/adversarial/replay_seed_after_first_run.txt"
+          node ferramentas/external-calc-generalization/v0/evaluate-adversarial.mjs --corpus "$DIR/adversarial" --report "$DIR/adversarial/report.json"
       - name: Preserve first-attempt source and report even on gate failure
         if: always()
         uses: actions/upload-artifact@v4
