@@ -1,6 +1,6 @@
 # External Calc — VS5.3d / Origem imutável de listas
 
-**Data:** 21/10/2026. **Status:** contrato e validação isolados; banco real e RLS ainda não homologados.
+**Data:** 21/10/2026. **Status:** VS53D_STATIC_AND_STUB_PASS (CI GitHub, head `fbbc74e616f4664ebec255779b9ba39ac7b6c283`); banco real e RLS **BLOCKED / NOT_RUN**.
 
 ## Evidência do repositório
 
@@ -35,7 +35,7 @@ Antes de criar schema e publicar qualquer endpoint:
 
 ## Decisão
 
-`VS53D_CONTRACT_TESTS`: sujeito ao CI.
+`VS53D_CONTRACT_TESTS`: **PASS 8/8**, execução GitHub Actions `39641866072`, job `synthetic-oracle` `119367189878`; ownership `GENERALIZATION_OWNERSHIP=PASS paths=25 deny=4`. Esta evidência é de testes in-memory + integração HTTP-shaped isolada, **não é** prova de acesso a Supabase real.
 
 `VS53D_STORAGE_PERSISTENCE`: NOT_IMPLEMENTED.
 
@@ -44,3 +44,16 @@ Antes de criar schema e publicar qualquer endpoint:
 `GATE1_PRODUCTION`: NO_GO.
 
 Próximo slice: escolher storage canônico e demonstrar RLS real **sob autorização explícita e ambiente isolado**. Não abrir uma migração de produção como substituto dessa prova.
+
+## Escopo exato de integridade e ameaça residual
+
+- `content_sha256` atualmente verifica o SHA-256 do **texto fornecido pelo repository após codificação UTF-8 em Node**. Não comprova por si só que os bytes originais do upload foram capturados sem normalização, substituição de caracteres ou mudança de encoding. A futura fonte deve capturar bytes na ingestão, guardar o digest desses bytes e rejeitar decodificação inválida; se a entrada for texto colado, definir explicitamente o ponto de conversão única para UTF-8 sem transformação implícita.
+- O retorno `APPEND_ONLY` é um valor declarado no registro; não impede fisicamente UPDATE/DELETE por grants, triggers, funções privilegiadas ou conta com bypass RLS. Não classificar como imutável real antes de inspecionar ACL, políticas, caminho único de ingestão, trilha de auditoria e tentativas reais de alteração.
+- A função `repository.loadTenantOriginalSource` continua uma porta de confiança **não implementada**. O stub nega tenant/ator incorretos, mas uma implementação real deverá validar `auth.uid()`, papel permitido e tenant server-side, com RLS ativa e consulta parametrizada, sem confiar em qualquer campo do cliente.
+- O tamanho de `content` não é limitado pelo resolver experimental. Bloquear integração real até fixar e testar limite de bytes, tamanho do resultado, timeouts e contagem de subrequests (incidente operacional em 20/10).
+- Status de exclusão/revogação (`QUARANTINED`, `REVOKED`, `DELETED`) deve falhar fechado. Retenção e descarte sob exigência legal devem usar procedimento auditável, sem reclassificar fonte derivada como original.
+- Não demonstrado: contenção das 24 revisões produtivas potencialmente contaminadas; manter gate separado #178–#180 e **não importar** novos catálogos comerciais no frontend antigo.
+
+## Critério de passagem do próximo gate
+
+Uma **proposta** de armazenamento tenant-scoped pode ser preparada sem tocar produção, mas o gate de `REAL_SOURCE_RLS` exige projeto staging **identificado e expressamente autorizado**, credenciais de teste A/B para tenants distintos, tabela/bucket com captura original verificada, política instalada (não apenas migração no Git), autenticação `authenticated` e testes positivos/negativos de leitura, adulteração, revogação e isolamento. Toda alteração DDL fica fora de escopo até autorização humana explícita.
