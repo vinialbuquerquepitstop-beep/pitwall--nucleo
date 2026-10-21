@@ -39,6 +39,8 @@ Artefatos:
 ## Evidência atual
 Provas prévias: VS5.3d 8/8 stub; VS5.3f 12/12 stub; VS5.3g 12/12 simulado; VS5.3h 15/15 HTTP mock; VS5.3i é **apenas revisão estrutural estática**. Não há PostgreSQL local instalado no runner da sessão e nenhum staging autorizado foi identificado. Listagem de branches Supabase do projeto produtivo foi negada por permissão; não se tratou isso como confirmação de ambiente.
 
-**Estados:** VS53I_SQL_DRAFT=READY_FOR_STATIC_CI; REAL_STORAGE=NOT_IMPLEMENTED; REAL_RLS=NOT_RUN; C01_RELEASE=NO_GO.
+**CI verificado:** PR #199 (DRAFT), commit fb18892ca0b8bc3d5e188aa3725e908e8e22fd4a. GitHub Actions generalization run 39685560505 / job 119518600686: SQL candidate static 6/6 PASS, ownership 30 paths deny=4; demais cinco workflows PASS (seis no total). Prova restrita à estrutura textual do SQL, não à execução de DDL, não à sintaxe efetiva do PostgreSQL, não a JWT/RLS real.
+
+**Estados:** VS53I_SQL_DRAFT=CI_PASS_STATIC_ONLY; REAL_STORAGE=NOT_IMPLEMENTED; REAL_RLS=NOT_RUN; C01_RELEASE=NO_GO.
 
 O próximo passo depois da aprovação **não é nova simulação**: é executar SQL e JWT A/B contra o staging explícito, registrando uma prova externa verificável.
