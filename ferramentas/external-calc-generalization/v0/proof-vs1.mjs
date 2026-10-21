@@ -76,6 +76,27 @@ try{
    const result=checkBlockAgainstOracle(x.source,x.oracle);
    console.log('VS1_SAMPLE_B products='+result.product_blocks.length+' offers_in_oracle='+x.oracle.offer_count);
  });
+ ok('unmarked typed models and explicit model labels remain segmentable',()=>{
+   const source=[
+     '📚 Peças e eletrônicos especiais',
+     'QuantaX Pro 512GB',
+     '📋 Condição: Lacrado',
+     '🎨 Bronze',
+     '💰 R$ 4.100,00',
+     'Modelo: LumoBook Edition',
+     '📋 Condição: Caixa aberta',
+     '🎨 Cinza',
+     '💵 R$ 3.500,00',
+     '📦 FIM DA LISTA'
+   ].join('\n');
+   const out=segmentCanonical(document(source));
+   assert.equal(out.product_blocks.length,2);
+   assert.deepEqual(out.product_blocks.map(b=>b.model_span.text),['QuantaX Pro 512GB','LumoBook Edition']);
+   assert.deepEqual(out.product_blocks.map(b=>b.model_span.line),[2,6]);
+   assert(out.product_blocks[0].members.some(m=>m.role==='price'));
+   assert(out.product_blocks[1].members.some(m=>m.role==='price'));
+   assert.deepEqual(out.offers,[]);
+ });
  ok('no price inheritance across product anchors',()=>{
    const input=[
      '📚 Categoria Fictícia',
