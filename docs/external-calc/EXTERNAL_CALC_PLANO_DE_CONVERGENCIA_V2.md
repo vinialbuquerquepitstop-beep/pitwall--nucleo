@@ -1,3 +1,5 @@
+> **Contexto histórico:** este é o plano V2 (15/10). A nova decisão de 20/10, iniciada como proposta versionada, está em `EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO.md`. Para o Gate de interpretação, **V3 prevalece após integração**, enquanto este V2 preserva o histórico e obrigações de segurança/E2E. Não considerar fornecedores já usados como holdout inédito; não declarar generalização a partir de golden treinado.
+
 # EXTERNAL CALC — PLANO DE CONVERGÊNCIA OPERACIONAL V2
 
 ## Decisão
