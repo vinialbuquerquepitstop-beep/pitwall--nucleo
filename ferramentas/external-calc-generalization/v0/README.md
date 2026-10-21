@@ -36,3 +36,19 @@ node ferramentas/external-calc-generalization/v0/compare.mjs --oracle /tmp/extca
 - O conjunto de produtos é artificial mas usa formas de modelos reconhecíveis. Uma seed nova não torna a família linguística verdadeiramente desconhecida: documentar isso explicitamente.
 - Zero erro material silencioso no corpus sintético é necessário, mas não suficiente para liberar operação externa.
 - `--output` não deve apontar para caminho versionado; os arquivos são derivados.
+
+
+## VS1 — segmentação estrutural read-only
+
+A etapa VS1 **não calcula ofertas**; ela devolve hipóteses de blocos e os papéis de cada linha a partir de `CanonicalDocument V1`.
+
+```bash
+node ferramentas/external-calc-generalization/v0/proof-vs1.mjs
+node ferramentas/external-calc-generalization/v0/run-segmentation-shadow.mjs \
+  --source /tmp/extcalc-dev-001/supplier.txt \
+  --report /tmp/extcalc-dev-001/structural.json
+```
+
+O `structural.json` contém `sections`, `product_blocks`, `members`, `unassigned`, `source_ref`, `summary` e `offers: []`. Ele pode ser auditado por humanos **sem risco de alterar preços operacionais**. Contagem de blocos `PASS` não implica fidelidade de atributos ou aprovação do C01.
+
+Este módulo é experimental e usa apenas indicadores estruturais de texto, **não um léxico privado de fornecedores**. Para outras tipologias, a ausência de âncora suficiente resulta em linha não atribuída, não em produto inventado. A integração ao C01 aguarda VS2 e gate humano sobre o Core V1 congelado.
