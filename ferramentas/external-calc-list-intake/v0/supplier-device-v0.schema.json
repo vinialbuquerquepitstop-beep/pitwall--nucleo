@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "supplier-device-v0",
-  "schema_version": "0.2.0",
+  "schema_version": "0.2.1",
   "entity_type": "offer",
   "description": "Schema generico de entrada de listas de dispositivos. Identidade canonica/fallback e finalizada pelo adapter de intake antes de C01.",
   "fields": [
@@ -31,7 +31,7 @@
       "extractors": [
         {
           "kind": "regex",
-          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|iPad|Air\\s*Pods|Air\\s*Tag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^*\\n]*?)\\s*\\*?$",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:(?:iPhone|Poco[A-Za-z0-9-]*|Xiaomi|Redmi|MacBook|Mac\\s+Mini|iMac|Apple\\s+Watch|Watch|Garmin|Forerunner|Vivoactive|F[eê]nix|iPad|Air\\s*Pods|Air\\s*Tag|Apple\\s+Pencil|Pencil|JBL|Moto(?:rola)?|Galaxy|Samsung))(?=[^\\n]*\\d)[^\\n]*?)\\s*\\*?$",
           "flags": "i",
           "group": 1,
           "transform": "trim",
@@ -52,6 +52,14 @@
           "group": 1,
           "transform": "trim",
           "score": 0.97
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[^A-Za-zÀ-ÿ0-9]{0,10}\\s*\\*?((?:Air\\s*Pods\\s+Max\\s+USB-?C|(?:Fonte|Carregador)\\s+USB-?C\\s+20W\\s+Apple\\s+Original|Cabo\\s+USB-?C\\s+1m\\s+Apple\\s+Original|Fone\\s+Bluetooth\\s+TWS\\s+Gen[eé]rico))\\s*\\*?$",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.995
         }
       ]
     },
@@ -197,6 +205,14 @@
           "group": 1,
           "transform": "number",
           "score": 0.9
+        },
+        {
+          "kind": "regex",
+          "pattern": "^[⚪⚫🟣🩵🔵🟢🔴🟡🩷🩶🟠⭐🌌][^\\n]{0,48}?\\s*(?:[:=—–-]|\\|)\\s*(?!R\\$)([0-9]{1,6}(?:\\.[0-9]{3})*(?:,[0-9]{1,2})?)\\s*\\*?\\s*$",
+          "flags": "i",
+          "group": 1,
+          "transform": "number",
+          "score": 0.925
         }
       ]
     }
@@ -223,6 +239,7 @@
     "scope": "generic device supplier lists",
     "mode": "operational_review_required",
     "identity_finalization": "list-intake adapter before C01",
-    "context_policy_reason": "Condition is scoped to product; CPO must not bleed into later products or categories."
+    "context_policy_reason": "Condition is scoped to product; CPO must not bleed into later products or categories.",
+    "specific_whatsapp_pattern": "Color-prefixed prices without R$ plus non-numeric accessory product headers"
   }
 }
