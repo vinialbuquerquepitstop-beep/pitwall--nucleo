@@ -7,6 +7,7 @@ on:
       - 'docs/external-calc/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53D_TRUSTED_SOURCE_CONTRACT_V0.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53E_STAGING_ORIGINAL_SOURCE_PROPOSAL_V0.md'
+      - 'docs/external-calc/EXTERNAL_CALC_VS53F_ORIGINAL_BYTES_PROOF_V0.md'
       - 'ferramentas/external-calc-generalization/v0/**'
       - '.github/workflows/external_calc_generalization_method_v0.yml'
   workflow_dispatch:
@@ -73,6 +74,11 @@ jobs:
         run: |
           node --check ferramentas/external-calc-generalization/v0/trusted-original-source.cjs
           node ferramentas/external-calc-generalization/v0/proof-vs53d.mjs
+      - name: VS5.3f original bytes exact roundtrip and fail-closed checks
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/trusted-original-byte-adapter.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs53f.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53f.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
