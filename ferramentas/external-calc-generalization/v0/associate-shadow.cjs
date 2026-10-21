@@ -6,6 +6,7 @@
  */
 const VERSION='external-calc-association-shadow/v0';
 const {segmentCanonical}=require('./segment-shadow.cjs');
+const {parsePipedRow}=require('./pipe-columns.cjs');
 const {validateCanonicalDocument}=require('../../external-calc-universal-input/v1/canonical-document');
 const trim=s=>String(s??'').normalize('NFKC').replace(/\u00a0/g,' ').trim();
 const AMOUNT=/(?:\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{3,6}(?:,\d{2})?)/u.source;
@@ -69,7 +70,7 @@ function readCondition(block){
  const inModel=conditionToken(block.model_span.text);
  if(inModel)signals.push({value:inModel,source_ref:block.model_span.source_ref});
  for(const m of block.members.slice(1)){
-   if(m.role!=='condition')continue;
+   if(m.role!=='condition'||m.text.includes('|'))continue;
    const token=conditionToken(m.text);
    if(token)signals.push({value:token,source_ref:m.source_ref});
  }
@@ -93,15 +94,19 @@ function resolveProduct(block){
  const abstain=(reason,sources,metadata={})=>{
    abstentions.push({block_id:block.block_id,reason,source_refs:[...new Set(sources.filter(Boolean))],...metadata});
  };
- const proposal=(color,price)=>{
-   if(!cond.ok){
-     abstain(cond.reason,[...cond.sources,color.source_ref,price.source_ref,block.model_span.source_ref]);return;
+ const proposal=(color,price,rowCondition=null)=>{
+   if(rowCondition&&cond.ok&&rowCondition.value!==cond.value){
+     abstain('CONDITION_CONFLICT_INLINE_ROW',[...cond.sources,rowCondition.source_ref,block.model_span.source_ref]);return;
+   }
+   const chosen=cond.ok?cond:rowCondition?{ok:true,value:rowCondition.value,sources:[rowCondition.source_ref]}:cond;
+   if(!chosen.ok){
+     abstain(chosen.reason,[...chosen.sources,color.source_ref,price.source_ref,block.model_span.source_ref]);return;
    }
    const spans={
      model:[block.model_span.source_ref],
      capacity:capacity(model)!==null?[block.model_span.source_ref]:[],
      color:[color.source_ref],
-     condition:cond.sources,
+     condition:chosen.sources,
      price:[price.source_ref]
    };
    if(Object.entries(spans).some(([key,refs])=>key!=='capacity'&&!refs.length)){
@@ -111,7 +116,7 @@ function resolveProduct(block){
    candidates.push({
      proposal_id:id,block_id:block.block_id,decision:'PROPOSED_REVIEW',
      model,capacity_gb:capacity(model),color:color.value,
-     condition:cond.value,price_minor:price.minor,currency:'BRL',
+     condition:chosen.value,price_minor:price.minor,currency:'BRL',
      source_spans:spans,association_reason:price.reason,
      confidence:'STRUCTURALLY_SUPPORTED_NOT_AUTHORIZED'
    });
@@ -128,6 +133,17 @@ function resolveProduct(block){
    pendingColors=[];pendingPrice=null;
  };
  for(const m of block.members.slice(1)){
+   const columns=m.text.includes('|')?parsePipedRow(m,{minor,amountSource:AMOUNT,conditionToken,nonCommercial:NONCOMMERCIAL}):null;
+   if(columns){
+     flush('UNPAIRED_CONTEXT_BEFORE_PIPE_ROW');
+     if(columns.kind!=='piped_offer'){
+       abstain('PIPED_ROW_UNRESOLVED',[m.source_ref]);continue;
+     }
+     proposal({value:columns.color,source_ref:m.source_ref},
+       {minor:columns.price_minor,source_ref:m.source_ref,reason:'explicit_typed_pipe_columns'},
+       {value:columns.condition,source_ref:m.source_ref});
+     continue;
+   }
    if(['notice','contact','unknown'].includes(m.role))continue;
    const price=getPrice(m);
    const color=getColor(m,Boolean(price&&price.kind==='price'));
