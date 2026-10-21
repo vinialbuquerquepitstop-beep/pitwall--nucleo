@@ -60,6 +60,11 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/preview-api-shadow.cjs
           node --check ferramentas/external-calc-generalization/v0/proof-vs53.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs53.mjs
+      - name: VS5.3b reuse runtime identity verifier with HTTP auth fixture and zero writes
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/identity-bridge-shadow.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs53b.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53b.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
