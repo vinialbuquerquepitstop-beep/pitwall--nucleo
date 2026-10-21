@@ -55,6 +55,11 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/service-preview-contract.cjs
           node --check ferramentas/external-calc-generalization/v0/proof-vs52.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs52.mjs
+      - name: VS5.3 isolated auth-bound preview route and negative checks
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/preview-api-shadow.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs53.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
