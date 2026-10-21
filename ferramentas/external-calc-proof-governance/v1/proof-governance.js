@@ -12,6 +12,7 @@ const OWNERS = [
     /^docs\/external-calc\/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS0_BASELINE_GENERALIZATION_2026-10-20\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS1_RELATION_GRAPH_PROPOSAL_V0\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VS3_UNCERTAINTY_REVIEW_GATE_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2\.md$/,
     /^docs\/calculadora\/PROCESSO\.md$/
   ] },
