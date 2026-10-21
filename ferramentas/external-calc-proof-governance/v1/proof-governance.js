@@ -17,6 +17,7 @@ const OWNERS = [
     /^docs\/external-calc\/EXTERNAL_CALC_VS5_C01_INTEGRATION_PRECHECK_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS51_TRIANGULAR_ORACLE_CHECKPOINT_2026-10-21\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS52_SERVICE_PREVIEW_CONTRACT_V0\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VS53_RUNTIME_PREVIEW_CHECKPOINT_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2\.md$/,
     /^docs\/calculadora\/PROCESSO\.md$/
   ] },
