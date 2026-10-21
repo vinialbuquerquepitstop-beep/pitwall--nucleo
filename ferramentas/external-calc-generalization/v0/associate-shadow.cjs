@@ -50,7 +50,10 @@ function getColor(member,hasPrice){
  const inline=hasPrice&&(member.role==='price')&&
    /[|—–=]/u.test(t)&&/[^\d\s|:—–=.,R$*💵💰]/u.test(text);
  if(!withCue&&!inline)return null;
- text=text.replace(/^[•▫️*]\s*/u,'').replace(/^(?:colou?r|cor|cores)\s*:/iu,'').trim();
+ // Normalize Unicode variation selectors before stripping an emoji bullet.
+ // VS16 is a presentation marker, not part of the actual color name.
+ text=text.replace(/[\uFE0E\uFE0F]/gu,'')
+   .replace(/^[•▫*]\s*/u,'').replace(/^(?:colou?r|cor|cores)\s*:/iu,'').trim();
  text=text.replace(/\s*[|:—–=]\s*$/u,'').trim();
  text=text.replace(/[|:—–=]/gu,'').trim();
  if(!text||/\b(?:valor|pre[cç]o|cada\s+cor|unit[aá]rio)\b/iu.test(text))return null;
