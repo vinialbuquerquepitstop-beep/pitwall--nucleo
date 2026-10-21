@@ -1,7 +1,7 @@
 {
   "contract_version": "domain-schema/v1",
   "schema_id": "supplier-device-v0",
-  "schema_version": "0.2.1",
+  "schema_version": "0.2.2",
   "entity_type": "offer",
   "description": "Schema generico de entrada de listas de dispositivos. Identidade canonica/fallback e finalizada pelo adapter de intake antes de C01.",
   "fields": [
@@ -135,6 +135,14 @@
           "group": 1,
           "transform": "trim",
           "score": 0.93
+        },
+        {
+          "kind": "regex",
+          "pattern": "\\b(Caixa\\s+aberta|Open\\s*Box)\\b",
+          "flags": "i",
+          "group": 1,
+          "transform": "trim",
+          "score": 0.95
         }
       ],
       "value_map": {
@@ -146,7 +154,9 @@
         "Seminovo": "Seminovo",
         "Seminovos": "Seminovo",
         "Usado": "Usado",
-        "Usados": "Usado"
+        "Usados": "Usado",
+        "Caixa aberta": "Caixa aberta",
+        "Open Box": "Caixa aberta"
       }
     },
     {
