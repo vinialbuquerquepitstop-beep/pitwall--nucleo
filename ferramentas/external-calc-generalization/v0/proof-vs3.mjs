@@ -50,6 +50,20 @@ test('valid but out-of-block source is rejected',()=>{
  const review=validateShadow(d,s,a);
  assert(review.candidate_assessments[0].reasons.includes('SOURCE_OUTSIDE_PRODUCT_BLOCK_COLOR'));
 });
+test('forged price using a real source line is critical',()=>{
+ const d=doc(input),s=segmentCanonical(d),a=resolveAssociations(d,s);
+ a.proposals[0].price_minor+=100;
+ const r=validateShadow(d,s,a);
+ assert(r.candidate_assessments[0].reasons.includes('PRICE_NOT_PRESENT_IN_SOURCE'));
+});
+test('forged color and condition using valid line references are critical',()=>{
+ const d=doc(input),s=segmentCanonical(d),a=resolveAssociations(d,s);
+ a.proposals[0].color='Roxo';
+ a.proposals[0].condition='CPO';
+ const r=validateShadow(d,s,a);
+ assert(r.candidate_assessments[0].reasons.includes('COLOR_NOT_PRESENT_IN_SOURCE'));
+ assert(r.candidate_assessments[0].reasons.includes('CONDITION_NOT_PRESENT_IN_SOURCE'));
+});
 test('missing edge never remains unflagged',()=>{
  const d=doc(input),s=segmentCanonical(d),a=resolveAssociations(d,s);
  a.edges=a.edges.filter(e=>!(e.to===a.proposals[0].proposal_id&&e.relation==='unit_price'));
