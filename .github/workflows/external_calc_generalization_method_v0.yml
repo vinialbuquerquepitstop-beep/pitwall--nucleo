@@ -50,6 +50,11 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/triangular-proof.cjs
           node --check ferramentas/external-calc-generalization/v0/proof-vs51.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs51.mjs
+      - name: VS5.2 trusted Service preview boundary and authority guard
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/service-preview-contract.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs52.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs52.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
