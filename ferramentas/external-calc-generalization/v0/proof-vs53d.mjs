@@ -18,7 +18,7 @@ const resolver=createTrustedOriginalSourceResolver({repository});
 const test=async(name,fn)=>{await fn();checks++;console.log('VS53D_OK '+checks+' '+name)};
 await test('valid original text integrity and tenant scope',async()=>{
  const result=await resolver.resolve({trusted_input_ref:'original-A',tenant_id:'tenant-A',actor_ref:'owner-A'});
- assert.equal(result.content_sha256,sha(content));
+ assert.equal(result.source_sha256,sha(content));
  assert.equal(result.content,content);
 });
 await test('tenant isolation and missing source deny',async()=>{
