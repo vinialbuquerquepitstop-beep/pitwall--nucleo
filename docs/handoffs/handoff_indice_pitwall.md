@@ -32,6 +32,9 @@ A ordem mental e: **indice -> ultimo handoff -> Git real -> regras/processo do d
 
 ### Calculadora
 
+> **WIP de metodo External Calc (20/10/2026):** o ciclo de correcoes por lista revelou overfitting; foram propostas trilha linear V3, slices de generalizacao e gerador sintético independente em `docs/external-calc/`. Esta proposta e branch/PR ainda sem merge, e **nao substitui** o topo imutavel `handoff_calculadora_pitwall_v26.md`; conferir Git atual e PR antes de seguir. Gate de producao permanece NO-GO.
+
+
 - topo: `handoff_calculadora_pitwall_v26.md`
 - estado: Interpreter Core V1 permanece FROZEN; Service V0, Persistence V0, API V0 e Runtime/Postgres G1-G3 integrados no `main`. RPC autenticada persiste atomicamente sem service role no runtime; round-trip real e provas negativas passaram.
 - merge Runtime/Postgres: PR #30, squash `80956fe164746971df93a66c748d85eb5d2f294d`.
