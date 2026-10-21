@@ -40,6 +40,11 @@ jobs:
         run: node ferramentas/external-calc-generalization/v0/proof-vs4.mjs
       - name: VS4 adversarial calibration (unsafe abstention versus valid coverage)
         run: node ferramentas/external-calc-generalization/v0/proof-vs4-calibration.mjs
+      - name: VS5 read-only C01 field compatibility and no-authority tests
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/c01-compatibility-shadow.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs5.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs5.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
