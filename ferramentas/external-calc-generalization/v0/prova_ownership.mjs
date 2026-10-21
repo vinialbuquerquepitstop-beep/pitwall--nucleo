@@ -25,6 +25,7 @@ const files=[
  'docs/external-calc/EXTERNAL_CALC_VS53_RUNTIME_PREVIEW_CHECKPOINT_V0.md',
  'docs/external-calc/EXTERNAL_CALC_VS53B_IDENTITY_BRIDGE_CHECKPOINT_V0.md',
  'docs/external-calc/EXTERNAL_CALC_VS53C_RLS_HOMOLOGATION_PRECHECK_V0.md',
+ 'docs/external-calc/EXTERNAL_CALC_VS53D_TRUSTED_SOURCE_CONTRACT_V0.md',
  'docs/external-calc/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2.md',
  'docs/calculadora/PROCESSO.md',
  '.github/workflows/external_calc_generalization_method_v0.yml',
