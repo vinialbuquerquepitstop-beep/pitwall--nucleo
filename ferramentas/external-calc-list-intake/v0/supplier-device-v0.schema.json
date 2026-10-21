@@ -216,13 +216,13 @@
     "reset_on_timestamp": true,
     "anchor_resets_other_context": true,
     "preserve_on_anchor": [
-      "supplier",
-      "condition"
+      "supplier"
     ]
   },
   "metadata": {
     "scope": "generic device supplier lists",
     "mode": "operational_review_required",
-    "identity_finalization": "list-intake adapter before C01"
+    "identity_finalization": "list-intake adapter before C01",
+    "context_policy_reason": "Condition is scoped to product; CPO must not bleed into later products or categories."
   }
 }
