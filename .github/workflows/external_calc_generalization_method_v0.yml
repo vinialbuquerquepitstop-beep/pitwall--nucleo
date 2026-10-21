@@ -21,7 +21,7 @@ jobs:
       - name: Validate syntax
         run: |
           set -e
-          for s in generate verify compare run-parser proof prova_ownership proof-vs1 proof-vs2 proof-vs3 proof-vs4 evaluate-vs4 run-segmentation-shadow run-association-shadow run-review-shadow; do node --check ferramentas/external-calc-generalization/v0/$s.mjs; done
+          for s in generate verify compare run-parser proof prova_ownership proof-vs1 proof-vs2 proof-vs3 proof-vs4 proof-vs4-calibration evaluate-vs4 run-segmentation-shadow run-association-shadow run-review-shadow; do node --check ferramentas/external-calc-generalization/v0/$s.mjs; done
       - name: Check generalization ownership with strict unknown-file denial
         run: node ferramentas/external-calc-generalization/v0/prova_ownership.mjs
       - name: Prove generator, independent oracle and comparator
@@ -38,6 +38,8 @@ jobs:
           node ferramentas/external-calc-generalization/v0/proof-vs3.mjs
       - name: VS4 independent evaluator with mutation and false-authority controls
         run: node ferramentas/external-calc-generalization/v0/proof-vs4.mjs
+      - name: VS4 adversarial calibration (unsafe abstention versus valid coverage)
+        run: node ferramentas/external-calc-generalization/v0/proof-vs4-calibration.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
