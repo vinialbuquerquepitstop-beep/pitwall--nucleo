@@ -1,0 +1,40 @@
+name: External Calc VS2 - Post Freeze Synthetic Challenge
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-generalization/v0/**'
+      - '.github/workflows/external_calc_vs2_challenge_v0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  post-freeze-challenge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Freeze source, then generate fresh synthetic challenge
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIR="$RUNNER_TEMP/vs2-challenge"
+          mkdir -p "$DIR"
+          git rev-parse HEAD > "$DIR/frozen_commit_sha.txt"
+          SEED="$(node -e "process.stdout.write(require('node:crypto').randomBytes(16).toString('hex'))")"
+          echo "::add-mask::$SEED"
+          node ferramentas/external-calc-generalization/v0/generate.mjs --seed "$SEED" --profile challenge --count 60 --output "$DIR"
+          node ferramentas/external-calc-generalization/v0/verify.mjs "$DIR"
+          node ferramentas/external-calc-generalization/v0/run-association-shadow.mjs --source "$DIR/supplier.txt" --report "$DIR/associations.json"
+          # The seed is disclosed as an artifact only AFTER the first run;
+          # this source is then KNOWN and must never be reused as a blind holdout.
+          printf '%s\n' "$SEED" > "$DIR/replay_seed_after_first_run.txt"
+          node ferramentas/external-calc-generalization/v0/compare-vs2.mjs --oracle "$DIR/oracle.json" --shadow "$DIR/associations.json" --report "$DIR/challenge_report.json"
+      - name: Preserve first-attempt source and report even on gate failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs2-frozen-first-attempt
+          path: ${{ runner.temp }}/vs2-challenge/
+          retention-days: 14

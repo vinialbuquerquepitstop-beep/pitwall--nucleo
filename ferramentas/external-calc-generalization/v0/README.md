@@ -52,3 +52,26 @@ node ferramentas/external-calc-generalization/v0/run-segmentation-shadow.mjs \
 O `structural.json` contém `sections`, `product_blocks`, `members`, `unassigned`, `source_ref`, `summary` e `offers: []`. Ele pode ser auditado por humanos **sem risco de alterar preços operacionais**. Contagem de blocos `PASS` não implica fidelidade de atributos ou aprovação do C01.
 
 Este módulo é experimental e usa apenas indicadores estruturais de texto, **não um léxico privado de fornecedores**. Para outras tipologias, a ausência de âncora suficiente resulta em linha não atribuída, não em produto inventado. A integração ao C01 aguarda VS2 e gate humano sobre o Core V1 congelado.
+
+
+## VS2 — resolver de atributos experimental
+
+**Somente leitura, nunca C01 operacional.** A saída \`associations.json\` é \`SHADOW_READ_ONLY\`, com \`proposals[]\` sempre marcadas \`PROPOSED_REVIEW\`, \`edges[]\`, \`abstentions[]\` e \`offers: []\`. Nenhum fornecedor real, credencial ou dado de preço é gravado.
+
+### Executar local/CI com fonte DEV sintética
+
+\`\`\`bash
+node ferramentas/external-calc-generalization/v0/generate.mjs --seed dev-demo-north-0001 --profile dev --count 20 --output /tmp/extcalc-dev
+node ferramentas/external-calc-generalization/v0/verify.mjs /tmp/extcalc-dev
+node ferramentas/external-calc-generalization/v0/run-association-shadow.mjs --source /tmp/extcalc-dev/supplier.txt --report /tmp/extcalc-dev/associations.json
+node ferramentas/external-calc-generalization/v0/compare-vs2.mjs --oracle /tmp/extcalc-dev/oracle.json --shadow /tmp/extcalc-dev/associations.json --report /tmp/extcalc-dev/strict-vs2.json
+node ferramentas/external-calc-generalization/v0/proof-vs2.mjs
+\`\`\`
+
+A comparação é restrita a modelo/capacidade/cor/condição/preço e linhas fonte. Ela reprova quantidade coincidente com campos divergentes, linhas de origem falsas e decisões de aprovação. **Não é resultado de um modelo de IA**: são provas sobre dados artificiais e regras determinísticas.
+
+### Challenging sem memorização
+
+O workflow \`external_calc_vs2_challenge_v0.yml\` congela o SHA no checkout e **só então** gera uma semente nova para o perfil \`challenge\`, em runner temporário. O primeiro resultado e os arquivos completos são preservados como artifacts por 14 dias, incluindo semente revelada após execução para replay. Um corpus revelado nunca será reutilizado como blind. Alterar o código aciona outra semente; não usar o novo PASS para esconder um FAIL anterior.
+
+Os resultados da VS2 estão documentados em \`docs/external-calc/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1.md\`: 1º desafio FAIL; duas amostras novas posteriores PASS. Isso **não** autoriza alterar Core V1 FROZEN, banco, C01, frontend ou release. O próximo gate é VS3 (uncertainty/review).
