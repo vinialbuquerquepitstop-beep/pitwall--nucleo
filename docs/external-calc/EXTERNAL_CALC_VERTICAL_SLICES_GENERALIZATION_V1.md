@@ -36,3 +36,31 @@ Uma fatia deve atravessar `texto original → token/estrutura → associação �
 
 ### Relação com o método Tree
 A abordagem Vertical Slice Real (Design Canônico → Fatia → Teste Operacional → Consolidação → Próxima Fatia) é preservada. Propõe-se **refinar o gate de prova do interpretador**, não mudar o canon global Tree automaticamente. Atualização transversal deve seguir proposta e gate humano específicos.
+
+
+## Checkpoint executado — VS2 (21/10/2026)
+
+**PR:** [#184](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/pull/184), empilhado no PR #183/VS1, dependente do #182/método. Todos permanecem DRAFT, sem merge ou execução operacional.
+
+### Hipótese e implementação
+- \`associate-shadow.cjs\` usa apenas os \`product_blocks\` e \`source_ref\` da VS1; nenhum fornecedor ou modelo novo é cadastrado como regra de interpretação.
+- Reconhece associações estruturais \`cor → preço\`, \`preço → cor\`, mesma linha, preço compartilhado explícito e colunas \`cor | preço | condição\`. A gramática de colunas foi isolada em \`pipe-columns.cjs\`, com testes positivos e negativos.
+- Nunca grava, promove ou divulga uma oferta como autorizada: \`offers: []\`, \`decision: PROPOSED_REVIEW\`, \`edges\`, \`source_spans\`, \`abstentions\`; conflito ou insuficiência explícita abstenção.
+- \`compare-vs2.mjs\` audita campos \`model/capacity/color/condition/price\`, multiplicidade, associação e origem de \`model/color/condition/price\` contra oracle independente criado **antes da execução do motor**. Tentativas sintéticas de adulterar preço, inventar origem ou trocar decisão para READY são negadas.
+
+### Medições, sem apagar reprovações anteriores
+| Gate | Esperadas | Propostas | Matches exatos | Decisão |
+|---|---:|---:|---:|---|
+| DEV-A e DEV-B (conhecidas, antes do blind) | 90 | 90 | 90 | PASS de desenvolvimento |
+| 1º desafio pós-freeze [#39540902016](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/actions/runs/39540902016) | 109 | 102 | 89 | **FAIL**; 20 faltantes e 13 propostas não equivalentes |
+| 2º desafio pós-correção, nova semente [#39541489892](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/actions/runs/39541489892) | 116 | 116 | 116 | **SHADOW_EXACT_PASS** |
+| Desafio pós-reforço do avaliador, nova semente [#39541608863](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/actions/runs/39541608863) | 107 | 107 | 107 | **SHADOW_EXACT_PASS** |
+
+O primeiro desafio tornou-se *KNOWN/REGRESSION* após o resultado. Os seguintes foram gerados depois dos respectivos commits avaliados, nunca derivados do corpus do parser. Cada runner arquivou manifesto, oracle, fonte artificial, relatório e commit congelado. Seeds não entram no Git; o artefato as revela após a execução para replay, e não devem ser reutilizadas como holdout.
+
+### Estado e fronteiras
+- \`VS2_STRUCTURE_AND_ASSOCIATIONS=PASS\` nas famílias sintetizadas cobertas e **14 verificações funcionais** (incluindo abstenções e teste negativo do avaliador).
+- \`VS2_EXTERNAL_GENERALIZATION=UNVERIFIED\`: seeds diferentes do mesmo gerador não garantem semântica de fornecedores naturais novos ou documentos fora do domínio simulado.
+- \`C01_PRODUCTION_FIDELITY=FAIL/NO_GO\` no baseline existente (33 esperadas, 25 candidatas, 3 exatas); a VS2 ainda **não foi integrada** a esse caminho.
+- \`GATE1_OPERATIONAL=NO_GO\`: PRs 182/183/184 em rascunho; Core V1 FROZEN intacto; sem Supabase, tenant, Worker ou frontend alterados.
+- Próximo: VS3 — revisar abstenções, falsa certeza, contexto conflitivo e não promoção; em seguida avaliar contratos de integração C01 com gate humano explícito. Não tratar testes sintéticos aprovados como liberação automática.
