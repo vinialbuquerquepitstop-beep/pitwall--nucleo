@@ -15,7 +15,7 @@ const items=result.queue.candidates.map(c=>({
 }));
 console.log('WHATSAPP_VERTICE_OBSERVED_COUNT='+items.length);
 console.log('WHATSAPP_VERTICE_AMBIGUITIES='+result.queue.unresolved_ambiguities.length);
-console.log('WHATSAPP_VERTICE_AMBIGUITY_DETAILS='+JSON.stringify(result.queue.unresolved_ambiguities).slice(0,12000));
+console.log('WHATSAPP_VERTICE_AMBIGUITY_SUMMARY='+JSON.stringify(result.queue.unresolved_ambiguities.map(a=>({cause:a.cause,line:a.sources?.[0],raw:a.raw}))));
 for(let i=0;i<items.length;i++)console.log('C01#'+String(i+1).padStart(2,'0')+' '+JSON.stringify(items[i]));
 const airpods4=items.filter(x=>/\bAir\s?Pods\s*4\b/i.test(x.model)&&x.price===89000);
 assert(airpods4.length>0,'AirPods 4 890.00 must be recognized');
