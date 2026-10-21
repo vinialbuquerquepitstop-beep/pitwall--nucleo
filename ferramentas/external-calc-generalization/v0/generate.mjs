@@ -35,14 +35,16 @@ let lastGroup='';
 for(let i=0;i<o.count;i++){
  const product=pick(products),condition=pick(['Lacrado','CPO','Caixa aberta']);
  const layout=pick(o.profile==='dev'?['inline','stacked','shared','reverse']:['shared','reverse','inline','stacked','piped']);
- const colors=[...product.colors].sort(()=>random()-.5).slice(0,1+Math.floor(random()*Math.min(3,product.colors.length)));
+ const shuffled=[...product.colors];
+ for(let k=shuffled.length-1;k>0;k--){const j=Math.floor(random()*(k+1));[shuffled[k],shuffled[j]]=[shuffled[j],shuffled[k]]}
+ const colors=shuffled.slice(0,1+Math.floor(random()*Math.min(3,product.colors.length)));
  const blockId='block_'+String(i+1).padStart(3,'0');
  line('━━━━━━━━━━');
  if(lastGroup!==product.category||random()<.33){line('📚 '+product.category+' | Lote '+(i+1));lastGroup=product.category}
  const modelLine=line(pick(['📱 ','• ','✅ ','▹ ','*'])+product.label+(layout==='inline'?' — '+condition:''));
  const conditionLine=layout==='inline'?modelLine:line('📋 Condição: '+condition);
  const shared=layout==='shared';
- const base=price()+Math.floor(random()*1000)*10; // synthetic minor-unit value
+ const base=price()+Math.floor(random()*10)*100; // integer BRL, suitable even when price has no cents
  const amounts=colors.map((_,v)=>shared?base:base+(v*7000));
  let priceLine=null, colorLine=null;
  const push=(color,amt,priceRef,colorRef)=>oracle.push({
