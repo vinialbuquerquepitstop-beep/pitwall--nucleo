@@ -315,6 +315,38 @@ function expandColorVariants(bundle){
 // Wholesaler messages sometimes put "🔒 Lacrados" / "Original, lacrado"
 // after the last price of a model. Accept only explicit nearby evidence in the
 // same product block; never carry a previous condition into another model.
+
+function scopeInheritedCondition(bundle){
+  // "IPHONES SEMINOVOS" is a legitimate section condition (applies to 23
+  // colors), unlike "16 256GB CPO" scoped only to that product. Provenance
+  // decides scope; do not globally delete or propagate either category.
+  const segmentByLine=new Map((bundle.segments||[])
+    .filter(s=>Number.isSafeInteger(s?.line_number))
+    .map(s=>[s.line_number,String(s.raw||'')]));
+  const sectionHeader=raw=>{
+    const cleaned=String(raw||'').replace(/^[^A-Za-zÀ-ÿ]*/u,'')
+      .replace(/[^A-Za-zÀ-ÿ0-9 ]+/gu,' ').trim();
+    return cleaned.length<75&&!/\d/u.test(cleaned)&&
+      /^(?:IPHONES?|GARMIN|MACBOOKS?|IPADS?|APPLE WATCH|ÁUDIO APPLE|AUDIO APPLE|ACESSÓRIOS|ACESSORIOS)\b/iu.test(cleaned);
+  };
+  for(const record of bundle.records||[]){
+    if(!record?.fields?.condition)continue;
+    const modelLine=traceLine(record,'model'),conditionLine=traceLine(record,'condition');
+    if(!Number.isSafeInteger(modelLine)||!Number.isSafeInteger(conditionLine))continue;
+    if(conditionLine>=modelLine)continue; // explicit same-product evidence
+    const original=segmentByLine.get(conditionLine);
+    let keep=sectionHeader(original);
+    if(keep){
+      for(let i=conditionLine+1;i<modelLine;i++){
+        if(sectionHeader(segmentByLine.get(i))){keep=false;break;}
+      }
+    }
+    if(keep)continue;
+    record.fields.condition=null;
+    record.trace=(record.trace||[]).filter(e=>e?.field!=='condition');
+  }
+  return bundle;
+}
 function attachTrailingExplicitCondition(bundle){
  const segments=new Map((bundle.segments||[])
    .filter(s=>Number.isSafeInteger(s?.line_number))
@@ -525,7 +557,7 @@ function buildQueue(body){
  const identityHash=body.supplier_id?crypto.createHash('sha256').update(hash+'|supplier:'+body.supplier_id).digest('hex'):hash;
  const analysis_id='analysis_'+identityHash.slice(0,24);
  const source_id='source_'+identityHash.slice(0,24);
- const bundle=refineInterpreterDiagnostics(attachTrailingExplicitCondition(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null})))));
+ const bundle=refineInterpreterDiagnostics(attachTrailingExplicitCondition(scopeInheritedCondition(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}))))));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
  return {type,filename,canonical,queue,analysis_id,source_id};
 }
