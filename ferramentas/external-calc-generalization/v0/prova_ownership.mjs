@@ -15,6 +15,8 @@ const files=[
  'docs/external-calc/EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO.md',
  'docs/external-calc/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1.md',
  'docs/external-calc/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20.md',
+ 'docs/external-calc/EXTERNAL_CALC_VS0_BASELINE_GENERALIZATION_2026-10-20.md',
+ 'docs/external-calc/EXTERNAL_CALC_VS1_RELATION_GRAPH_PROPOSAL_V0.md',
  'docs/external-calc/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2.md',
  'docs/calculadora/PROCESSO.md',
  '.github/workflows/external_calc_generalization_method_v0.yml',
