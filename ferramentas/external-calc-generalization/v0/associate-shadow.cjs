@@ -11,6 +11,7 @@ const trim=s=>String(s??'').normalize('NFKC').replace(/\u00a0/g,' ').trim();
 const AMOUNT=/(?:\d{1,3}(?:\.\d{3})+(?:,\d{2})?|\d{3,6}(?:,\d{2})?)/u.source;
 const MONEY=new RegExp('(?:R\\$\\s*)?('+AMOUNT+')(?![\\d.,])','gu');
 const MONEY_WITH_CUE=/(?:R\$|[💵💰]|pre[cç]o|valor|cada cor)/iu;
+const VARIANT_BARE_PRICE=/(?:[—–|=:])\s*\d{1,3}(?:\.\d{3})+(?:,\d{2})?\s*\*?\s*$|(?:[—–|=:])\s*\d{3,6}(?:,\d{2})?\s*\*?\s*$/u;
 const NONCOMMERCIAL=/(?:pedido\s+m[ií]nimo|mínimo\s+de|parcela|vezes|telefone|contato|whatsapp|atendimento|frete|desconto|economize|retirada|disponibilidade|boletim|cat[aá]logo|revendedor|estoque|importado|fict[ií]cio)/iu;
 const CONDITION=/\b(cpo|lacrad[oa]s?|caixa aberta|open box|seminov[oa]s?|recondicionad[oa]s?|usad[oa]s?|n[aã]o ativad[oa])\b/iu;
 function conditionToken(t){
@@ -29,7 +30,8 @@ function minor(raw){
 function getPrice(member) {
  const t=trim(member.text);
  if(['product','contact','notice','section'].includes(member.role)||NONCOMMERCIAL.test(t))return null;
- if(member.role!=='price'&&!MONEY_WITH_CUE.test(t))return null;
+ if(member.role!=='price'&&!MONEY_WITH_CUE.test(t)&&
+     !(member.role==='variant'&&VARIANT_BARE_PRICE.test(t)))return null;
  let selected=null,count=0;
  for(const m of t.matchAll(MONEY)){count++;selected=minor(m[1]);}
  if(count!==1||selected===null)return {kind:'ambiguous_price',source_ref:member.source_ref};
