@@ -32,4 +32,6 @@ node ferramentas/external-calc-generalization/v0/proof-vs53g.mjs
 
 O relatório do harness tem real_rls_verified=false e production_gate=NO_GO por desenho, inclusive quando as 8 leituras simuladas passam. O atributo writes_by_harness=0 prova apenas que o harness não tem verbos de escrita; não certifica o transporte injetado.
 
-**Classificação:** VS53G_MATRIX_STATIC=CI_PENDING; VS53G_REAL_RLS=NOT_RUN; VS53E_STORAGE_DECISION=HUMAN_GATE_PENDING; C01_PRODUCTION=NO_GO.
+**Evidência confirmada:** PR #197 DRAFT sobre PR #196; commit ddd8b73ffa61ed3ed65a4f77f23dbad09b83498e; GitHub Actions Generalization run 39677898976, job 119492449479: VS53G 12/12 PASS, VS53F 12/12 PASS, ownership PASS (28 caminhos, deny=4). Todos os seis workflows do commit terminaram SUCCESS. As provas continuam estritamente sintéticas/offline.
+
+**Classificação:** VS53G_MATRIX_STATIC=CI_PASS; VS53G_REAL_RLS=NOT_RUN; VS53E_STORAGE_DECISION=HUMAN_GATE_PENDING; C01_PRODUCTION=NO_GO.
