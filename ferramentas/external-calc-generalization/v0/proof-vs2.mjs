@@ -157,7 +157,10 @@ try{
            console.log('VS2_DEV_MISMATCH='+JSON.stringify({seed,block:key,
              expected:expect.map(o=>({model:o.model,color:o.color,condition:o.condition,price:o.price_minor,lineage:o.lineage})),
              actual:actual.map(o=>({model:o.model,color:o.color,condition:o.condition,price:o.price_minor,source_spans:o.source_spans})),
-             abstentions:output.abstentions.filter(o=>o.block_id==='shadow-block-'+String(i+1).padStart(3,'0'))
+             abstentions:output.abstentions.filter(o=>o.block_id==='shadow-block-'+String(i+1).padStart(3,'0')),
+             source_excerpt:x.source.split('\n').slice(expect[0]?.lineage?.model_lines?.[0]-2,
+               Math.max(...expect.flatMap(o=>o.lineage.price_lines))+1),
+             vs1_members:segmentCanonical(doc(x.source)).product_blocks[i]?.members?.map(r=>({line:r.line,role:r.role,text:r.text}))
            }));
          }
        }
