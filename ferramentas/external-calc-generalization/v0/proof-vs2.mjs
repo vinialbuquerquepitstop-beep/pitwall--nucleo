@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -215,6 +215,29 @@ try{
        }
      }
    }
+ });
+ ok('independent VS2 evaluator denies altered price, false provenance and auto-approval',()=>{
+   const x=generated('dev-vs2-oracle-tamper-0005',12),output=get(x.source);
+   const oraclePath=join(root,'tamper-oracle.json');
+   const actualPath=join(root,'tamper-actual.json');
+   const reportPath=join(root,'tamper-report.json');
+   writeFileSync(oraclePath,JSON.stringify(x.oracle));
+   const invoke=shadow=>{
+     writeFileSync(actualPath,JSON.stringify(shadow));
+     return spawnSync(process.execPath,[new URL('./compare-vs2.mjs',import.meta.url).pathname,
+       '--oracle',oraclePath,'--shadow',actualPath,'--report',reportPath],{encoding:'utf8'});
+   };
+   const initial=invoke(output);
+   assert.equal(initial.status,0,'DEV oracle baseline before deliberate tampering: '+initial.stdout+' '+initial.stderr);
+   const corrupted=JSON.parse(JSON.stringify(output));
+   corrupted.proposals[0].price_minor+=100;
+   assert.notEqual(invoke(corrupted).status,0,'altered price cannot pass');
+   const forged=JSON.parse(JSON.stringify(output));
+   forged.proposals[0].source_spans.price=['line:9999'];
+   assert.notEqual(invoke(forged).status,0,'false source lineage cannot pass');
+   const promoted=JSON.parse(JSON.stringify(output));
+   promoted.proposals[0].decision='READY';
+   assert.notEqual(invoke(promoted).status,0,'automatic approval must be rejected');
  });
  console.log('EXTERNAL_CALC_VS2_ASSOCIATION_SHADOW=PASS checks='+checked);
 }finally{rmSync(root,{recursive:true,force:true})}
