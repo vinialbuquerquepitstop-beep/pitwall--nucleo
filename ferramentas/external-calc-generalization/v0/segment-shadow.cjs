@@ -47,13 +47,20 @@ function classifyLine(value) {
   }
   if (isMonetary(t)) return {role:'price',reason:'separator_money'};
   const lead = PRODUCT_LEAD_RE.exec(t);
-  const remainder = removeLead(t);
-  // A model anchor is a hypothesis, not a product truth claim: require a
-  // lexical name, no commercial note, and a positive structural signal.
-  if (lead && /\p{L}/u.test(remainder) && remainder.length >= 5 &&
-      !NOTE_RE.test(remainder) && !CONTACT_RE.test(remainder) &&
+  const labelled = /^(?:produto|modelo|item|device)\s*:\s*(.+)$/iu.exec(t);
+  const remainder = lead ? removeLead(t) : (labelled ? labelled[1].trim() : t);
+  // A heading with no visible icon can still be a candidate when it carries
+  // a typed specification (e.g. "QuantaX 512GB"). This is a SHADOW
+  // hypothesis, never an authoritative product identity. Metadata excluded.
+  const unmarkedTyped = !lead && !labelled && /\p{L}/u.test(t) &&
+    /\b\d{2,4}\s*(?:GB|TB|MM)\b/iu.test(t) && t.length<140;
+  if ((lead || labelled || unmarkedTyped) && /\p{L}/u.test(remainder) &&
+      remainder.length >= 5 && !NOTE_RE.test(remainder) &&
+      !CONTACT_RE.test(remainder) &&
       !/^(?:condi[cç][aã]o|cor(?:es)?|valor|pre[cç]o)\s*:/iu.test(remainder)) {
-    return {role:'product_candidate',reason:'marked_product_candidate',label:remainder};
+    return {role:'product_candidate',
+      reason:lead?'marked_product_candidate':labelled?'labelled_product_candidate':'typed_unmarked_product_candidate',
+      label:remainder};
   }
   return {role:'unknown',reason:'insufficient_structure'};
 }
