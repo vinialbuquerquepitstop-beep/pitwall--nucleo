@@ -1,4 +1,4 @@
-name: External Calc VS2 - Post Freeze Synthetic Challenge
+name: External Calc VS2+VS4 - Post Freeze Synthetic Challenge
 on:
   pull_request:
     paths:
@@ -31,6 +31,8 @@ jobs:
           # this source is then KNOWN and must never be reused as a blind holdout.
           printf '%s\n' "$SEED" > "$DIR/replay_seed_after_first_run.txt"
           node ferramentas/external-calc-generalization/v0/compare-vs2.mjs --oracle "$DIR/oracle.json" --shadow "$DIR/associations.json" --report "$DIR/challenge_report.json"
+          node ferramentas/external-calc-generalization/v0/run-review-shadow.mjs --source "$DIR/supplier.txt" --report "$DIR/review.json"
+          node ferramentas/external-calc-generalization/v0/evaluate-vs4.mjs --oracle "$DIR/oracle.json" --association "$DIR/associations.json" --review "$DIR/review.json" --report "$DIR/vs4_metrics.json"
       - name: Preserve first-attempt source and report even on gate failure
         if: always()
         uses: actions/upload-artifact@v4
