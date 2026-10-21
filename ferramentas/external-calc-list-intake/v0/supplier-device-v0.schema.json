@@ -242,14 +242,15 @@
     "reset_on_timestamp": true,
     "anchor_resets_other_context": true,
     "preserve_on_anchor": [
-      "supplier"
+      "supplier",
+      "condition"
     ]
   },
   "metadata": {
     "scope": "generic device supplier lists",
     "mode": "operational_review_required",
     "identity_finalization": "list-intake adapter before C01",
-    "context_policy_reason": "Condition is scoped to product; CPO must not bleed into later products or categories.",
+    "context_policy_reason": "Condition context from a category header may span models; product-specific conditions are scoped by list-intake provenance guard.",
     "specific_whatsapp_pattern": "Color-prefixed prices without R$ plus non-numeric accessory product headers"
   }
 }
