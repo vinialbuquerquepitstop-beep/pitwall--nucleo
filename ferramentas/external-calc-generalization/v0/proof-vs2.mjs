@@ -93,6 +93,19 @@ try{
                  ['Dispositivo Delta 128GB','Verde','Caixa aberta',390000,128]]);
    assert.equal(new Set(out.proposals.map(p=>p.source_spans.price[0])).size,1);
  });
+ ok('bare unit price on a colored variant line is a price, not a capacity',()=>{
+   const out=get([
+     '📚 Linha B',
+     '📱 Dispositivo Neon 256GB',
+     '📋 Condição: Lacrado',
+     '🎨 Azul — 3.677',
+     '🎨 Prata — 3.799'
+   ].join('\n'));
+   expected(out,[['Dispositivo Neon 256GB','Azul','Lacrado',367700,256],
+                 ['Dispositivo Neon 256GB','Prata','Lacrado',379900,256]]);
+   const negative=get('📱 Dispositivo Neon 256GB\n📋 Condição: Lacrado\n🎨 Azul — 13GB');
+   assert.equal(negative.proposals.length,0,'storage unit cannot be interpreted as price');
+ });
  ok('multiple colors without shared price abstain',()=>{
    const out=get([
      '📚 Grupo A','📱 Atlas 256GB','📋 Condição: Lacrado',
@@ -141,6 +154,9 @@ try{
      assert(output.proposals.every(p=>['model','color','price','condition']
       .every(k=>p.source_spans[k]?.length)),'no unproven fields');
      console.log('VS2_DEV_ORACLE='+JSON.stringify({seed,...m}));
+     assert.equal(m.missing,0,'KNOWN DEV coverage mismatch: '+seed);
+     assert.equal(m.unexpected,0,'KNOWN DEV false positives: '+seed);
+     assert.equal(m.lineage,0,'KNOWN DEV source trace mismatch: '+seed);
      if(m.missing||m.unexpected){
        const expectedByBlock=new Map();
        for(const offer of x.oracle.offers){
