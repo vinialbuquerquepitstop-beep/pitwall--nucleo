@@ -59,3 +59,28 @@ CanonicalDocument.blocks[] (com provenance)
 
 ## Gate humano estrutural
 A implementação que **alterar o Core FROZEN** exige PR próprio com diff de API e plano de compatibilidade; este documento é apenas a proposta, evitando mudança canônica silenciosa.
+
+---
+
+## Checkpoint executado — VS1 estrutural em Shadow (21/10/2026)
+
+**PR de implementação isolada:** #183, empilhado no PR metodológico #182. **Status: SHADOW IMPLEMENTED / CI PASS / C01 INTEGRATION NOT AUTHORIZED.**
+
+O protótipo `ferramentas/external-calc-generalization/v0/segment-shadow.cjs` consome o `CanonicalDocument V1` existente (inclusive `provenance.source_ref`), sem modificar o contrato V1 nem o `Interpreter Core V1 FROZEN`. Retorna `sections`, `product_blocks`, `members` com papéis por linha e `unassigned`. Deliberadamente retorna `offers: []`; ele **não é um interpretador universal nem um resolvedor de preços**.
+
+### Testes do slice (CI)
+- DEV-A: **20/20 blocos** da referência independente de 20 blocos e 38 ofertas artificiais; associa as linhas de modelo, preço, cor e condição ao bloco correto, sem prometer extração de ofertas.
+- DEV-B: **35/35 blocos** da referência independente de 35 blocos e 59 ofertas artificiais.
+- Variações verificadas: categoria fictícia, nomes de modelo inéditos sem cadastro no motor, linhas com e sem emoji, marcação `Modelo:`, ordem preço/cor, preços mutados, telefones e avisos comerciais, duas âncoras adjacentes e abstenção quando não há evidência suficiente.
+- 8 testes positivos/negativos; não há escrita em Supabase/Cloudflare, importação ao C01 nem alteração nas telas congeladas.
+- A amostra de 20 blocos do baseline ainda reproduz a falha do interpretador produtivo em read-only: **33 ofertas esperadas, 25 candidatos, 3 matches estritos**. `CI do VS1 verde` não elimina essa falha.
+- Testes usam **sementes DEV conhecidas**, portanto não constituem holdout sintético cego nem fornecedores naturais inéditos.
+
+### Limites observados
+- Modelos sem marcadores e sem atributos tipados podem virar `unassigned`: comportamento conservador, não prova de cobertura universal.
+- Sem `AssociationEdges` não sabemos se a cor imediatamente seguinte e um preço pertencem à mesma variante, embora estejam no mesmo produto. Isso é assunto da VS2.
+- Linhas incertas e contatos dentro de um bloco recebem papéis, mas nenhuma saída vira automaticamente oferta.
+- A segmentação não substitui a validação do Core congelado nem o trabalho de isolamento de tenant, revisão e autorização.
+
+### Próximo gate / VS2
+Construir **resolver de vínculos como experimento separado e puro**, consumindo blocos e source spans da VS1, comparando com oracle independente e preservando abstenções. Só propor alteração da API do Core ou C01 após testes de regressão, prova de falso positivo e aprovação de unfreeze, nunca por simples contagem de ofertas.
