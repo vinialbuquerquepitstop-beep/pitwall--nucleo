@@ -67,6 +67,10 @@ jobs:
           node ferramentas/external-calc-generalization/v0/proof-vs53b.mjs
       - name: VS5.3c static RLS and staging readiness preflight
         run: node ferramentas/external-calc-generalization/v0/preflight-vs53c.mjs
+      - name: VS5.3d immutable original source resolver and preview checks
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/trusted-original-source.cjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53d.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
