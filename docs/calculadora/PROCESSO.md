@@ -1,5 +1,7 @@
 # Processo de execucao de um bloco da linha `calculadora`
 
+> **Fronteira de escopo (20/10/2026):** este processo documenta os blocos historicos da Calculadora/Pitwall e continua valido para eles. Para **External Calc — generalizacao do interpretador**, a execucao linear especializada e os vertical slices ficam em `docs/external-calc/EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO.md` e `docs/external-calc/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1.md`. Nao usar patches de regex por fornecedor para substituir o gate de generalizacao. Esta referencia nao promove os novos documentos a canon global Tree nem altera os handoffs historicos.
+
 Como conduzir do arranque ao fechamento um bloco do plano
 `docs/superpowers/plans/2026-09-05-calculadora-produto.md`.
 
