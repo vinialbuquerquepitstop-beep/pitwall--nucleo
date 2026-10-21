@@ -16,6 +16,19 @@ const MATERIAL=new Set([
  'UNPAIRED_CONTEXT_BEFORE_PIPE_ROW','COMPOUND_COLOR_UNRESOLVED'
 ]);
 const scalar=v=>typeof v==='string'&&v.trim().length>0;
+
+function normalized(s){
+ return String(s??'').normalize('NFKC').replace(/[\uFE0E\uFE0F]/gu,'')
+  .normalize('NFD').replace(/[\u0300-\u036f]/gu,'').toLowerCase().trim();
+}
+function moneyTokens(s){
+ const matches=String(s??'').match(/(?:R\$\s*)?\d{1,3}(?:\.\d{3})+(?:,\d{2})?|(?:R\$\s*)?\d{3,6}(?:,\d{2})?/gu)||[];
+ return matches.map(raw=>{
+   const number=Number(raw.replace(/^R\$\s*/u,'').replace(/\./gu,'').replace(',','.'));
+   return Number.isSafeInteger(Math.round(number*100))?Math.round(number*100):null;
+ }).filter(Number.isSafeInteger);
+}
+
 function validateShadow(document,structure,association){
  validateCanonicalDocument(document);
  if(!structure||structure.mode!=='SHADOW_READ_ONLY'||!association||
@@ -57,6 +70,26 @@ function validateShadow(document,structure,association){
      if(!Array.isArray(refs)||refs.length===0||!refs.every(sourceOK)||
        !refs.every(ref=>scoped.has(ref)))reasons.push('SOURCE_OUTSIDE_PRODUCT_BLOCK_'+field.toUpperCase());
    }
+   // A valid source_ref is necessary but not sufficient: values must also
+   // appear in the stated source (no forged price with legitimate line).
+   const priceLines=(p.source_spans?.price||[]).filter(sourceOK);
+   if(priceLines.length>0 && !priceLines.some(ref=>moneyTokens(rows.get(ref)).includes(p.price_minor)))
+     reasons.push('PRICE_NOT_PRESENT_IN_SOURCE');
+   const colorLines=(p.source_spans?.color||[]).filter(sourceOK);
+   if(scalar(p.color)&&colorLines.length>0 &&
+      !colorLines.some(ref=>normalized(rows.get(ref)).includes(normalized(p.color))))
+     reasons.push('COLOR_NOT_PRESENT_IN_SOURCE');
+   const conditionLines=(p.source_spans?.condition||[]).filter(sourceOK);
+   const expectedCondition=normalized(p.condition);
+   if(scalar(p.condition)&&conditionLines.length>0 &&
+      !conditionLines.some(ref=>{
+         const raw=normalized(rows.get(ref));
+         return expectedCondition==='lacrado'?/\blacrad[oa]s?\b/u.test(raw):
+           expectedCondition==='cpo'?/\bcpo\b/u.test(raw):
+           expectedCondition==='caixa aberta'?/caixa aberta|open box/u.test(raw):
+           raw.includes(expectedCondition);
+      }))
+     reasons.push('CONDITION_NOT_PRESENT_IN_SOURCE');
    if(!p.source_spans?.model?.includes(block.model_span.source_ref))
      reasons.push('MODEL_ANCHOR_MISMATCH');
    if(!p.source_spans?.price?.some(ref=>expectedEdge(p,'unit_price',ref)))
