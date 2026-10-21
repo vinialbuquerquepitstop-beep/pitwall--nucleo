@@ -133,6 +133,7 @@ const OWNERS = [
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
   { owner: 'WORKFLOW_GOVERNANCE', patterns: [
+    /^\.github\/workflows\/external_calc_generalization_method_v0\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u0_governance\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u2_equivalence\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u3_provenance\.yml$/,
