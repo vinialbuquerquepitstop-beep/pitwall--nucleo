@@ -8,6 +8,7 @@ on:
       - 'docs/external-calc/EXTERNAL_CALC_VS53D_TRUSTED_SOURCE_CONTRACT_V0.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53E_STAGING_ORIGINAL_SOURCE_PROPOSAL_V0.md'
       - 'docs/external-calc/EXTERNAL_CALC_VS53F_ORIGINAL_BYTES_PROOF_V0.md'
+      - 'docs/external-calc/EXTERNAL_CALC_VS53G_STAGING_RLS_READONLY_MATRIX_V0.md'
       - 'ferramentas/external-calc-generalization/v0/**'
       - '.github/workflows/external_calc_generalization_method_v0.yml'
   workflow_dispatch:
@@ -79,6 +80,11 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/trusted-original-byte-adapter.cjs
           node --check ferramentas/external-calc-generalization/v0/proof-vs53f.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs53f.mjs
+      - name: VS5.3g read-only RLS isolation matrix (synthetic, NOT real RLS)
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/staging-rls-readonly-matrix.cjs
+          node --check ferramentas/external-calc-generalization/v0/proof-vs53g.mjs
+          node ferramentas/external-calc-generalization/v0/proof-vs53g.mjs
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
