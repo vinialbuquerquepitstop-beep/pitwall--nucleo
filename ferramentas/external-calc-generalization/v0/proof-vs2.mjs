@@ -106,6 +106,39 @@ try{
    const negative=get('📱 Dispositivo Neon 256GB\n📋 Condição: Lacrado\n🎨 Azul — 13GB');
    assert.equal(negative.proposals.length,0,'storage unit cannot be interpreted as price');
  });
+ ok('three typed pipe columns associate without supplier or SKU lexicon',()=>{
+   const out=get([
+     '📚 Equipamentos Q',
+     '📱 QuantaX 512GB',
+     '📋 Condição: CPO',
+     'Bronze | R$ 4.300,00 | CPO',
+     'Prata | 4.350,00 | CPO'
+   ].join('\n'));
+   expected(out,[['QuantaX 512GB','Bronze','CPO',430000,512],
+                 ['QuantaX 512GB','Prata','CPO',435000,512]]);
+   assert(out.proposals.every(x=>x.association_reason==='explicit_typed_pipe_columns'));
+ });
+ ok('pipe-row condition supplies evidence only when block condition is missing',()=>{
+   const out=get([
+     '📚 Smart devices','📱 Dispositivo X 256GB',
+     'Azul | 3.600 | Lacrado',
+     'Preto | R$ 3.700,00 | Lacrado'
+   ].join('\n'));
+   expected(out,[['Dispositivo X 256GB','Azul','Lacrado',360000,256],
+                 ['Dispositivo X 256GB','Preto','Lacrado',370000,256]]);
+   assert.deepEqual(out.proposals[0].source_spans.condition,['line:3']);
+ });
+ ok('contradictory typed pipe condition and malformed commercial row abstain',()=>{
+   const out=get([
+     '📚 Equipamentos','📱 QuantaX 256GB',
+     '📋 Condição: CPO',
+     'Azul | 2.800 | Lacrado',
+     'Telefone | 999999 | CPO'
+   ].join('\n'));
+   assert.equal(out.proposals.length,0);
+   assert(out.abstentions.some(x=>x.reason==='CONDITION_CONFLICT_INLINE_ROW'));
+   assert(out.abstentions.some(x=>x.reason==='PIPED_ROW_UNRESOLVED'));
+ });
  ok('multiple colors without shared price abstain',()=>{
    const out=get([
      '📚 Grupo A','📱 Atlas 256GB','📋 Condição: Lacrado',
