@@ -26,5 +26,5 @@ PASS significa somente integridade de bytes e decodificação sob reader em mem�
 4. Resolver incidente de 20/10 e dependências #178–#180 antes de qualquer produção.
 5. Preservar Core C01–C05, PRs empilhados e experiência aprovada.
 
-**Prova local inicial:** 12/12 PASS com Node v22 e stub do resolver compatível com VS5.3d; resultado do GitHub CI deve ser verificado separadamente.
-**Estado:** VS53F_BYTE_PROOF=CI_PENDING; REAL_SOURCE_RLS=BLOCKED; C01_PRODUCTION=NO_GO.
+**Provas confirmadas:** Node v22 local 12/12 e GitHub Actions run 39645683416 (job 119380503477), 12/12 com resolver VS5.3d do próprio repositório. GENERALIZATION_OWNERSHIP=PASS paths=27 deny=4; VS5.3d regressão 8/8; seis workflows PASS no commit 46576316c4fa2874b8830009af171369ac010f5d. A verificação é isolada e não valida Supabase, JWT ou RLS real.
+**Estado:** VS53F_BYTE_PROOF=CI_PASS_STATIC_STUB; REAL_SOURCE_RLS=BLOCKED/NOT_RUN; C01_PRODUCTION=NO_GO.
