@@ -32,4 +32,6 @@ node ferramentas/external-calc-generalization/v0/proof-vs53h.mjs
 
 15 casos esperados: 8 GETs A/B/ANON/ausente simulados; negar ref produtiva, aprovação divergente, path/SQL, role privilegiada, chave não publishable, JWT expirado/emissor incorreto, sub duplicado, ator/ref inválido, redirect, erro 500, vazamento cross-tenant, raw bytes indevidos, múltiplas linhas e falso sucesso quando OWN ausente.
 
-**Estado inicial:** VS53H_TRANSPORT_MOCK=CI_PENDING; VS53H_REAL_SUPABASE=NOT_RUN; RELEASE_NO_GO; incidentes #178–#180 pendentes.
+**Evidência CI:** PR #198 DRAFT sobre PR #197, commit 2e14665f5d3775a03a71f29b090913d523ba75de; GitHub Actions Generalization run 39680758512 / job 119502314139: VS53H_OK 1–15 e EXTERNAL_CALC_VS53H_GUARDED_TRANSPORT=PASS checks=15 network=MOCK_ONLY real_rls=NOT_RUN; ownership PASS paths=29 deny=4; seis workflows SUCCESS. Dados reais, JWT assinados e RLS efetiva não foram acessados.
+
+**Estado após prova:** VS53H_TRANSPORT_MOCK=CI_PASS; VS53H_REAL_SUPABASE=NOT_RUN; RELEASE_NO_GO; incidentes #178–#180 pendentes.
