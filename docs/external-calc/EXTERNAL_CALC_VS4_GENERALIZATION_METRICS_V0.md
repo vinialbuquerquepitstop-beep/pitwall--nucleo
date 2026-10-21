@@ -25,3 +25,13 @@ Este primeiro desafio não incluiu ambiguidades deliberadamente insolúveis, ten
 Métrica de calibração complementar a estabelecer antes do próximo desafio: entre casos onde o oracle determina que não existe vínculo único, quantos foram indevidamente propostos, quantos foram corretamente recusados e quantas ofertas válidas deixaram de ser cobertas. Negativos devem incluir preços contraditórios, cor ambígua, preços sem unidade, número de contato, condições conflitantes e linhas sem âncora, preservando os positivos.
 
 Não alterar C01, Core FROZEN, frontend, Cloudflare, Supabase, autenticação ou política de promoção. PRs ainda DRAFT; Gate 1 operacional **NO-GO**. VS5 depende de VS4 com positivos e negativos antes de integrar.
+
+## Checkpoint adicional — calibração adversarial conhecida (21/10/2026)
+
+- CI [#39626541906](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/actions/runs/39626541906): **PASS** em avaliação adversarial `KNOWN_DEV`.
+- **5/5 situações inseguras** resultaram em abstenção material com motivo rastreável, **0 propostas inseguras**: cores concorrentes com preço único não compartilhado, condição contraditória, condição ausente, ausência de preço e condição em colunas conflitante.
+- **3/3 casos válidos** foram propostos corretamente: cor→preço, preço→cor e colunas tipadas. Nenhuma oferta autorizada.
+- CI [#39626541848](https://github.com/vinialbuquerquepitstop-beep/pitwall--nucleo/actions/runs/39626541848): desafio sintético de associação + revisão gerado depois do commit, **108/108 correspondências exatas**; zero origem incorreta, zero oferta faltante ou excedente, zero erro crítico silencioso **no corpus avaliado**.
+- O conjunto adversarial é **especificado manualmente e conhecido**, não um desafio cego. Ele demonstra rejeição dos casos enumerados, **não** robustez universal a ambiguidades imprevisíveis.
+- Ainda é necessário **gerador composicional adversarial com oracle de abstinência independente**, após freeze, para medir recall de incertezas em combinações não vistas. Os 108 casos positivos usam a mesma família de gerador anterior.
+- `VS4_DEVELOPMENT_AND_CONTROLS=PASS`; `VS4_ADVERSARIAL_BLIND=UNVERIFIED`; `C01_OPERATIONAL=NO_GO`.
