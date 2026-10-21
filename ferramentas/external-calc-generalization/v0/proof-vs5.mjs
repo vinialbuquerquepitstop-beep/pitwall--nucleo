@@ -27,7 +27,7 @@ try{
      assert.equal(candidate.domain_outcome,'REVIEW_REQUIRED');
      assert.equal(candidate.reviewed_offer,null);
      assert.equal(candidate.offer_id,null);
-     assert.equal(candidate.review_revision,null);
+     assert.equal(candidate.offer_revision,null);
      assert(candidate.authorization.accept_disabled);
      assert(candidate.authorization.persist_disabled);
      assert(candidate.authorization.quote_disabled);
