@@ -3,6 +3,16 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  // Explicit, narrowly scoped ownership for the 20/10 approved External Calc
+  // evaluation method. This grants no runtime, DB, or Core write authority.
+  { owner: 'GENERALIZATION_EVALUATION', patterns: [
+    /^ferramentas\/external-calc-generalization\/v0\//,
+    /^docs\/external-calc\/EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2\.md$/,
+    /^docs\/calculadora\/PROCESSO\.md$/
+  ] },
   { owner: 'UNIVERSAL_INPUT', patterns: [
     /^ferramentas\/external-calc-universal-input\/v1\//,
     /^docs\/calculadora\/EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0\.md$/,
