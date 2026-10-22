@@ -1,5 +1,5 @@
 -- VS53L STAGING ONLY. Generated from reviewed Git blobs, do not run in production.
--- Foundation blob e9b379e438ba163538dad3b8265fdd0ff7a8840c; exact PR179 guard blob bddff79482488ef548ccb2c5c7b43491c57ec805
+-- Foundation blob c06107ad7e6a4eb15ba71ffb933a5cc64510f29e; exact PR179 guard blob bddff79482488ef548ccb2c5c7b43491c57ec805
 -- Not yet compiled in PG17. Strict staging-only preflight and all-or-nothing commit.
 BEGIN;
 SET LOCAL statement_timeout='20000ms';
@@ -306,12 +306,14 @@ begin
   raise exception 'C01_STAGING_COLOR_PROVENANCE_UNVERIFIED';end if;
  if content_lines[price_line] ~ '[+/|]' then
   raise exception 'C01_STAGING_COLOR_SCOPE_AMBIGUOUS';end if;
- if pg_catalog.strpos(
-   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
-     content_lines[price_line], '[^[:alnum:]]+', ' ', 'g')))||' ',
-   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
-     p_candidate#>>'{interpreted_offer,color}', '[^[:alnum:]]+', ' ', 'g')))||' '
- )=0 then
+ -- Compare the COMPLETE color segment immediately before the single BRL token.
+ -- Token containment was unsafe: "Azul" matched "Azul Claro".
+ if pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     pg_catalog.split_part(content_lines[price_line],'R$',1),
+     '[^[:alnum:]]+', ' ', 'g')))
+    is distinct from pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     p_candidate#>>'{interpreted_offer,color}',
+     '[^[:alnum:]]+', ' ', 'g'))) then
   raise exception 'C01_STAGING_COLOR_UNVERIFIED';end if;
  insert into public.extcalc_analysis(tenant_id,analysis_id) values(t,a)
  on conflict(tenant_id,analysis_id) do nothing;
