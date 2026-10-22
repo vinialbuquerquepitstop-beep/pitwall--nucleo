@@ -212,7 +212,7 @@ begin
  foreach fld in array array['model','price'] loop
   refs:=p_candidate#>array['review_evidence','field_sources',fld];
   if pg_catalog.jsonb_typeof(refs) is distinct from 'array'
-   or pg_catalog.jsonb_array_length(refs)=0 then
+   or pg_catalog.jsonb_array_length(refs)<>1 then
    raise exception 'C01_STAGING_FIELD_PROVENANCE_MISSING';end if;
   for ref_str in select value from pg_catalog.jsonb_array_elements_text(refs) loop
    linked_line:=ref_str::integer;
@@ -224,8 +224,15 @@ begin
     raise exception 'C01_STAGING_FIELD_LINE_OUT_OF_RANGE';end if;
    line_raw:=content_lines[linked_line];
    if fld='model' then
-     if pg_catalog.strpos(pg_catalog.lower(line_raw),
-       pg_catalog.lower(p_candidate#>>'{interpreted_offer,model,label}'))=0 then raise exception 'C01_STAGING_MODEL_UNVERIFIED';end if;
+     -- The model label must begin the original source line, and the next
+     -- token must be the declared capacity (prevents Pro vs Pro Max leak).
+     if pg_catalog.lower(pg_catalog.left(pg_catalog.btrim(line_raw),
+          pg_catalog.length(p_candidate#>>'{interpreted_offer,model,label}')))
+        is distinct from pg_catalog.lower(p_candidate#>>'{interpreted_offer,model,label}')
+        or pg_catalog.btrim(pg_catalog.substr(pg_catalog.btrim(line_raw),
+             pg_catalog.length(p_candidate#>>'{interpreted_offer,model,label}')+1))
+          !~* ('^'||(p_candidate#>>'{interpreted_offer,capacity_gb}')||'[[:space:]]*GB([[:space:]]|$)')
+      then raise exception 'C01_STAGING_MODEL_UNVERIFIED';end if;
      model_present:=true;
      model_line:=linked_line;
    else
