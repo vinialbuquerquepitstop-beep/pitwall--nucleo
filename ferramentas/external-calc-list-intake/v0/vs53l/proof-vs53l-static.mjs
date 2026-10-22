@@ -26,6 +26,10 @@ function validate(s,p){
  assert.match(s,/C01_STAGING_COLOR_PROVENANCE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_COLOR_SCOPE_AMBIGUOUS/);
  assert.ok(s.includes("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~"),'capacity must explicitly reject SQL NULL');
+ assert.ok(s.includes("~ '^[1-9][0-9]{0,3}$',false) is false"),'capacity regex delimiter/terminator must be intact');
+ assert.equal((s.match(/^\s*create function\b/gim)||[]).length,6,'unexpected duplicate/missing SQL functions');
+ assert.equal((s.match(/^\s*create trigger\b/gim)||[]).length,2,'unexpected duplicate/missing SQL triggers');
+ assert.equal((s.match(/^\s*commit;\s*$/gim)||[]).length,1,'SQL transaction must commit exactly once');
  assert.ok(p.includes("'color',pg_catalog.jsonb_build_array(2)"),'positive fixture must carry color provenance');
  for(const check of ['NEGATIVE_WRONG_COLOR_NOT_BLOCKED','NEGATIVE_COLOR_LINE_MISSING_NOT_BLOCKED'])
    assert.ok(p.includes(check),`missing ${check}`);
@@ -58,7 +62,9 @@ const noColor=ddl.replace('C01_STAGING_COLOR_UNVERIFIED','C01_STAGING_COLOR_ACCE
 assert.throws(()=>validate(noColor,proof));
 const noCapacityNullGuard=ddl.replace("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~","((p_candidate#>>'{interpreted_offer,capacity_gb}') ~");
 assert.throws(()=>validate(noCapacityNullGuard,proof));
+const truncatedRegex=ddl.replace("~ '^[1-9][0-9]{0,3}$',false) is false","~ '^[1-9][0-9]{0,3}");
+assert.throws(()=>validate(truncatedRegex,proof));
 const noRollback=proof.replace(/ROLLBACK;\s*$/,'COMMIT;');
 assert.throws(()=>validate(ddl,noRollback));
-console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, six negative mutations, atomic guard grant');
+console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, seven negative mutations, SQL truncation/duplication protection, atomic guard grant');
 console.log('VS53L_REAL_POSTGRES=NOT_RUN VS53L_REAL_SIGNED_JWT=NOT_RUN');
