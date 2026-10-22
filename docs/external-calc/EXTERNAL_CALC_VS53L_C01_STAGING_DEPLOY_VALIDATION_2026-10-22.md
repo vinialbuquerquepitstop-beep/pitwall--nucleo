@@ -25,3 +25,17 @@ User ran `VS53L_C01_STAGING_ALL_IN_ONE_ATOMIC_CANDIDATE.sql` from the Supabase S
 
 ## Next exact action
 Run only the updated `ferramentas/external-calc-list-intake/v0/vs53l/VS53L_C01_STAGING_PROOF_ROLLBACK.sql` through **the same** project's SQL Editor, report complete success or error message. Then read-only audit every table row count, source hashes/events and grants; obtain real signed JWT A/B HTTP test for C01 write-path from an approved QA session, without disclosing credentials, tokens or service_role.
+
+
+## Ajuste de oracle SQL de permissão — 22/10/2026
+
+O primeiro ensaio funcional enviado pelo operador retornou:
+`ERROR P0001 NEGATIVE_DIRECT_C01_SELECT_NOT_BLOCKED` no bloco `DO $test$`, linha 161.
+
+**Causa provada:** a afirmação negativa executava `PERFORM 1 FROM public.extcalc_offer_revision ...`, que seleciona uma **constante**, sem acessar nenhuma coluna protegida. No PostgreSQL 17 vivo, `SET LOCAL ROLE authenticated; SELECT 1 FROM public.extcalc_offer_revision LIMIT 1;` executa com resultado vazio. Já `SET LOCAL ROLE authenticated; SELECT c01_snapshot FROM public.extcalc_offer_revision LIMIT 1;` é recusado com **SQLSTATE 42501 permission denied for table extcalc_offer_revision**. O `authenticated` não tem `SELECT` de tabela nem da coluna `c01_snapshot`. Logo, o erro P0001 vinha de **assert inválido**, não de prova de vazamento.
+
+**Correção versionada:** `VS53L_C01_STAGING_PROOF_ROLLBACK.sql` substitui `PERFORM 1` por `PERFORM rev.c01_snapshot FROM ...`; adiciona `has_table_privilege(current_user,...)` e `has_column_privilege(current_user,...)`, rejeita se `current_user` não for exatamente `authenticated`, e exige exceção `insufficient_privilege` (42501). O `proof-vs53l-static.mjs` foi alterado para reprovar regressões que usem `PERFORM 1`. **Nenhum GRANT foi concedido** ou policy afrouxada. A mudança é exclusivamente da prova sintética; fundação e guarda #179 permanecem intactas.
+
+**Dados após falha:** consulta direta no staging `mfsshvckclnmftpaprxk` confirmou `supplier=0`, `source_supplier=0`, `review_candidate=0`, `offer_revision=0`, e `original_source=3`. A falha abortou e reverteu o ensaio, sem resíduo sintético; o C01 instalado permanece presente.
+
+**Gate:** `C01_STAGING_FOUNDATION=PASS`, `ACL_SNAPSHOT_DENIAL=PASS` (PostgreSQL real), `FULL_RPC_SYNTHETIC_ROLLBACK=RETEST_REQUIRED`, `SIGNED_JWT_C01_AB=NOT_RUN`, `PRODUCTION=NO_GO`. Usuário só precisa executar o **mesmo caminho SQL atualizado** da branch VS53L via SQL Editor do staging e enviar resultado. Não executar a fundação novamente.
