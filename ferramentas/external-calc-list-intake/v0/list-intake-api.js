@@ -464,8 +464,28 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
  const command=normalizeBody(rawCommand);
  const built=buildQueue(command);
- if(command.supplier_id){
-   await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+ // The original supplier text MUST be registered before any interpreted
+ // C01 candidate is persisted. Previously this route attempted a supplier
+ // binding to a source that did not exist in the immutable store.
+ if(!command.supplier_id){
+   throw Object.assign(new Error('Selecione um fornecedor para registrar a lista original.'),
+    {code:'LIST_INTAKE_SUPPLIER_REQUIRED',status:422});
+ }
+ if(built.type!=='txt'){
+   throw Object.assign(new Error('Na V0 controlada, somente texto original (.txt) esta habilitado.'),
+    {code:'LIST_INTAKE_ORIGINAL_TEXT_REQUIRED',status:422});
+ }
+ const original_hash='sha256:'+crypto.createHash('sha256').update(command.content,'utf8').digest('hex');
+ const registered=await rpc(env,token,'extcalc_register_original_source_v0',{
+   p_source_id:built.source_id,p_supplier_id:command.supplier_id,
+   p_filename:built.filename,p_content:command.content,p_hash:original_hash
+ });
+ if(!registered||registered.ok!==true||
+    registered.source_id!==built.source_id||
+    registered.supplier_id!==command.supplier_id||
+    registered.original_sha256!==original_hash){
+   throw Object.assign(new Error('A fonte original nao confirmou registro imutavel.'),
+     {code:'LIST_INTAKE_SOURCE_REGISTRATION_UNVERIFIED',status:422});
  }
  // CONTROLLED V0: fail closed. No automatic offer promotion before
  // genuinely new supplier holdout proves authority and price/variant integrity.
@@ -494,6 +514,9 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    source_type:built.type,
    filename:built.filename,
    content_hash:built.canonical.source.content_hash,
+   original_sha256:original_hash,
+   original_source_registered:true,
+   original_source_id:built.source_id,
    candidates:built.queue.candidates.length,
    persisted,
    auto_promoted,
