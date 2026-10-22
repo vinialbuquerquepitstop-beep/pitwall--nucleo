@@ -44,6 +44,9 @@ DECLARE
  c jsonb; p jsonb; r jsonb; compound jsonb; reported text;
  supplier uuid:='33333333-3333-4333-8333-333333333333';
 BEGIN
+ IF current_user IS DISTINCT FROM 'authenticated' THEN
+  RAISE EXCEPTION 'VS53L_EXPECTED_AUTHENTICATED_ROLE';
+ END IF;
  -- Reject nonexistent supplier, quarantined source, and cross-tenant source.
  BEGIN
   PERFORM public.extcalc_bind_source_supplier_v0('vs53l-a-001','55555555-5555-4555-8555-555555555555');
