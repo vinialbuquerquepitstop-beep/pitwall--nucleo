@@ -19,6 +19,8 @@ function validate(s,p){
  assert.match(s,/C01_STAGING_PRICE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_SUPPLIER_MISMATCH/);
  assert.match(s,/C01_STAGING_SOURCE_UNAVAILABLE/);
+ assert.match(s,/jsonb_array_length\(refs\)<>1/);
+ assert.match(s,/capacity_gb/);
  assert.match(s,/revoke all on table public\.%I from public, anon, authenticated/);
  assert.match(s,/grant select\(tenant_id,analysis_id,offer_id,offer_revision\) on public\.extcalc_offer_revision/i);
  assert.doesNotMatch(s,/grant\s+(?:all|insert|update|delete)\s+on\s+(?:table\s+)?public\.(?:extcalc_\w+)\s+to\s+authenticated/i);
