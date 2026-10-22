@@ -1,0 +1,23 @@
+name: External Calc - Worker-safe List Intake Paging V0
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-list-intake/v0/list-intake-api.js'
+      - 'ferramentas/external-calc-list-intake/v0/prova_list_intake_paging_v0.js'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_whatsapp_fail_closed_v0.js'
+      - 'ferramentas/external-calc-list-intake/v0/auto-promotion-authority.js'
+      - '.github/workflows/external-calc-list-intake-paging-v0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  paging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check ferramentas/external-calc-list-intake/v0/prova_list_intake_paging_v0.js
+      - run: node ferramentas/external-calc-list-intake/v0/prova_list_intake_paging_v0.js
+      - run: node ferramentas/external-calc-list-intake/v0/prova_gate1_whatsapp_fail_closed_v0.js

@@ -11,6 +11,91 @@ const sample=[
 ].join('\n');
 const first=buildQueue({filename:'lista.txt',mime_type:'text/plain',content:sample});
 const second=buildQueue({filename:'lista.txt',mime_type:'text/plain',content:sample});
+
+const supplierUnknown=partitionCandidates(first.queue,{supplierVerified:false});
+assert.strictEqual(supplierUnknown.auto.length,0,'no supplier: must not auto-promote');
+assert.ok(supplierUnknown.review.every(x=>x.assessment.reasons.includes('SUPPLIER_IDENTITY_UNVERIFIED')));
+const supplierImplicit=partitionCandidates(first.queue);
+assert.strictEqual(supplierImplicit.auto.length,0,'missing verification context must fail closed');
+assert.ok(supplierImplicit.review.every(x=>x.assessment.reasons.includes('SUPPLIER_IDENTITY_UNVERIFIED')));
+const supplierBound=partitionCandidates(first.queue,{supplierVerified:true});
+assert.strictEqual(supplierBound.auto.length,1,'verified supplier preserves valid promotion');
+
+
+// C01 auto-promotion must have both model and price grounded in actual source lines.
+// Missing trace linkage or a fabricated line cannot be rescued by high confidence.
+const modelWithoutSource=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+delete modelWithoutSource.review_evidence.field_sources.model;
+const modelWithoutSourceDecision=partitionCandidates({
+  candidates:[modelWithoutSource],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(modelWithoutSourceDecision.auto.length,0);
+assert.ok(modelWithoutSourceDecision.review[0].assessment.reasons.includes('MODEL_SOURCE_UNVERIFIED'));
+
+const priceWithUnmatchedLine=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+priceWithUnmatchedLine.review_evidence.field_sources.price=[99999];
+const priceWithUnmatchedLineDecision=partitionCandidates({
+  candidates:[priceWithUnmatchedLine],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(priceWithUnmatchedLineDecision.auto.length,0);
+assert.ok(priceWithUnmatchedLineDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_UNVERIFIED'));
+
+const priceWithEmptyRaw=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+const priceRefs=new Set(priceWithEmptyRaw.review_evidence.field_sources.price);
+for(const line of priceWithEmptyRaw.review_evidence.source_lines){
+  if(priceRefs.has(line.line_number))line.raw='';
+}
+const priceWithEmptyRawDecision=partitionCandidates({
+  candidates:[priceWithEmptyRaw],unresolved_ambiguities:[]
+},{supplierVerified:true});
+assert.strictEqual(priceWithEmptyRawDecision.auto.length,0);
+assert.ok(priceWithEmptyRawDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_UNVERIFIED'));
+
+const explicitOutlier=partitionCandidates({
+  candidates:[first.queue.candidates[0]],unresolved_ambiguities:[]
+},{supplierVerified:true,price_risk:'OUTLIER_REVIEW_REQUIRED'});
+assert.strictEqual(explicitOutlier.auto.length,0);
+assert.ok(explicitOutlier.review[0].assessment.reasons.includes('PRICE_OUTLIER_REVIEW_REQUIRED'));
+
+
+// Gate 1: the price field must agree with the source text, not just its line number.
+const {exactBRLAmountInText}=require('./source-price-evidence');
+assert.equal(exactBRLAmountInText('💵 R$ 4.500,00',450000),true);
+assert.equal(exactBRLAmountInText('🔵 4200',420000),true);
+assert.equal(exactBRLAmountInText('💰5,650',565000),true);
+assert.equal(exactBRLAmountInText('R$ 6.900,50',690050),true);
+assert.equal(exactBRLAmountInText('R$ 6.900,50',690000),false);
+assert.equal(exactBRLAmountInText('R$ 6.900',690050),false);
+assert.equal(exactBRLAmountInText('R$ 6.900,00',690050),false);
+assert.equal(exactBRLAmountInText('R$ 45.000',450000),false);
+const incorrectC01Price=JSON.parse(JSON.stringify(first.queue.candidates[0]));
+incorrectC01Price.interpreted_offer.price.amount_minor=449000;
+const mismatchDecision=partitionCandidates({candidates:[incorrectC01Price],unresolved_ambiguities:[]},{supplierVerified:true});
+assert.equal(mismatchDecision.auto.length,0,'wrong amount must never auto-promote');
+assert.ok(mismatchDecision.review[0].assessment.reasons.includes('PRICE_SOURCE_AMOUNT_UNVERIFIED'));
+
+// Gate 1: never silently promote a material price discrepancy among like-for-like variants.
+const siblingAnomaly=buildQueue({filename:'sibling-outlier.txt',mime_type:'text/plain',content:[
+  'iPhone 16 128GB','🎨 Azul','💵 415',
+  'iPhone 16 128GB','🎨 Preto','💵 4200',
+  'iPhone 16 128GB','🎨 Branco','💵 4250',
+  'iPhone 16 128GB','🎨 Rosa','💵 4300'
+].join('\n')});
+const siblingDecision=partitionCandidates(siblingAnomaly.queue,{supplierVerified:true});
+assert.strictEqual(siblingDecision.review.length,1,'one source-relative price outlier must require review');
+assert.ok(siblingDecision.review[0].assessment.reasons.includes('SIBLING_PRICE_OUTLIER'));
+assert.strictEqual(siblingDecision.review[0].candidate.interpreted_offer.price.amount_minor,41500);
+assert.strictEqual(siblingDecision.auto.length,3,'other comparable prices must remain eligible');
+const differentProducts=buildQueue({filename:'cross-product-prices.txt',mime_type:'text/plain',content:[
+  'Apple Pencil USB-C','💵 415',
+  'iPhone 16 128GB','🎨 Preto','💵 4200',
+  'iPhone 16 128GB','🎨 Branco','💵 4250',
+  'iPhone 16 128GB','🎨 Rosa','💵 4300'
+].join('\n')});
+const independentDecision=partitionCandidates(differentProducts.queue,{supplierVerified:true});
+assert.ok(independentDecision.review.every(x=>!x.assessment.reasons.includes('SIBLING_PRICE_OUTLIER')),
+  'different products must not share price baselines');
+
 assert.strictEqual(first.analysis_id,second.analysis_id);
 assert.strictEqual(first.source_id,second.source_id);
 assert.ok(first.queue.candidates.length>=1);
@@ -59,7 +144,7 @@ assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.
  [710000,690000,670000,430000,430000,420000,425000,480000]);
 assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.color),
  ['Branco','Prata','Prata','Branco','Rosa','Teal','Preto','Prata']);
-const onCellAssessment=partitionCandidates(onCellScoped.queue);
+const onCellAssessment=partitionCandidates(onCellScoped.queue,{supplierVerified:true});
 assert.strictEqual(onCellAssessment.review.length,2,'bare 256 iPhones sem capacidade devem revisar');
 assert.ok(onCellAssessment.review.every(x=>x.assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING')));
 // Não aceitar números fora de linhas coloridas (datas, contato, identificação comercial).
@@ -91,11 +176,11 @@ assert.strictEqual(countLabel('AirPods'),1);
 const bareCapacityCandidate=JSON.parse(JSON.stringify(parsed.queue.candidates[0]));
 bareCapacityCandidate.interpreted_offer.model.label='iPhone 17 PRO MAX 256';
 bareCapacityCandidate.interpreted_offer.capacity_gb=null;
-const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate],unresolved_ambiguities:[]});
+const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate],unresolved_ambiguities:[]},{supplierVerified:true});
 assert.strictEqual(bareCapacityReview.auto.length,0,'iPhone 17 256 sem capacidade resolvida nao pode auto-promover');
 assert.deepStrictEqual(bareCapacityReview.review[0].assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING'),true);
 
-const partition=partitionCandidates(parsed.queue);
+const partition=partitionCandidates(parsed.queue,{supplierVerified:true});
 console.log('REAL_COMERCIO_RESIDUAL_AMBIGUITIES='+JSON.stringify(parsed.queue.unresolved_ambiguities.map(item=>({field:item.field,cause:item.cause,raw:item.raw,sources:item.sources}))));
 console.log('REAL_COMERCIO_RESIDUAL_INVALID='+JSON.stringify(parsed.queue.invalid_items));
 assert.strictEqual(parsed.queue.unresolved_ambiguities.length,0,'lista REAL COMERCIO nao deve deixar ambiguidade estrutural falsa');
@@ -244,3 +329,45 @@ require('./prova_shadow_integrated_readonly_v1');
 require('./prova_private_integrated_shadow_corpus_v1');
 
 require('./prova_shadow_unmatched_price_evidence_v1');
+
+// Gate 1: mock de RPC, somente sintético e sem escritas reais.
+// Um UUID informado não é comprovante de autorização.
+async function proveSupplierBindingFailClosed(){
+  const {processListIntakeCommand}=require('./list-intake-api');
+  const previousFetch=globalThis.fetch;
+  const calls=[];
+  globalThis.fetch=async(url,request)=>{
+    const name=String(url).split('/rpc/')[1];
+    calls.push(name);
+    if(name==='extcalc_bind_source_supplier_v0'){
+      const body=JSON.parse(request.body);
+      return {ok:true,status:200,text:async()=>JSON.stringify({
+        ok:true,source_id:'source_wrong',supplier_id:body.p_supplier_id
+      })};
+    }
+    return {ok:true,status:200,text:async()=>JSON.stringify({idempotent:false})};
+  };
+  const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'synthetic'};
+  try{
+    const withoutSupplier=await processListIntakeCommand({
+      env,token:'synthetic-token',rawCommand:{filename:'gate1-no-supplier.txt',content:sample}
+    });
+    assert.strictEqual(withoutSupplier.auto_promoted,0);
+    assert.strictEqual(withoutSupplier.review_required,withoutSupplier.candidates);
+    assert.strictEqual(withoutSupplier.review_reasons.SUPPLIER_IDENTITY_UNVERIFIED,withoutSupplier.candidates);
+    assert.ok(!calls.includes('extcalc_persist_auto_promoted_c01_v0'));
+    calls.length=0;
+    await assert.rejects(
+      processListIntakeCommand({env,token:'synthetic-token',rawCommand:{
+        filename:'gate1-wrong-receipt.txt',content:sample,
+        supplier_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      }}),
+      error=>error.code==='EXTCALC_SUPPLIER_BINDING_UNVERIFIED'
+    );
+    assert.deepStrictEqual(calls,['extcalc_bind_source_supplier_v0']);
+  } finally {
+    globalThis.fetch=previousFetch;
+  }
+}
+proveSupplierBindingFailClosed().catch(error=>{console.error(error);process.exitCode=1;});
+

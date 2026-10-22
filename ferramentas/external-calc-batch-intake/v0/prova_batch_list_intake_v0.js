@@ -216,7 +216,10 @@ global.fetch = async (url, init = {}) => {
   }
 
   if (String(url).includes('/rest/v1/rpc/extcalc_bind_source_supplier_v0')) {
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const payload = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      ok: true, source_id: payload.p_source_id, supplier_id: payload.p_supplier_id
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
   if (String(url).includes('/rest/v1/rpc/extcalc_persist_review_candidate_v0')) {
     return new Response(JSON.stringify({ idempotent: false }), { status: 200, headers: { 'content-type': 'application/json' } });

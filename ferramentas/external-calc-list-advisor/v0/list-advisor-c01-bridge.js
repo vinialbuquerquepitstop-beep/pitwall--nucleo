@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { buildKnowledgeIndex, resolveEntityCandidate } = require('../../interpreter-core/v1/core');
 const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.knowledge.json');
 const { partitionCandidates } = require('../../external-calc-list-intake/v0/auto-promotion-authority');
+const { exactBRLAmountInText } = require('../../external-calc-list-intake/v0/source-price-evidence');
 
 const CONTRACT_VERSION = 'external-calc-c01-readonly/v1';
 const ENGINE_VERSION = 'external-calc-list-advisor/v0';
@@ -71,6 +72,9 @@ function makeTrace(offer, lines) {
   if(offer.condition) trace.push({field:'condition',chosen:offer.condition,sources:lines,derived_from:[],rules:['list_advisor:structured_output'],alternatives:[],score});
   if(offer.variant) trace.push({field:'variant',chosen:offer.variant,sources:lines,derived_from:[],rules:['list_advisor:structured_output'],alternatives:[],score});
   return trace;
+}
+function excerptContainsPrice(excerpt, amountMinor) {
+  return exactBRLAmountInText(excerpt,amountMinor);
 }
 function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id}) {
   if(!interpretation||interpretation.contract_version!=='external-calc-list-advisor/v0') throw new Error('List Advisor interpretation v0 obrigatoria');
@@ -167,7 +171,31 @@ function bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,su
       invalid_items:0
     }
   };
-  return {queue,partition:partitionCandidates(queue)};
+  const partition=partitionCandidates(queue,{supplierVerified:Boolean(supplier_id)});
+  // Source lineage is a prerequisite for automatic C01 promotion.
+  for(const item of [...partition.auto,...partition.review]){
+    const lines=item.candidate?.review_evidence?.source_lines||[];
+    const hasSourceLine=lines.length && lines.every(line=>Number.isSafeInteger(line.line_number)&&line.raw?.trim());
+    const amount=item.candidate?.interpreted_offer?.price?.amount_minor;
+    const excerpt=interpretation.offers[queue.candidates.indexOf(item.candidate)]?.source_excerpt;
+    const nonemptyExcerptLines=String(excerpt||'').split(/\r?\n/).filter(line=>line.trim());
+    // A multi-line commercial block may contain a different product/price.
+    // Without line-level price ownership it is unsafe to auto-approve.
+    const multiLineScope=nonemptyExcerptLines.length>1;
+    const monetaryTokens=[...String(excerpt||'').matchAll(/(?:R\$|\$|💵|💰)\s*([1-9]\d*(?:[.,]\d+)*)/gu)];
+    const multipleExplicitPrices=new Set(monetaryTokens.map(match=>match[1])).size>1;
+    if(hasSourceLine && excerptContainsPrice(excerpt,amount) && !multiLineScope && !multipleExplicitPrices)continue;
+    item.assessment.eligible=false;
+    const reason=!hasSourceLine?'SOURCE_LINE_MISSING'
+      :multiLineScope||multipleExplicitPrices?'SOURCE_PRICE_SCOPE_AMBIGUOUS':'SOURCE_PRICE_UNVERIFIED';
+    if(!item.assessment.reasons.includes(reason))item.assessment.reasons.push(reason);
+    const autoIndex=partition.auto.indexOf(item);
+    if(autoIndex>=0){
+      partition.review.push({candidate:item.candidate,assessment:item.assessment});
+      partition.auto.splice(autoIndex,1);
+    }
+  }
+  return {queue,partition};
 }
 
 function createPostgresAdvisorC01Sink(options={}) {
@@ -191,7 +219,11 @@ function createPostgresAdvisorC01Sink(options={}) {
   return {
     async persist({interpretation,content,analysis_id,source_id,supplier_id}) {
       const bridged=bridgeListAdvisorToC01({interpretation,content,analysis_id,source_id,supplier_id});
-      await rpc('extcalc_bind_source_supplier_v0',{p_source_id:source_id,p_supplier_id:supplier_id});
+      const binding=await rpc('extcalc_bind_source_supplier_v0',{p_source_id:source_id,p_supplier_id:supplier_id});
+      if(binding?.ok!==true||binding?.source_id!==source_id
+        ||String(binding?.supplier_id||'').toLowerCase()!==String(supplier_id||'').toLowerCase()){
+        throw new Error('EXTCALC_SUPPLIER_BINDING_UNVERIFIED');
+      }
       let persisted=0,auto_promoted=0,review_required=0,idempotent=0;
       for(const item of bridged.partition.auto){
         const a=await rpc('extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
