@@ -70,7 +70,7 @@ BEGIN
     'capacity_gb',256,'color','Azul',
     'price',pg_catalog.jsonb_build_object('amount_minor',690000,'currency','BRL')),
   'review_evidence',pg_catalog.jsonb_build_object(
-    'field_sources',pg_catalog.jsonb_build_object('model',pg_catalog.jsonb_build_array(1),'price',pg_catalog.jsonb_build_array(2)),
+    'field_sources',pg_catalog.jsonb_build_object('model',pg_catalog.jsonb_build_array(1),'price',pg_catalog.jsonb_build_array(2),'color',pg_catalog.jsonb_build_array(2)),
     'source_lines',pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('line_number',1,'raw','iPhone 17 Pro 256GB'),
       pg_catalog.jsonb_build_object('line_number',2,'raw','Azul R$ 6.900,00'))));
@@ -98,7 +98,7 @@ BEGIN
  BEGIN
   -- "iPhone 17" appears in "iPhone 17 Pro", but is a different model.
   PERFORM public.extcalc_persist_review_candidate_v0(
-   pg_catalog.jsonb_set(c,'{interpreted_offer,model,label}','"iPhone 17"'::jsonb));
+   pg_catalog.jsonb_set(pg_catalog.jsonb_set(c,'{interpreted_offer,model,label}','"iPhone 17"'::jsonb),'{interpreted_offer,model,id}','"iphone-17"'::jsonb));
   RAISE EXCEPTION 'NEGATIVE_MODEL_PREFIX_NOT_BLOCKED';
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM <> 'C01_STAGING_MODEL_UNVERIFIED' THEN RAISE; END IF;
@@ -116,6 +116,20 @@ BEGIN
   RAISE EXCEPTION 'NEGATIVE_MISSING_CAPACITY_NOT_BLOCKED';
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM <> 'C01_STAGING_OFFER_INVALID' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.extcalc_persist_review_candidate_v0(
+   pg_catalog.jsonb_set(c,'{interpreted_offer,color}','"Preto"'::jsonb));
+  RAISE EXCEPTION 'NEGATIVE_WRONG_COLOR_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_COLOR_UNVERIFIED' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.extcalc_persist_review_candidate_v0(
+   c #- '{review_evidence,field_sources,color}');
+  RAISE EXCEPTION 'NEGATIVE_COLOR_LINE_MISSING_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_COLOR_PROVENANCE_UNVERIFIED' THEN RAISE; END IF;
  END;
  BEGIN
   PERFORM public.extcalc_persist_review_candidate_v0(
