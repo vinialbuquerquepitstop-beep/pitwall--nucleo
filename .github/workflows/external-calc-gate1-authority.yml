@@ -1,0 +1,21 @@
+name: External Calc Gate 1 Authority
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-list-intake/v0/auto-promotion-authority.js'
+      - 'ferramentas/external-calc-list-intake/v0/list-intake-api.js'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_authority_red.test.js'
+      - '.github/workflows/external-calc-gate1-authority.yml'
+  workflow_dispatch:
+jobs:
+  authority:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Execute Gate 1 authority assertions
+        run: node --test ferramentas/external-calc-list-intake/v0/prova_gate1_authority_red.test.js

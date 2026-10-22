@@ -59,7 +59,7 @@ assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.
  [710000,690000,670000,430000,430000,420000,425000,480000]);
 assert.deepStrictEqual(onCellScoped.queue.candidates.map(c=>c.interpreted_offer.color),
  ['Branco','Prata','Prata','Branco','Rosa','Teal','Preto','Prata']);
-const onCellAssessment=partitionCandidates(onCellScoped.queue);
+const onCellAssessment=partitionCandidates(onCellScoped.queue,{supplier_state:'RESOLVED'});
 assert.strictEqual(onCellAssessment.review.length,2,'bare 256 iPhones sem capacidade devem revisar');
 assert.ok(onCellAssessment.review.every(x=>x.assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING')));
 // Não aceitar números fora de linhas coloridas (datas, contato, identificação comercial).
@@ -95,7 +95,7 @@ const bareCapacityReview=partitionCandidates({candidates:[bareCapacityCandidate]
 assert.strictEqual(bareCapacityReview.auto.length,0,'iPhone 17 256 sem capacidade resolvida nao pode auto-promover');
 assert.deepStrictEqual(bareCapacityReview.review[0].assessment.reasons.includes('CAPACITY_EXPECTED_BUT_MISSING'),true);
 
-const partition=partitionCandidates(parsed.queue);
+const partition=partitionCandidates(parsed.queue,{supplier_state:'RESOLVED'});
 console.log('REAL_COMERCIO_RESIDUAL_AMBIGUITIES='+JSON.stringify(parsed.queue.unresolved_ambiguities.map(item=>({field:item.field,cause:item.cause,raw:item.raw,sources:item.sources}))));
 console.log('REAL_COMERCIO_RESIDUAL_INVALID='+JSON.stringify(parsed.queue.invalid_items));
 assert.strictEqual(parsed.queue.unresolved_ambiguities.length,0,'lista REAL COMERCIO nao deve deixar ambiguidade estrutural falsa');
