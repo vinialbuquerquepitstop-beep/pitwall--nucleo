@@ -5,6 +5,10 @@ import { readFileSync } from 'node:fs';
 const root = new URL('.',import.meta.url);
 const ddl = readFileSync(new URL('VS53L_C01_STAGING_FOUNDATION_CANDIDATE.sql',root),'utf8');
 const proof = readFileSync(new URL('VS53L_C01_STAGING_PROOF_ROLLBACK.sql',root),'utf8');
+const atomic = readFileSync(new URL('assemble-vs53l-phase2-atomic.mjs',root),'utf8');
+assert.ok(atomic.includes('bddff79482488ef548ccb2c5c7b43491c57ec805'),'phase2 must pin exact PR179 guard');
+assert.ok(atomic.includes('REVOKE ALL ON FUNCTION')&&atomic.includes('GRANT EXECUTE ON FUNCTION'),'phase2 must atomically tighten grants');
+assert.ok(atomic.includes("'BEGIN;'")&&atomic.includes("'COMMIT;'"),'phase2 must be transactional');
 const all=['extcalc_supplier','extcalc_source_supplier','extcalc_analysis','extcalc_offer','extcalc_review_candidate','extcalc_offer_revision'];
 function validate(s,p){
  for(const n of all){
@@ -56,5 +60,5 @@ const noCapacityNullGuard=ddl.replace("coalesce((p_candidate#>>'{interpreted_off
 assert.throws(()=>validate(noCapacityNullGuard,proof));
 const noRollback=proof.replace(/ROLLBACK;\s*$/,'COMMIT;');
 assert.throws(()=>validate(ddl,noRollback));
-console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, three negative mutations');
+console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, six negative mutations, atomic guard grant');
 console.log('VS53L_REAL_POSTGRES=NOT_RUN VS53L_REAL_SIGNED_JWT=NOT_RUN');
