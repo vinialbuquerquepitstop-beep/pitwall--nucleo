@@ -7,6 +7,7 @@ const { canonicalToRawDocument } = require('../../external-calc-universal-input/
 const { interpretResolved, buildKnowledgeIndex, resolveEntityCandidate } = require('../../interpreter-core/v1/core');
 const { mapBundleToC01ReviewQueue } = require('../../external-calc-c01/v1/c01-readonly-bridge');
 const { partitionCandidates } = require('./auto-promotion-authority');
+const { auditSourcePriceCoverage } = require('./source-price-coverage-v0');
 const schema = require('./supplier-device-v0.schema.json');
 const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.knowledge.json');
 
@@ -455,7 +456,8 @@ function buildQueue(body){
  const source_id='source_'+identityHash.slice(0,24);
  const bundle=refineInterpreterDiagnostics(expandColorVariants(finalizeBundleIdentity(interpretResolved({document:raw,schema,knowledge:null}))));
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
- return {type,filename,canonical,queue,analysis_id,source_id};
+ const price_coverage=auditSourcePriceCoverage(body.content,queue.candidates);
+ return {type,filename,canonical,queue,analysis_id,source_id,price_coverage};
 }
 async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!env)throw new Error('env obrigatorio');
@@ -465,26 +467,25 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(command.supplier_id){
    await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
  }
+ // CONTROLLED V0: fail closed. No automatic offer promotion before
+ // genuinely new supplier holdout proves authority and price/variant integrity.
  const partition=partitionCandidates(built.queue);
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
- const review_reasons={};
-
- for(const item of partition.auto){
-   const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-   persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
-   const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
-   auto_promoted+=1;
-   if(promoted?.idempotent===true)idempotent+=1;
- }
-
- for(const item of partition.review){
+ const review_reasons={CONTROLLED_V0_REVIEW_ONLY:built.queue.candidates.length};
+ const queued=[...partition.review,...partition.auto];
+ for(const item of queued){
    const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-   persisted+=1;if(saved?.idempotent===true)idempotent+=1;
+   persisted+=1;
+   if(saved?.idempotent===true)idempotent+=1;
    review_required+=1;
    for(const reason of item.assessment.reasons){
      review_reasons[reason]=(review_reasons[reason]||0)+1;
    }
  }
+ if(built.price_coverage.unmatched_price_signal_lines>0)
+   review_reasons.UNMATCHED_SOURCE_PRICE_SIGNALS=built.price_coverage.unmatched_price_signal_lines;
+ if(built.price_coverage.unverified_candidate_price_spans>0)
+   review_reasons.UNVERIFIED_C01_PRICE_SPAN=built.price_coverage.unverified_candidate_price_spans;
 
  return {
    analysis_id:built.analysis_id,
@@ -498,6 +499,11 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    auto_promoted,
    review_required,
    review_reasons,
+   // Unmatched price-like lines remain pending; never silently omitted.
+   price_coverage:built.price_coverage,
+   review_mode:'HUMAN_REVIEW_REQUIRED',
+   manual_recovery_required:built.price_coverage.unmatched_price_signal_lines>0 ||
+     built.price_coverage.unverified_candidate_price_spans>0,
    idempotent,
    unresolved_ambiguities:built.queue.unresolved_ambiguities.length,
    invalid_items:built.queue.invalid_items.length,
