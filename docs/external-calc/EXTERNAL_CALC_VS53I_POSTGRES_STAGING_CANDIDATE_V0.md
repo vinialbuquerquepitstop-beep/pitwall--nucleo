@@ -148,3 +148,17 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 **Validação realizada:** servidor Node `--check` + script inline JS `--check` = PASS. Harness Node de proxy com upstream HTTPS injetado: **9/9** controles PASS (health, Origin, login, Auth user, GET próprio, negativa cruzada, fonte inválida, rota bloqueada, Host bloqueado). Lógica HTML avaliada em VM JavaScript com fetch simulado: **4 cenários PASS** — caso nominal 9/9 sintético, UID incorreto FAIL_CLOSED, vazamento cruzado FAIL_CLOSED com 8/9, falha de DNS `UPSTREAM_DNS_ERROR` FAIL_CLOSED. **NÃO** foi executado um navegador real completo com Node server: o Chromium neste executor reportou `net::ERR_BLOCKED_BY_ADMINISTRATOR` ao navegar localhost mesmo quando rotas eram interceptadas. O próprio executor não resolve DNS do Supabase. Esses limites não dizem nada sobre a rede do operador. Nenhuma credencial real foi usada ou enviada.
 
 **Estado:** `VS53K_V3_LOCAL_PROXY_STATIC=PASS`; `VS53K_V3_JS_LOGIC_MOCK=PASS`; `VS53K_V3_BROWSER_E2E=NOT_RUN`; `VS53K_REAL_SIGNED_JWT_HTTP_AB=NOT_RUN`; `C01_PRODUCTION=NO_GO`. Próximo dado necessário: teste de health sem login e, se possível, prova A/B real pelo ZIP V3; relatório sem secrets para auditar. Não alterar incidentes #178–#180 ou freeze C01–C05.
+
+## VS5.3k — prova HTTP REAL sem credenciais no CI (22/10/2026)
+
+**Alvo único:** PitswallV2 / Supabase `external-calc-staging`, projeto `mfsshvckclnmftpaprxk`. Adicionado `ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs` e etapa GET-only no workflow `external_calc_generalization_method_v0.yml`. Módulo exige modo `--live` e variável explícita de habilitação; host HTTPS, tabela e fonte sintética são fixos. Usa exclusivamente API key **publicável** do próprio staging, nunca service_role, nenhuma credencial de usuário, JWT, DDL, migração, POST ou fonte bruta. A execução não acessa o projeto produtivo.
+
+**EVIDÊNCIA REAL (GitHub Actions):** commit `790424b4e0111732675614c7471b5cf7e9869d62`, Generalization run `39793352927`, job `119874593127`:
+- `VS53K_STAGING_LIVE_AUTH_HEALTH=PASS http=200` — HTTPS para /auth/v1/health de fato respondeu.
+- `VS53K_STAGING_LIVE_ANON_SOURCE_BLOCKED=PASS http=401` — GET sem JWT a view `extcalc_original_source_probe_v0` com `source_ref=original-A-rls` foi negado.
+- `VS53K_STAGING_ANON_HTTP=PASS;SIGNED_JWT_A_B=NOT_RUN;PRODUCTION=NO_GO`.
+- Provas mock negativas (health 401, anon 200/500, DNS e chave inválida) foram rejeitadas corretamente; ownership PASS.
+
+**Interpretação restrita:** comprova rede pública acessível **do runner GitHub**, endpoint Auth saudável e impossibilidade de acesso anônimo naquela rota. A origem específica do `Failed to fetch` no computador do operador ainda não foi identificada. Resposta HTTP 401 sozinha não distingue grant negado de policy RLS; evidências anteriores do catálogo PostgreSQL mostram que `anon` não possui SELECT na view. Não prova assinatura de JWT, política cruzada por usuários reais via PostgREST, nem conectividade da rede local do operador. Não fazer upgrade de gate sem o JSON de prova A/B V3.
+
+**Estado após CI:** `STAGING_PUBLIC_HTTP_AUTH_HEALTH=PASS_REAL`; `STAGING_PUBLIC_HTTP_ANON_SOURCE=DENIED_REAL_HTTP_401`; `STAGING_JWT_AB_HTTP=NOT_RUN`; `C01_PRODUCTION=NO_GO`. PR #199 continua draft e segurança #178–#180 continua independente.
