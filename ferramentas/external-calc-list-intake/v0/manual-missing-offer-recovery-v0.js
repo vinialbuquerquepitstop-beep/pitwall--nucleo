@@ -50,17 +50,21 @@ function strictKeys(obj,allowed,code){
  if(Object.keys(obj).some(x=>!allowed.includes(x)))fail(code);
 }
 function normalizeCommand(command){
- strictKeys(command,['trusted_input_ref','model_line','price_line','color_line','condition_line','model_id','capacity_gb','color','condition','price_amount_minor'], 'RECOVERY_COMMAND_INVALID');
+ strictKeys(command,['trusted_input_ref','model_line','price_line','color_line','condition_line','model_id','model_label','capacity_gb','color','condition','price_amount_minor'], 'RECOVERY_COMMAND_INVALID');
  if(!nonempty(command.trusted_input_ref)||command.trusted_input_ref.length>240)fail('RECOVERY_TRUSTED_REF_REQUIRED');
  const lines=['model_line','price_line','color_line','condition_line'];
  for(const k of lines)if(command[k]!=null&&(!Number.isSafeInteger(command[k])||command[k]<1))fail('RECOVERY_SOURCE_LINE_INVALID');
  if(!Number.isSafeInteger(command.model_line)||!Number.isSafeInteger(command.price_line))fail('RECOVERY_SOURCE_LINES_REQUIRED');
  if(!nonempty(command.model_id)||command.model_id.length>120)fail('RECOVERY_MODEL_REQUIRED');
+ if(command.model_label!=null && (!nonempty(command.model_label) ||
+  command.model_label.length>90 || !/^[\p{L}\d .+-]+$/u.test(command.model_label)))
+  fail('RECOVERY_MODEL_LABEL_INVALID');
  if(!Number.isSafeInteger(command.capacity_gb)||command.capacity_gb<32||command.capacity_gb>8192)fail('RECOVERY_CAPACITY_INVALID');
  if(!Number.isSafeInteger(command.price_amount_minor)||command.price_amount_minor<=0)fail('RECOVERY_PRICE_INVALID');
  if(command.color !=null && (!nonempty(command.color)||!command.color_line))fail('RECOVERY_COLOR_LINE_REQUIRED');
  if(command.condition !=null && (!nonempty(command.condition)||!command.condition_line))fail('RECOVERY_CONDITION_LINE_REQUIRED');
  return {...command,model_id:command.model_id.trim(),
+  model_label:command.model_label==null?null:command.model_label.trim(),
   color:command.color==null?null:command.color.trim(),
   condition:command.condition==null?null:command.condition.trim()};
 }
@@ -84,9 +88,15 @@ function buildManualRecoveryCandidate(resolved,command){
  // is the complete material field in the same line as the single R$ token.
  if(c.price_line!==c.model_line+1 || !c.color || c.color_line!==c.price_line)
   fail('RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED');
- const model=src.models.find(m=>m&&m.id===c.model_id);
+ const catalogModel=src.models.find(m=>m&&m.id===c.model_id);
+ const model=catalogModel||(c.model_label?{id:c.model_id,label:c.model_label}:null);
  if(!model||!nonempty(model.label)||!tokenFound(modelLine,model.label))
   fail('RECOVERY_MODEL_NOT_IN_ORIGINAL');
+ if(catalogModel && c.model_label && c.model_label!==catalogModel.label)
+  fail('RECOVERY_CATALOG_LABEL_CONFLICT');
+ if(catalogModel && Array.isArray(catalogModel.capacities_gb) &&
+   !catalogModel.capacities_gb.includes(c.capacity_gb))
+  fail('RECOVERY_CATALOG_CAPACITY_MISMATCH');
  const slug=model.label.trim().toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
  if(model.id!==slug)fail('RECOVERY_MODEL_C01_IDENTITY_MISMATCH');
  const afterModel=modelLine.trim().slice(model.label.length).trim();
@@ -133,7 +143,8 @@ function buildManualRecoveryCandidate(resolved,command){
   execution_status:'SUCCEEDED',domain_outcome:'REVIEW_REQUIRED',
   freshness_status:'CURRENT',interpretation_run_id:runId,
   interpretation_engine_version:CONTRACT,
-  interpretation_confidence:{overall:null,by_field:{},record_state:'human_source_recovery'},
+  interpretation_confidence:{overall:null,by_field:{},
+    record_state:catalogModel?'human_source_recovery':'human_source_recovery_uncataloged'},
   offer_identity_fingerprint:sha(JSON.stringify(identityMaterial)),
   offer_value_fingerprint:sha(JSON.stringify(interpreted_offer)),
   interpreted_offer,reviewed_offer:null,review:null,
@@ -144,7 +155,8 @@ function buildManualRecoveryCandidate(resolved,command){
  };
  return {candidate,proof:{
   contract_version:CONTRACT,original_sha256:src.original_sha256,source_lines:numbers,
-  manually_recovered:true,auto_promotable:false,review_required:true
+  manually_recovered:true,auto_promotable:false,review_required:true,
+  catalog_verified:!!catalogModel
  }};
 }
 function createManualMissingOfferRecoveryV0({trustedInputResolver,candidateRepository}={}){
