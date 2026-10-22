@@ -6,11 +6,9 @@ const sha=t=>crypto.createHash('sha256').update(t).digest('hex');
 const text=[
  'Fornecedor Alpha',
  'iPhone 17 Pro 256GB',
- '🎨 Azul',
- '💵 R$ 6.900,00',
+ 'Azul R$ 6.900,00',
  'iPhone 17 256GB',
- '⚫ Preto',
- 'R$ 5.500,00'
+ 'Preto R$ 5.500,00'
 ].join('\n');
 const original={
  trusted_input_ref:'original-secure-001',
@@ -21,7 +19,7 @@ const original={
  models:[{id:'iphone-17',label:'iPhone 17'},{id:'iphone-17-pro',label:'iPhone 17 Pro'}]
 };
 const cmd={
- trusted_input_ref:'original-secure-001',model_line:2,price_line:4,color_line:3,
+ trusted_input_ref:'original-secure-001',model_line:2,price_line:3,color_line:3,
  model_id:'iphone-17-pro',capacity_gb:256,color:'Azul',
  price_amount_minor:690000
 };
@@ -33,8 +31,8 @@ assert.equal(a.candidate.review,null);
 assert.equal(a.candidate.reviewed_offer,null);
 assert.equal(a.candidate.interpreted_offer.price.amount_minor,690000);
 assert.equal(a.candidate.interpreted_offer.model.id,'iphone-17-pro');
-assert.deepEqual(a.candidate.review_evidence.field_sources.price,[4]);
-assert.deepEqual(a.candidate.review_evidence.source_lines.map(x=>x.line_number),[2,3,4]);
+assert.deepEqual(a.candidate.review_evidence.field_sources.price,[3]);
+assert.deepEqual(a.candidate.review_evidence.source_lines.map(x=>x.line_number),[2,3]);
 assert.equal(a.proof.auto_promotable,false);
 assert.equal(a.proof.review_required,true);
 assert.equal(buildManualRecoveryCandidate(original,cmd).candidate.offer_id,a.candidate.offer_id);
@@ -44,9 +42,9 @@ function rejects(next,pattern){
 rejects({...cmd,price_amount_minor:695000},/RECOVERY_PRICE_NOT_IN_ORIGINAL/);
 rejects({...cmd,model_id:'iphone-17'},/RECOVERY_LONGER_MODEL_IN_ORIGINAL/);
 rejects({...cmd,capacity_gb:512},/RECOVERY_CAPACITY_NOT_IN_ORIGINAL/);
-rejects({...cmd,color:'Preto'},/RECOVERY_COLOR_NOT_IN_ORIGINAL/);
-rejects({...cmd,color_line:6},/RECOVERY_COLOR_NOT_IN_ORIGINAL/);
-rejects({...cmd,price_line:7},/RECOVERY_PRICE_NOT_IN_ORIGINAL/);
+rejects({...cmd,color:'Preto'},/RECOVERY_COLOR_EXACT_SEGMENT_REQUIRED/);
+rejects({...cmd,color_line:5},/RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED/);
+rejects({...cmd,price_line:5},/RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED/);
 rejects({...cmd,price_line:12},/RECOVERY_SOURCE_LINE_INVALID/);
 rejects({...cmd,analysis_id:'new-tenant'},/RECOVERY_COMMAND_INVALID/);
 rejects({...cmd,tenant_id:'11111111-1111-4111-8111-111111111111'},/RECOVERY_COMMAND_INVALID/);
@@ -61,10 +59,10 @@ assert.throws(()=>buildManualRecoveryCandidate(
  {...original,is_supplier_bound:false},cmd),/RECOVERY_TRUSTED_ORIGINAL_UNAVAILABLE/);
 assert.throws(()=>buildManualRecoveryCandidate(
  {...original,original_text:text+'\nR$ 1,00'},cmd),/RECOVERY_TRUSTED_ORIGINAL_UNAVAILABLE/);
-const multiple=[text,'R$ 5.900,00 ou R$ 6.100,00'].join('\n');
+const multiple=text.replace('Azul R$ 6.900,00','Azul R$ 5.900,00 ou R$ 6.100,00');
 assert.throws(()=>buildManualRecoveryCandidate(
  {...original,original_text:multiple,original_sha256:sha(multiple)},
- {...cmd,price_line:8,price_amount_minor:590000}),/RECOVERY_EXACT_ONE_MONETARY_PRICE_REQUIRED/);
+ {...cmd,price_amount_minor:590000}),/RECOVERY_EXACT_ONE_MONETARY_PRICE_REQUIRED/);
 (async()=>{
  let persisted=null;
  const calls=[];
