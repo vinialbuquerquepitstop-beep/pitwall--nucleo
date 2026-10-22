@@ -57,4 +57,6 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 
 **Próxima autorização separada (gate humano):** revisar esta SQL candidata ajustada e autorizar **DDL + seed sintético somente no projeto mfsshvckclnmftpaprxk**. Não inclui merge, deploy, integração com runtime real, migração produtiva ou importação de dados de fornecedores. Após essa decisão, primeiro validar SQL/rollback e permissões reais, depois prover identidades de teste A/B e executar matriz VS5.3g/VS5.3h. Produção NO-GO devido ao incidente 20/10 e PRs #178–#180.
 
-**Estado:** `STAGING_READONLY_PREFLIGHT=PASS_WITH_SCHEMA_GAPS`; `STAGING_SQL_REVISED=AWAITING_CI`; `REAL_DDL=NOT_RUN`; `REAL_JWT_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
+**Evidência de CI:** PR #199 DRAFT, commit bdcaeeb1e256cd210b5b4e2b1e0bf2e8e5f95f7c, GitHub Actions Generalization run 39730587091 / job 119664464093: VS5.3i STATIC PASS (15 verificações; inclui negativas de tenant-tautology e membership sem auth.uid) e ownership PASS. Seis workflows de GitHub Actions terminaram SUCCESS no mesmo commit. **Não** houve execução SQL/DDL nem prova JWT/RLS real.
+
+**Estado:** `STAGING_READONLY_PREFLIGHT=PASS_WITH_SCHEMA_GAPS`; `STAGING_SQL_REVISED=CI_PASS_STATIC_ONLY`; `REAL_DDL=NOT_RUN`; `REAL_JWT_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
