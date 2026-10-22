@@ -61,3 +61,22 @@ Os três artefatos foram efetivamente adicionados à própria branch, em `ferram
 **Security Advisor staging:** `rls_enabled_no_policy` INFO em tabela privada de tenants, coerente com falta deliberada de privilégios externos; `auth_leaked_password_protection` WARN por proteção contra senhas comprometidas desligada. Decidir configuração de Auth antes de promover staging a referência de hardening, sem afetar contas reais ou produção.
 
 **Requisito para continuar gate de implantação:** acesso de escrita explicitamente permitido para execução controlada no projeto específico e revisão de schema SQL com Postgres real. Só então aplicar a fundação fase 1, SQL **exato** da guarda #179 fase 2, executar prova rollback, auditar RLS/grants/advisors e por fim HTTP Auth A/B. Não misturar essa prova com VS5.3k, que foi de fonte original read-only. `STAGING_C01_FUNCTIONAL=BLOCKED_NOT_APPLIED`; `PRODUCTION=NO_GO`.
+
+
+## VS53L V4 — hardening de proveniência e implantação atômica (22/10/2026)
+
+**Estado sem superestimar:** `STAGING_C01_FUNCTIONAL=NOT_APPLIED`; nenhum PostgreSQL de C01 implantado, sem prova real JWT C01; produção `NO_GO`. A execução nesta rodada ficou em revisão, código e testes estáticos locais **sem GitHub Actions**.
+
+**Falhas descobertas e corrigidas na proposta:**
+1. A RPC de `review_candidate` conferia modelo e preço, mas não a **cor**. Agora exige `interpreted_offer.color` explícita, `field_sources.color` com exatamente uma linha rastreada à mesma linha do preço, token de cor com limites de palavra no texto imutável e recusa linhas com separadores de opções ambíguas. Razões `C01_STAGING_COLOR_MISSING`, `C01_STAGING_COLOR_PROVENANCE_UNVERIFIED`, `C01_STAGING_COLOR_SCOPE_AMBIGUOUS`, `C01_STAGING_COLOR_UNVERIFIED`. Critério conservador restrito a staging, não resolver universal de variantes.
+2. Condição antiga `(capacity_gb) !~ REGEX` falhava em rejeitar capacidade `NULL` por semântica SQL de três valores. Substituída por `coalesce((capacity_gb ~ REGEX),false) is false`, bloqueando ausência.
+3. Teste negativo `iPhone 17` vs `iPhone 17 Pro` agora corrige em conjunto label e ID no estímulo, para verificar a regra de modelo de origem — não terminar prematuramente no bloqueio da identidade.
+4. Prova de rollback inclui dois cenários inéditos: cor forjada e `field_sources.color` ausente; fixture positiva inclui linha explícita de cor. A suíte local `proof-vs53l-static.mjs` executada com Node 22 retornou `VS53L_STATIC=PASS`, com seis mutações negativas e verificação de montagem atômica. **Não equivale à execução da RPC em Postgres.**
+
+**Preflight privilegiado (read-only contra Supabase verdadeiro):** `current_user=postgres`; `pg_roles.postgres.rolbypassrls=true`, `authenticator.rolbypassrls=false`. Assim a execução sob `SECURITY DEFINER` com proprietário postgres é compatível com `FORCE RLS` sem abrir INSERT de tabelas para authenticated. Conferido diretamente no staging; autorização comercial real ainda não foi executada.
+
+**Fase 2 segura:** criado `ferramentas/external-calc-list-intake/v0/vs53l/assemble-vs53l-phase2-atomic.mjs`. Lê exclusivamente `../GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql` do PR #179 e verifica hash Git blob `bddff79482488ef548ccb2c5c7b43491c57ec805`; se mudar, falha fechada. Emite **uma transação** `BEGIN → pré-condições do staging/postgres → guarda exata → REVOKE PUBLIC/anon → GRANT authenticated → valida grants → COMMIT`. Evita que a função SECURITY DEFINER passe a ficar publicamente executável entre dois commits. Para preparar o SQL em checkout autorizado: `node ferramentas/external-calc-list-intake/v0/vs53l/assemble-vs53l-phase2-atomic.mjs --check` e depois `node .../assemble-vs53l-phase2-atomic.mjs --emit > VS53L_PHASE2_ATOMIC.sql`. Não executar no Supabase até DDL compilado, autorização de escrita permitida e gate de implantação revisado.
+
+**Inventário persistente até última consulta:** `list_tables` de staging revelou somente as quatro tabelas VS5.3i de fontes originais, nenhuma tabela C01. Security Advisor mantém `auth_leaked_password_protection=WARN` no staging e info de RLS sem policy na tabela privada de tenants. Não alterar Auth nem schema produtivo sem outro gate.
+
+**Próxima prova bloqueadora:** validar a montagem da fase 2 contra a guarda pinada em um checkout, compilar SQL fase 1/2 no PostgreSQL 17 autorizado, executar prova transacional de fontes sintéticas, comparar resultados e rollback, e validar HTTP com as sessões QA A/B. Até isso, o staging não está funcional para C01.
