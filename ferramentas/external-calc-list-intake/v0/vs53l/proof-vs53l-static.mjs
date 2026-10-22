@@ -28,7 +28,7 @@ function validate(s,p){
  assert.doesNotMatch(s,/insert\s+into\s+auth\.users|grant\s+all\s+to\s+authenticated|service_role|bypassrls/i);
  assert.match(p,/^BEGIN;/m);
  assert.match(p,/ROLLBACK;\s*$/m);
- for(const neg of ['NEGATIVE_SUPPLIER_NOT_BLOCKED','NEGATIVE_QUARANTINE_NOT_BLOCKED','NEGATIVE_CANDIDATE_ABSENT_NOT_BLOCKED','NEGATIVE_FORGED_LINE_NOT_BLOCKED','NEGATIVE_FORGED_PRICE_NOT_BLOCKED','NEGATIVE_CROSS_TENANT_PROMOTION_NOT_BLOCKED'])assert.ok(p.includes(neg),`missing ${neg}`);
+ for(const neg of ['NEGATIVE_SUPPLIER_NOT_BLOCKED','NEGATIVE_QUARANTINE_NOT_BLOCKED','NEGATIVE_CANDIDATE_ABSENT_NOT_BLOCKED','NEGATIVE_FORGED_LINE_NOT_BLOCKED','NEGATIVE_FORGED_PRICE_NOT_BLOCKED','NEGATIVE_MODEL_PREFIX_NOT_BLOCKED','NEGATIVE_CROSS_TENANT_PROMOTION_NOT_BLOCKED'])assert.ok(p.includes(neg),`missing ${neg}`);
  return true;
 }
 validate(ddl,proof);
