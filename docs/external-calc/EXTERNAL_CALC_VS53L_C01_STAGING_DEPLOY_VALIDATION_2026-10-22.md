@@ -39,3 +39,16 @@ O primeiro ensaio funcional enviado pelo operador retornou:
 **Dados após falha:** consulta direta no staging `mfsshvckclnmftpaprxk` confirmou `supplier=0`, `source_supplier=0`, `review_candidate=0`, `offer_revision=0`, e `original_source=3`. A falha abortou e reverteu o ensaio, sem resíduo sintético; o C01 instalado permanece presente.
 
 **Gate:** `C01_STAGING_FOUNDATION=PASS`, `ACL_SNAPSHOT_DENIAL=PASS` (PostgreSQL real), `FULL_RPC_SYNTHETIC_ROLLBACK=RETEST_REQUIRED`, `SIGNED_JWT_C01_AB=NOT_RUN`, `PRODUCTION=NO_GO`. Usuário só precisa executar o **mesmo caminho SQL atualizado** da branch VS53L via SQL Editor do staging e enviar resultado. Não executar a fundação novamente.
+
+
+## G2 — C01 functional transaction PASS confirmed in staging (2026-10-22)
+
+User executed `VS53L_C01_STAGING_PROOF_VISIBLE_PASS_ROLLBACK.sql` in the Supabase SQL Editor for `mfsshvckclnmftpaprxk` and provided a screenshot with the terminal SELECT showing **`VS53L_C01_RESULTADO_FINAL=PASS`** and `ROLLBACK no final - dados sinteticos descartados`. The underlying DO block performs the guarded supplier-link, candidate, promotion, idempotence and rejection assertions. Passing the final SELECT means those earlier assertions completed without raising an error, but no independently signed HTTP JWT was used.
+
+**Read-only independent reconciliation after user screenshot:** all public C01 staging tables `extcalc_supplier`, `extcalc_source_supplier`, `extcalc_analysis`, `extcalc_offer`, `extcalc_review_candidate`, `extcalc_offer_revision` have 0 rows. Immutable original sources still 3; source-state events still 1; active memberships still 2; source_refs beginning with `vs53l-` = 0. All 3 core public C01 RPCs are `SECURITY DEFINER` owned by `postgres`; `anon` lacks EXECUTE and `authenticated` has EXECUTE. The SQL Editor installation remains **unrecorded in Supabase migration history** (only versions 20261022060654 and 20261022061751).
+
+**Decision:** `VS53L_REAL_PG17_SYNTHETIC_RPC_TRANSACTION=PASS`; `VS53L_C01_ROLLBACK_CLEAN=PASS`. The error in the earlier test was a false oracle `PERFORM 1` that did not touch a protected column, corrected before this PASS. The C01 security and lineage domain still require signed session HTTP A/B proof, independent holdout, and operational beta gates. Staging PASS does not authorize production.
+
+**Next instrument created**: `ferramentas/external-calc-list-intake/v0/vs53l/proof-vs53l-signed-jwt-ab-readonly.mjs`, a Node 20+ no-write, ten-case external PostgREST smoke script. It accepts two separate, current **signed** QA JWTs and one publishable Supabase API key **exclusively through local environment variables**, pins API origin to `https://mfsshvckclnmftpaprxk.supabase.co`, redacts secrets/response bodies, and expects anonymous RPC denials, A/B source isolation, revoked original source, and malformed C01 candidate/promotion rejection. Do not put JWTs or API keys into Git, chat, screenshots or logs. **Runner is code-prepared only, not executed**: no current signed QA JWTs were supplied. The runner's negative-only proof does NOT replace future positive authenticated C01 full E2E with cleanup.
+
+**Release status:** `STAGING_C01_DB_FUNCTIONAL=PASS`; `STAGING_C01_HTTP_SIGNED_JWT_AB=NOT_RUN`; `INDEPENDENT_HOLDOUT=NOT_RUN`; `PRODUCTION=NO_GO`; no GitHub Actions.
