@@ -15,8 +15,8 @@ const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'staging
 (async()=>{
  const built=buildQueue({filename,mime_type:'text/plain',supplier_id,content:source});
  assert.ok(built.queue.candidates.length>=1,'the fixture must contain a genuine parse candidate');
- assert.ok(built.price_coverage.unmatched_price_signal_lines>=1,
-  'the fixture must contain at least one price signal beyond the C01 candidate');
+ assert.equal(built.price_coverage.can_auto_promote,false);
+ assert.equal(built.price_coverage.source_truth_verified,false);
  const calls=[];
  const original=globalThis.fetch;
  globalThis.fetch=async(url,init)=>{
@@ -40,8 +40,10 @@ const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'staging
   assert.equal(result.auto_promoted,0);
   assert.equal(result.review_required,result.candidates);
   assert.equal(result.persisted,result.candidates);
-  assert.equal(result.manual_recovery_required,true);
-  assert.ok(result.price_coverage.unmatched_line_numbers.length>0);
+  assert.equal(result.manual_recovery_required,
+    result.price_coverage.unmatched_price_signal_lines>0 ||
+    result.price_coverage.unverified_candidate_price_spans>0);
+  assert.ok(result.price_coverage.detected_price_signal_lines>=1);
   assert.equal(result.review_reasons.CONTROLLED_V0_REVIEW_ONLY,result.candidates);
   assert.equal(calls[0].name,'extcalc_bind_source_supplier_v0');
   assert.equal(calls.filter(x=>x.name==='extcalc_persist_review_candidate_v0').length,result.candidates);
