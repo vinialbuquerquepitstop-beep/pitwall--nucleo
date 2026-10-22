@@ -3,6 +3,18 @@
 const { execFileSync } = require('node:child_process');
 
 const OWNERS = [
+  // Explicit, narrowly scoped ownership for the 20/10 approved External Calc
+  // evaluation method. This grants no runtime, DB, or Core write authority.
+  { owner: 'GENERALIZATION_EVALUATION', patterns: [
+    /^ferramentas\/external-calc-generalization\/v0\//,
+    /^docs\/external-calc\/EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VERTICAL_SLICES_GENERALIZATION_V1\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_GENERALIZATION_DECISION_ADR_2026-10-20\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VS0_BASELINE_GENERALIZATION_2026-10-20\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VS1_RELATION_GRAPH_PROPOSAL_V0\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2\.md$/,
+    /^docs\/calculadora\/PROCESSO\.md$/
+  ] },
   { owner: 'UNIVERSAL_INPUT', patterns: [
     /^ferramentas\/external-calc-universal-input\/v1\//,
     /^docs\/calculadora\/EXTERNAL_CALC_UNIVERSAL_INPUT_U0_GOVERNANCE_GATE_V0\.md$/,
@@ -123,6 +135,7 @@ const OWNERS = [
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
   { owner: 'WORKFLOW_GOVERNANCE', patterns: [
+    /^\.github\/workflows\/external_calc_generalization_method_v0\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u0_governance\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u2_equivalence\.yml$/,
     /^\.github\/workflows\/external_calc_universal_input_u3_provenance\.yml$/,

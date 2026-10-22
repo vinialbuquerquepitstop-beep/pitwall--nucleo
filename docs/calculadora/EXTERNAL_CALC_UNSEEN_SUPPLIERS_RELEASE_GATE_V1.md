@@ -2,6 +2,8 @@
 
 **Estado:** PROPOSTO / NÃO EXECUTADO. Bloqueia a liberação geral até existir evidência real.
 
+> **Adendo 20/10/2026 — indisponibilidade de holdout natural:** o usuário informou que todos os fornecedores atualmente disponíveis já foram usados. Portanto os 3 fornecedores/documentos reais inéditos exigidos **não estão disponíveis hoje**. Um gerador de fornecedores fictícios (ver `docs/external-calc/EXTERNAL_CALC_EXECUCAO_LINEAR_V3_GENERALIZACAO.md`) abre uma trilha de **generalização sintética**, que não substitui este gate. Listas renomeadas/reformatadas da mesma base **não** são fontes externas novas. Aguardar dados externos verdadeiramente não vistos quando existirem; jamais declarar este gate PASS a partir de dados fabricados.
+
 ## Separação de dados
 - **Desenvolvimento/regressão:** as 14 listas SP já inspecionadas (incluindo Mega Storia, ON CELL e Captain Cell); servem para corrigir e prevenir regressões, nunca para medir teste cego.
 - **Holdout genuíno:** ao menos 3 fornecedores/documentos completos e inéditos, com fontes independentes, jamais vistos durante a construção de regras. Os originais ficam privados. Não editar regex após abrir o conjunto sem invalidar e renovar o holdout.
