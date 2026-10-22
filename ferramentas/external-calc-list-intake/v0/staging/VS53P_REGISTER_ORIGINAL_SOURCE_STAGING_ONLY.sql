@@ -20,7 +20,7 @@ CREATE FUNCTION public.extcalc_register_original_source_v0(
 AS $register$
 DECLARE
  t uuid; b bytea; expected_hash text; old_bytes bytea;
- existing boolean:=false; bound uuid;
+ existing boolean:=false; inserted_rows integer:=0; bound uuid;
 BEGIN
  t:=privado.fn_tenant_atual();
  IF auth.uid() IS NULL OR t IS NULL OR privado.fn_papel_atual() IS DISTINCT FROM 'dono'
@@ -49,8 +49,8 @@ BEGIN
   (tenant_id,source_ref,filename,created_by,content_bytes,content_sha256)
  VALUES(t,p_source_id,p_filename,auth.uid(),b,expected_hash)
  ON CONFLICT(tenant_id,source_ref) DO NOTHING;
- GET DIAGNOSTICS existing=ROW_COUNT;
- existing:=NOT existing; -- true when the exact source already existed
+ GET DIAGNOSTICS inserted_rows=ROW_COUNT;
+ existing:=(inserted_rows=0); -- true when the exact source already existed
  SELECT s.content_bytes INTO old_bytes
  FROM privado.extcalc_original_source_v0 s
  WHERE s.tenant_id=t AND s.source_ref=p_source_id;
