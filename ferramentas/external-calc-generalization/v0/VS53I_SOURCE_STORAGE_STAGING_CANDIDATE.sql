@@ -3,13 +3,46 @@
 -- automated workflow. Security and storage decisions remain under human gate.
 -- Preflight MUST verify: isolated authorized staging, schema 'privado' NOT
 -- exposed by Data API, PostgreSQL >= 15, extensions.digest(bytea,text)
--- installed/accessible, private tenant role helpers, retention/size approval.
+-- installed/accessible, Supabase Auth users and staging-only tenant/role seed,
+-- retention/size approval. No productive tenant model is copied.
 -- This is deliberately in ferramentas/, never in supabase/migrations/.
+
+-- STAGING-ONLY identity bootstrap: NOT the productive tenant model.
+-- Actual Supabase Auth users A/B will be created in a separately authorized gate.
+-- Role/tenant are resolved from locked server-seeded rows, NEVER user_metadata,
+-- a client-supplied tenant, or service_role queries used as RLS evidence.
+create schema if not exists privado;
+
+create table privado.extcalc_staging_tenant_v0 (
+  tenant_id uuid primary key,
+  label text not null check (length(label) between 1 and 80)
+);
+alter table privado.extcalc_staging_tenant_v0 enable row level security;
+alter table privado.extcalc_staging_tenant_v0 force row level security;
+revoke all on privado.extcalc_staging_tenant_v0 from public, anon, authenticated;
+
+create table privado.extcalc_staging_membership_v0 (
+  user_id uuid primary key references auth.users(id),
+  tenant_id uuid not null references privado.extcalc_staging_tenant_v0(tenant_id),
+  member_role text not null check (member_role = 'dono'),
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table privado.extcalc_staging_membership_v0 enable row level security;
+alter table privado.extcalc_staging_membership_v0 force row level security;
+create policy extcalc_stage_membership_self_read_v0
+on privado.extcalc_staging_membership_v0
+for select to authenticated
+using (user_id = (select auth.uid()) and active is true);
+revoke all on privado.extcalc_staging_membership_v0 from public, anon, authenticated;
+grant usage on schema privado to authenticated;
+grant select on privado.extcalc_staging_membership_v0 to authenticated;
+-- No client INSERT/UPDATE/DELETE grants or policies on bootstrap data.
 
 -- Original bytes are stored separately from any C01 derived candidate.
 -- admin-only ingestion is deliberately NOT implemented in this candidate.
 create table privado.extcalc_original_source_v0 (
-  tenant_id uuid not null references public.tenant(id),
+  tenant_id uuid not null references privado.extcalc_staging_tenant_v0(tenant_id),
   source_ref text not null check (
     length(source_ref) between 3 and 160
     and source_ref ~ '^[A-Za-z0-9_.:-]+$'
@@ -86,18 +119,26 @@ create policy extcalc_original_tenant_owner_select_v0
 on privado.extcalc_original_source_v0
 for select to authenticated
 using (
-  auth.uid() is not null
-  and tenant_id = (select privado.fn_tenant_atual())
-  and (select privado.fn_papel_atual()) = 'dono'
+  (select auth.uid()) is not null
+  and exists (
+    select 1 from privado.extcalc_staging_membership_v0 m
+    where m.user_id = (select auth.uid())
+      and m.tenant_id = privado.extcalc_original_source_v0.tenant_id
+      and m.member_role = 'dono' and m.active is true
+  )
 );
 
 create policy extcalc_original_events_tenant_owner_select_v0
 on privado.extcalc_original_source_state_event_v0
 for select to authenticated
 using (
-  auth.uid() is not null
-  and tenant_id = (select privado.fn_tenant_atual())
-  and (select privado.fn_papel_atual()) = 'dono'
+  (select auth.uid()) is not null
+  and exists (
+    select 1 from privado.extcalc_staging_membership_v0 m
+    where m.user_id = (select auth.uid())
+      and m.tenant_id = privado.extcalc_original_source_state_event_v0.tenant_id
+      and m.member_role = 'dono' and m.active is true
+  )
 );
 
 -- No authenticated/anon write grants or INSERT/UPDATE/DELETE policies.
@@ -108,7 +149,6 @@ revoke all on function privado.extcalc_original_source_reject_mutation_v0()
 
 -- Required for security_invoker view and a future authenticated read-only
 -- source reader. MUST confirm that 'privado' is not exposed to Data API.
-grant usage on schema privado to authenticated;
 grant select on privado.extcalc_original_source_v0 to authenticated;
 grant select on privado.extcalc_original_source_state_event_v0 to authenticated;
 
@@ -147,5 +187,5 @@ grant select on public.extcalc_original_source_probe_v0 to authenticated;
 -- Deliberately omitted pending approval:
 -- * ingestion API / capture / server-derived tenant + actor with signed Auth
 -- * privilege-separated seed path, event-append transaction, idempotency
--- * legal retention/deletion lifecycle, hard byte limit, monitoring
+-- * legal retention/deletion lifecycle, approved byte limit, monitoring
 -- * any deployment, SQL execution, migrations or production data movement.
