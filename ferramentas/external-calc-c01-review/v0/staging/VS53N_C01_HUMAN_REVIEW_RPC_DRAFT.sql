@@ -51,6 +51,25 @@ CREATE TRIGGER extcalc_c01_review_decision_immutable_v0
  FOR EACH ROW EXECUTE FUNCTION privado.extcalc_c01_review_decision_immutable_v0();
 REVOKE ALL ON FUNCTION privado.extcalc_c01_review_decision_immutable_v0() FROM PUBLIC,anon,authenticated;
 
+-- Critical write barrier: legacy auto-promotion cannot bypass a recorded
+-- ACCEPT/EDIT/EXCLUDE/INVALIDATE for this source offer. No later revision
+-- is sale-ready until an explicit audited authority migrates it.
+CREATE FUNCTION privado.extcalc_c01_no_promotion_after_review_v0()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
+AS $fence$
+BEGIN
+ IF EXISTS(
+  SELECT 1 FROM privado.extcalc_c01_review_decision_stage_v0 d
+  WHERE d.tenant_id=NEW.tenant_id
+  AND d.analysis_id=NEW.analysis_id AND d.offer_id=NEW.offer_id)
+ THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='C01_REVIEWED_OFFER_REQUIRES_AUTHORITY_GATE'; END IF;
+ RETURN NEW;
+END $fence$;
+CREATE TRIGGER extcalc_c01_no_promotion_after_review_v0
+ BEFORE INSERT OR UPDATE ON public.extcalc_offer_revision
+ FOR EACH ROW EXECUTE FUNCTION privado.extcalc_c01_no_promotion_after_review_v0();
+REVOKE ALL ON FUNCTION privado.extcalc_c01_no_promotion_after_review_v0() FROM PUBLIC,anon,authenticated;
+
 -- Readonly page. Original tenant bound to auth.uid, never to request payload.
 CREATE FUNCTION public.extcalc_list_pending_review_candidates_v0(p_limit integer DEFAULT 50)
 RETURNS TABLE(candidate_snapshot jsonb,criado_em timestamptz)
@@ -132,6 +151,7 @@ BEGIN
  OR decision IS NULL OR decision NOT IN ('ACCEPT','EDIT','EXCLUDE','INVALIDATE')
  OR p_reviewed#>>'{review,reviewer_ref}' IS DISTINCT FROM current_actor
  OR pg_catalog.nullif(p_reviewed#>>'{review,reviewed_at}','') IS NULL
+ OR p_reviewed ? 'tenant_id' OR p_reviewed ? 'actor_id'
  OR p_reviewed->>'contract_version' IS DISTINCT FROM 'external-calc-c01-readonly/v1'
  OR p_reviewed->>'execution_status' IS DISTINCT FROM 'SUCCEEDED'
  OR p_reviewed->>'freshness_status' IS DISTINCT FROM 'CURRENT'
@@ -199,6 +219,10 @@ GRANT EXECUTE ON FUNCTION public.extcalc_persist_review_result_v0(jsonb) TO auth
 DO $post$
 DECLARE n text;
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger tg
+  WHERE tg.tgrelid='public.extcalc_offer_revision'::regclass
+  AND tg.tgname='extcalc_c01_no_promotion_after_review_v0' AND NOT tg.tgisinternal)
+ THEN RAISE EXCEPTION 'VS53N_PROMOTION_FENCE_MISSING';END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace
   WHERE ns.nspname='privado' AND c.relname='extcalc_c01_review_decision_stage_v0'
   AND c.relrowsecurity AND c.relforcerowsecurity)
