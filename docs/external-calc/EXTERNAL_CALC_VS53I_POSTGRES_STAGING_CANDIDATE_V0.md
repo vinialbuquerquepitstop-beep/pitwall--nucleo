@@ -44,3 +44,17 @@ Provas prévias: VS5.3d 8/8 stub; VS5.3f 12/12 stub; VS5.3g 12/12 simulado; VS5.
 **Estados:** VS53I_SQL_DRAFT=CI_PASS_STATIC_ONLY; REAL_STORAGE=NOT_IMPLEMENTED; REAL_RLS=NOT_RUN; C01_RELEASE=NO_GO.
 
 O próximo passo depois da aprovação **não é nova simulação**: é executar SQL e JWT A/B contra o staging explícito, registrando uma prova externa verificável.
+
+## Checkpoint de homologação — preflight real de 22/10/2026
+
+**Ambiente confirmado:** Supabase PitswallV2 / external-calc-staging / projeto `mfsshvckclnmftpaprxk` / região `ca-central-1`. Project API informou ACTIVE_HEALTHY, PostgreSQL 17.11. Consultas read-only: `public` e `privado` sem tabelas; schema `privado` ausente; `public.tenant` ausente; `privado.fn_tenant_atual` e `privado.fn_papel_atual` ausentes. `pgcrypto` instalado no schema `extensions`; `auth.uid()` e `auth.jwt()` disponíveis; `authenticated` e `anon` sem BYPASSRLS; `service_role` e `postgres` com BYPASSRLS. Security Advisor não retornou lints na leitura inicial. A ausência de alertas em banco vazio **não** valida uma futura política.
+
+**Correção da proposta VS5.3i, sem mudar os contratos produtivos:** a SQL candidata agora cria `privado`, `privado.extcalc_staging_tenant_v0` e `privado.extcalc_staging_membership_v0` como *fixtures de autoridade sintéticas apenas para staging*. Um usuário do Supabase Auth fica vinculado a um tenant sintético e papel `dono` por linha inserida posteriormente por seed administrativa autorizada (nunca claims `user_metadata` nem campo de tenant enviado pelo cliente). RLS da fonte e eventos consulta essa membership sob `auth.uid()`, com comparação explícita e correlacionada de tenant e `active=true`. Isso substitui apenas para a prova os helpers produtivos que não existem neste ambiente; **não é migração da arquitetura do produto**.
+
+**Isolamento:** tabelas originais e membership continuam em `privado`, com FORCE RLS e sem grants de UPDATE/DELETE/INSERT para `authenticated`; a view `public.extcalc_original_source_probe_v0` expõe somente metadados e tem `security_invoker=true`. A prova real precisará confirmar por metadados e pela configuração do Supabase que o schema `privado` não integra a Data API exposta; `grant usage` não equivale à exposição segura. Usuários A/B e fonte A/B continuam **não criados**, sem seed ou JWT reais.
+
+**Alertas ainda não resolvidos:** acesso do role `authenticated` às linhas de origem via consulta SQL direta sob RLS deve ser explicitamente aceito no gate (a view security_invoker exige grants subjacentes); extensão `extensions.digest` no contexto do campo GENERATED deve ser provada em execução; tamanho máximo de 1 MiB, retenção, exclusão legal e semântica de revogação continuam PROPOSAL. Não há provas reais de UPDATE/DELETE negados, nem escrita append-only. O SQL está **fora de supabase/migrations** e não foi aplicado.
+
+**Próxima autorização separada (gate humano):** revisar esta SQL candidata ajustada e autorizar **DDL + seed sintético somente no projeto mfsshvckclnmftpaprxk**. Não inclui merge, deploy, integração com runtime real, migração produtiva ou importação de dados de fornecedores. Após essa decisão, primeiro validar SQL/rollback e permissões reais, depois prover identidades de teste A/B e executar matriz VS5.3g/VS5.3h. Produção NO-GO devido ao incidente 20/10 e PRs #178–#180.
+
+**Estado:** `STAGING_READONLY_PREFLIGHT=PASS_WITH_SCHEMA_GAPS`; `STAGING_SQL_REVISED=AWAITING_CI`; `REAL_DDL=NOT_RUN`; `REAL_JWT_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
