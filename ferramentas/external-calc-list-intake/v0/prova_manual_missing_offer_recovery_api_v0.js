@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {PATH,createManualMissingOfferRecoveryApiV0}=require('./manual-missing-offer-recovery-api-v0');
 const sh=t=>crypto.createHash('sha256').update(t).digest('hex');
-const originalText='iPhone 17 Pro 256GB\nAzul\nR$ 6.900,00';
+const originalText='iPhone 17 Pro 256GB\nAzul R$ 6.900,00';
 const original={
  trusted_input_ref:'source-immutable-a',is_immutable:true,is_authorized:true,is_quarantined:false,
  is_supplier_bound:true,source_id:'source-immutable-a',analysis_id:'analysis-original-a',
@@ -11,7 +11,7 @@ const original={
  original_sha256:sh(originalText),models:[{id:'iphone-17-pro',label:'iPhone 17 Pro'}]
 };
 const command={
- trusted_input_ref:'source-immutable-a',model_line:1,price_line:3,color_line:2,
+ trusted_input_ref:'source-immutable-a',model_line:1,price_line:2,color_line:2,
  model_id:'iphone-17-pro',capacity_gb:256,color:'Azul',price_amount_minor:690000
 };
 const owner=async()=>({subject:'qa-owner-a',tenant_id:'tenant-qa-a',can_execute_external_calc:true});
