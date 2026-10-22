@@ -105,6 +105,20 @@ BEGIN
  END;
  BEGIN
   PERFORM public.extcalc_persist_review_candidate_v0(
+   pg_catalog.jsonb_set(c,'{interpreted_offer,model,id}','"iphone-18-pro-max"'::jsonb));
+  RAISE EXCEPTION 'NEGATIVE_MODEL_ID_SPOOF_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_MODEL_IDENTITY_UNVERIFIED' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.extcalc_persist_review_candidate_v0(
+   c #- '{interpreted_offer,capacity_gb}');
+  RAISE EXCEPTION 'NEGATIVE_MISSING_CAPACITY_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_OFFER_INVALID' THEN RAISE; END IF;
+ END;
+ BEGIN
+  PERFORM public.extcalc_persist_review_candidate_v0(
    pg_catalog.jsonb_set(c,'{interpreted_offer,price,amount_minor}','700000'::jsonb));
   RAISE EXCEPTION 'NEGATIVE_FORGED_PRICE_NOT_BLOCKED';
  EXCEPTION WHEN OTHERS THEN
