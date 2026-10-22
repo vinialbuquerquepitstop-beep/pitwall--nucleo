@@ -38,3 +38,14 @@ GitHub fetched exact current SQL/files and checked 14 static controls, all PASS:
 - `F1_REAL_REVIEW_BROWSER_E2E=NOT_RUN`.
 - `F1_COMPLETE_LIST_RECOVERY=BLOCKED`.
 - `CONTROLLED_V0=NO_GO`.
+
+
+## VS53N Functional rollback proof ready (same-day continuation)
+
+New single SQL test `ferramentas/external-calc-c01-review/v0/staging/VS53N_C01_HUMAN_REVIEW_FUNCTIONAL_DRY_RUN.sql` contains the **exact current reviewed DDL (minus COMMIT)** followed by synthetic A/B tests all inside one BEGIN/ROLLBACK. It seeds a synthetic A supplier/source, binds source, persists candidate with verified model/cor/price, tests A's queue/load, B's isolation, wrong reviewer denial, ACCEPT receipt + same-result idempotence, disappearance from pending queue, and the **database trigger preventing legacy auto-promotion after review**. Postflight checks exactly 1 audit decision, 1 candidate, 0 offer revisions before ROLLBACK; SELECT `VS53N_C01_HUMAN_REVIEW_RESULT=PASS` if all assertions pass.
+
+Static integrity checks on the GitHub file **12/12 PASS**: one transaction, identical foundation, no COMMIT, synthetic corpus, positive queue/load, A/B negatives, reviewer forgery denial, idempotence, fence, zero quote revisions, and visible PASS. **The complete SQL has NOT yet been executed on PostgreSQL**. An admin must execute only this rollback proof on `external-calc-staging` `mfsshvckclnmftpaprxk` in Supabase SQL Editor, then provide full result or SQL error. Do NOT run `VS53N_C01_HUMAN_REVIEW_RPC_DRAFT.sql` (COMMIT) before this success and explicit inspection.
+
+Postgres staging remains at VS53L with **no installed VS53N queue/load/decision functions** in the last read-only inventory. QA tokens must never be pasted. This synthetic proof injects role claims in a SQL transaction and does not constitute signed HTTP/JWT testing.
+
+`F1_VS53N_STATIC=PASS`; `F1_VS53N_REAL_SQL=AWAITING_ROLLBACK_PROOF`; `F1_VS53N_APPLIED=NO`; `CONTROLLED_V0=NO_GO`; `PRODUCTION=NO_GO`. GitHub Actions unused.
