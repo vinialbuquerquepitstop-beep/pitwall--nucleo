@@ -80,8 +80,19 @@ function buildManualRecoveryCandidate(resolved,command){
  const src=assertTrustedSource(resolved,c.trusted_input_ref);
  const lines=src.original_text.replace(/\r\n/g,'\n').split('\n');
  const modelLine=intLine(c.model_line,lines),priceLine=intLine(c.price_line,lines);
+ // Match the installed C01 gate: one adjoining model/price pair, and color
+ // is the complete material field in the same line as the single R$ token.
+ if(c.price_line!==c.model_line+1 || !c.color || c.color_line!==c.price_line)
+  fail('RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED');
  const model=src.models.find(m=>m&&m.id===c.model_id);
- if(!model||!nonempty(model.label)||!tokenFound(modelLine,model.label))fail('RECOVERY_MODEL_NOT_IN_ORIGINAL');
+ if(!model||!nonempty(model.label)||!tokenFound(modelLine,model.label))
+  fail('RECOVERY_MODEL_NOT_IN_ORIGINAL');
+ const slug=model.label.trim().toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+ if(model.id!==slug)fail('RECOVERY_MODEL_C01_IDENTITY_MISMATCH');
+ const afterModel=modelLine.trim().slice(model.label.length).trim();
+ if(!modelLine.trim().toLocaleLowerCase('en-US').startsWith(model.label.toLocaleLowerCase('en-US')) ||
+   !new RegExp('^'+c.capacity_gb+'\\s*GB(?:\\s|$)','iu').test(afterModel))
+   fail('RECOVERY_MODEL_SCOPE_UNVERIFIED');
  // A shorter model cannot be selected if the exact original contains a
  // longer, distinct approved model, e.g. "iPhone 17" vs "iPhone 17 Pro".
  if(src.models.some(m=>m&&m.id!==model.id&&nonempty(m.label)&&
@@ -90,6 +101,12 @@ function buildManualRecoveryCandidate(resolved,command){
   fail('RECOVERY_CAPACITY_NOT_IN_ORIGINAL');
  const amount=moneyFromSource(priceLine);
  if(amount!==c.price_amount_minor)fail('RECOVERY_PRICE_NOT_IN_ORIGINAL');
+ if((priceLine.match(/R\$\s*\d/giu)||[]).length!==1 || /[+\/|]/u.test(priceLine))
+  fail('RECOVERY_STRICT_SINGLE_BRL_PRICE_REQUIRED');
+ const normalizeColor=text=>text.replace(/[^\p{L}\d]+/gu,' ').trim().toLocaleLowerCase('pt-BR');
+ const colorPrefix=priceLine.slice(0,priceLine.indexOf('R$'));
+ if(normalizeColor(colorPrefix)!==normalizeColor(c.color))
+   fail('RECOVERY_COLOR_EXACT_SEGMENT_REQUIRED');
  const colorLine=c.color==null?null:intLine(c.color_line,lines);
  if(c.color!=null&&!tokenFound(colorLine,c.color))fail('RECOVERY_COLOR_NOT_IN_ORIGINAL');
  const conditionLine=c.condition==null?null:intLine(c.condition_line,lines);
