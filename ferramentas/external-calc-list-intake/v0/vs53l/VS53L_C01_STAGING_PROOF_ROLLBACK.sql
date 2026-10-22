@@ -195,9 +195,14 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM <> 'EXTCALC_AUTO_PROMOTION_SOURCE_UNBOUND' THEN RAISE; END IF;
  END;
- -- Confirm B cannot read A revision via the REAL RLS policy.
- IF (select count(*) from public.extcalc_offer_revision where analysis_id='analysis_vs53l_a')<>0 THEN
-  RAISE EXCEPTION 'CROSS_TENANT_READ_LEAK'; END IF;
+ -- Direct C01 snapshot table reads are intentionally REVOKED from authenticated.
+ -- Test the database permission barrier; RPC cross-tenant isolation was tested above.
+ BEGIN
+  PERFORM 1 FROM public.extcalc_offer_revision WHERE analysis_id='analysis_vs53l_a' LIMIT 1;
+  RAISE EXCEPTION 'NEGATIVE_DIRECT_C01_SELECT_NOT_BLOCKED';
+ EXCEPTION WHEN insufficient_privilege THEN
+  NULL; -- expected 42501, no direct snapshot SELECT even for a signed-in user
+ END;
  -- Confirm anonymous user can't reach any function (by grants).
  IF pg_catalog.has_function_privilege('anon','public.extcalc_persist_auto_promoted_c01_v0(jsonb)','EXECUTE') THEN
   RAISE EXCEPTION 'ANON_PROMOTION_RPC_EXPOSED'; END IF;
