@@ -503,7 +503,8 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    price_coverage:built.price_coverage,
    review_mode:'HUMAN_REVIEW_REQUIRED',
    manual_recovery_required:built.price_coverage.unmatched_price_signal_lines>0 ||
-     built.price_coverage.unverified_candidate_price_spans>0,
+     built.price_coverage.unverified_candidate_price_spans>0 ||
+     built.price_coverage.multiple_explicit_prices_lines.length>0,
    idempotent,
    unresolved_ambiguities:built.queue.unresolved_ambiguities.length,
    invalid_items:built.queue.invalid_items.length,
