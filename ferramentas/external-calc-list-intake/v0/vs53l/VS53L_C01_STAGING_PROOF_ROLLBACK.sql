@@ -195,13 +195,20 @@ BEGIN
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM <> 'EXTCALC_AUTO_PROMOTION_SOURCE_UNBOUND' THEN RAISE; END IF;
  END;
- -- Direct C01 snapshot table reads are intentionally REVOKED from authenticated.
- -- Test the database permission barrier; RPC cross-tenant isolation was tested above.
+ -- Direct C01 snapshot SELECT is denied to authenticated, including individual columns.
+ -- PERFORM 1 is not a valid permission oracle: it reads no protected column.
+ -- Verify both ACL and a real attempt to read the sensitive snapshot.
+ IF pg_catalog.has_table_privilege(current_user,'public.extcalc_offer_revision','SELECT')
+    OR pg_catalog.has_column_privilege(current_user,'public.extcalc_offer_revision','c01_snapshot','SELECT') THEN
+  RAISE EXCEPTION 'C01_STAGE_DIRECT_SELECT_PRIVILEGE_LEAK';
+ END IF;
  BEGIN
-  PERFORM 1 FROM public.extcalc_offer_revision WHERE analysis_id='analysis_vs53l_a' LIMIT 1;
-  RAISE EXCEPTION 'NEGATIVE_DIRECT_C01_SELECT_NOT_BLOCKED';
+  PERFORM rev.c01_snapshot
+    FROM public.extcalc_offer_revision rev
+   WHERE rev.analysis_id='analysis_vs53l_a' LIMIT 1;
+  RAISE EXCEPTION 'NEGATIVE_DIRECT_C01_SNAPSHOT_READ_NOT_BLOCKED';
  EXCEPTION WHEN insufficient_privilege THEN
-  NULL; -- expected 42501, no direct snapshot SELECT even for a signed-in user
+  NULL; -- expected 42501 for a real column read
  END;
  -- Confirm anonymous user can't reach any function (by grants).
  IF pg_catalog.has_function_privilege('anon','public.extcalc_persist_auto_promoted_c01_v0(jsonb)','EXECUTE') THEN
