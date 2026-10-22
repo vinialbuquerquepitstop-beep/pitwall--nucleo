@@ -11,7 +11,7 @@ const source=[
  'Outra linha isolada R$ 5.990,00'
 ].join('\n');
 const filename='lista.txt',supplier_id='33333333-3333-4333-8333-333333333333';
-const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'staging-fixture'};
+const env={SUPABASE_URL:'https://mfsshvckclnmftpaprxk.supabase.co',SUPABASE_ANON_KEY:'staging-fixture'};
 (async()=>{
  const built=buildQueue({filename,mime_type:'text/plain',supplier_id,content:source});
  assert.ok(built.queue.candidates.length>=1,'the fixture must contain a genuine parse candidate');
