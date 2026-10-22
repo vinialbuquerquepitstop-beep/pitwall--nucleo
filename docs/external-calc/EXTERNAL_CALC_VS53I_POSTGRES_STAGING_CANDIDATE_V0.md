@@ -60,3 +60,22 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 **Evidência de CI:** PR #199 DRAFT, commit bdcaeeb1e256cd210b5b4e2b1e0bf2e8e5f95f7c, GitHub Actions Generalization run 39730587091 / job 119664464093: VS5.3i STATIC PASS (15 verificações; inclui negativas de tenant-tautology e membership sem auth.uid) e ownership PASS. Seis workflows de GitHub Actions terminaram SUCCESS no mesmo commit. **Não** houve execução SQL/DDL nem prova JWT/RLS real.
 
 **Estado:** `STAGING_READONLY_PREFLIGHT=PASS_WITH_SCHEMA_GAPS`; `STAGING_SQL_REVISED=CI_PASS_STATIC_ONLY`; `REAL_DDL=NOT_RUN`; `REAL_JWT_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
+
+
+## Execução controlada no staging — 22/10/2026 (substitui estados anteriores apenas para este ambiente)
+
+**Projeto EXCLUSIVO:** Supabase organização PitswallV2, `external-calc-staging`, ref `mfsshvckclnmftpaprxk`. Usuário autorizou aplicar o SQL revisado e utilizar dados fictícios nesta conversa. PR #199 continua DRAFT; **não houve merge, deploy nem alteração de produção**.
+
+**Migração real:** ação Supabase apply_migration retornou `success=true`, nome `external_calc_vs53i_staging_only_source_v0`. A estrutura foi inspecionada diretamente no catálogo PostgreSQL: tabelas `privado.extcalc_staging_tenant_v0`, `privado.extcalc_staging_membership_v0`, `privado.extcalc_original_source_v0` e `privado.extcalc_original_source_state_event_v0`. RLS e FORCE RLS presentes nas quatro tabelas. Policies de leitura efetivas nos objetos originais e membership, ligadas a `auth.uid()`, correlação de tenant, `active=true` e papel `dono`. View `public.extcalc_original_source_probe_v0` com `security_invoker=true`; triggers de anti-update/delete presentes. `authenticated` sem INSERT nas tabelas brutas; `anon` sem SELECT na view.
+
+**Duas fontes fictícias inseridas no PostgreSQL:** `tenant-A` UUID `11111111-1111-4111-8111-111111111111`, source `original-A`; `tenant-B` UUID `22222222-2222-4222-8222-222222222222`, source `original-B`. Conteúdo exclusivamente sintético, cada fonte com 26 bytes. `content_sha256` calculado no banco foi comparado a SHA-256 recalculado dos bytes: **2/2 PASS**.
+
+**Imutabilidade real:** transações e tratamento de SQLSTATE `42501` validaram rejeição de UPDATE/DELETE da fonte original e UPDATE/DELETE do evento; **4/4 bloqueados**. Um evento `QUARANTINED` sintético foi acrescentado a `original-A`. Estado verificado: dois tenants, duas fontes, um evento; view administrativamente consultada exibe **1 QUARANTINED + 1 AVAILABLE**.
+
+**Isolamento negativo parcial:** com role PostgreSQL `authenticated` e `request.jwt.claim.sub` aleatório *não cadastrado*, consulta à view retornou zero linhas; sessão finalizada em ROLLBACK. `anon` não recebeu SELECT na view. Este é um teste de negação sem identidade própria, **não prova JWT real, servidor Auth, nem isolamento A_OWN/B_OWN**. `auth.users` contém **0 contas** no staging; membership Auth A/B ainda não foi criada, sem tentativa de escrever diretamente em `auth.users`. O harness VS5.3g exige A e B realmente autenticados via Supabase, cada um lendo sua própria fonte, e isso permanece PENDENTE.
+
+**Supabase Security Advisor:** após DDL retornou apenas o aviso informativo `rls_enabled_no_policy` para `privado.extcalc_staging_tenant_v0`. É deliberado: tabela administrativa sem grants de SELECT para `anon` e `authenticated` e com RLS/FORCE; o risco precisa ser revisado, não convertido automaticamente em abertura de policy. A configuração do schema privado na Data API, revogação/rotatividade de tokens, políticas reais via API e comportamento cross-tenant autenticado ainda precisam de validação.
+
+**Gate após execução:** `STAGING_DDL=APPLIED`; `STAGING_BYTES_SHA=PASS_2_OF_2`; `STAGING_IMMUTABILITY=PASS_4_OF_4`; `STAGING_QUARANTINE=PASS`; `STAGING_ANON_GRANT=DENIED`; `STAGING_AUTH_NO_USER_DENY=PASS_PARTIAL`; `STAGING_REAL_JWT_AB=NOT_RUN`; `STAGING_RELEASE=NO_GO`; `PRODUCTION=NO_GO`.
+
+**Próximo passo factual:** criar **duas contas de teste via Supabase Auth API/Admin**, nunca inserindo diretamente em `auth.users`; associar os IDs de Auth a tenants distintos via seed administrativa controlada; executar o transporte GET VS5.3h com JWT assinados A/B na mesma instância e inspecionar respostas cruzadas, anônimas, ausentes, assinatura real e configuração Data API. Registrar matriz completa e concluir security review antes de mudança de release gate.
