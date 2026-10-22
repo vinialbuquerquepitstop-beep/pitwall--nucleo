@@ -49,3 +49,20 @@ Static integrity checks on the GitHub file **12/12 PASS**: one transaction, iden
 Postgres staging remains at VS53L with **no installed VS53N queue/load/decision functions** in the last read-only inventory. QA tokens must never be pasted. This synthetic proof injects role claims in a SQL transaction and does not constitute signed HTTP/JWT testing.
 
 `F1_VS53N_STATIC=PASS`; `F1_VS53N_REAL_SQL=AWAITING_ROLLBACK_PROOF`; `F1_VS53N_APPLIED=NO`; `CONTROLLED_V0=NO_GO`; `PRODUCTION=NO_GO`. GitHub Actions unused.
+
+
+## Correction — first real PostgreSQL 17 functional rollback attempt (2026-10-22)
+
+User executed the VS53N single-transaction functional test in the designated staging and received PostgreSQL error `42883 function pg_catalog.coalesce(integer, integer) does not exist` from `extcalc_list_pending_review_candidates_v0`.
+
+Root cause: the prepared SQL incorrectly **schema-qualified PostgreSQL syntactic expressions** `COALESCE(...)` and `NULLIF(...)` as `pg_catalog.coalesce(...)` and `pg_catalog.nullif(...)`. Their qualified forms are looked up as nonexistent normal functions. This is a test/DDL authoring defect, **not evidence of a failed tenant isolation or domain constraint**.
+
+Fix on this branch: replace all 12 such calls **in each of the three files** — staged DDL with COMMIT, staging-only DDL ROLLBACK, and full functional ROLLBACK — by unqualified uppercase `COALESCE`/`NULLIF` expressions, no C01 logic changes. Re-read exact blobs and prove **8/8 file-integrity checks PASS**: no residual invalid calls, precisely one COMMIT only in DDL, rollback equivalence and single rollback/no commit in test, exact migration prefix, PASS sentinel.
+
+Independent read-only Supabase query after the failed test confirmed:
+- no VS53N decision table, queue RPC, review result RPC (entire failed transaction reverted)
+- 0 `extcalc_review_candidate` rows, 0 `extcalc_offer_revision` rows
+- 3 original source rows, 0 `vs53n-%` synthetic source rows
+- direct PostgreSQL expression `COALESCE(NULLIF('', ''), 'COALESCE_OK')` worked.
+
+**Next safe operator step:** re-fetch **updated** `VS53N_C01_HUMAN_REVIEW_FUNCTIONAL_DRY_RUN.sql` through GitHub Raw (do NOT reuse the old copied SQL), execute full contents **only in `external-calc-staging`**, check last statement `ROLLBACK;`, and return SQL results/error. DO NOT apply `VS53N_C01_HUMAN_REVIEW_RPC_DRAFT.sql` (COMMIT) until reviewed and approved after successful rollback test. This correction remains **static PASS / real re-test pending**; `F1_VS53N_REAL_SQL=RETEST_REQUIRED`, `V0=NO_GO`, `PRODUCTION=NO_GO`.
