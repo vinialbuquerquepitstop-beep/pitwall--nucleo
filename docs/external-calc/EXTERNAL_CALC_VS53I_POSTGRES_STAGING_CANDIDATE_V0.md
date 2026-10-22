@@ -170,3 +170,12 @@ GitHub Actions Generalization run `39794917832`, job `119879694138`, commit `4ac
 **Implicação:** o Supabase staging permite signup de e-mail, mas exige confirmação do e-mail. Criar emails aleatórios + senhas em GitHub Actions não completa autenticação legítima automaticamente; não contornar a confirmação, não ativar globalmente autoconfirm para mascarar o problema, não forjar JWT, não escrever em auth.users e não armazenar passwords/tokens no git ou no chat. O conector Supabase não expõe API Admin de criação/login de usuários.
 
 **Estado:** `STAGING_AUTH_SETTINGS_REAL_HTTP=PASS`, `STAGING_EMAIL_CONFIRMATION_REQUIRED=TRUE`, `SIGNED_JWT_AB=NOT_RUN`; `PRODUCTION=NO_GO`. Caminho legítimo mínimo: contas QA confirmadas e fornecimento **fora do chat** de sessão autenticada a um executor seguro ou uso do V3 no dispositivo do operador. C01–C05 e incidentes #178–#180 não alterados.
+
+
+## Decisão operacional — sem GitHub Actions (22/10/2026)
+
+Decisão expressa do proprietário: **não usar GitHub Actions** em testes, gates, execução, geração de evidências ou próximos slices do External Calc. Evidências antigas de CI são apenas histórico, não prova suficiente nem dependência. GitHub permanece repositório de código/documentação, não executor autorizado. Os workflows existentes no repositório **não foram desativados tecnicamente** nesta mudança; essa remoção/desativação precisa ser tratada separadamente para evitar gatilhos automáticos em commits futuros.
+
+**Auditoria direta no Supabase staging** PitswallV2/mfsshvckclnmftpaprxk: duas contas Auth confirmadas, duas memberships ativas, três fontes fictícias, três SHA-256 consistentes, RLS + FORCE nas quatro tabelas, view security_invoker ativa, sem SELECT raw bytes nem INSERT para authenticated e sem SELECT da view para anon. Consulta de pg_policies confirmou três políticas SELECT com auth.uid() e tenant. Teste de revogação de membership A executado sob role authenticated com set_config de UID em transação: UPDATE active=false provocou visibilidade zero das fontes de A; ROLLBACK e consulta posterior confirmaram ambas as memberships novamente active=true. Isto comprova uma propriedade da política SQL, não uma assinatura JWT HTTPS.
+
+**Estado:** STAGING_DIRECT_DB_PREFLIGHT=PASS; STAGING_INACTIVE_MEMBERSHIP_DENY=PASS_ROLLBACK; REAL_SIGNED_JWT_HTTP_AB=NOT_RUN; PRODUCTION=NO_GO. Acesso real via Auth/PostgREST A/B ainda requer sessões legítimas, sem enviar senhas ou JWTs neste chat. Sem deploy, merge ou alterações em produção.
