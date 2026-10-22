@@ -1,0 +1,94 @@
+name: External Calc Gate 1 - DB Guard Draft Structural
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js'
+      - '.github/workflows/external-calc-gate1-db-guard-draft-v0.yml'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_db_real_bridge_fixture_v0.js'
+      - 'ferramentas/external-calc-list-intake/v0/auditar_corpus_local_v0.js'
+      - 'ferramentas/external-calc-list-intake/v0/prova_auditar_corpus_local_v0.js'
+      - 'ferramentas/external-calc-list-intake/v0/executar_gate1_local_sem_custo.ps1'
+      - 'ferramentas/external-calc-list-intake/v0/README_GATE1_LOCAL_SEM_CUSTO.md'
+  workflow_dispatch:
+jobs:
+  structural:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check test code syntax
+        run: node --check ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js
+      - name: Verify SQL draft structural invariants
+        run: node ferramentas/external-calc-list-intake/v0/prova_gate1_db_auto_promotion_draft_v0.js
+      - name: Prove the offline TXT corpus analyzer with synthetic data
+        run: |
+          node --check ferramentas/external-calc-list-intake/v0/auditar_corpus_local_v0.js
+          node ferramentas/external-calc-list-intake/v0/prova_auditar_corpus_local_v0.js
+      - name: Parse PowerShell local runner (never execute Docker on CI)
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('ferramentas/external-calc-list-intake/v0/executar_gate1_local_sem_custo.ps1',[ref]$tokens,[ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gate1_synthetic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gate1_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: gate1_synthetic
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Compile C01 guard in isolated PostgreSQL 17
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql
+      - name: Exercise fail-closed and idempotence with synthetic data
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_assert_v0.sql 2>&1 | tee /tmp/gate1-postgres.log
+          grep -q 'EXTERNAL_CALC_GATE1_DB_GUARD_POSTGRES_SYNTHETIC_V0=PASS' /tmp/gate1-postgres.log
+      - name: Check full TXT and Advisor bridge against Postgres RPC
+        run: |
+          set -euo pipefail
+          node ferramentas/external-calc-list-intake/v0/prova_gate1_db_real_bridge_fixture_v0.js > /tmp/gate1-real-bridge.sql
+          psql -v ON_ERROR_STOP=1 -f /tmp/gate1-real-bridge.sql 2>&1 | tee /tmp/gate1-real-bridge.log
+          grep -q 'GATE1_REAL_BRIDGE_TXT_ZIP_SHARED=PASS' /tmp/gate1-real-bridge.log
+          grep -q 'GATE1_REAL_BRIDGE_ADVISOR=PASS' /tmp/gate1-real-bridge.log
+          grep -q 'EXTERNAL_CALC_GATE1_REAL_BRIDGE_DB_V0=PASS' /tmp/gate1-real-bridge.log
