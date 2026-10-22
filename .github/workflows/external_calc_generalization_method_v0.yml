@@ -104,6 +104,28 @@ jobs:
           node --check ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs
           node ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs --proof
           node ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs --live
+      - name: VS5.3k staging Auth public settings discovery (GET-only, no users, no JWT)
+        env:
+          EXTERNAL_CALC_STAGING_PUBLISHABLE_KEY: 'sb_publishable_Bu-rVeIhHLkf6RUGmwV3xw_lfMfktZo'
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          const endpoint='https://mfsshvckclnmftpaprxk.supabase.co/auth/v1/settings';
+          const response=await fetch(endpoint,{
+            method:'GET',headers:{apikey:process.env.EXTERNAL_CALC_STAGING_PUBLISHABLE_KEY,Accept:'application/json'},
+            signal:AbortSignal.timeout(12000),redirect:'error',cache:'no-store'
+          });
+          assert.equal(response.status,200,'VS53K_AUTH_SETTINGS_NOT_200');
+          const settings=await response.json();
+          console.log('VS53K_AUTH_SETTINGS_HTTP=200');
+          console.log('VS53K_AUTH_SETTINGS_FLAGS='+JSON.stringify({
+            disable_signup:typeof settings.disable_signup==='boolean'?settings.disable_signup:'UNSPECIFIED',
+            mailer_autoconfirm:typeof settings.mailer_autoconfirm==='boolean'?settings.mailer_autoconfirm:'UNSPECIFIED',
+            external_email:typeof settings.external?.email==='boolean'?settings.external.email:'UNSPECIFIED',
+            has_auth_service:true
+          }));
+          console.log('VS53K_AUTH_SETTINGS_NO_USER_CREATED=TRUE');
+          NODE
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
