@@ -19,7 +19,7 @@ function createStoreRateQuoteApiV0(options={}){
    const code=error?.code||'INVALID_REQUEST';
    const status=code==='UNAUTHENTICATED'?401:code==='RATE_PROFILE_FORBIDDEN'?403:
     code==='RATE_PROFILE_NOT_CONFIGURED'||code==='INSTALLMENT_RATE_NOT_CONFIGURED'?422:
-    code==='RATE_PROFILE_CONFLICT'||code==='QUOTE_RECALCULATION_REQUIRED'?409:400;
+    code==='RATE_PROFILE_CONFLICT'||code==='QUOTE_RECALCULATION_REQUIRED'||code==='EXTCALC_ANALYSIS_QUARANTINED'?409:400;
    return out(status,{error:{code,message:error instanceof Error?error.message:'request invalido'}});
   }
  }};

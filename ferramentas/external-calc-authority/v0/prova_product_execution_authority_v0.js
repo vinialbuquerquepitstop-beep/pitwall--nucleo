@@ -353,16 +353,14 @@ function makeSystem(source = makeAuthoritySource()) {
     const fetchImpl = async (url, init = {}) => {
       calls.push({ url, init });
 
-      if (url.includes('/rest/v1/extcalc_offer_revision?')) {
-        return new Response(JSON.stringify([{
-          tenant_id: TENANT,
-          analysis_id: c01().analysis_id,
-          offer_id: c01().offer_id,
-          offer_revision: c01().offer_revision,
-          c01_snapshot: c01(),
-          domain_outcome: 'VALID',
-          freshness_status: 'CURRENT'
-        }]), { status: 200 });
+      if (url.includes('/rest/v1/rpc/extcalc_product_authoritative_c01_v0')) {
+        const cmd=JSON.parse(init.body);
+        assert.deepStrictEqual(cmd,{
+          p_analysis_id:c01().analysis_id,
+          p_offer_id:c01().offer_id,
+          p_offer_revision:c01().offer_revision
+        });
+        return new Response(JSON.stringify(c01()),{status:200});
       }
 
       if (url.includes('/rest/v1/calc_dados?')) {
@@ -417,11 +415,32 @@ function makeSystem(source = makeAuthoritySource()) {
     assert.strictEqual(loadedCalculation.installment_margin_minor, 65000);
     assert.strictEqual(loadedCalculation.installment_base_addon_minor, 10000);
     assert.deepStrictEqual(loadedEvidence, currentOfferEvidence());
-    assert.ok(calls[0].url.includes(encodeURIComponent(`eq.${TENANT}`)));
+    assert.ok(calls[0].url.includes('/rest/v1/rpc/extcalc_product_authoritative_c01_v0'));
+    assert.strictEqual(calls[0].init.method,'POST');
     assert.ok(calls[1].url.includes('/rest/v1/calc_dados?'));
     assert.ok(calls[1].url.includes(encodeURIComponent(`eq.${TENANT}`)));
     assert.ok(calls[2].url.includes('/rest/v1/rpc/extcalc_product_current_offers_v0'));
     assert.strictEqual(calls[0].init.headers.authorization, 'Bearer jwt-fixture');
+  });
+
+  await check('cotacao bloqueada por C01 quarantined via RPC, sem fallback ao REST da tabela', async () => {
+    const endpoints=[];
+    const source=createPostgresAuthoritySource({
+      supabaseUrl:'https://example.supabase.co',
+      anonKey:'anon-fixture',accessToken:'jwt-fixture',
+      fetchImpl:async(url,init)=>{
+        endpoints.push(url);
+        assert.ok(url.includes('/rest/v1/rpc/extcalc_product_authoritative_c01_v0'));
+        assert.strictEqual(init.method,'POST');
+        return new Response(JSON.stringify({message:'EXTCALC_ANALYSIS_QUARANTINED'}),
+          {status:403,headers:{'content-type':'application/json'}});
+      }
+    });
+    await assert.rejects(
+      ()=>source.loadC01({tenant_id:TENANT,...command()}),
+      e=>e.code==='EXTCALC_ANALYSIS_QUARANTINED'
+    );
+    assert.strictEqual(endpoints.length,1,'quarantine must never fall back to table');
   });
 
   await check('C02 vem de calc_dados e C03-C04 permanecem server-side', async () => {

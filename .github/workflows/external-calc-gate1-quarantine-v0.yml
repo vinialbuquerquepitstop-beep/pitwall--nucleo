@@ -1,0 +1,68 @@
+name: External Calc Gate 1 - Reversible Quarantine V0
+on:
+  pull_request:
+    paths:
+      - 'ferramentas/external-calc-list-intake/v0/GATE1_ANALYSIS_QUARANTINE_DRAFT.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_setup_v0.sql'
+      - 'ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_assert_v0.sql'
+      - 'ferramentas/external-calc-authority/v0/postgres-authority-source.js'
+      - 'ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js'
+      - 'ferramentas/external-calc-sales-product/v0/sales-product-service.js'
+      - 'ferramentas/external-calc-store-rate/v1/store-rate-quote-api.js'
+      - 'ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_g4_api.js'
+      - 'ferramentas/external-calc-runtime/v0/prova_runtime_v0.js'
+      - '.github/workflows/external-calc-gate1-quarantine-v0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gate1_quarantine_synthetic
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gate1_quarantine_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: gate1_quarantine_synthetic
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source quote RPC and sale service with synthetic fixtures
+        run: |
+          node ferramentas/external-calc-authority/v0/prova_product_execution_authority_v0.js
+          node ferramentas/external-calc-sales-product/v0/prova_sales_product_service_v0.js
+          node ferramentas/external-calc-store-rate/v1/prova_store_rate_profile_g4_api.js
+          node ferramentas/external-calc-runtime/v0/prova_runtime_v0.js
+      - name: PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Compile quarantined C01 projections and owner-only toggle in isolated PostgreSQL
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_db_guard_pg_setup_v0.sql
+          psql -X -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_setup_v0.sql
+          psql -X -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/GATE1_ANALYSIS_QUARANTINE_DRAFT.sql
+      - name: Verify isolation and rollback without altering production
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f ferramentas/external-calc-list-intake/v0/prova_gate1_quarantine_pg_assert_v0.sql 2>&1 | tee /tmp/gate1-quarantine.log
+          grep -q 'EXTERNAL_CALC_GATE1_QUARANTINE_POSTGRES_V0=PASS' /tmp/gate1-quarantine.log

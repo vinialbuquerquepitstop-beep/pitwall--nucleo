@@ -96,30 +96,37 @@ function createPostgresAuthoritySource(options = {}) {
         throw new Error('offer_revision invalida');
       }
 
-      const params = new URLSearchParams({
-        tenant_id: `eq.${tenantId}`,
-        analysis_id: `eq.${analysisId}`,
-        offer_id: `eq.${offerId}`,
-        offer_revision: `eq.${offerRevision}`,
-        select: 'tenant_id,analysis_id,offer_id,offer_revision,c01_snapshot,domain_outcome,freshness_status'
-      });
-
-      const row = await selectOne(
-        `/rest/v1/extcalc_offer_revision?${params.toString()}`,
-        'EXTCALC_AUTHORITY_C01_LOAD_FAILED'
+      // Direct REST table SELECT bypassed quarantine and freshness authority.
+      // This DB RPC checks membership, tenant isolation and quarantine.
+      const response = await fetchImpl(
+        joinUrl(supabaseUrl, '/rest/v1/rpc/extcalc_product_authoritative_c01_v0'),
+        {
+          method: 'POST',
+          headers: authHeaders(anonKey,accessToken),
+          body: JSON.stringify({
+            p_analysis_id:analysisId,
+            p_offer_id:offerId,
+            p_offer_revision:offerRevision
+          })
+        }
       );
-
-      if (!row) throw new Error('C01 autoritativo nao encontrado');
-      if (
-        row.tenant_id !== tenantId ||
-        row.analysis_id !== analysisId ||
-        row.offer_id !== offerId ||
-        row.offer_revision !== offerRevision
-      ) {
+      const row = await readJson(response);
+      if (!response.ok) {
+        const error = new Error('EXTCALC_AUTHORITY_C01_LOAD_FAILED: '+
+          (row?.message || row?.error || response.status));
+        error.code = row?.message === 'EXTCALC_ANALYSIS_QUARANTINED'
+          ? 'EXTCALC_ANALYSIS_QUARANTINED' : 'EXTCALC_AUTHORITY_C01_LOAD_FAILED';
+        throw error;
+      }
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        throw new Error('C01 autoritativo nao encontrado');
+      }
+      if (row.analysis_id !== analysisId ||
+          row.offer_id !== offerId ||
+          row.offer_revision !== offerRevision) {
         throw new Error('C01 autoritativo com identidade divergente');
       }
-
-      return clone(row.c01_snapshot);
+      return clone(row);
     },
 
     async loadCalculationProfile(identity) {

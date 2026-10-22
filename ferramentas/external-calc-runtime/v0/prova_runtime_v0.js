@@ -230,17 +230,14 @@ function makeBackend(options = {}) {
       }]);
     }
 
-    if (url.startsWith(SUPABASE_URL + '/rest/v1/extcalc_offer_revision?')) {
+    if (url === SUPABASE_URL + '/rest/v1/rpc/extcalc_product_authoritative_c01_v0') {
       state.authorityC01Calls += 1;
-      return jsonResponse([{
-        tenant_id: TENANT_A,
-        analysis_id: c01Candidate().analysis_id,
-        offer_id: c01Candidate().offer_id,
-        offer_revision: c01Candidate().offer_revision,
-        c01_snapshot: c01Candidate(),
-        domain_outcome: 'VALID',
-        freshness_status: 'CURRENT'
-      }]);
+      assert.strictEqual(method,'POST');
+      const command=JSON.parse(init.body);
+      assert.strictEqual(command.p_analysis_id,c01Candidate().analysis_id);
+      assert.strictEqual(command.p_offer_id,c01Candidate().offer_id);
+      assert.strictEqual(command.p_offer_revision,c01Candidate().offer_revision);
+      return jsonResponse(c01Candidate());
     }
 
     if (url === SUPABASE_URL + '/rest/v1/rpc/extcalc_product_current_offers_v0') {
