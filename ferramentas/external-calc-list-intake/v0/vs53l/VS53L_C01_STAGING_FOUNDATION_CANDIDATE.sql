@@ -207,8 +207,18 @@ begin
  if amount is null or amount<=0
  or p_candidate#>>'{interpreted_offer,price,currency}' is distinct from 'BRL'
  or nullif(p_candidate#>>'{interpreted_offer,model,id}','') is null
- or nullif(p_candidate#>>'{interpreted_offer,model,label}','') is null then
-  raise exception 'C01_STAGING_OFFER_INVALID';end if;
+ or nullif(p_candidate#>>'{interpreted_offer,model,label}','') is null
+ or (p_candidate#>>'{interpreted_offer,capacity_gb}') !~ '^[1-9][0-9]{0,3}$'
+ then raise exception 'C01_STAGING_OFFER_INVALID';end if;
+ -- Staging-only conservative identity check. A real product must instead
+ -- resolve against the canonical catalog (C01/Interpreter Core unchanged).
+ if p_candidate#>>'{interpreted_offer,model,id}'
+   is distinct from pg_catalog.lower(pg_catalog.regexp_replace(
+     pg_catalog.btrim(p_candidate#>>'{interpreted_offer,model,label}'),
+     '[^[:alnum:]]+', '-', 'g'
+   )) then
+   raise exception 'C01_STAGING_MODEL_IDENTITY_UNVERIFIED';
+ end if;
  foreach fld in array array['model','price'] loop
   refs:=p_candidate#>array['review_evidence','field_sources',fld];
   if pg_catalog.jsonb_typeof(refs) is distinct from 'array'
