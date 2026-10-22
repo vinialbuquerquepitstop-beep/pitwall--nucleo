@@ -38,4 +38,13 @@ Uma tentativa anterior de implantar o grafo C01 foi bloqueada pelas configuraç�
 
 ## Repositório e pacote
 
-Branch isolada: `proposal/external-calc-c01-staging-vs53l-20261022`, baseada no head PR #179 `567810fa2e22c0529eb1f39844889e1c2de9b59a`, **sem PR aberto e sem execução/reliance de GitHub Actions**. SQL e provas disponíveis no artefato de conversa `EXTERNAL_CALC_VS53L_C01_STAGING_CANDIDATE.zip` (SHA-256 `ee0fa736b0f3b411d38a7b2cc3672ba57c6d1583032e61cbe31ea6f21acb9bc6`). Este README sozinho **não** contém a migração e não autoriza aplicação.
+Branch isolada: `proposal/external-calc-c01-staging-vs53l-20261022`, baseada no head PR #179 `567810fa2e22c0529eb1f39844889e1c2de9b59a`, **sem PR aberto e sem execução/reliance de GitHub Actions**. SQL e provas disponíveis no artefato de conversa `EXTERNAL_CALC_VS53L_C01_STAGING_CANDIDATE.zip` (SHA-256 `ee0fa736b0f3b411d38a7b2cc3672ba57c6d1583032e61cbe31ea6f21acb9bc6`). Os artefatos SQL e prova agora foram materializados nos caminhos da branch; este README sozinho não autoriza aplicação.
+
+
+## Materialização dos artefatos na branch (checkpoint final 22/10/2026)
+
+Os três artefatos foram efetivamente adicionados à própria branch, em `ferramentas/external-calc-list-intake/v0/vs53l/`: `VS53L_C01_STAGING_FOUNDATION_CANDIDATE.sql`, `VS53L_C01_STAGING_PROOF_ROLLBACK.sql` e `proof-vs53l-static.mjs`. Eles não são migrações produtivas. A versão atual reforça a associação **modelo + capacidade** (impede que 'iPhone 17' seja confundido com 'iPhone 17 Pro') e exige **uma única linha por campo material** em staging. Prova negativa de modelo-prefixo registrada; testes de fornecedor/quarentena, preço, origem, candidato prévio, idempotência e outro tenant continuam no ensaio com ROLLBACK.
+
+**Validação realizada sem Actions:** `node proof-vs53l-static.mjs` diretamente neste executor = PASS; testes PostgreSQL do pacote não foram executados após o bloqueio de escrita do conector. A consulta read-only `list_tables` foi restabelecida e mostrou somente as quatro tabelas da camada VS5.3i. **Não houve aplicação de esquema C01, nova migração ou seed no Supabase nesta etapa.** A versão ZIP do pacote de conversa é `EXTERNAL_CALC_VS53L_C01_STAGING_CANDIDATE_V2.zip` (SHA-256 `55cffa8379cd87544713e5e3fc17ffbfda240f6cc41af3b06dff1eb03f47c5fd`).
+
+**Fases pendentes:** revisar e aplicar exclusivamente no staging esta fundação via caminho autorizado; aplicar a guarda exata de promoção do PR #179 com revisão de SECURITY DEFINER; executar prova reversível SQL; testar Auth/PostgREST verdadeiro A/B. Sem isso `STAGING_C01_FUNCTIONAL=NOT_PROVEN` e `PRODUCTION=NO_GO`. GitHub Actions excluído do método e nenhum PR aberto para a branch.
