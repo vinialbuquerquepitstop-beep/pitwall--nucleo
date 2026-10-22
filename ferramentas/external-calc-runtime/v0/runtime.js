@@ -27,6 +27,9 @@ const {
   createManualMissingOfferRecoveryApiV0
 } = require('../../external-calc-list-intake/v0/manual-missing-offer-recovery-api-v0');
 const {
+  createPostgresManualRecoverySourceV0
+} = require('../../external-calc-list-intake/v0/postgres-manual-recovery-source-v0');
+const {
   createC01ReviewAuthority
 } = require('../../external-calc-c01-review/v0/c01-review-authority');
 const {
@@ -404,13 +407,18 @@ function createExternalCalcWorkerRuntime(options = {}) {
       // The original-source resolver MUST be supplied by an audited staging
       // adapter. When missing, this endpoint returns 503 for authenticated
       // owners, not a successful candidate created from untrusted client text.
-      const trustedManualSourceResolver =
-        typeof options.trustedManualSourceResolverFactory === 'function'
-          ? options.trustedManualSourceResolverFactory({
-              identity, accessToken, supabaseUrl: config.supabaseUrl,
-              anonKey: config.anonKey, fetchImpl
-            })
-          : null;
+      // Explicit staging-only activation, no production fallback. The
+      // separate SQL source RPC must already be installed and authenticated.
+      const manualRecoveryStagingEnabled =
+        env.EXTCALC_MANUAL_RECOVERY_STAGING === 'true' &&
+        config.supabaseUrl.replace(/\/+$/, '') ===
+          'https://mfsshvckclnmftpaprxk.supabase.co';
+      const trustedManualSourceResolver = manualRecoveryStagingEnabled
+        ? createPostgresManualRecoverySourceV0({
+            supabaseUrl: config.supabaseUrl,
+            anonKey: config.anonKey, accessToken, fetchImpl
+          })
+        : null;
       const manualRecoveryApi = createManualMissingOfferRecoveryApiV0({
         authenticate: authContext,
         trustedInputResolver: trustedManualSourceResolver,
