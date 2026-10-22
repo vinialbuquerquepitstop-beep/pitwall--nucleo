@@ -95,7 +95,7 @@ function createPostgresReviewCandidateRepository(options = {}) {
 
     async listPendingCandidates(options = {}) {
       const limit = Number.isSafeInteger(options.limit) ? options.limit : 50;
-      if (limit < 1 || limit > 100) throw new Error('limit invalido');
+      if (limit < 1 || limit > 50) throw new Error('limit invalido');
 
       const response = await fetchImpl(
         joinUrl(supabaseUrl, '/rest/v1/rpc/extcalc_list_pending_review_candidates_v0'),
@@ -125,43 +125,30 @@ function createPostgresReviewCandidateRepository(options = {}) {
         throw new Error('offer_revision invalida');
       }
 
-      const params = new URLSearchParams({
-        tenant_id: `eq.${tenantId}`,
-        analysis_id: `eq.${analysisId}`,
-        offer_id: `eq.${offerId}`,
-        offer_revision: `eq.${offerRevision}`,
-        select: 'tenant_id,analysis_id,offer_id,offer_revision,candidate_snapshot'
-      });
-
       const response = await fetchImpl(
-        joinUrl(supabaseUrl, `/rest/v1/extcalc_review_candidate?${params.toString()}`),
+        joinUrl(supabaseUrl, '/rest/v1/rpc/extcalc_load_review_candidate_v0'),
         {
-          method: 'GET',
-          headers: authHeaders(anonKey, accessToken)
+          method: 'POST',
+          headers: authHeaders(anonKey, accessToken),
+          body: JSON.stringify({
+            p_analysis_id: analysisId,
+            p_offer_id: offerId,
+            p_offer_revision: offerRevision
+          })
         }
       );
       const payload = await readJson(response);
-
       if (!response.ok) {
         const message = payload?.message || payload?.error || `HTTP ${response.status}`;
         throw new Error(`EXTCALC_REVIEW_CANDIDATE_LOAD_FAILED: ${message}`);
       }
-
-      if (!Array.isArray(payload) || payload.length === 0) return null;
-      if (payload.length !== 1) {
-        throw new Error('EXTCALC_REVIEW_CANDIDATE_LOAD_FAILED: resultado nao unico');
+      if (payload == null) return null;
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        payload.tenant_id !== tenantId || payload.analysis_id !== analysisId ||
+        payload.offer_id !== offerId || payload.offer_revision !== offerRevision) {
+        throw new Error('EXTCALC_REVIEW_CANDIDATE_LOAD_FAILED: identidade divergente');
       }
-
-      const row = payload[0];
-      if (
-        row.tenant_id !== tenantId ||
-        row.analysis_id !== analysisId ||
-        row.offer_id !== offerId ||
-        row.offer_revision !== offerRevision
-      ) {
-        throw new Error('EXTCALC_REVIEW_CANDIDATE_LOAD_FAILED: lineage divergente');
-      }
-
+      const row = payload;
       return assertCandidateIdentity(row.candidate_snapshot);
     }
   };
