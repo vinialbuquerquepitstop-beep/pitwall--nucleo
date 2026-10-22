@@ -268,6 +268,26 @@ begin
  -- not silent auto-promotion (no header-crossing between these adjacent lines).
  if price_line<model_line or price_line>model_line+1 then
   raise exception 'C01_STAGING_PRICE_MODEL_SCOPE_UNVERIFIED';end if;
+ -- Color is a material C01 attribute: never trust the proposed value alone.
+ -- A single explicit color must be traced to the same original price line.
+ -- This conservatively abstains on multi-color lines until a scoped resolver is proved.
+ if nullif(pg_catalog.btrim(p_candidate#>>'{interpreted_offer,color}'),'') is null
+    or pg_catalog.length(p_candidate#>>'{interpreted_offer,color}')>40 then
+  raise exception 'C01_STAGING_COLOR_MISSING';end if;
+ refs:=p_candidate#>'{review_evidence,field_sources,color}';
+ if pg_catalog.jsonb_typeof(refs) is distinct from 'array'
+    or pg_catalog.jsonb_array_length(refs)<>1
+    or (refs->>0)::integer is distinct from price_line then
+  raise exception 'C01_STAGING_COLOR_PROVENANCE_UNVERIFIED';end if;
+ if content_lines[price_line] ~ '[+/|]' then
+  raise exception 'C01_STAGING_COLOR_SCOPE_AMBIGUOUS';end if;
+ if pg_catalog.strpos(
+   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     content_lines[price_line], '[^[:alnum:]]+', ' ', 'g')))||' ',
+   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     p_candidate#>>'{interpreted_offer,color}', '[^[:alnum:]]+', ' ', 'g')))||' '
+ )=0 then
+  raise exception 'C01_STAGING_COLOR_UNVERIFIED';end if;
  insert into public.extcalc_analysis(tenant_id,analysis_id) values(t,a)
  on conflict(tenant_id,analysis_id) do nothing;
  insert into public.extcalc_offer(tenant_id,analysis_id,offer_id,source_id) values(t,a,o,src)
