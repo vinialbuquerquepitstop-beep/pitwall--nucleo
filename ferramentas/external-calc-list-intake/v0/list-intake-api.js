@@ -13,7 +13,7 @@ const knowledge = require('../../interpreter-core/v1/domains/apple-iphone-v0.kno
 
 const LIST_INTAKE_PATH='/api/external-calc/v0/list-intake';
 const API_VERSION='external-calc-list-intake-api/v0';
-const MAX_TEXT_BYTES=2*1024*1024;
+const MAX_TEXT_BYTES=1024*1024; // must match the immutable staging source bytea bound
 
 function allowedOrigin(origin,env){
  if(!origin)return null;
@@ -37,7 +37,7 @@ function normalizeBody(value){
  const allowed=new Set(['filename','mime_type','content','supplier_id']);
  for(const k of Object.keys(value))if(!allowed.has(k))throw Object.assign(new Error('campo nao permitido: '+k),{code:'LIST_INTAKE_INVALID'});
  if(typeof value.content!=='string'||!value.content.trim())throw Object.assign(new Error('lista vazia'),{code:'LIST_INTAKE_INVALID'});
- if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
+ if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 1 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
  if(value.supplier_id!=null&&(typeof value.supplier_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.supplier_id.trim())))throw Object.assign(new Error('supplier_id invalido'),{code:'LIST_INTAKE_INVALID'});
  return {...value,supplier_id:value.supplier_id==null?null:value.supplier_id.trim().toLowerCase()};
 }
@@ -461,6 +461,9 @@ function buildQueue(body){
 }
 async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!env)throw new Error('env obrigatorio');
+ if(String(env.SUPABASE_URL||'').replace(/\/+$/,'')!=='https://mfsshvckclnmftpaprxk.supabase.co')
+  throw Object.assign(new Error('Importacao controlada somente na homologacao isolada.'),
+   {code:'LIST_INTAKE_STAGING_ONLY',status:503});
  if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
  const command=normalizeBody(rawCommand);
  const built=buildQueue(command);
