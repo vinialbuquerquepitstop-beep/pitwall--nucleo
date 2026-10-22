@@ -80,3 +80,12 @@ Os três artefatos foram efetivamente adicionados à própria branch, em `ferram
 **Inventário persistente até última consulta:** `list_tables` de staging revelou somente as quatro tabelas VS5.3i de fontes originais, nenhuma tabela C01. Security Advisor mantém `auth_leaked_password_protection=WARN` no staging e info de RLS sem policy na tabela privada de tenants. Não alterar Auth nem schema produtivo sem outro gate.
 
 **Próxima prova bloqueadora:** validar a montagem da fase 2 contra a guarda pinada em um checkout, compilar SQL fase 1/2 no PostgreSQL 17 autorizado, executar prova transacional de fontes sintéticas, comparar resultados e rollback, e validar HTTP com as sessões QA A/B. Até isso, o staging não está funcional para C01.
+
+
+### Correção de integridade do artefato SQL (VS53L V4.1)
+
+Na revisão cruzada entre a cópia local e a branch, detectou-se **duplicação e truncamento** da expressão de capacidade no arquivo SQL remoto. Causa identificada: substituição JavaScript com string de reposição contendo `$'` (token interpretado como sufixo do texto original), durante edição automatizada. Esse arquivo não foi aplicado ao banco. Restaurou-se a versão íntegra do commit `3a3f7d2e` e reaplicou-se a proteção `NULL` por `String.replace(needle, () => replacement)`, sem expansão especial, no commit `28ff357d`.
+
+Validação posterior pela API do GitHub: fundação possui **20.486 caracteres, exatamente 6 `CREATE FUNCTION`, 2 triggers, 1 `COMMIT`** e regex intacta `~ '^[1-9][0-9]{0,3}$',false) is false`. O verificador estático ganhou mutação adicional de regex truncada e contagem exata de funções, triggers e COMMIT; teste Node local `VS53L_STATIC=PASS` com sete mutações negativas. A discrepância era apenas na branch, não no Supabase.
+
+Catálogo e histórico de migrações de `mfsshvckclnmftpaprxk` foram novamente confirmados sem nenhuma tabela ou migration C01 adicionada. **Nenhum PostgreSQL funcional C01 aprovado; sem escrita de banco, sem GitHub Actions, sem produção.** Evitar aprovar a fundação unicamente pelo teste estático; falta execução PostgreSQL 17 e Auth A/B C01.
