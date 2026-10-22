@@ -22,8 +22,17 @@ const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'staging
  globalThis.fetch=async(url,init)=>{
    const name=String(url).split('/rpc/')[1];
    calls.push({name,body:JSON.parse(init.body)});
-   if(name==='extcalc_bind_source_supplier_v0')
-     return new Response(JSON.stringify({ok:true}),{status:200});
+   if(name==='extcalc_register_original_source_v0'){
+     const original=calls.at(-1).body;
+     assert.equal(original.p_source_id,built.source_id);
+     assert.equal(original.p_supplier_id,supplier_id);
+     assert.equal(original.p_content,source);
+     assert.ok(/^sha256:[0-9a-f]{64}$/.test(original.p_hash));
+     return new Response(JSON.stringify({
+       ok:true,source_id:original.p_source_id,supplier_id,
+       original_sha256:original.p_hash,idempotent:false
+     }),{status:200});
+   }
    if(name==='extcalc_persist_review_candidate_v0'){
      assert.equal(init.headers.authorization,'Bearer signed-in-QA-fixture');
      assert.equal(calls.at(-1).body.p_candidate.domain_outcome,'REVIEW_REQUIRED');
@@ -42,10 +51,13 @@ const env={SUPABASE_URL:'https://example.supabase.co',SUPABASE_ANON_KEY:'staging
   assert.equal(result.persisted,result.candidates);
   assert.equal(result.manual_recovery_required,
     result.price_coverage.unmatched_price_signal_lines>0 ||
-    result.price_coverage.unverified_candidate_price_spans>0);
+    result.price_coverage.unverified_candidate_price_spans>0 ||
+    result.price_coverage.multiple_explicit_prices_lines.length>0);
   assert.ok(result.price_coverage.detected_price_signal_lines>=1);
   assert.equal(result.review_reasons.CONTROLLED_V0_REVIEW_ONLY,result.candidates);
-  assert.equal(calls[0].name,'extcalc_bind_source_supplier_v0');
+  assert.equal(result.original_source_registered,true);
+  assert.equal(result.original_source_id,built.source_id);
+  assert.equal(calls[0].name,'extcalc_register_original_source_v0');
   assert.equal(calls.filter(x=>x.name==='extcalc_persist_review_candidate_v0').length,result.candidates);
   assert.equal(calls.some(x=>x.name==='extcalc_persist_auto_promoted_c01_v0'),false);
   const sourceCode=fs.readFileSync(path.join(__dirname,'list-intake-api.js'),'utf8');
