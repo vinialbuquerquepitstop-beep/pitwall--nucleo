@@ -20,6 +20,15 @@ INSERT INTO privado.extcalc_original_source_v0(tenant_id,source_ref,filename,cre
  ('11111111-1111-4111-8111-111111111111','vs53l-a-001','VS53L_SOURCE_A.txt',(select user_id from privado.extcalc_staging_membership_v0 where tenant_id='11111111-1111-4111-8111-111111111111' and active),pg_catalog.convert_to(E'iPhone 17 Pro 256GB\nAzul R$ 6.900,00','UTF8')),
  ('22222222-2222-4222-8222-222222222222','vs53l-b-001','VS53L_SOURCE_B.txt',(select user_id from privado.extcalc_staging_membership_v0 where tenant_id='22222222-2222-4222-8222-222222222222' and active),pg_catalog.convert_to(E'iPhone 17 Pro 256GB\nPreto R$ 6.950,00','UTF8'));
 
+-- Extra synthetic source tests an unambiguous compound color. A claim of
+-- 'Azul' must not match exact original 'Azul Claro'.
+INSERT INTO privado.extcalc_original_source_v0(tenant_id,source_ref,filename,created_by,content_bytes)
+VALUES('11111111-1111-4111-8111-111111111111','vs53l-a-color-prefix',
+ 'VS53L_SOURCE_A_COLOR_PREFIX.txt',
+ (SELECT user_id FROM privado.extcalc_staging_membership_v0 WHERE
+ tenant_id='11111111-1111-4111-8111-111111111111' AND active),
+ pg_catalog.convert_to(E'iPhone 17 Pro 256GB\nAzul Claro R$ 6.900,00','UTF8'));
+
 -- Resolve real staging test identities *before* dropping admin role. No UID in Git.
 SELECT pg_catalog.set_config('vs53l.auth_uid_a',
  (select user_id::text from privado.extcalc_staging_membership_v0
@@ -32,7 +41,7 @@ SELECT pg_catalog.set_config('request.jwt.claim.sub',current_setting('vs53l.auth
 
 DO $test$
 DECLARE
- c jsonb; p jsonb; r jsonb; reported text;
+ c jsonb; p jsonb; r jsonb; compound jsonb; reported text;
  supplier uuid:='33333333-3333-4333-8333-333333333333';
 BEGIN
  -- Reject nonexistent supplier, quarantined source, and cross-tenant source.
@@ -116,6 +125,20 @@ BEGIN
   RAISE EXCEPTION 'NEGATIVE_MISSING_CAPACITY_NOT_BLOCKED';
  EXCEPTION WHEN OTHERS THEN
   IF SQLERRM <> 'C01_STAGING_OFFER_INVALID' THEN RAISE; END IF;
+ END;
+ -- Bind an independently stored original line with a compound color.
+ r:=public.extcalc_bind_source_supplier_v0('vs53l-a-color-prefix',supplier);
+ IF r->>'ok' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'COLOR_PREFIX_SOURCE_BIND_FAILED'; END IF;
+ compound:=pg_catalog.jsonb_set(
+  pg_catalog.jsonb_set(
+   pg_catalog.jsonb_set(c,'{source_id}','"vs53l-a-color-prefix"'::jsonb),
+   '{offer_id}','"offer_vs53l_color_prefix"'::jsonb),
+   '{review_evidence,source_lines,1,raw}','"Azul Claro R$ 6.900,00"'::jsonb);
+ BEGIN
+  PERFORM public.extcalc_persist_review_candidate_v0(compound);
+  RAISE EXCEPTION 'NEGATIVE_COLOR_PREFIX_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_COLOR_UNVERIFIED' THEN RAISE; END IF;
  END;
  BEGIN
   PERFORM public.extcalc_persist_review_candidate_v0(
