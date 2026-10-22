@@ -25,6 +25,7 @@ const OWNERS = [
     /^docs\/external-calc\/EXTERNAL_CALC_VS53F_ORIGINAL_BYTES_PROOF_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS53G_STAGING_RLS_READONLY_MATRIX_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_VS53H_STAGING_GET_GUARD_V0\.md$/,
+    /^docs\/external-calc\/EXTERNAL_CALC_VS53I_POSTGRES_STAGING_CANDIDATE_V0\.md$/,
     /^docs\/external-calc\/EXTERNAL_CALC_PLANO_DE_CONVERGENCIA_V2\.md$/,
     /^docs\/calculadora\/PROCESSO\.md$/
   ] },
