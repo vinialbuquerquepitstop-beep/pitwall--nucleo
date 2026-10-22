@@ -90,3 +90,11 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 **Escopo de prova:** permissão efetiva foi inspecionada no PostgreSQL real. Supabase Auth continua sem usuários; ainda NÃO foram emitidos JWTs reais A/B nem provados OWN/CROSS sob endpoints externos. Nenhuma conta foi criada diretamente em `auth.users`; este conector não tem operação Admin Auth de criação e a rede de execução não alcançou o host externo. A parte de identidade real permanece NO-GO. A migração original e os dados fictícios permanecem no staging; não houve merge/deploy/produção.
 
 **Estado:** `STAGING_COLUMN_PRIVILEGE_HARDENING=APPLIED_PROVEN`; `AUTH_AB_ACCOUNTS=NOT_CREATED`; `REAL_SIGNED_JWT_AB_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
+
+## VS5.3j — checkpoint Auth A/B (22/10/2026)
+
+**Destino:** PitswallV2/external-calc-staging, projeto mfsshvckclnmftpaprxk. O conector Supabase disponível não possui ação de criação de usuários Auth; teste de conexão HTTP externa não resolveu o hostname. Nenhuma conta foi inserida diretamente em auth.users e nenhum JWT foi inventado. Consulta real confirma zero usuários Auth e zero memberships. Assim, JWT A/B REAL = NOT_RUN.
+
+**Fixture de OWN corrigida:** original-A está QUARANTINED, portanto não poderia provar o resultado esperado AVAILABLE. Foi adicionada fonte sintética original-A-rls ao tenant A (11111111-1111-4111-8111-111111111111), com 32 bytes sintéticos e SHA-256: 23ba58d194284cc6fec90615b1ba08805e28d2b53a5c5a2416313c998338f0a0. A fonte original-B permanece AVAILABLE no tenant B (22222222-2222-4222-8222-222222222222), sem reescrita; original-A permanece em quarentena. Usar source_a=original-A-rls, source_b=original-B e absent_ref independente na futura prova JWT.
+
+**Pendência de execução real:** criar duas contas sintéticas pelo Supabase Auth oficial, confirmar seus IDs, fazer seed administrativo de membership A/B e obter JWT assinados pela API oficial sem registrar tokens/senhas em GitHub. Executar matriz VS5.3g/h com dois usuários autenticados e casos cruzados, anônimos e ausentes. Não usar service_role na prova de leitura. Verificar também exposição do schema privado na Data API. Status: STAGING_SOURCE_FIXTURES=PASS; AUTH_AB_USERS=0; REAL_JWT_AB=NOT_RUN; PRODUCTION=NO_GO.
