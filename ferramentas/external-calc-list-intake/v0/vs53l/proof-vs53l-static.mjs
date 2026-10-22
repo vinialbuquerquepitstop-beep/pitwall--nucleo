@@ -23,6 +23,9 @@ function validate(s,p){
  assert.match(s,/C01_STAGING_PRICE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_MODEL_IDENTITY_UNVERIFIED/);
  assert.match(s,/C01_STAGING_COLOR_UNVERIFIED/);
+ assert.ok(s.includes("pg_catalog.split_part(content_lines[price_line],'R$',1)"),'must compare full color segment, never substring');
+ assert.ok(p.includes('NEGATIVE_COLOR_PREFIX_NOT_BLOCKED'),'must prove Azul cannot match Azul Claro');
+ assert.ok(p.includes('Azul Claro R$ 6.900,00'),'must source negative case independently');
  assert.match(s,/C01_STAGING_COLOR_PROVENANCE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_COLOR_SCOPE_AMBIGUOUS/);
  assert.ok(s.includes("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~"),'capacity must explicitly reject SQL NULL');
@@ -60,11 +63,13 @@ const noModel=ddl.replace('C01_STAGING_MODEL_IDENTITY_UNVERIFIED','C01_STAGING_M
 assert.throws(()=>validate(noModel,proof));
 const noColor=ddl.replace('C01_STAGING_COLOR_UNVERIFIED','C01_STAGING_COLOR_ACCEPT_ANY');
 assert.throws(()=>validate(noColor,proof));
+const partialColor=ddl.replace("pg_catalog.split_part(content_lines[price_line],'R$',1)","content_lines[price_line]");
+assert.throws(()=>validate(partialColor,proof));
 const noCapacityNullGuard=ddl.replace("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~","((p_candidate#>>'{interpreted_offer,capacity_gb}') ~");
 assert.throws(()=>validate(noCapacityNullGuard,proof));
 const truncatedRegex=ddl.replace("~ '^[1-9][0-9]{0,3}$',false) is false","~ '^[1-9][0-9]{0,3}");
 assert.throws(()=>validate(truncatedRegex,proof));
 const noRollback=proof.replace(/ROLLBACK;\s*$/,'COMMIT;');
 assert.throws(()=>validate(ddl,noRollback));
-console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, seven negative mutations, SQL truncation/duplication protection, atomic guard grant');
+console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, eight negative mutations, SQL truncation/duplication protection, atomic guard grant');
 console.log('VS53L_REAL_POSTGRES=NOT_RUN VS53L_REAL_SIGNED_JWT=NOT_RUN');
