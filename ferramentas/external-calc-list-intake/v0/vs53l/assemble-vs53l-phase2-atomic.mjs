@@ -3,10 +3,14 @@
 // guard source (the sole authoritative guard). Never connects to Supabase.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 const mode=process.argv[2]||'--check';
 assert.ok(['--check','--emit'].includes(mode),'usage: node assemble-vs53l-phase2-atomic.mjs --check|--emit');
 const path=new URL('../GATE1_DB_AUTO_PROMOTION_GUARD_DRAFT.sql',import.meta.url);
-const guard=readFileSync(path,'utf8').trim();
+const source=readFileSync(path,'utf8').replace(/\r\n/g,'\n');
+const gitBlobSha=createHash('sha1').update('blob '+Buffer.byteLength(source)+'\0').update(source).digest('hex');
+assert.equal(gitBlobSha,'bddff79482488ef548ccb2c5c7b43491c57ec805','PR179 guard changed: review the exact new source first');
+const guard=source.trim();
 assert.match(guard,/CREATE OR REPLACE FUNCTION public\.extcalc_persist_auto_promoted_c01_v0\(p_promoted jsonb\)/);
 assert.match(guard,/SECURITY DEFINER/i);
 assert.match(guard,/EXTCALC_AUTO_PROMOTION_CANDIDATE_MISMATCH/);
