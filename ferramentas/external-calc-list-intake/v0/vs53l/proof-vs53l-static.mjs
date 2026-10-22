@@ -56,6 +56,9 @@ function validate(s,p){
  assert.match(s,/C01_STAGING_COLOR_UNVERIFIED/);
  assert.ok(s.includes("pg_catalog.split_part(content_lines[price_line],'R$',1)"),'must compare full color segment, never substring');
  assert.ok(p.includes('NEGATIVE_COLOR_PREFIX_NOT_BLOCKED'),'must prove Azul cannot match Azul Claro');
+ assert.ok(p.includes('NEGATIVE_DIRECT_C01_SELECT_NOT_BLOCKED'),'direct authenticated read must be denied');
+ assert.ok(p.includes('EXCEPTION WHEN insufficient_privilege'),'direct read must expect 42501, never weaken grants');
+ assert.ok(!p.includes('CROSS_TENANT_READ_LEAK'),'invalid direct SELECT oracle was removed');
  assert.ok(p.includes('Azul Claro R$ 6.900,00'),'must source negative case independently');
  assert.match(s,/C01_STAGING_COLOR_PROVENANCE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_COLOR_SCOPE_AMBIGUOUS/);
