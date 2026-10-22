@@ -162,3 +162,11 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 **Interpretação restrita:** comprova rede pública acessível **do runner GitHub**, endpoint Auth saudável e impossibilidade de acesso anônimo naquela rota. A origem específica do `Failed to fetch` no computador do operador ainda não foi identificada. Resposta HTTP 401 sozinha não distingue grant negado de policy RLS; evidências anteriores do catálogo PostgreSQL mostram que `anon` não possui SELECT na view. Não prova assinatura de JWT, política cruzada por usuários reais via PostgREST, nem conectividade da rede local do operador. Não fazer upgrade de gate sem o JSON de prova A/B V3.
 
 **Estado após CI:** `STAGING_PUBLIC_HTTP_AUTH_HEALTH=PASS_REAL`; `STAGING_PUBLIC_HTTP_ANON_SOURCE=DENIED_REAL_HTTP_401`; `STAGING_JWT_AB_HTTP=NOT_RUN`; `C01_PRODUCTION=NO_GO`. PR #199 continua draft e segurança #178–#180 continua independente.
+
+## VS5.3k — teste real de configuração do Supabase Auth (22/10/2026)
+
+GitHub Actions Generalization run `39794917832`, job `119879694138`, commit `4ac3bbbbd1c67e0574baa2a2ec0b055274d35399` — **GET HTTPS real** `https://mfsshvckclnmftpaprxk.supabase.co/auth/v1/settings`, usando exclusivamente chave publicável do staging e sem enviar credenciais, com HTTP 200. Flags retornadas: `disable_signup=false`, `mailer_autoconfirm=false`, `external.email=true`. Não foi criado usuário nem emitido JWT. Auth health HTTP 200 e ausência de SELECT anônimo HTTP 401 reconfirmados no mesmo job. A workflow terminou SUCCESS.
+
+**Implicação:** o Supabase staging permite signup de e-mail, mas exige confirmação do e-mail. Criar emails aleatórios + senhas em GitHub Actions não completa autenticação legítima automaticamente; não contornar a confirmação, não ativar globalmente autoconfirm para mascarar o problema, não forjar JWT, não escrever em auth.users e não armazenar passwords/tokens no git ou no chat. O conector Supabase não expõe API Admin de criação/login de usuários.
+
+**Estado:** `STAGING_AUTH_SETTINGS_REAL_HTTP=PASS`, `STAGING_EMAIL_CONFIRMATION_REQUIRED=TRUE`, `SIGNED_JWT_AB=NOT_RUN`; `PRODUCTION=NO_GO`. Caminho legítimo mínimo: contas QA confirmadas e fornecimento **fora do chat** de sessão autenticada a um executor seguro ou uso do V3 no dispositivo do operador. C01–C05 e incidentes #178–#180 não alterados.
