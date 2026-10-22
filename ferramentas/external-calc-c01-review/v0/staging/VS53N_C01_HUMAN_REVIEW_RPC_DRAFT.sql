@@ -121,14 +121,15 @@ BEGIN
  aid:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'analysis_id'),'');
  oid:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'offer_id'),'');
  source_id:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'source_id'),'');
- revision:=pg_catalog.nullif(p_reviewed#>>'{review,original_offer_revision}','')::integer;
+ revision:=pg_catalog.coalesce(pg_catalog.nullif(p_reviewed#>>'{review,original_offer_revision}','')::integer,
+  pg_catalog.nullif(p_reviewed->>'offer_revision','')::integer);
  final_revision:=pg_catalog.nullif(p_reviewed->>'offer_revision','')::integer;
  decision:=p_reviewed#>>'{review,decision}';
  final_outcome:=p_reviewed->>'domain_outcome';
  is_material:=pg_catalog.coalesce((p_reviewed#>>'{review,material_change}')::boolean,false);
  IF aid IS NULL OR oid IS NULL OR source_id IS NULL OR revision IS NULL
  OR final_revision IS NULL OR revision<1 OR final_revision<1
- OR decision NOT IN ('ACCEPT','EDIT','EXCLUDE','INVALIDATE')
+ OR decision IS NULL OR decision NOT IN ('ACCEPT','EDIT','EXCLUDE','INVALIDATE')
  OR p_reviewed#>>'{review,reviewer_ref}' IS DISTINCT FROM current_actor
  OR pg_catalog.nullif(p_reviewed#>>'{review,reviewed_at}','') IS NULL
  OR p_reviewed->>'contract_version' IS DISTINCT FROM 'external-calc-c01-readonly/v1'
@@ -142,6 +143,8 @@ BEGIN
  FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'C01_REVIEW_CANDIDATE_NOT_FOUND'; END IF;
  IF candidate->>'source_id' IS DISTINCT FROM source_id
+ OR candidate->>'contract_version' IS DISTINCT FROM 'external-calc-c01-readonly/v1'
+ OR candidate->>'execution_status' IS DISTINCT FROM 'SUCCEEDED'
  OR candidate->>'offer_identity_fingerprint' IS NULL
  OR candidate->>'offer_value_fingerprint' IS NULL
  OR candidate->>'domain_outcome' IS DISTINCT FROM 'REVIEW_REQUIRED'
