@@ -96,6 +96,14 @@ BEGIN
   IF SQLERRM <> 'C01_STAGING_LINE_NOT_IN_ORIGINAL' THEN RAISE; END IF;
  END;
  BEGIN
+  -- "iPhone 17" appears in "iPhone 17 Pro", but is a different model.
+  PERFORM public.extcalc_persist_review_candidate_v0(
+   pg_catalog.jsonb_set(c,'{interpreted_offer,model,label}','"iPhone 17"'::jsonb));
+  RAISE EXCEPTION 'NEGATIVE_MODEL_PREFIX_NOT_BLOCKED';
+ EXCEPTION WHEN OTHERS THEN
+  IF SQLERRM <> 'C01_STAGING_MODEL_UNVERIFIED' THEN RAISE; END IF;
+ END;
+ BEGIN
   PERFORM public.extcalc_persist_review_candidate_v0(
    pg_catalog.jsonb_set(c,'{interpreted_offer,price,amount_minor}','700000'::jsonb));
   RAISE EXCEPTION 'NEGATIVE_FORGED_PRICE_NOT_BLOCKED';
