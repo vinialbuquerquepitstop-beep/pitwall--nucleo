@@ -79,3 +79,14 @@ O próximo passo depois da aprovação **não é nova simulação**: é executar
 **Gate após execução:** `STAGING_DDL=APPLIED`; `STAGING_BYTES_SHA=PASS_2_OF_2`; `STAGING_IMMUTABILITY=PASS_4_OF_4`; `STAGING_QUARANTINE=PASS`; `STAGING_ANON_GRANT=DENIED`; `STAGING_AUTH_NO_USER_DENY=PASS_PARTIAL`; `STAGING_REAL_JWT_AB=NOT_RUN`; `STAGING_RELEASE=NO_GO`; `PRODUCTION=NO_GO`.
 
 **Próximo passo factual:** criar **duas contas de teste via Supabase Auth API/Admin**, nunca inserindo diretamente em `auth.users`; associar os IDs de Auth a tenants distintos via seed administrativa controlada; executar o transporte GET VS5.3h com JWT assinados A/B na mesma instância e inspecionar respostas cruzadas, anônimas, ausentes, assinatura real e configuração Data API. Registrar matriz completa e concluir security review antes de mudança de release gate.
+
+
+## VS5.3i — privilege hardening de staging, 22/10/2026
+
+**Ambiente único:** PitswallV2 `mfsshvckclnmftpaprxk`, EXCLUSIVAMENTE staging. Após conferir o ambiente, foi aplicada a migração Supabase `external_calc_vs53i_staging_column_privileges_v0` com sucesso. Corrige um excesso de privilégio: `authenticated` tinha SELECT integral na tabela privada dos bytes brutos. Foi substituído por GRANT SELECT de colunas estritamente necessárias ao read-only view (tenant_id, source_ref, source_contract_version, source_type, immutability, content_sha256). A tabela privada de eventos permite apenas tenant_id, source_ref, event_type. Uma transação prévia `ROLLBACK` validou que a view com authenticated sem usuário continua zero linhas; não confundir com A/B real.
+
+**Prova em pg_catalog/has_column_privilege após migração:** `authenticated` em `content_bytes` = FALSE; `content_sha256` = TRUE; `tenant_id` = TRUE; em `reason_ref` de eventos = FALSE; SELECT na view pública = TRUE. A coluna `filename` também não é concedida como fonte da view. O schema privado não deve integrar Data API.
+
+**Escopo de prova:** permissão efetiva foi inspecionada no PostgreSQL real. Supabase Auth continua sem usuários; ainda NÃO foram emitidos JWTs reais A/B nem provados OWN/CROSS sob endpoints externos. Nenhuma conta foi criada diretamente em `auth.users`; este conector não tem operação Admin Auth de criação e a rede de execução não alcançou o host externo. A parte de identidade real permanece NO-GO. A migração original e os dados fictícios permanecem no staging; não houve merge/deploy/produção.
+
+**Estado:** `STAGING_COLUMN_PRIVILEGE_HARDENING=APPLIED_PROVEN`; `AUTH_AB_ACCOUNTS=NOT_CREATED`; `REAL_SIGNED_JWT_AB_RLS=NOT_RUN`; `PRODUCTION=NO_GO`.
