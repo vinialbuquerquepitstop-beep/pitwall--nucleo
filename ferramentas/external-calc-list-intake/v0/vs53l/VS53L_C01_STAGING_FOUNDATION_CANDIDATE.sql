@@ -281,12 +281,14 @@ begin
   raise exception 'C01_STAGING_COLOR_PROVENANCE_UNVERIFIED';end if;
  if content_lines[price_line] ~ '[+/|]' then
   raise exception 'C01_STAGING_COLOR_SCOPE_AMBIGUOUS';end if;
- if pg_catalog.strpos(
-   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
-     content_lines[price_line], '[^[:alnum:]]+', ' ', 'g')))||' ',
-   ' '||pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
-     p_candidate#>>'{interpreted_offer,color}', '[^[:alnum:]]+', ' ', 'g')))||' '
- )=0 then
+ -- Compare the COMPLETE color segment immediately before the single BRL token.
+ -- Token containment was unsafe: "Azul" matched "Azul Claro".
+ if pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     pg_catalog.split_part(content_lines[price_line],'R$',1),
+     '[^[:alnum:]]+', ' ', 'g')))
+    is distinct from pg_catalog.lower(pg_catalog.btrim(pg_catalog.regexp_replace(
+     p_candidate#>>'{interpreted_offer,color}',
+     '[^[:alnum:]]+', ' ', 'g'))) then
   raise exception 'C01_STAGING_COLOR_UNVERIFIED';end if;
  insert into public.extcalc_analysis(tenant_id,analysis_id) values(t,a)
  on conflict(tenant_id,analysis_id) do nothing;
