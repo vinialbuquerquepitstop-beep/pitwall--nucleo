@@ -18,6 +18,13 @@ function validate(s,p){
  assert.match(s,/C01_STAGING_LINE_NOT_IN_ORIGINAL/);
  assert.match(s,/C01_STAGING_PRICE_UNVERIFIED/);
  assert.match(s,/C01_STAGING_MODEL_IDENTITY_UNVERIFIED/);
+ assert.match(s,/C01_STAGING_COLOR_UNVERIFIED/);
+ assert.match(s,/C01_STAGING_COLOR_PROVENANCE_UNVERIFIED/);
+ assert.match(s,/C01_STAGING_COLOR_SCOPE_AMBIGUOUS/);
+ assert.ok(s.includes("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~"),'capacity must explicitly reject SQL NULL');
+ assert.ok(p.includes("'color',pg_catalog.jsonb_build_array(2)"),'positive fixture must carry color provenance');
+ for(const check of ['NEGATIVE_WRONG_COLOR_NOT_BLOCKED','NEGATIVE_COLOR_LINE_MISSING_NOT_BLOCKED'])
+   assert.ok(p.includes(check),`missing ${check}`);
  assert.match(s,/\[\^\[:alnum:\]\]\+/);
  assert.match(s,/interpreted_offer,capacity_gb/);
  for(const check of ['NEGATIVE_MODEL_ID_SPOOF_NOT_BLOCKED','NEGATIVE_MISSING_CAPACITY_NOT_BLOCKED'])
@@ -43,6 +50,10 @@ const noHash=ddl.replace('C01_STAGING_LINE_NOT_IN_ORIGINAL','C01_STAGING_NO_LINE
 assert.throws(()=>validate(noHash,proof));
 const noModel=ddl.replace('C01_STAGING_MODEL_IDENTITY_UNVERIFIED','C01_STAGING_MODEL_ID_SPOOF_ALLOWED');
 assert.throws(()=>validate(noModel,proof));
+const noColor=ddl.replace('C01_STAGING_COLOR_UNVERIFIED','C01_STAGING_COLOR_ACCEPT_ANY');
+assert.throws(()=>validate(noColor,proof));
+const noCapacityNullGuard=ddl.replace("coalesce((p_candidate#>>'{interpreted_offer,capacity_gb}') ~","((p_candidate#>>'{interpreted_offer,capacity_gb}') ~");
+assert.throws(()=>validate(noCapacityNullGuard,proof));
 const noRollback=proof.replace(/ROLLBACK;\s*$/,'COMMIT;');
 assert.throws(()=>validate(ddl,noRollback));
 console.log('VS53L_STATIC=PASS six tables/RLS, source provenance, privileges, rollback, three negative mutations');
