@@ -96,6 +96,14 @@ jobs:
         run: |
           node --check ferramentas/external-calc-generalization/v0/proof-vs53i.mjs
           node ferramentas/external-calc-generalization/v0/proof-vs53i.mjs
+      - name: VS5.3k staging public HTTPS preflight (real network, anonymous ONLY, NO JWT A/B proof)
+        env:
+          EXTERNAL_CALC_ALLOW_STAGING_ANON_GET: 'true'
+          EXTERNAL_CALC_STAGING_PUBLISHABLE_KEY: 'sb_publishable_Bu-rVeIhHLkf6RUGmwV3xw_lfMfktZo'
+        run: |
+          node --check ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs
+          node ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs --proof
+          node ferramentas/external-calc-generalization/v0/probe-vs53k-staging-live-anon.mjs --live
       - name: Run a development synthetic sample against real C01 (informational, NO-GO unless exact)
         run: |
           set -eu
