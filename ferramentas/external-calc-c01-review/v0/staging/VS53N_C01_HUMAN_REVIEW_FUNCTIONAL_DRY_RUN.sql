@@ -80,7 +80,7 @@ BEGIN
  t:=privado.fn_tenant_atual();
  IF auth.uid() IS NULL OR t IS NULL OR privado.fn_papel_atual() IS DISTINCT FROM 'dono'
  THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='C01_REVIEW_UNAUTHORIZED'; END IF;
- lim:=pg_catalog.coalesce(p_limit,50);
+ lim:=COALESCE(p_limit,50);
  IF lim<1 OR lim>50 THEN RAISE EXCEPTION 'C01_REVIEW_QUEUE_LIMIT_INVALID'; END IF;
  RETURN QUERY
  SELECT c.candidate_snapshot, NULL::timestamptz AS criado_em
@@ -107,8 +107,8 @@ BEGIN
  t:=privado.fn_tenant_atual();
  IF auth.uid() IS NULL OR t IS NULL OR privado.fn_papel_atual() IS DISTINCT FROM 'dono'
  THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='C01_REVIEW_UNAUTHORIZED'; END IF;
- IF pg_catalog.nullif(pg_catalog.btrim(p_analysis_id),'') IS NULL
- OR pg_catalog.nullif(pg_catalog.btrim(p_offer_id),'') IS NULL
+ IF NULLIF(pg_catalog.btrim(p_analysis_id),'') IS NULL
+ OR NULLIF(pg_catalog.btrim(p_offer_id),'') IS NULL
  OR p_offer_revision IS NULL OR p_offer_revision<1 THEN
  RAISE EXCEPTION 'C01_REVIEW_REFERENCE_INVALID'; END IF;
  SELECT pg_catalog.jsonb_build_object(
@@ -137,20 +137,20 @@ BEGIN
  THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='C01_REVIEW_UNAUTHORIZED'; END IF;
  IF p_reviewed IS NULL OR pg_catalog.jsonb_typeof(p_reviewed)<>'object'
  THEN RAISE EXCEPTION 'C01_REVIEW_RESULT_INVALID'; END IF;
- aid:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'analysis_id'),'');
- oid:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'offer_id'),'');
- source_id:=pg_catalog.nullif(pg_catalog.btrim(p_reviewed->>'source_id'),'');
- revision:=pg_catalog.coalesce(pg_catalog.nullif(p_reviewed#>>'{review,original_offer_revision}','')::integer,
-  pg_catalog.nullif(p_reviewed->>'offer_revision','')::integer);
- final_revision:=pg_catalog.nullif(p_reviewed->>'offer_revision','')::integer;
+ aid:=NULLIF(pg_catalog.btrim(p_reviewed->>'analysis_id'),'');
+ oid:=NULLIF(pg_catalog.btrim(p_reviewed->>'offer_id'),'');
+ source_id:=NULLIF(pg_catalog.btrim(p_reviewed->>'source_id'),'');
+ revision:=COALESCE(NULLIF(p_reviewed#>>'{review,original_offer_revision}','')::integer,
+  NULLIF(p_reviewed->>'offer_revision','')::integer);
+ final_revision:=NULLIF(p_reviewed->>'offer_revision','')::integer;
  decision:=p_reviewed#>>'{review,decision}';
  final_outcome:=p_reviewed->>'domain_outcome';
- is_material:=pg_catalog.coalesce((p_reviewed#>>'{review,material_change}')::boolean,false);
+ is_material:=COALESCE((p_reviewed#>>'{review,material_change}')::boolean,false);
  IF aid IS NULL OR oid IS NULL OR source_id IS NULL OR revision IS NULL
  OR final_revision IS NULL OR revision<1 OR final_revision<1
  OR decision IS NULL OR decision NOT IN ('ACCEPT','EDIT','EXCLUDE','INVALIDATE')
  OR p_reviewed#>>'{review,reviewer_ref}' IS DISTINCT FROM current_actor
- OR pg_catalog.nullif(p_reviewed#>>'{review,reviewed_at}','') IS NULL
+ OR NULLIF(p_reviewed#>>'{review,reviewed_at}','') IS NULL
  OR p_reviewed ? 'tenant_id' OR p_reviewed ? 'actor_id'
  OR p_reviewed->>'contract_version' IS DISTINCT FROM 'external-calc-c01-readonly/v1'
  OR p_reviewed->>'execution_status' IS DISTINCT FROM 'SUCCEEDED'
