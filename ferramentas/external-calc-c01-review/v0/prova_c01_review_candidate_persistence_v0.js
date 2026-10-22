@@ -127,21 +127,27 @@ function makeBackend() {
       });
     }
 
-    if (url.startsWith(URL + '/rest/v1/extcalc_review_candidate?')) {
+    if (url === URL + '/rest/v1/rpc/extcalc_load_review_candidate_v0') {
       state.loadCalls.push({ url, init });
-      assert.strictEqual(method, 'GET');
+      assert.strictEqual(method, 'POST');
       assert.strictEqual(init.headers.authorization, `Bearer ${TOKEN}`);
-      assert.ok(url.includes(encodeURIComponent(`eq.${TENANT}`)));
+      const args=JSON.parse(init.body);
+      assert.deepStrictEqual(Object.keys(args).sort(),[
+        'p_analysis_id','p_offer_id','p_offer_revision'
+      ]);
+      assert.ok(!('tenant_id' in args),'tenant must come from authenticated DB identity');
+      if (!state.stored) return json(null);
+      if (args.p_analysis_id !== state.stored.analysis_id ||
+        args.p_offer_id !== state.stored.offer_id ||
+        args.p_offer_revision !== state.stored.offer_revision) return json(null);
 
-      if (!state.stored) return json([]);
-
-      return json([{
+      return json({
         tenant_id: TENANT,
         analysis_id: state.stored.analysis_id,
         offer_id: state.stored.offer_id,
         offer_revision: state.stored.offer_revision,
         candidate_snapshot: state.stored
-      }]);
+      });
     }
 
     throw new Error(`fetch inesperado: ${method} ${url}`);
@@ -209,6 +215,8 @@ function makeBackend() {
 
     assert.deepStrictEqual(loaded, original);
     assert.strictEqual(backend.state.loadCalls.length, 1);
+    assert.strictEqual(backend.state.loadCalls[0].init.method, 'POST');
+    assert.ok(backend.state.loadCalls[0].url.endsWith('/rpc/extcalc_load_review_candidate_v0'));
   });
 
   await check('estado que nao e REVIEW_REQUIRED falha antes de rede', async () => {
