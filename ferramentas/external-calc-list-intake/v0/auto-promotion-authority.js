@@ -1,4 +1,5 @@
 'use strict';
+const { linkedPriceHasExactAmount }=require('./source-price-evidence');
 
 const AUTO_PROMOTION_VERSION='external-calc-c01-auto-promotion/v0';
 const CRITICAL_FIELDS=new Set(['model','price','capacity_gb','condition','color']);
@@ -26,8 +27,40 @@ function linkedMaterialAmbiguities(candidate,ambiguities){
 function hasCapacityToken(label){
   return /(?:\b\d{2,4}\s*GB\b|(?:\/|\b)[124]\s*TB\b|\b\d{1,3}\s*\/\s*\d{2,4}\s*GB\b|\b(?:iPhone\s+)?1[1-8](?:\s+(?:Pro\s+Max|Pro|Plus|Air))?\s+(?:64|128|256|512)\b)/i.test(String(label||''));
 }
+function hasFieldSourceEvidence(candidate,field){
+  const evidence=candidate?.review_evidence;
+  const linked=evidence?.field_sources?.[field];
+  if(!Array.isArray(linked)||!linked.length)return false;
+  const lines=new Map((evidence?.source_lines||[])
+    .filter(item=>Number.isSafeInteger(item?.line_number)&&item.line_number>0
+      && typeof item.raw==='string'&&item.raw.trim())
+    .map(item=>[item.line_number,item.raw]));
+  return linked.every(number=>Number.isSafeInteger(number)&&number>0&&lines.has(number));
+}
+
+// A source line that declares a new product between the traced model and
+// price invalidates inherited model context. Do not auto-promote a stale model.
+// This is a lineage safety check, not another product resolver.
+function hasInterveningProductHeader(candidate){
+  const refs=candidate?.review_evidence?.field_sources||{};
+  const modelRefs=refs.model;
+  const priceRefs=refs.price;
+  if(!Array.isArray(modelRefs)||!modelRefs.length||!Array.isArray(priceRefs)||!priceRefs.length)return false;
+  const modelLine=Math.max(...modelRefs.filter(Number.isSafeInteger));
+  const priceLine=Math.min(...priceRefs.filter(Number.isSafeInteger));
+  if(!Number.isFinite(modelLine)||!Number.isFinite(priceLine)||priceLine<=modelLine)return false;
+  const lines=candidate?.review_evidence?.source_lines||[];
+  if(!Array.isArray(lines))return false;
+  const productHeader=/\b(?:(?:iphone\s*)?1[3-9]e?\s*(?:pro\s*max|pro|plus|air|normal|padr[aã]o)?\s*(?:\d{2,4}\s*(?:GB|TB)|1\s*TB)|(?:macbook|ipad|airpods|apple watch|watch se|forerunner|vivoactive|f[eê]nix)\b)/i;
+  return lines.some(line=>
+    Number.isSafeInteger(line?.line_number)&&line.line_number>modelLine&&line.line_number<=priceLine&&
+    productHeader.test(String(line?.raw||'')));
+}
+
 function evaluateAutoPromotion(candidate,context={}){
   const reasons=[];
+  if(context.supplierVerified!==true)reasons.push('SUPPLIER_IDENTITY_UNVERIFIED');
+  if(context.price_risk==='OUTLIER_REVIEW_REQUIRED')reasons.push('PRICE_OUTLIER_REVIEW_REQUIRED');
   if(!candidate||candidate.contract_version!=='external-calc-c01-readonly/v1')reasons.push('CANDIDATE_CONTRACT_INVALID');
   if(candidate?.execution_status!=='SUCCEEDED')reasons.push('EXECUTION_NOT_SUCCEEDED');
   if(candidate?.freshness_status!=='CURRENT')reasons.push('NOT_CURRENT');
@@ -35,6 +68,10 @@ function evaluateAutoPromotion(candidate,context={}){
   if(!offer.model?.id||!offer.model?.label)reasons.push('MODEL_IDENTITY_MISSING');
   if(!Number.isSafeInteger(offer.price?.amount_minor)||offer.price.amount_minor<=0||offer.price.currency!=='BRL')reasons.push('PRICE_INVALID');
   if(hasCapacityToken(offer.model?.label)&&!Number.isInteger(offer.capacity_gb))reasons.push('CAPACITY_EXPECTED_BUT_MISSING');
+  if(!hasFieldSourceEvidence(candidate,'model'))reasons.push('MODEL_SOURCE_UNVERIFIED');
+  if(hasInterveningProductHeader(candidate))reasons.push('MODEL_CONTEXT_CROSSES_PRODUCT_HEADER');
+  if(!hasFieldSourceEvidence(candidate,'price'))reasons.push('PRICE_SOURCE_UNVERIFIED');
+  else if(!linkedPriceHasExactAmount(candidate))reasons.push('PRICE_SOURCE_AMOUNT_UNVERIFIED');
 
   const trace=traceByField(candidate);
   const modelScore=trace.model?.score;
@@ -85,11 +122,39 @@ function promoteCandidate(candidate,assessment){
     ]
   };
 }
-function partitionCandidates(queue){
+function siblingPriceOutliers(candidates){
+  const groups=new Map();
+  for(const candidate of candidates||[]){
+    const offer=candidate?.interpreted_offer||{};
+    const price=offer.price?.amount_minor;
+    if(!offer.model?.id||!Number.isSafeInteger(price)||price<=0)continue;
+    const key=JSON.stringify([offer.model.id,offer.capacity_gb??null,offer.condition??null]);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push({candidate,price});
+  }
+  const outliers=new Set();
+  for(const siblings of groups.values()){
+    // At least three independent price observations for the same product identity.
+    const prices=[...new Set(siblings.map(x=>x.price))].sort((a,b)=>a-b);
+    if(prices.length<3)continue;
+    const mid=Math.floor(prices.length/2);
+    const median=prices.length%2?prices[mid]:(prices[mid-1]+prices[mid])/2;
+    for(const {candidate,price} of siblings){
+      if(price*3<median||price>median*3)outliers.add(candidate);
+    }
+  }
+  return outliers;
+}
+function partitionCandidates(queue,context={}){
   const auto=[];
   const review=[];
+  const priceOutliers=siblingPriceOutliers(queue?.candidates);
   for(const candidate of queue?.candidates||[]){
-    const assessment=evaluateAutoPromotion(candidate,{ambiguities:queue?.unresolved_ambiguities||[]});
+    const assessment=evaluateAutoPromotion(candidate,{...context,ambiguities:queue?.unresolved_ambiguities||[]});
+    if(priceOutliers.has(candidate)){
+      assessment.eligible=false;
+      assessment.reasons.push('SIBLING_PRICE_OUTLIER');
+    }
     if(assessment.eligible)auto.push({candidate,promoted:promoteCandidate(candidate,assessment),assessment});
     else review.push({candidate,assessment});
   }
