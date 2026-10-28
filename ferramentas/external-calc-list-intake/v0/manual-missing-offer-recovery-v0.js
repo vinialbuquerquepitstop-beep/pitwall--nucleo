@@ -101,14 +101,14 @@ function buildManualRecoveryCandidate(resolved,command){
   fail('RECOVERY_CATALOG_CAPACITY_MISMATCH');
  const slug=model.label.trim().toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
  if(model.id!==slug)fail('RECOVERY_MODEL_C01_IDENTITY_MISMATCH');
- const afterModel=modelLine.trim().slice(model.label.length).trim();
- if(!modelLine.trim().toLocaleLowerCase('en-US').startsWith(model.label.toLocaleLowerCase('en-US')) ||
-   !new RegExp('^'+c.capacity_gb+'\\s*GB(?:\\s|$)','iu').test(afterModel))
-   fail('RECOVERY_MODEL_SCOPE_UNVERIFIED');
  // A shorter model cannot be selected if the exact original contains a
  // longer, distinct approved model, e.g. "iPhone 17" vs "iPhone 17 Pro".
  if(src.models.some(m=>m&&m.id!==model.id&&nonempty(m.label)&&
    m.label.length>model.label.length&&tokenFound(modelLine,m.label)))fail('RECOVERY_LONGER_MODEL_IN_ORIGINAL');
+ const afterModel=modelLine.trim().slice(model.label.length).trim();
+ if(!modelLine.trim().toLocaleLowerCase('en-US').startsWith(model.label.toLocaleLowerCase('en-US')) ||
+   !new RegExp('^'+c.capacity_gb+'\\s*GB(?:\\s|$)','iu').test(afterModel))
+   fail('RECOVERY_MODEL_SCOPE_UNVERIFIED');
  if(!new RegExp('(?:^|[^\\d])'+c.capacity_gb+'\\s*(?:GB|G)(?:$|[^\\p{L}\\d])','iu').test(modelLine))
   fail('RECOVERY_CAPACITY_NOT_IN_ORIGINAL');
  const amount=moneyFromSource(priceLine);
