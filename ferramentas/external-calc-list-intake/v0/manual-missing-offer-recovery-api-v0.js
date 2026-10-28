@@ -26,8 +26,8 @@ function createManualMissingOfferRecoveryApiV0({authenticate,trustedInputResolve
     return reply(200,{api_version:CONTRACT,recovery:response});
    }catch(e){
     const code=typeof e?.code==='string'?e.code:'RECOVERY_FAILED';
-    const status=e?.status===422?422:e?.status===503?503:400;
-    return reply(status,{error:{code,message:e instanceof Error?e.message:'falha ao recuperar oferta'}});
+    const status=e?.status===422?422:e?.status===503?503:500;
+    return reply(status,{error:{code:status===500?'RECOVERY_INTERNAL_FAILURE':code,message:status===500?'Falha interna de recuperação; nenhuma confirmação de persistência foi emitida.':e instanceof Error?e.message:'falha ao recuperar oferta'}});
    }
   }
  };
