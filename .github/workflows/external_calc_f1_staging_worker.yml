@@ -1,6 +1,12 @@
 name: External Calc F1 staging Worker (isolated)
 
 on:
+  push:
+    branches:
+      - feat/external-calc-f1-controlled-intake-20261022
+    paths:
+      - '.github/workflows/external_calc_f1_staging_worker.yml'
+      - 'wrangler.external-calc-staging.jsonc'
   workflow_dispatch:
     inputs:
       confirm_environment:
@@ -17,7 +23,7 @@ concurrency:
 
 jobs:
   deploy-staging:
-    if: github.ref != 'refs/heads/main' && inputs.confirm_environment == 'external-calc-f1-staging'
+    if: github.ref == 'refs/heads/feat/external-calc-f1-controlled-intake-20261022' && (github.event_name == 'push' || inputs.confirm_environment == 'external-calc-f1-staging')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: external-calc-staging
