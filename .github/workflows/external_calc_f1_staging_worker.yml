@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/external_calc_f1_staging_worker.yml'
       - 'wrangler.external-calc-staging.jsonc'
+      - 'ferramentas/external-calc-list-intake/v0/**'
+      - 'ferramentas/external-calc-runtime/v0/**'
   workflow_dispatch:
     inputs:
       confirm_environment:
