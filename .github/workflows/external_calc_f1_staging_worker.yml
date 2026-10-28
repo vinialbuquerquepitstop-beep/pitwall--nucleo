@@ -55,9 +55,12 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_STAGING_ACCOUNT_ID }}
           SUPABASE_ANON_KEY: ${{ secrets.EXTERNAL_CALC_STAGING_SUPABASE_ANON_KEY }}
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          test -n "$SUPABASE_ANON_KEY"
+          set -euo pipefail
+          missing=0
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then echo "::error::Missing CLOUDFLARE_STAGING_API_TOKEN"; missing=1; fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then echo "::error::Missing CLOUDFLARE_STAGING_ACCOUNT_ID"; missing=1; fi
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then echo "::error::Missing EXTERNAL_CALC_STAGING_SUPABASE_ANON_KEY"; missing=1; fi
+          test "$missing" -eq 0
       - name: Deploy only dedicated Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_STAGING_API_TOKEN }}
