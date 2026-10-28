@@ -3,7 +3,7 @@
 const crypto = require('node:crypto');
 const CONTRACT = 'external-calc-whatsapp-source-event/v0';
 const MAX_BYTES = 256 * 1024;
-const id = v => typeof v === 'string' && /^[a-zA-Z0-9._:-]{1,160}$/.test(v);
+const id = v => typeof v === 'string' && /^[a-zA-Z0-9._:+=/-]{1,512}$/.test(v);
 function fail(code) { return { ok: false, code, events: [] }; }
 function verifySignature(rawBody, signature, secret) {
   if (!Buffer.isBuffer(rawBody) || typeof secret !== 'string' || !secret ||
