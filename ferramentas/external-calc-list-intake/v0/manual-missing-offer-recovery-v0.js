@@ -63,6 +63,8 @@ function normalizeCommand(command){
  if(!Number.isSafeInteger(command.price_amount_minor)||command.price_amount_minor<=0)fail('RECOVERY_PRICE_INVALID');
  if(command.color !=null && (!nonempty(command.color)||!command.color_line))fail('RECOVERY_COLOR_LINE_REQUIRED');
  if(command.condition !=null && (!nonempty(command.condition)||!command.condition_line))fail('RECOVERY_CONDITION_LINE_REQUIRED');
+ if(command.color_line != null && !nonempty(command.color))fail('RECOVERY_COLOR_LINE_REQUIRED');
+ if(command.condition_line != null && !nonempty(command.condition))fail('RECOVERY_CONDITION_LINE_REQUIRED');
  return {...command,model_id:command.model_id.trim(),
   model_label:command.model_label==null?null:command.model_label.trim(),
   color:command.color==null?null:command.color.trim(),
