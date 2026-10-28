@@ -41,7 +41,7 @@ check('same text different message id different keys',()=>{
  const b=run(body({msgId:'wamid.002'})).events[0];
  assert.notEqual(a.source_event_key,b.source_event_key);assert.equal(a.original_sha256,b.original_sha256);
 });
-check('invalid signature denied',()=>{assert.equal(run(body(),{signature:'sha256='+('0'.repeat(64))}).code,'INVALID_SIGNATURE');});
+check('encoded Meta message id accepted',()=>{\n const r=run(body({msgId:'wamid.HBgMNTUxMTk5MDAwMTExMRUCABIYFjNFQkM=/+'}));\n assert.equal(r.events.length,1);\n});\ncheck('invalid signature denied',()=>{assert.equal(run(body(),{signature:'sha256='+('0'.repeat(64))}).code,'INVALID_SIGNATURE');});
 check('tampered bytes rejected',()=>{
  const original=Buffer.from(JSON.stringify(body()));
  const changed=Buffer.from(JSON.stringify(body({text:'R$ 1'})));
