@@ -55,6 +55,16 @@ async function run(){
  assert.equal(persisted,1,'forged price never persisted');
  assert.equal((await api.handle({...request(command),body:'{broken'})).status,400);
  assert.equal((await api.handle({...request(command),body:'z'.repeat(30000)})).status,413);
+ const failedApi=createManualMissingOfferRecoveryApiV0({
+  authenticate:owner,
+  trustedInputResolver:{resolve:async()=>original},
+  candidateRepository:{persistCandidate:async()=>{throw new Error('DB_SECRET_CONNECTION_ERROR')}}
+ });
+ const failed=await failedApi.handle(request(command));
+ assert.equal(failed.status,500);
+ assert.equal(failed.body.error.code,'RECOVERY_INTERNAL_FAILURE');
+ assert.equal(JSON.stringify(failed.body).includes('DB_SECRET_CONNECTION_ERROR'),false);
+
  console.log('C01_MANUAL_RECOVERY_API_V0=PASS');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});
