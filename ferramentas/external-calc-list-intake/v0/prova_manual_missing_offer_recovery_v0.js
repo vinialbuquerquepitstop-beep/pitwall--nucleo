@@ -44,6 +44,8 @@ rejects({...cmd,model_id:'iphone-17'},/RECOVERY_LONGER_MODEL_IN_ORIGINAL/);
 rejects({...cmd,capacity_gb:512},/RECOVERY_CAPACITY_NOT_IN_ORIGINAL/);
 rejects({...cmd,color:'Preto'},/RECOVERY_COLOR_EXACT_SEGMENT_REQUIRED/);
 rejects({...cmd,color_line:5},/RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED/);
+rejects({...cmd,color_line:3,color:undefined},/RECOVERY_COLOR_LINE_REQUIRED/);
+rejects({...cmd,condition_line:2},/RECOVERY_CONDITION_LINE_REQUIRED/);
 rejects({...cmd,price_line:5},/RECOVERY_STRICT_C01_SOURCE_SCOPE_REQUIRED/);
 rejects({...cmd,price_line:12},/RECOVERY_SOURCE_LINE_INVALID/);
 rejects({...cmd,analysis_id:'new-tenant'},/RECOVERY_COMMAND_INVALID/);
