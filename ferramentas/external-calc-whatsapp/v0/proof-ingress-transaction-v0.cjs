@@ -4,7 +4,7 @@ const {acceptIngress}=require('./ingress-transaction-v0.cjs');
 const sample={id:'11111111-1111-4111-8111-111111111111',provider_scope_id:'scope-test',phone_number_id:'phone-test',provider_message_id:'wamid.test',tenant_binding_ref:'tenant-verified',routing_policy_version:'v1',route:'SUPPLIER_EXTERNAL_CALC',original_sha256:'a'.repeat(64)};
 function mock({existing=false,failOutbox=false,conflict=false}={}){
  const calls=[];let released=false;
- const client={async query(sql,args){calls.push(sql.trim().split(/\s+/).slice(0,3).join(' '));if(sql.startsWith('INSERT INTO ingress_events'))return {rows:existing?[]:[{id:sample.id}]};if(sql.startsWith('SELECT id'))return {rows:[{...sample,...(conflict?{original_sha256:'b'.repeat(64)}:{})}]};if(sql.startsWith('INSERT INTO ingress_outbox')&&failOutbox)throw Error('DB_DOWN');return {rows:[]};},release(){released=true;}};
+ const client={async query(sql,args){calls.push(sql.trim().split(/\s+/).slice(0,3).join(' '));if(sql.startsWith('INSERT INTO ingress_events'))return {rows:existing?[]:[{id:sample.id}]};if(sql.startsWith('SELECT id')){assert.equal(sql.includes('FOR UPDATE'),false,'ingest role lacks UPDATE grant');return {rows:[{...sample,...(conflict?{original_sha256:'b'.repeat(64)}:{})}]};}if(sql.startsWith('INSERT INTO ingress_outbox')&&failOutbox)throw Error('DB_DOWN');return {rows:[]};},release(){released=true;}};
  return {pool:{async connect(){return client;}},calls,get released(){return released;}};
 }
 let n=0;async function check(label,fn){await fn();console.log('PASS '+label);n++;}
