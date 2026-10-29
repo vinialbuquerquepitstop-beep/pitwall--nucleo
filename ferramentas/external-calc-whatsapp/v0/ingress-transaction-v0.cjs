@@ -15,7 +15,10 @@ async function acceptIngress(pool,event){
   const ins=await client.query(`INSERT INTO ingress_events (id,provider,provider_scope_id,phone_number_id,provider_message_id,tenant_binding_ref,routing_policy_version,route,original_sha256,state) VALUES($1,'meta_cloud_api',$2,$3,$4,$5,$6,$7,$8,'RECEIVED') ON CONFLICT (provider,provider_scope_id,phone_number_id,provider_message_id) DO NOTHING RETURNING id`,
   [event.id,...identity,event.tenant_binding_ref,event.routing_policy_version,event.route,event.original_sha256]);
   if(ins.rows.length===0){
-   const q=await client.query(`SELECT id,tenant_binding_ref,routing_policy_version,route,original_sha256 FROM ingress_events WHERE provider='meta_cloud_api' AND provider_scope_id=$1 AND phone_number_id=$2 AND provider_message_id=$3 FOR UPDATE`,identity);
+   // Immutable identity is protected by the UNIQUE constraint. Do not request FOR UPDATE:
+   // restricted ingest roles have SELECT/INSERT only (no UPDATE privilege).
+   // The conflicting INSERT already waits for the competing writer's outcome.
+   const q=await client.query(`SELECT id,tenant_binding_ref,routing_policy_version,route,original_sha256 FROM ingress_events WHERE provider='meta_cloud_api' AND provider_scope_id=$1 AND phone_number_id=$2 AND provider_message_id=$3`,identity);
    const r=q.rows[0];
    if(!r||r.tenant_binding_ref!==event.tenant_binding_ref||r.routing_policy_version!==event.routing_policy_version||r.route!==event.route||r.original_sha256!==event.original_sha256)throw Error('IDENTITY_CONTENT_CONFLICT');
    await client.query('COMMIT');return {status:'DUPLICATE',inbox_id:r.id};
