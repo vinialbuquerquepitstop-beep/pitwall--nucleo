@@ -9,15 +9,17 @@ async function main(){
  if(!process.env.PCH_STAGING_DATABASE_URL)throw Error('NOT_RUN: dedicated staging credential required');
  const {Pool}=require('pg');
  const pool=new Pool({connectionString:process.env.PCH_STAGING_DATABASE_URL,ssl:{rejectUnauthorized:true},max:8});
+ try {
  const probe=await pool.query(`SELECT current_user, current_database() AS db, 
  (SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('ingress_events','ingress_outbox') AND c.relrowsecurity AND c.relforcerowsecurity) AS rls_count,
- (SELECT count(*)::int FROM pg_policies WHERE schemaname='public' AND tablename IN ('ingress_events','ingress_outbox')) AS policy_count`);
+ (SELECT count(*)::int FROM pg_policies WHERE schemaname='public' AND tablename IN ('ingress_events','ingress_outbox')) AS policy_count,
+ (SELECT rolbypassrls FROM pg_roles WHERE rolname=current_user) AS bypass_rls,
+ (SELECT count(*)::int FROM pg_class c WHERE c.relname IN ('ingress_events','ingress_outbox') AND pg_has_role(current_user,c.relowner,'member')) AS owned_role_memberships`);
  const gate=probe.rows[0];
- if(gate.current_user==='neondb_owner'||gate.rls_count!==2||gate.policy_count<2)throw Error('NOT_RUN: role or RLS security gate incomplete');
+ if(gate.current_user==='neondb_owner'||gate.bypass_rls||gate.owned_role_memberships>0||gate.rls_count!==2||gate.policy_count<2)throw Error('NOT_RUN: role or RLS security gate incomplete');
  const n=crypto.randomUUID(),scope='wm034-staging-'+n;
  const root={id:crypto.randomUUID(),provider_scope_id:scope,phone_number_id:'synthetic-receiver',provider_message_id:'wamid.'+n,tenant_binding_ref:process.env.PCH_AUTHORIZED_TENANT_BINDING,route:'SUPPLIER_EXTERNAL_CALC',routing_policy_version:'wm034-integration-test',original_sha256:crypto.createHash('sha256').update('synthetic payload').digest('hex')};
  if(!root.tenant_binding_ref)throw Error('NOT_RUN: tenant binding required');
- try{
   const results=await Promise.allSettled(Array.from({length:12},()=>acceptIngress(pool,{...root,id:crypto.randomUUID()})));
   assert.ok(results.every(r=>r.status==='fulfilled'),'concurrent ingestion failed');
   assert.equal(results.filter(r=>r.value.status==='INSERTED').length,1);
