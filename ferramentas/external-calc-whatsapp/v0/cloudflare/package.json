@@ -1,0 +1,8 @@
+{
+  "name": "pitstop-connect-hub-isolated-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.16.4"
+  }
+}
