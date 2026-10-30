@@ -4,7 +4,7 @@
  */
 const assert=require('node:assert/strict');
 const {acceptIngress}=require('./ingress-transaction-v0.cjs');
-const root={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',provider_scope_id:'synthetic_scope',phone_number_id:'synthetic_receiver',provider_message_id:'wamid.synthetic.concurrent',tenant_binding_ref:'synthetic_tenant_a',routing_policy_version:'policy-v0',route:'SUPPLIER_EXTERNAL_CALC',original_sha256:'b'.repeat(64)};
+const root={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',provider_scope_id:'synthetic_scope',phone_number_id:'synthetic_receiver',provider_message_id:'wamid.synthetic.concurrent',tenant_binding_ref:'synthetic_tenant_a',routing_policy_version:'policy-v0',route:'SUPPLIER_EXTERNAL_CALC',original_sha256:'b'.repeat(64),encrypted_original:{ciphertext:Buffer.alloc(32,7),iv:Buffer.alloc(12,8)}};
 let inserts=0,deliveries=0,commits=0,rollbacks=0,locks=0;
 const state={event:null,outbox:null};
 let queue=Promise.resolve();
@@ -18,6 +18,7 @@ function pool(){
     const p=queue.then(perform);queue=p.then(()=>{},()=>{});return p;
    }
    if(sql.startsWith('SELECT id')){locks++;return {rows:[state.event]};}
+   if(sql.startsWith('INSERT INTO ingress_originals'))return {rows:[]};
    if(sql.startsWith('INSERT INTO ingress_outbox')){if(state.outbox)throw Error('OUTBOX_DUPLICATE');state.outbox=values[0];deliveries++;return {rows:[]};}
    throw Error('UNEXPECTED_QUERY');
   },release(){}};
