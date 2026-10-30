@@ -44,9 +44,11 @@ if(events.length===0)return plain("No Ingress Events",503);
 if(!env.PCH_SANDBOX_PROVIDER_SCOPE||!env.PCH_STAGING_TENANT_BINDING)return plain("Ingress Not Configured",503);
 try{
  const {acceptViaHyperdrive}=await import('./hyperdrive-storage.mjs');
+ const {encryptOriginal}=await import('./encrypted-original.mjs');
  for(const {message,receiver} of events){
   const digest=hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(message))));
-  const event={id:crypto.randomUUID(),provider_scope_id:env.PCH_SANDBOX_PROVIDER_SCOPE,phone_number_id:receiver,provider_message_id:message.id,tenant_binding_ref:env.PCH_STAGING_TENANT_BINDING,routing_policy_version:'pch-sandbox-hold-v1',route:'HOLD_REVIEW',original_sha256:digest};
+  const encrypted_original=await encryptOriginal(message,env.PCH_ORIGINAL_AES256_KEY);
+  const event={encrypted_original,id:crypto.randomUUID(),provider_scope_id:env.PCH_SANDBOX_PROVIDER_SCOPE,phone_number_id:receiver,provider_message_id:message.id,tenant_binding_ref:env.PCH_STAGING_TENANT_BINDING,routing_policy_version:'pch-sandbox-hold-v1',route:'HOLD_REVIEW',original_sha256:digest};
   const outcome=await durableAck({authenticated:true,authorized:true,event,accept:e=>acceptViaHyperdrive(env,e)});
   if(outcome.status!==200)return plain("Durable Ingress Failed",503);
  }
