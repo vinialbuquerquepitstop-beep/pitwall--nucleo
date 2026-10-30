@@ -2,5 +2,11 @@
   "name": "pitstop-connect-hub-staging",
   "main": "./connect-hub-worker.mjs",
   "compatibility_date": "2026-10-29",
-  "workers_dev": true
+  "workers_dev": true,
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "6a35651fc97f4a34b0850fbc9abc0de7"
+    }
+  ]
 }
