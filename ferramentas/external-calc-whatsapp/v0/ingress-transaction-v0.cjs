@@ -8,6 +8,7 @@ async function acceptIngress(pool,event){
  if(!pool||typeof pool.connect!=='function')throw Error('POOL_REQUIRED');
  const keys=['id','provider_scope_id','phone_number_id','provider_message_id','tenant_binding_ref','routing_policy_version','original_sha256'];
  if(!event||keys.some(k=>!valid(event[k]))||!Object.hasOwn(ROUTES,event.route)||!/^[a-f0-9]{64}$/.test(event.original_sha256))throw Error('INVALID_AUTHORIZED_EVENT');
+ if(event.route!=='IGNORE'&&(!event.encrypted_original||!Buffer.isBuffer(event.encrypted_original.ciphertext)||!Buffer.isBuffer(event.encrypted_original.iv)||event.encrypted_original.iv.length!==12||event.encrypted_original.ciphertext.length<17))throw Error('ENCRYPTED_ORIGINAL_REQUIRED');
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
