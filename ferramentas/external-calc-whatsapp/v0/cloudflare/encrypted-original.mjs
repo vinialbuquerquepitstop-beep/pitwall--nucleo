@@ -9,3 +9,11 @@ export async function encryptOriginal(message,secret){
  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);
  return {ciphertext:Buffer.from(ciphertext),iv:Buffer.from(iv)};
 }
+
+export async function decryptOriginal(original,secret){
+ if(typeof secret!=='string'||!/^[a-f0-9]{64}$/i.test(secret))throw Error('ENCRYPTION_KEY_NOT_CONFIGURED');
+ if(!original?.ciphertext||!original?.iv||original.iv.length!==12)throw Error('INVALID_ORIGINAL');
+ const key=await crypto.subtle.importKey('raw',Uint8Array.from(secret.match(/.{2}/g),h=>parseInt(h,16)),'AES-GCM',false,['decrypt']);
+ const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:original.iv},key,original.ciphertext);
+ return JSON.parse(new TextDecoder().decode(plain));
+}
