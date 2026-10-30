@@ -23,6 +23,11 @@ async function acceptIngress(pool,event){
    if(!r||r.tenant_binding_ref!==event.tenant_binding_ref||r.routing_policy_version!==event.routing_policy_version||r.route!==event.route||r.original_sha256!==event.original_sha256)throw Error('IDENTITY_CONTENT_CONFLICT');
    await client.query('COMMIT');return {status:'DUPLICATE',inbox_id:r.id};
   }
+  if(event.encrypted_original){
+   const original=event.encrypted_original;
+   if(!Buffer.isBuffer(original.ciphertext)||!Buffer.isBuffer(original.iv)||original.iv.length!==12)throw Error('INVALID_ENCRYPTED_ORIGINAL');
+   await client.query(`INSERT INTO ingress_originals(ingress_event_id,ciphertext,iv,encryption_version) VALUES ($1,$2,$3,'aes-256-gcm-v1')`,[event.id,original.ciphertext,original.iv]);
+  }
   if(event.route!=='IGNORE'){
    await client.query(`INSERT INTO ingress_outbox(id,ingress_event_id,destination,state) VALUES($1,$2,$3,'PENDING')`,[crypto.randomUUID(),event.id,ROUTES[event.route]]);
   }
