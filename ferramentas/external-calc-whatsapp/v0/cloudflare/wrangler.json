@@ -8,5 +8,8 @@
       "binding": "HYPERDRIVE",
       "id": "6a35651fc97f4a34b0850fbc9abc0de7"
     }
+  ],
+  "compatibility_flags": [
+    "nodejs_compat"
   ]
 }
