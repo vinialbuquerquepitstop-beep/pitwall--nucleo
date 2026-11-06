@@ -1,0 +1,19 @@
+{
+  // External Calc F1: Worker exclusivo para homologacao.
+  // Nunca utilizar o nome ou a origem do Worker de producao.
+  "name": "external-calc-f1-staging",
+  "compatibility_date": "2026-07-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./worker/external-calc-worker.mjs",
+  "vars": {
+    "SUPABASE_URL": "https://mfsshvckclnmftpaprxk.supabase.co",
+    "EXTCALC_MANUAL_RECOVERY_STAGING": "true",
+    "EXTCALC_CALCULATION_CATEGORY": "iPhone"
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/external-calc/*"],
+    "not_found_handling": "single-page-application"
+  }
+}
