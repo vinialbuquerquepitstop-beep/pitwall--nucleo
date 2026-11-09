@@ -11,6 +11,22 @@ function asRecord(row) {
 function createPostgresPchReceiverRepository({pool}={}) {
  if(typeof pool?.connect!=='function')throw Error('PCH_POOL_REQUIRED');
  return {
+  async findReceipt(p) {
+   const client=await pool.connect();
+   try {
+    // Read-only reconciliation after uncertain COMMIT/ACK. RLS and a tenant-
+    // scoped database role are mandatory; the SQL WHERE is defense in depth.
+    const rows=await client.query(`SELECT tenant_id,idempotency_key,event_id,
+      content_sha256,event_snapshot,state,receipt_id
+      FROM extcalc_pch_shadow.inbox
+      WHERE tenant_id=$1 AND idempotency_key=$2`,[p.tenantId,p.idempotencyKey]);
+    if(rows.rowCount===0)return {record:null};
+    if(rows.rowCount!==1)throw Error('PCH_INBOX_IDENTITY_NOT_UNIQUE');
+    const saved=asRecord(rows.rows[0]);
+    if(!same(saved.snapshot,p)||saved.state!=='ACCEPTED')return {conflict:true};
+    return {record:saved};
+   } finally {client.release();}
+  },
   async acceptAtomic(p) {
    const client=await pool.connect();
    let inTx=false;
