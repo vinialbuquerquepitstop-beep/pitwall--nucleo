@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const {authenticateRequest,signRequestForTest,REQUEST_PATH,RECEIPT_PATH,MAX_SKEW_MS}=require('./m2m-auth-shadow');
+const {authenticateRequest,authenticateOnce,signRequestForTest,REQUEST_PATH,RECEIPT_PATH,MAX_SKEW_MS}=require('./m2m-auth-shadow');
 const tenantId='11111111-1111-4111-8111-111111111111',another='22222222-2222-4222-8222-222222222222';
 const secret=Buffer.alloc(32,0x73), keyId='pch-key-v1', timestamp=1794250000000,nonce='f'.repeat(32);
 const body=JSON.stringify({eventId:'e-1',tenantId});
@@ -29,3 +29,9 @@ test('G10 permission missing rejected',()=>reject(make({keyring:{getKeyById:()=>
 test('G10 wrong producer rejected',()=>reject(make({keyring:{getKeyById:()=>({...cred,producer:'SELLER'})}})));
 test('G10 blank/invalid keyring rejected',()=>reject(make({keyring:null})));
 test('G10 valid changed nonce requires regenerated signature',()=>{const h={...make().headers,'x-pch-nonce':'a'.repeat(32)};reject(make({headers:h}))});
+
+function ledger(){const keys=new Set();return {async reserveOnce({keyId,nonce}){const key=keyId+':'+nonce;if(keys.has(key))return false;keys.add(key);return true}};}
+test('G10 nonce replay ledger first request accepted and identical second rejected',async()=>{const l=ledger();const request=make();assert.equal((await authenticateOnce(request,{nonceLedger:l})).tenantId,tenantId);await assert.rejects(authenticateOnce(request,{nonceLedger:l}),{code:'UNAUTHORIZED_SERVICE'})});
+test('G10 missing durable ledger fails closed',async()=>await assert.rejects(authenticateOnce(make(),{}),{code:'UNAUTHORIZED_SERVICE'}));
+test('G10 ledger outage rejects authentication',async()=>await assert.rejects(authenticateOnce(make(),{nonceLedger:{reserveOnce:async()=>{throw Error('LEDGER_UNAVAILABLE')}}}),/LEDGER_UNAVAILABLE/));
+test('G10 same nonce with different key id allowed only after valid matching signature',async()=>{const otherSecret=Buffer.alloc(32,0x35),otherKey='pch-rotate-2',l=ledger();await authenticateOnce(make(),{nonceLedger:l});const headers=signRequestForTest({keyId:otherKey,tenantId,secret:otherSecret,body,timestamp,nonce});const ring={getKeyById:id=>id===otherKey?{...cred,secret:otherSecret}:null};assert.equal((await authenticateOnce(make({headers,keyring:ring}),{nonceLedger:l})).keyId,otherKey)});
