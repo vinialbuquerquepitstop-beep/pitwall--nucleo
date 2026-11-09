@@ -7,15 +7,16 @@ function mockPool({stored=null,failAt=null}={}){
  return {queries,state,connect:async()=>({query:async(sql,values)=>{
   const command=sql.trim().split(/\s/)[0];
   queries.push(command);
-  if(failAt===command)throw Error('INJECTED_'+command);
+  if(failAt===command && !(command==='SELECT'&&sql.includes('set_config')))throw Error('INJECTED_'+command);
   if(command==='INSERT'&&!state.stored){const p=JSON.parse(values[4]);state.stored={tenant_id:p.tenantId,idempotency_key:p.idempotencyKey,event_id:p.eventId,content_sha256:p.contentSha256,event_snapshot:p,receipt_id:'receipt-1',state:'ACCEPTED'};}
+  if(command==='SELECT'&&sql.includes('set_config'))return {rowCount:1,rows:[{set_config:values[0]}]};
   if(command==='SELECT')return {rowCount:state.stored?1:0,rows:state.stored?[state.stored]:[]};
   return {rowCount:1,rows:[]};
  },release:()=>{state.released++}})};
 }
 test('G6 inserts then verifies under lock and commits',async()=>{
  const pool=mockPool();const repo=createPostgresPchReceiverRepository({pool});const r=await repo.acceptAtomic(prepared);
- assert.equal(r.record.receiptId,'receipt-1');assert.deepEqual(pool.queries,['BEGIN','INSERT','SELECT','COMMIT']);assert.equal(pool.state.released,1);
+ assert.equal(r.record.receiptId,'receipt-1');assert.deepEqual(pool.queries,['BEGIN','SELECT','INSERT','SELECT','COMMIT']);assert.equal(pool.state.released,1);
 });
 test('G6 same identity reuses durable receipt',async()=>{
  const pool=mockPool();const repo=createPostgresPchReceiverRepository({pool});const r1=await repo.acceptAtomic(prepared);const r2=await repo.acceptAtomic(prepared);
@@ -24,15 +25,15 @@ test('G6 same identity reuses durable receipt',async()=>{
 test('G6 changed metadata rejects and rolls back',async()=>{
  const pool=mockPool();const repo=createPostgresPchReceiverRepository({pool});await repo.acceptAtomic(prepared);
  const result=await repo.acceptAtomic({...prepared,senderId:'different'});
- assert.equal(result.conflict,true);assert.deepEqual(pool.queries.slice(-4),['BEGIN','INSERT','SELECT','ROLLBACK']);
+ assert.equal(result.conflict,true);assert.deepEqual(pool.queries.slice(-4),['BEGIN','SELECT','INSERT','SELECT','ROLLBACK']);
 });
 test('G6 INSERT failure rolls back and releases connection',async()=>{
  const pool=mockPool({failAt:'INSERT'});await assert.rejects(createPostgresPchReceiverRepository({pool}).acceptAtomic(prepared),/INJECTED_INSERT/);
- assert.deepEqual(pool.queries,['BEGIN','INSERT','ROLLBACK']);assert.equal(pool.state.released,1);
+ assert.deepEqual(pool.queries,['BEGIN','SELECT','INSERT','ROLLBACK']);assert.equal(pool.state.released,1);
 });
 test('G6 SELECT failure rolls back and releases connection',async()=>{
  const pool=mockPool({failAt:'SELECT'});await assert.rejects(createPostgresPchReceiverRepository({pool}).acceptAtomic(prepared),/INJECTED_SELECT/);
- assert.deepEqual(pool.queries,['BEGIN','INSERT','SELECT','ROLLBACK']);assert.equal(pool.state.released,1);
+ assert.deepEqual(pool.queries,['BEGIN','SELECT','INSERT','SELECT','ROLLBACK']);assert.equal(pool.state.released,1);
 });
 test('G6 COMMIT uncertainty does not emit receipt',async()=>{
  const pool=mockPool({failAt:'COMMIT'});await assert.rejects(createPostgresPchReceiverRepository({pool}).acceptAtomic(prepared),/INJECTED_COMMIT/);
