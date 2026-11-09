@@ -49,7 +49,9 @@ function createPostgresPchReceiverRepository({pool}={}) {
     await client.query('BEGIN');inTx=true;
     await bindTenant(client,p);
     // ON CONFLICT waits for concurrent commits on the same unique key.
-    // Existing duplicates are read under row lock before verifying all fields.
+    // A unique-key conflict serializes concurrent inserts. Only SELECT and INSERT
+    // are granted to the restricted role; do not use FOR UPDATE (requires UPDATE privilege).
+    // The inbox is append-only and its immutable snapshot is fully compared.
     await client.query(`INSERT INTO extcalc_pch_shadow.inbox
      (tenant_id,idempotency_key,event_id,content_sha256,event_snapshot)
      VALUES ($1,$2,$3,$4,$5::jsonb)
@@ -57,7 +59,7 @@ function createPostgresPchReceiverRepository({pool}={}) {
      [p.tenantId,p.idempotencyKey,p.eventId,p.contentSha256,JSON.stringify(p)]);
     const rows=await client.query(`SELECT tenant_id,idempotency_key,event_id,content_sha256,
        event_snapshot,state,receipt_id FROM extcalc_pch_shadow.inbox
-       WHERE tenant_id=$1 AND idempotency_key=$2 FOR UPDATE`,[p.tenantId,p.idempotencyKey]);
+       WHERE tenant_id=$1 AND idempotency_key=$2 `,[p.tenantId,p.idempotencyKey]);
     if(rows.rowCount!==1)throw Error('PCH_INBOX_READBACK_FAILED');
     const saved=asRecord(rows.rows[0]);
     if(!same(saved.snapshot,p)||saved.state!=='ACCEPTED'){
