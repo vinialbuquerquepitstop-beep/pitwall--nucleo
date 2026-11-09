@@ -25,7 +25,7 @@ test('G6 same identity reuses durable receipt',async()=>{
 test('G6 changed metadata rejects and rolls back',async()=>{
  const pool=mockPool();const repo=createPostgresPchReceiverRepository({pool});await repo.acceptAtomic(prepared);
  const result=await repo.acceptAtomic({...prepared,senderId:'different'});
- assert.equal(result.conflict,true);assert.deepEqual(pool.queries.slice(-4),['BEGIN','SELECT','INSERT','SELECT','ROLLBACK']);
+ assert.equal(result.conflict,true);assert.deepEqual(pool.queries.slice(-5),['BEGIN','SELECT','INSERT','SELECT','ROLLBACK']);
 });
 test('G6 INSERT failure rolls back and releases connection',async()=>{
  const pool=mockPool({failAt:'INSERT'});await assert.rejects(createPostgresPchReceiverRepository({pool}).acceptAtomic(prepared),/INJECTED_INSERT/);
