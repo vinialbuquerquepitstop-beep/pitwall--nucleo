@@ -1,0 +1,64 @@
+name: External Calc F1 staging Worker (isolated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_environment:
+        description: "Digite external-calc-f1-staging"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-calc-f1-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/feat/external-calc-f1-controlled-intake-20261022' && (github.event_name == 'push' || inputs.confirm_environment == 'external-calc-f1-staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: external-calc-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Guarantee isolation
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const txt=fs.readFileSync('wrangler.external-calc-staging.jsonc','utf8');
+          if(!txt.includes('"name": "external-calc-f1-staging"') || 
+             !txt.includes('"SUPABASE_URL": "https://mfsshvckclnmftpaprxk.supabase.co"') ||
+             !txt.includes('"EXTCALC_MANUAL_RECOVERY_STAGING": "true"') ||
+             txt.includes('flat-resonance-09ba') || txt.includes('unjzpyexgtbcmjfgcqrx'))
+            process.exit(1);
+          NODE
+      - name: Contract proof before deploy
+        run: |
+          node ferramentas/external-calc-list-intake/v0/prova_manual_missing_offer_recovery_v0.js
+          node ferramentas/external-calc-list-intake/v0/prova_manual_missing_offer_recovery_api_v0.js
+      - name: Require staging credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_STAGING_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_STAGING_ACCOUNT_ID }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXTERNAL_CALC_STAGING_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then echo "::error::Missing CLOUDFLARE_STAGING_API_TOKEN"; missing=1; fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then echo "::error::Missing CLOUDFLARE_STAGING_ACCOUNT_ID"; missing=1; fi
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then echo "::error::Missing EXTERNAL_CALC_STAGING_SUPABASE_ANON_KEY"; missing=1; fi
+          test "$missing" -eq 0
+      - name: Deploy only dedicated Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_STAGING_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_STAGING_ACCOUNT_ID }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXTERNAL_CALC_STAGING_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.135.0 secret put SUPABASE_ANON_KEY --config wrangler.external-calc-staging.jsonc <<< "$SUPABASE_ANON_KEY"
+          npx --yes wrangler@4.135.0 deploy --config wrangler.external-calc-staging.jsonc
