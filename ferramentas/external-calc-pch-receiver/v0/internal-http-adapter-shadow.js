@@ -20,13 +20,16 @@ function createPchInternalAdapter({keyring,nonceLedger,repository,nowMs=()=>Date
   try {
    actor=await authenticateOnce({method,path,headers:lowerHeaders,body,keyring,nowMs:nowMs()},{nonceLedger});
   }catch{return out(401,{error:'UNAUTHORIZED_SERVICE'})}
+  // Only the exact domain actor contract crosses the authentication boundary.
+  // The verified keyId is transport metadata, never a domain permission.
+  const domainActor=Object.freeze({authenticated:actor.authenticated,producer:actor.producer,tenantId:actor.tenantId,permissions:actor.permissions});
   let event;
   try{event=JSON.parse(body)}catch{return out(400,{error:'INVALID_JSON'})}
   try{
    const result=path===REQUEST_PATH
-    ?await acceptIngress({actor,event,repository})
+    ?await acceptIngress({actor:domainActor,event,repository})
     :path===RECEIPT_PATH
-      ?await reconcileIngress({actor,event,repository})
+      ?await reconcileIngress({actor:domainActor,event,repository})
       :null;
    return out(200,result);
   }catch(error){
