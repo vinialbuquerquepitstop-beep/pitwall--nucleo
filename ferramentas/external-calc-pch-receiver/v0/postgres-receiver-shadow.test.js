@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createPostgresPchReceiverRepository}=require('./postgres-receiver-shadow');
-const prepared={tenantId:'tenant-A',producer:'PCH',idempotencyKey:'tenant-A:scope:e1',eventId:'e1',providerScope:'scope',providerMessageId:'m1',sourceKind:'META_PRIVATE',sourceId:'s1',senderId:'sender1',contentSha256:'a'.repeat(64),encryptedPayloadRef:'encrypted:1',occurredAt:'2026-11-09T15:00:00Z'};
+const prepared={tenantId:'11111111-1111-4111-8111-111111111111',producer:'PCH',idempotencyKey:'11111111-1111-4111-8111-111111111111:scope:e1',eventId:'e1',providerScope:'scope',providerMessageId:'m1',sourceKind:'META_PRIVATE',sourceId:'s1',senderId:'sender1',contentSha256:'a'.repeat(64),encryptedPayloadRef:'encrypted:1',occurredAt:'2026-11-09T15:00:00Z'};
 function mockPool({stored=null,failAt=null}={}){
  const queries=[], state={stored, released:0};
  return {queries,state,connect:async()=>({query:async(sql,values)=>{
