@@ -49,4 +49,15 @@ function signRequestForTest({method='POST',path=REQUEST_PATH,keyId,tenantId,secr
  headers['x-pch-signature']=crypto.createHmac('sha256',secret).update(material).digest('hex');
  return headers;
 }
-module.exports={REQUEST_PATH,RECEIPT_PATH,MAX_SKEW_MS,authenticateRequest,signRequestForTest};
+// Server-side durable replay ledger is mandatory for any future HTTP receiver.
+// reserveOnce must atomically store (keyId, nonce) until expiry and return
+// true ONLY for the first request. Fail closed if storage is unavailable.
+async function authenticateOnce(request,{nonceLedger}={}){
+ const actor=authenticateRequest(request);
+ if(typeof nonceLedger?.reserveOnce!=='function')fail();
+ const expiresAt=Number(request.headers['x-pch-timestamp'])+MAX_SKEW_MS;
+ const reserved=await nonceLedger.reserveOnce({keyId:actor.keyId,nonce:request.headers['x-pch-nonce'],expiresAt});
+ if(reserved!==true)fail();
+ return actor;
+}
+module.exports={REQUEST_PATH,RECEIPT_PATH,MAX_SKEW_MS,authenticateRequest,authenticateOnce,signRequestForTest};
