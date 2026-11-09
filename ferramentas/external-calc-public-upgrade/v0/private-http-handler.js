@@ -29,8 +29,11 @@ function createUpgradePrivateHttpHandler({enabled=false,execute,expectedHost}={}
    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length!==2||!Object.hasOwn(input,'action')||!Object.hasOwn(input,'command')||!ACTIONS.has(input.action)||!input.command||typeof input.command!=='object'||Array.isArray(input.command))return answer(400,{ok:false,code:'BAD_REQUEST'});
    try{
     const result=await execute({action:input.action,command:input.command,credential:authorization.slice(7)});
-    if(!result||result.schema_version!=='pitstop-internal-upgrade/v1'||result.action!==input.action||!Number.isSafeInteger(result.amount_minor)||result.amount_minor<0||result.currency!=='BRL')throw new Error('INVALID_PUBLIC_RESULT');
-    return answer(200,{ok:true,data:result});
+    const expectedKeys=input.action==='simulateSale'?['schema_version','public_id','price_revision','action','amount_minor','currency','installment_count']:['schema_version','public_id','price_revision','action','amount_minor','currency'];
+    if(!result||typeof result!=='object'||Object.keys(result).length!==expectedKeys.length||!Object.keys(result).every(k=>expectedKeys.includes(k))||result.schema_version!=='pitstop-internal-upgrade/v1'||result.action!==input.action||!Number.isSafeInteger(result.amount_minor)||result.amount_minor<0||result.currency!=='BRL'||typeof result.public_id!=='string'||typeof result.price_revision!=='string'||(input.action==='simulateSale'&&(!Number.isInteger(result.installment_count)||result.installment_count<1||result.installment_count>18)))throw new Error('INVALID_PUBLIC_RESULT');
+    const output={schema_version:result.schema_version,public_id:result.public_id,price_revision:result.price_revision,action:result.action,amount_minor:result.amount_minor,currency:'BRL'};
+    if(input.action==='simulateSale')output.installment_count=result.installment_count;
+    return answer(200,{ok:true,data:output});
    }catch(_){return answer(403,{ok:false,code:'NOT_AUTHORIZED'});}
   }
  });
