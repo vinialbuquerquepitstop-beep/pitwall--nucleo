@@ -30,4 +30,12 @@ async function acceptIngress({actor,event,repository}={}){
  if(result?.conflict)throw new IntakeRejected('INGRESS_IDEMPOTENCY_CONFLICT');
  return receipt(result?.record,prepared);
 }
-module.exports={VERSION,IntakeRejected,prepare,acceptIngress};
+async function reconcileIngress({actor,event,repository}={}){
+ const prepared=prepare({actor,event});
+ if(typeof repository?.findReceipt!=='function')throw new IntakeRejected('DURABLE_LOOKUP_REQUIRED');
+ const result=await repository.findReceipt(prepared);
+ if(result?.conflict)throw new IntakeRejected('INGRESS_IDEMPOTENCY_CONFLICT');
+ if(!result?.record)return Object.freeze({accepted:false,status:'NOT_FOUND_RECONCILE_REQUIRED',version:VERSION});
+ return receipt(result.record,prepared);
+}
+module.exports={VERSION,IntakeRejected,prepare,acceptIngress,reconcileIngress};
