@@ -4,13 +4,15 @@
 // durable insert-or-get transaction with uniqueness and payload-conflict rejection.
 const VERSION='external-calc-pch-receiver-shadow/v0';
 const SOURCE_KINDS=new Set(['META_PRIVATE','GROUP_CONNECTOR']);
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const allowed=v=>typeof v==='string'&&v.trim().length>0&&v.length<=256;
 const exact=(obj,keys)=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Object.keys(obj).every(k=>keys.includes(k));
 class IntakeRejected extends Error{constructor(code){super(code);this.code=code;}}
 function prepare({actor,event}={}){
- if(!exact(actor,['authenticated','producer','tenantId','permissions'])||actor.authenticated!==true||actor.producer!=='PCH'||!allowed(actor.tenantId)||!Array.isArray(actor.permissions)||!actor.permissions.includes('INGRESS_WRITE'))throw new IntakeRejected('UNAUTHORIZED_PRODUCER');
+ if(!exact(actor,['authenticated','producer','tenantId','permissions'])||actor.authenticated!==true||actor.producer!=='PCH'||!UUID.test(actor.tenantId)||!Array.isArray(actor.permissions)||!actor.permissions.includes('INGRESS_WRITE'))throw new IntakeRejected('UNAUTHORIZED_PRODUCER');
  const fields=['eventId','tenantId','providerScope','providerMessageId','sourceKind','sourceId','senderId','contentSha256','encryptedPayloadRef','occurredAt'];
  if(!exact(event,fields)||!fields.every(k=>allowed(event[k]))||!SOURCE_KINDS.has(event.sourceKind)||!/^[a-f0-9]{64}$/i.test(event.contentSha256)||!Number.isFinite(Date.parse(event.occurredAt)))throw new IntakeRejected('INVALID_INGRESS_EVENT');
+ if(!UUID.test(event.tenantId))throw new IntakeRejected('INVALID_TENANT_ID');
  if(event.tenantId!==actor.tenantId)throw new IntakeRejected('TENANT_MISMATCH');
  const idempotencyKey=[actor.tenantId,event.providerScope,event.eventId].map(encodeURIComponent).join(':');
  return Object.freeze({tenantId:actor.tenantId,producer:'PCH',idempotencyKey,eventId:event.eventId,providerScope:event.providerScope,providerMessageId:event.providerMessageId,sourceKind:event.sourceKind,sourceId:event.sourceId,senderId:event.senderId,contentSha256:event.contentSha256.toLowerCase(),encryptedPayloadRef:event.encryptedPayloadRef,occurredAt:event.occurredAt});
