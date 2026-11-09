@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {decideAfterDispatch,decideAfterLookup}=require('./delivery-recovery-shadow');
+test('timeout unknown, not delivered',()=>assert.equal(decideAfterDispatch({transport:{kind:'TIMEOUT'}}).state,'RECONCILE'));
+test('network error unknown, not delivered',()=>assert.equal(decideAfterDispatch({transport:{kind:'NETWORK_ERROR'}}).state,'RECONCILE'));
+test('HTTP 200 without lookup not confirmed',()=>assert.equal(decideAfterDispatch({transport:{kind:'RESPONSE',status:200}}).state,'RECONCILE'));
+test('HTTP 202 without lookup not confirmed',()=>assert.equal(decideAfterDispatch({transport:{kind:'RESPONSE',status:202}}).state,'RECONCILE'));
+test('HTTP 503 uncertain not blindly retried',()=>assert.equal(decideAfterDispatch({transport:{kind:'RESPONSE',status:503}}).state,'RECONCILE'));
+test('HTTP 403 blocked',()=>assert.equal(decideAfterDispatch({transport:{kind:'RESPONSE',status:403}}).state,'HOLD'));
+test('matching durable lookup confirms acceptance',()=>assert.equal(decideAfterLookup({lookup:'ACCEPTED',recordMatches:true}).state,'CONFIRMED'));
+test('mismatched acceptance cannot confirm',()=>assert.notEqual(decideAfterLookup({lookup:'ACCEPTED',recordMatches:false}).state,'CONFIRMED'));
+test('missing receipt cannot authorize blind retry',()=>assert.deepEqual(decideAfterLookup({lookup:'NOT_FOUND'}),{state:'RECONCILE',reason:'ABSENCE_NOT_SAFE_TO_RETRY'}));
+test('conflicting durable identity enters HOLD',()=>assert.equal(decideAfterLookup({lookup:'CONFLICT'}).state,'HOLD'));
+test('lookup unavailable remains uncertain',()=>assert.equal(decideAfterLookup({lookup:'ERROR'}).state,'RECONCILE'));
