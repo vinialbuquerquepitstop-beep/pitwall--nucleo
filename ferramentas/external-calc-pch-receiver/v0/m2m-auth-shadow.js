@@ -56,7 +56,7 @@ async function authenticateOnce(request,{nonceLedger}={}){
  const actor=authenticateRequest(request);
  if(typeof nonceLedger?.reserveOnce!=='function')fail();
  const expiresAt=Number(request.headers['x-pch-timestamp'])+MAX_SKEW_MS;
- const reserved=await nonceLedger.reserveOnce({keyId:actor.keyId,nonce:request.headers['x-pch-nonce'],expiresAt});
+ const reserved=await nonceLedger.reserveOnce({keyId:actor.keyId,tenantId:actor.tenantId,nonce:request.headers['x-pch-nonce'],expiresAt});
  if(reserved!==true)fail();
  return actor;
 }
