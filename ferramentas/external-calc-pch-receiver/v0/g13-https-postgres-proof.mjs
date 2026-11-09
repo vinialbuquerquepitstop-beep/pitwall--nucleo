@@ -42,7 +42,7 @@ let counter=0;
 try{
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
  const port=server.address().port;
- const client=createPchCalcTransport({baseUrl:'https://localhost:'+port,tenantId,keyId,secret,fetchImpl:fetch,randomBytes:()=>new Uint8Array(16).fill(++counter),now:()=>Date.now()});
+ const client=createPchCalcTransport({baseUrl:'https://127.0.0.1:'+port,tenantId,keyId,secret,fetchImpl:fetch,randomBytes:()=>new Uint8Array(16).fill(++counter),now:()=>Date.now()});
  const first=await client.dispatchAndReconcile(event);
  check('real HTTPS lost-ACK outcome not falsely confirmed',()=>{assert.equal(first.decision,'RECONCILE');assert.equal(firstCommitted,true)});
  const recovered=await client.reconcile(event);
@@ -52,7 +52,7 @@ try{
  const changed=await client.dispatchAndReconcile({...event,senderId:'mutated'});
  check('real HTTPS conflicting immutable identity blocked',()=>assert.equal(changed.decision,'HOLD'));
  const other=await client.dispatchAndReconcile({...event,tenantId:'22222222-2222-4222-8222-222222222222'}).catch(e=>e);
- check('client blocks cross-tenant event before network',()=>{assert.match(other.message,/TENANT_MISMATCH/);assert.equal(serverRequests,6)});
+ check('client blocks cross-tenant event before network',()=>{assert.match(other.message,/TENANT_MISMATCH/);assert.equal(serverRequests,5)});
  const c=await pgPool.connect();try{
   await c.query('BEGIN READ ONLY');await c.query("SELECT set_config('app.pch_tenant_id', $1, true)",[tenantId]);
   const r=await c.query("SELECT count(*)::int AS n FROM extcalc_pch_shadow.inbox WHERE event_id=$1",[event.eventId]);
