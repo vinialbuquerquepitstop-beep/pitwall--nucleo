@@ -6,7 +6,7 @@ BEGIN;
 CREATE SCHEMA IF NOT EXISTS extcalc_pch_shadow;
 CREATE TABLE IF NOT EXISTS extcalc_pch_shadow.inbox (
   receipt_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id text NOT NULL CHECK(length(tenant_id) BETWEEN 1 AND 256),
+  tenant_id uuid NOT NULL,
   idempotency_key text NOT NULL CHECK(length(idempotency_key) BETWEEN 1 AND 1024),
   event_id text NOT NULL CHECK(length(event_id) BETWEEN 1 AND 256),
   content_sha256 text NOT NULL CHECK(content_sha256 ~ '^[0-9a-f]{64}$'),
