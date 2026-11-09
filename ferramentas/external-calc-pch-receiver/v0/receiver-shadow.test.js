@@ -1,0 +1,24 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {acceptIngress,prepare}=require('./receiver-shadow');
+const actor={authenticated:true,producer:'PCH',tenantId:'tenant-A',permissions:['INGRESS_WRITE']};
+const event={eventId:'event-001',tenantId:'tenant-A',providerScope:'meta-test',providerMessageId:'wamid.001',sourceKind:'META_PRIVATE',sourceId:'private-1',senderId:'sender-1',contentSha256:'a'.repeat(64),encryptedPayloadRef:'cipher:ref-1',occurredAt:'2026-11-09T15:00:00Z'};
+function memoryRepo(){const data=new Map();return {async acceptAtomic(p){let old=data.get(p.idempotencyKey);if(old){if(JSON.stringify(old.prepared)!==JSON.stringify(p))return {conflict:true};return {record:old.record}}const record={state:'ACCEPTED',receiptId:'receipt-1',tenantId:p.tenantId,eventId:p.eventId,idempotencyKey:p.idempotencyKey,contentSha256:p.contentSha256};data.set(p.idempotencyKey,{prepared:p,record});return {record}}};}
+const call=(opts={})=>acceptIngress({actor,event,repository:memoryRepo(),...opts});
+test('valid private message gets acceptance-only receipt',async()=>{const r=await call();assert.equal(r.accepted,true);assert.equal(r.status,'ACCEPTED_NOT_PROCESSED');assert.equal(r.destination,'EXTERNAL_CALC')});
+test('group channel normalized without dispatch',async()=>assert.equal((await call({event:{...event,sourceKind:'GROUP_CONNECTOR'}})).accepted,true));
+test('same event is idempotent in repository simulation',async()=>{const repository=memoryRepo();assert.deepEqual(await call({repository}),await call({repository}))});
+test('changed payload for same key fails closed',async()=>{const repository=memoryRepo();await call({repository});await assert.rejects(call({repository,event:{...event,contentSha256:'b'.repeat(64)}}),{code:'INGRESS_IDEMPOTENCY_CONFLICT'})});
+test('changed metadata for same key fails closed',async()=>{const repository=memoryRepo();await call({repository});await assert.rejects(call({repository,event:{...event,senderId:'other'}}),{code:'INGRESS_IDEMPOTENCY_CONFLICT'})});
+test('tenant spoofing rejected',async()=>assert.rejects(call({event:{...event,tenantId:'tenant-B'}}),{code:'TENANT_MISMATCH'}));
+test('unsigned actor rejected',async()=>assert.rejects(call({actor:{...actor,authenticated:false}}),{code:'UNAUTHORIZED_PRODUCER'}));
+test('user token actor rejected',async()=>assert.rejects(call({actor:{...actor,producer:'SELLER'}}),{code:'UNAUTHORIZED_PRODUCER'}));
+test('missing permission rejected',async()=>assert.rejects(call({actor:{...actor,permissions:[]}}),{code:'UNAUTHORIZED_PRODUCER'}));
+test('unexpected event property rejected',async()=>assert.rejects(call({event:{...event,supplier_id:'fake'}}),{code:'INVALID_INGRESS_EVENT'}));
+test('non-hex digest rejected',async()=>assert.rejects(call({event:{...event,contentSha256:'hash'}}),{code:'INVALID_INGRESS_EVENT'}));
+test('invalid time rejected',async()=>assert.rejects(call({event:{...event,occurredAt:'not-time'}}),{code:'INVALID_INGRESS_EVENT'}));
+test('no durable repository rejected',async()=>assert.rejects(call({repository:null}),{code:'DURABLE_REPOSITORY_REQUIRED'}));
+test('repository failure never returns receipt',async()=>assert.rejects(call({repository:{acceptAtomic:async()=>{throw Error('COMMIT_FAILED')}}}),/COMMIT_FAILED/));
+test('receipt with wrong tenant rejected',async()=>assert.rejects(call({repository:{acceptAtomic:async p=>({record:{state:'ACCEPTED',receiptId:'r',tenantId:'other',eventId:p.eventId,idempotencyKey:p.idempotencyKey,contentSha256:p.contentSha256}})}}),{code:'RECEIPT_CONFLICT'}));
+test('non-accepted status never counts as receipt',async()=>assert.rejects(call({repository:{acceptAtomic:async p=>({record:{state:'PENDING',receiptId:'r',tenantId:p.tenantId,eventId:p.eventId,idempotencyKey:p.idempotencyKey,contentSha256:p.contentSha256}})}}),{code:'RECEIPT_CONFLICT'}));
