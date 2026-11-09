@@ -14,6 +14,7 @@ function memory(){
    const p=JSON.parse(params[4]);
    row={tenant_id:p.tenantId,idempotency_key:p.idempotencyKey,event_id:p.eventId,content_sha256:p.contentSha256,event_snapshot:p,receipt_id:'receipt-1',state:'ACCEPTED'};
   }
+  if(cmd==='SELECT'&&sql.includes('set_config'))return {rowCount:1,rows:[{set_config:params[0]}]};
   if(cmd==='SELECT'){
    const matching=row&&row.tenant_id===params[0]&&row.idempotency_key===params[1];
    return {rowCount:matching?1:0,rows:matching?[row]:[]};
