@@ -4,6 +4,7 @@ import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tr
 import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-intake-api.js';
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
 import upgradeHyperdriveModule from '../ferramentas/external-calc-public-upgrade/v0/upgrade-hyperdrive-composition.js';
+import hyperdriveProbeModule from '../ferramentas/external-calc-public-upgrade/v0/hyperdrive-operator-probe.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
@@ -11,6 +12,7 @@ const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createUpgradeV1HyperdriveApplication } = upgradeHyperdriveModule;
+const { createHyperdriveOperatorProbe } = hyperdriveProbeModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -313,6 +315,18 @@ export default {
 
     const pitsquad = await handlePitsquad(request, env, url);
     if (pitsquad) return pitsquad;
+
+    // Operator-only live smoke; disabled by default, no SQL values in response.
+    // Separate from the customer-facing Upgrade feature flag.
+    if (url.pathname === '/api/upgrade/v1/_db-probe') {
+      let Client;
+      if (env.UPGRADE_DB_PROBE_ENABLED === 'true' &&
+          env.UPGRADE_DB?.connectionString &&
+          env.UPGRADE_DB_PROBE_TOKEN) {
+        try { ({ Client } = await import('pg')); } catch (_) { /* fail closed */ }
+      }
+      return createHyperdriveOperatorProbe({ env, Client })(request);
+    }
 
     // Hyperdrive alone never activates Upgrade. The three explicit gates
     // are UPGRADE_PUBLIC_ENABLED=true, trusted expected origin and a DB binding.
