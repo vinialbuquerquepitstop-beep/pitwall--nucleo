@@ -12,7 +12,6 @@ function createPrivateHyperdriveProbe({env,Client,subtle=globalThis.crypto?.subt
   if(env?.UPGRADE_DB_PROBE_ENABLED!=='true'||request.method!=='POST'||
      typeof env.UPGRADE_DB_PROBE_TOKEN!=='string'||env.UPGRADE_DB_PROBE_TOKEN.length<32||
      !/^[A-Za-z0-9_-]{32,128}$/.test(env.UPGRADE_DB_PROBE_TOKEN)||
-     typeof env.UPGRADE_DB?.connectionString!=='string'||typeof Client!=='function'||
      !subtle?.digest)return json(404,'NOT_FOUND');
   const bearer=request.headers.get('authorization')||'';
   if(!/^Bearer [A-Za-z0-9_-]{32,128}$/.test(bearer))return json(404,'NOT_FOUND');
@@ -24,6 +23,12 @@ function createPrivateHyperdriveProbe({env,Client,subtle=globalThis.crypto?.subt
   const a=new Uint8Array(supplied),b=new Uint8Array(authorized);let different=0;
   for(let i=0;i<a.length;i++)different|=a[i]^b[i];
   if(different)return json(404,'NOT_FOUND');
+  // Infrastructure state is revealed only AFTER successful operator authentication.
+  // This avoids confusing a missing driver/binding with an invalid bearer token.
+  if(typeof env.UPGRADE_DB?.connectionString!=='string')
+   return json(503,'DB_BINDING_UNAVAILABLE');
+  if(typeof Client!=='function')
+   return json(503,'DB_DRIVER_UNAVAILABLE');
   let client,connected=false;
   try{
    client=new Client({connectionString:env.UPGRADE_DB.connectionString,connectionTimeoutMillis:5000,query_timeout:5000,application_name:'Pitstop Upgrade DB Probe'});
