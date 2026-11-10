@@ -6,6 +6,8 @@ const {existsSync}=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'../../..');
 const required=[
+ 'worker/external-calc-worker.mjs',
+ 'wrangler.jsonc',
  'ferramentas/external-calc-c02/v1/c02-calculator.js',
  'ferramentas/external-calc-store-rate/v1/store-rate-resolver.js',
  'ferramentas/external-calc-sales-product/v0/home-product-projection.js',
@@ -27,6 +29,7 @@ const required=[
  'ferramentas/external-calc-public-upgrade/v0/upgrade-crm-operator-repository.js'
 ];
 const tests=[
+ 'worker/upgrade-route-wiring.test.cjs',
  'ferramentas/external-calc-public-upgrade/v0/internal-upgrade-e2e.test.js',
  'ferramentas/external-calc-public-upgrade/v0/private-http-handler.test.js',
  'ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.test.js',
