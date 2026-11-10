@@ -3,6 +3,8 @@
   // Se mudar, o Cloudflare cria um Worker novo com outra URL,
   // e a Site URL do Auth do Supabase quebra.
   "name": "flat-resonance-09ba",
+  // Preserve dashboard variables when the existing Worker is redeployed.
+  "keep_vars": true,
 
   // Mantida para nao alterar sem necessidade o comportamento do frontend vivo.
   // nodejs_compat e necessario porque o External Calc Core atual usa modulos Node.
