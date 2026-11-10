@@ -1,7 +1,7 @@
 'use strict';
 // Public boundary: never accepts arbitrary tenant, price, rate, supplier or authorization from browser.
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PATHS=Object.freeze({quote:'/api/upgrade/v1/quote',lead:'/api/upgrade/v1/lead'});
+const PATHS=Object.freeze({quote:'/api/upgrade/v1/quote',lead:'/api/upgrade/v1/lead',catalog:'/api/upgrade/v1/catalog'});
 const HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
 const RESP=(code,data)=>new Response(JSON.stringify(data),{status:code,headers:HEADERS});
 const TEXT=s=>typeof s==='string'&&s.trim().length>0&&s.trim().length<=100;
@@ -25,14 +25,30 @@ function validateQuote(q){
  if(!q||typeof q!=='object'||q.currency!=='BRL'||!Number.isSafeInteger(q.sale_amount_minor)||!Number.isSafeInteger(q.trade_in_credit_minor)||!Number.isSafeInteger(q.amount_due_minor)||q.sale_amount_minor<0||q.trade_in_credit_minor<0||q.amount_due_minor<0||q.trade_in_credit_minor>q.sale_amount_minor||q.amount_due_minor!==q.sale_amount_minor-q.trade_in_credit_minor)return false;
  return true;
 }
-function createPublicUpgradeApi({enabled=false,quote,capture,expectedOrigin}={}){
+function createPublicUpgradeApi({enabled=false,quote,capture,catalog,expectedOrigin}={}){
  const matches=path=>Object.values(PATHS).includes(path);
  if(enabled!==true)return Object.freeze({matches,handle:async()=>RESP(404,{ok:false,code:'NOT_FOUND'})});
- if(typeof quote!=='function'||typeof capture!=='function'||typeof expectedOrigin!=='string'||!expectedOrigin.startsWith('https://'))throw Error('PUBLIC_UPGRADE_DEPENDENCIES_REQUIRED');
+ if(typeof quote!=='function'||typeof capture!=='function'||typeof catalog!=='function'||typeof expectedOrigin!=='string'||!expectedOrigin.startsWith('https://'))throw Error('PUBLIC_UPGRADE_DEPENDENCIES_REQUIRED');
  return Object.freeze({matches,async handle(request){
   let url;try{url=new URL(request.url)}catch{return RESP(400,{ok:false,code:'BAD_REQUEST'})}
   if(!matches(url.pathname))return RESP(404,{ok:false,code:'NOT_FOUND'});
   if(url.origin!==expectedOrigin)return RESP(404,{ok:false,code:'NOT_FOUND'});
+  if(url.pathname===PATHS.catalog){
+   if(request.method!=='GET')return RESP(405,{ok:false,code:'METHOD_NOT_ALLOWED'});
+   if(url.search||(request.headers.get('origin')&&request.headers.get('origin')!==expectedOrigin))return RESP(403,{ok:false,code:'FORBIDDEN'});
+   try{
+    const raw=await catalog();
+    if(!Array.isArray(raw)||raw.length>500)throw Error('CATALOG_INVALID');
+    const offers=raw.map(p=>{
+     if(!p||!p.desired||typeof p.desired.model!=='string'||!TEXT(p.desired.model)||
+        !CAPACITY.test(p.desired.capacity)||!NEWCOND.has(p.desired.condition)||p.status!=='published'||p.approved!==true)throw Error('CATALOG_INVALID');
+     return {model:p.desired.model,capacity:p.desired.capacity,condition:p.desired.condition};
+    });
+    const unique=new Set(offers.map(x=>[x.model,x.capacity,x.condition].join('|')));
+    if(unique.size!==offers.length)throw Error('CATALOG_INVALID');
+    return RESP(200,{ok:true,offers});
+   }catch{return RESP(503,{ok:false,code:'CATALOG_UNAVAILABLE'});}
+  }
   if(request.method!=='POST')return RESP(405,{ok:false,code:'METHOD_NOT_ALLOWED'});
   if(url.search||request.headers.get('origin')&&request.headers.get('origin')!==expectedOrigin)return RESP(403,{ok:false,code:'FORBIDDEN'});
   if((request.headers.get('content-type')||'').split(';')[0].trim().toLowerCase()!=='application/json')return RESP(415,{ok:false,code:'UNSUPPORTED_MEDIA_TYPE'});
