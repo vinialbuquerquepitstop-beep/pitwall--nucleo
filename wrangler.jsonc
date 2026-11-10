@@ -35,6 +35,15 @@
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 
+  // Hyperdrive existing config; DB credential remains inside Cloudflare, not in Git.
+  // The Upgrade routes stay disabled until live DB probe + pricing + CRM smoke pass.
+  "hyperdrive": [
+    {
+      "binding": "UPGRADE_DB",
+      "id": "3b2d749f7ee74994aa149c601217b6f7"
+    }
+  ],
+
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
