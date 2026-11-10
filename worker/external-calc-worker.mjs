@@ -3,12 +3,14 @@ import runtimeModule from '../ferramentas/external-calc-runtime/v0/runtime.js';
 import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tracked-model-api.js';
 import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-intake-api.js';
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
+import upgradePublicModule from '../ferramentas/external-calc-public-upgrade/v0/upgrade-v1-public-application.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
+const { createUpgradeV1PublicApplication } = upgradePublicModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -311,6 +313,12 @@ export default {
 
     const pitsquad = await handlePitsquad(request, env, url);
     if (pitsquad) return pitsquad;
+
+    // Upgrade public API is reserved but disabled until tenant-scoped DB and
+    // published-price provider are wired and explicitly authorized.
+    // Do not infer activation from a browser request or untrusted environment input.
+    const upgradePublicApi = createUpgradeV1PublicApplication();
+    if (upgradePublicApi.matches(url.pathname)) return upgradePublicApi.handle(request);
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
     if (batchListIntakeApi.matches(url.pathname)) return batchListIntakeApi.handle(request);
