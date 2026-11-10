@@ -5,6 +5,8 @@ import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-i
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
+// pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
+import pgModule from 'pg';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
@@ -315,13 +317,10 @@ export default {
     if (pitsquad) return pitsquad;
 
     if (url.pathname === PROBE_PATH) {
-      let Client;
-      if (env.UPGRADE_DB_PROBE_ENABLED === 'true' &&
-          env.UPGRADE_DB?.connectionString &&
-          env.UPGRADE_DB_PROBE_TOKEN) {
-        try { ({ Client } = await import('pg')); } catch (_) { /* fail closed */ }
-      }
-      return createPrivateHyperdriveProbe({ env, Client })(request);
+      // The diagnostic itself validates the flag, token and binding.
+      // Pass a statically bundled driver; dynamic CommonJS namespace exports
+      // may not expose named Client under Workers.
+      return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });

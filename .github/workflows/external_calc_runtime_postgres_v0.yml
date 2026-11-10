@@ -78,6 +78,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install Worker runtime dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          node -e "if (typeof require('pg').Client !== 'function') process.exit(1)"
+
       - name: Prove Cloudflare bundle
         run: |
           set -euo pipefail

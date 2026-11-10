@@ -88,6 +88,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install pinned Worker runtime dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          node -e "const pg = require('pg'); if (typeof pg.Client !== 'function') process.exit(1); console.log('EXTERNAL_CALC_PG_DRIVER=PASS')"
+
       - name: Wrangler dry-run
         run: |
           set -euo pipefail
@@ -132,6 +138,12 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           echo "EXTERNAL_CALC_G4_CREDENTIALS=PRESENT"
+
+      - name: Install pinned Worker runtime dependencies
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          node -e "const pg = require('pg'); if (typeof pg.Client !== 'function') process.exit(1); console.log('EXTERNAL_CALC_PG_DRIVER=PASS')"
 
       - name: Deploy existing Worker
         env:
