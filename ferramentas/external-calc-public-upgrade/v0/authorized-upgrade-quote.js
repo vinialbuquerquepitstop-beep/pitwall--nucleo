@@ -20,9 +20,9 @@ function sameDesired(actual,desired){
 function sameUsed(actual,used){
  return !!actual&&actual.model===used.model&&actual.capacity===used.capacity;
 }
-function createAuthorizedUpgradeQuote({enabled=false,loadApprovedCatalog,invokeInternal,clock=()=>Date.now()}={}){
+function createAuthorizedUpgradeQuote({enabled=false,tenantId,loadApprovedCatalog,invokeInternal,clock=()=>Date.now()}={}){
  if(enabled!==true)return async()=>deny();
- if(typeof loadApprovedCatalog!=='function'||typeof invokeInternal!=='function')throw Error('TRUSTED_QUOTE_DEPENDENCIES_REQUIRED');
+ if(!UUID.test(tenantId||'')||typeof loadApprovedCatalog!=='function'||typeof invokeInternal!=='function')throw Error('TRUSTED_QUOTE_DEPENDENCIES_REQUIRED');
  return async function quote(selection){
   if(!validateSelection(selection))deny();
   let catalog;
@@ -34,7 +34,7 @@ function createAuthorizedUpgradeQuote({enabled=false,loadApprovedCatalog,invokeI
   if(found.length!==1)deny();
   const pub=found[0];
   if(!REF.test(pub.public_id||'')||!REF.test(pub.price_revision||'')||
-     !UUID.test(pub.tenant_id||'')||pub.status!=='published'||
+     pub.tenant_id!==tenantId||pub.status!=='published'||
      !Number.isSafeInteger(pub.expires_at_ms)||pub.expires_at_ms<=now||
      pub.approved!==true)deny();
   if(!Array.isArray(pub.trade_in_models)||pub.trade_in_models.length>200)deny();
