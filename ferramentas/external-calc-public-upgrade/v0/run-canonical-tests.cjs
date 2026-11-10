@@ -24,6 +24,7 @@ const required=[
 const tests=[
  'ferramentas/external-calc-public-upgrade/v0/internal-upgrade-e2e.test.js',
  'ferramentas/external-calc-public-upgrade/v0/private-http-handler.test.js',
+ 'ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.test.js',
  'ferramentas/external-calc-public-upgrade/v0/canonical-domain-adapter.test.js',
  'ferramentas/external-calc-public-upgrade/v0/internal-upgrade-application.test.js',
  'ferramentas/external-calc-public-upgrade/v0/published-offer-repository.test.js',
