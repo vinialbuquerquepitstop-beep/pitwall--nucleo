@@ -3,6 +3,8 @@
   // Se mudar, o Cloudflare cria um Worker novo com outra URL,
   // e a Site URL do Auth do Supabase quebra.
   "name": "flat-resonance-09ba",
+  // Preserve dashboard variables when the existing Worker is redeployed.
+  "keep_vars": true,
 
   // Mantida para nao alterar sem necessidade o comportamento do frontend vivo.
   // nodejs_compat e necessario porque o External Calc Core atual usa modulos Node.
@@ -17,6 +19,12 @@
   // OPENAI_API_KEY permanece secret do Worker e nunca entra no repositorio.
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
+    // Trusted identity mapping checked against current External Calc and Pitwall V2 databases.
+    // IDs are not authentication; public Upgrade still remains disabled until private bindings exist.
+    "UPGRADE_PUBLIC_ENABLED": "false",
+    "UPGRADE_DB_PROBE_ENABLED": "false",
+    "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
+    "UPGRADE_PITWALL_ORGANIZATION_ID": "501bca7d-0833-4f99-bb3c-bbc2f82c4a6c",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
     "EXTCALC_RESEARCH_PROFILE_JSON": "{\"profile_id\":\"external-calc-research-production-v1\",\"profile_version\":\"1\",\"required_match_fields\":[\"model_id\",\"capacity_gb\",\"condition\",\"color\"],\"min_evidence_confidence\":0.9,\"max_age_seconds\":604800}",
     "EXTCALC_INDICATOR_PROFILE_JSON": "{\"profile_id\":\"external-calc-indicator-production-v1\",\"profile_version\":\"1\",\"min_evidence_count\":3,\"cheap_at_or_below_percent\":-5,\"expensive_at_or_above_percent\":5}",
@@ -30,10 +38,19 @@
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 
+  // Hyperdrive existing config; DB credential remains inside Cloudflare, not in Git.
+  // The Upgrade routes stay disabled until live DB probe + pricing + CRM smoke pass.
+  "hyperdrive": [
+    {
+      "binding": "UPGRADE_DB",
+      "id": "3b2d749f7ee74994aa149c601217b6f7"
+    }
+  ],
+
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/external-calc/*", "/api/pitsquad/acquisition/*", "/api/pitsquad/whatsapp/*", "/api/pitsquad/assistant/*", "/a/*"],
+    "run_worker_first": ["/api/upgrade/v1/*", "/api/external-calc/*", "/api/pitsquad/acquisition/*", "/api/pitsquad/whatsapp/*", "/api/pitsquad/assistant/*", "/a/*"],
     // Qualquer rota que nao casar com um arquivo devolve o index.html
     // (200), em vez de 404. Protege o link de recovery de senha.
     "not_found_handling": "single-page-application"

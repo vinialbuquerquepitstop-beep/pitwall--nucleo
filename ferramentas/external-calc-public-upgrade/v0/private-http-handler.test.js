@@ -1,0 +1,18 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createUpgradePrivateHttpHandler,PATH}=require('./private-http-handler');
+const host='upgrade-internal.pitstop.test';
+const credential='aaaa.bbbb.cccc';
+const url='https://'+host+PATH;
+const make=(options={})=>new Request(options.url||url,{method:options.method||'POST',headers:{'content-type':options.ct||'application/json',authorization:options.auth??'Bearer '+credential,...options.headers},body:options.method==='GET'?undefined:JSON.stringify(options.body??{action:'resolveVariant',command:{public_id:'p',price_revision:'r'}})});
+const output={schema_version:'pitstop-internal-upgrade/v1',action:'resolveVariant',amount_minor:690000,currency:'BRL',public_id:'p',price_revision:'r'};
+const handler=(fn=async()=>output)=>createUpgradePrivateHttpHandler({enabled:true,expectedHost:host,execute:fn});
+test('disabled returns 404 and needs no secrets',async()=>{const h=createUpgradePrivateHttpHandler();assert(h.matches(PATH));assert.equal((await h.handle(make())).status,404);});
+test('enabled requires explicit execute and host',()=>{assert.throws(()=>createUpgradePrivateHttpHandler({enabled:true}),/INTERNAL_RUNTIME_DEPENDENCIES_REQUIRED/);});
+test('valid request calls injected service only and returns no CORS',async()=>{let called;const r=await handler(async x=>{called=x;return output;}).handle(make());assert.equal(r.status,200);assert.equal(r.headers.get('access-control-allow-origin'),null);assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(called.credential,credential);assert.deepEqual((await r.json()).data,output);});
+test('wrong host, method, query blocked before service',async()=>{let calls=0;const h=handler(async()=>{calls++;return output;});for(const r of [make({url:'https://evil.test'+PATH}),make({method:'GET'}),make({url:url+'?x=1'})])assert.notEqual((await h.handle(r)).status,200);assert.equal(calls,0);});
+test('bad auth, malformed payload and invalid action denied',async()=>{let calls=0;const h=handler(async()=>{calls++;return output;});for(const req of [make({auth:''}),make({auth:'Bearer bad'}),make({body:{action:'delete',command:{}}}),make({body:{action:'resolveVariant',command:{},tenant_id:'evil'}})])assert.notEqual((await h.handle(req)).status,200);assert.equal(calls,0);});
+test('wrong media type and oversize declared and actual payload blocked',async()=>{const h=handler();assert.equal((await h.handle(make({ct:'text/plain'}))).status,415);assert.equal((await h.handle(make({headers:{'content-length':'3000'}}))).status,413);assert.equal((await h.handle(make({body:{action:'resolveVariant',command:{x:'A'.repeat(2100)}}}))).status,413);});
+test('service error sanitized',async()=>{const r=await handler(async()=>{throw Error('private supplier secret');}).handle(make());assert.deepEqual(await r.json(),{ok:false,code:'NOT_AUTHORIZED'});});
+test('invalid public response cannot leave handler',async()=>{const r=await handler(async()=>({...output,currency:'USD'})).handle(make());assert.equal(r.status,403);});
+test('extra private supplier field must never leak even from trusted service',async()=>{const r=await handler(async()=>({...output,supplier_id:'SECRET'})).handle(make());assert.equal(r.status,403);assert(!JSON.stringify(await r.json()).includes('SECRET'));});
