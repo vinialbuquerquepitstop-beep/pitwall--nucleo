@@ -4,11 +4,13 @@ import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tr
 import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-intake-api.js';
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
+import probeModule from './upgrade-hyperdrive-probe.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
+const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -311,6 +313,16 @@ export default {
 
     const pitsquad = await handlePitsquad(request, env, url);
     if (pitsquad) return pitsquad;
+
+    if (url.pathname === PROBE_PATH) {
+      let Client;
+      if (env.UPGRADE_DB_PROBE_ENABLED === 'true' &&
+          env.UPGRADE_DB?.connectionString &&
+          env.UPGRADE_DB_PROBE_TOKEN) {
+        try { ({ Client } = await import('pg')); } catch (_) { /* fail closed */ }
+      }
+      return createPrivateHyperdriveProbe({ env, Client })(request);
+    }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
     if (batchListIntakeApi.matches(url.pathname)) return batchListIntakeApi.handle(request);
