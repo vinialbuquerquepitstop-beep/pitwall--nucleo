@@ -58,6 +58,7 @@ const models=['iPhone 17','iPhone 17 Pro','iPhone 17 Pro Max','iPhone 16','iPhon
 for(const model of models){const o=document.createElement('option');o.value=o.textContent=model;$('#desiredModel').append(o);}
 for(const capacity of ['128 GB','256 GB','512 GB','1 TB','2 TB']){const o=document.createElement('option');o.value=o.textContent=capacity;$('#desiredCapacity').append(o);}
 let stage=1, busy=false;
+const requestKey=crypto.randomUUID();
 function field(id){return $(id).value.trim();}
 function refresh(){for(let i=1;i<=3;i++){$('#stage-'+i).classList.toggle('hidden',i!==stage);$('#s'+i).classList.toggle('active',i<=stage);}
 $('#outNew').textContent=[field('#desiredModel'),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
@@ -84,7 +85,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   return await response.json();
  }finally{clearTimeout(timer);}}
  try{
-  const lead=await post('/api/upgrade/v1/lead',{selection,contact,consent:true});
+  const lead=await post('/api/upgrade/v1/lead',{request_key:requestKey,selection,contact,consent:true});
   if(lead?.ok!==true||typeof lead.reference!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(lead.reference))throw Error('CAPTURE_NOT_CONFIRMED');
   const message=document.createElement('div');message.textContent='Solicitação recebida. Referência: '+lead.reference+'. Nossa equipe poderá entrar em contato para conferir seu upgrade.';
   $('#leadStatus').replaceChildren(message);$('#leadStatus').classList.remove('hidden');
