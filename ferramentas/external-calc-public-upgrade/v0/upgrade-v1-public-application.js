@@ -11,7 +11,7 @@ function createUpgradeV1PublicApplication({
  if(enabled!==true)return createPublicUpgradeApi();
  const pricing=typeof quote==='function'
   ?quote
-  :createAuthorizedUpgradeQuote({enabled:true,loadApprovedCatalog,invokeInternal,clock});
+  :createAuthorizedUpgradeQuote({enabled:true,tenantId,loadApprovedCatalog,invokeInternal,clock});
  const capture=createUpgradeCaptureRepository({enabled:true,tenantId,query});
  return createPublicUpgradeApi({enabled:true,capture,quote:pricing,expectedOrigin});
 }
