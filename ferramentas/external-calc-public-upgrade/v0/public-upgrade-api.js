@@ -1,5 +1,6 @@
 'use strict';
 // Public boundary: never accepts arbitrary tenant, price, rate, supplier or authorization from browser.
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PATHS=Object.freeze({quote:'/api/upgrade/v1/quote',lead:'/api/upgrade/v1/lead'});
 const HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
 const RESP=(code,data)=>new Response(JSON.stringify(data),{status:code,headers:HEADERS});
@@ -41,11 +42,11 @@ function createPublicUpgradeApi({enabled=false,quote,capture,expectedOrigin}={})
   if(!body||typeof body!=='object'||Array.isArray(body))return RESP(400,{ok:false,code:'INVALID_PAYLOAD'});
   const isLead=url.pathname===PATHS.lead;
   if(isLead){
-   if(Object.keys(body).some(k=>!['selection','contact','consent'].includes(k))||!validateSelection(body.selection)||body.consent!==true||!body.contact||typeof body.contact!=='object'||Array.isArray(body.contact)||Object.keys(body.contact).some(k=>!['name','whatsapp'].includes(k))||!TEXT(body.contact.name)||body.contact.name.length>80)return RESP(400,{ok:false,code:'INVALID_LEAD'});
+   if(Object.keys(body).some(k=>!['selection','contact','consent','request_key'].includes(k))||!validateSelection(body.selection)||body.consent!==true||!UUID.test(body.request_key||'')||!body.contact||typeof body.contact!=='object'||Array.isArray(body.contact)||Object.keys(body.contact).some(k=>!['name','whatsapp'].includes(k))||!TEXT(body.contact.name)||body.contact.name.length>80)return RESP(400,{ok:false,code:'INVALID_LEAD'});
    const whatsapp=normalizeWhatsapp(body.contact.whatsapp);
    if(!whatsapp)return RESP(400,{ok:false,code:'INVALID_WHATSAPP'});
    try{
-    const result=await capture({selection:body.selection,contact:{name:body.contact.name.trim(),whatsapp},consent:true});
+    const result=await capture({request_key:body.request_key,selection:body.selection,contact:{name:body.contact.name.trim(),whatsapp},consent:true});
     if(!result||result.accepted!==true||typeof result.reference!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(result.reference))throw Error('NOT_ACCEPTED');
     return RESP(202,{ok:true,reference:result.reference});
    }catch{return RESP(503,{ok:false,code:'CAPTURE_UNAVAILABLE'})}
