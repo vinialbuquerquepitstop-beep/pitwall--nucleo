@@ -4,7 +4,7 @@
 // Authorized readers are injected by the runtime; all ambiguous selections fail closed.
 const {validateSelection}=require('./public-upgrade-api');
 const REF=/^[A-Za-z0-9_-]{1,100}$/;
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const AMOUNT=n=>Number.isSafeInteger(n)&&n>=0&&n<=100000000;
 const CAPACITY=new Map([['64 GB',64],['128 GB',128],['256 GB',256],['512 GB',512],['1024 GB',1024],['2048 GB',2048],['1 TB',1024],['2 TB',2048]]);
 class UpgradeQuoteUnavailable extends Error {constructor(){super('QUOTE_UNAVAILABLE');this.code='QUOTE_UNAVAILABLE';}}

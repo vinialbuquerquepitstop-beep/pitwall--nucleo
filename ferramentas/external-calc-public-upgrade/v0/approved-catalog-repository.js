@@ -1,7 +1,7 @@
 'use strict';
 // Trusted read-only catalog built only from explicitly approved, non-revoked
 // publications. Never read offer costs or let the browser supply tenant.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const SQL=`SELECT p.tenant_id,p.public_id,p.price_revision,p.status,p.expires_at_ms,
  c.desired_model,c.desired_capacity,c.desired_condition,c.trade_in_models
  FROM privado.extcalc_upgrade_public_catalog_v1 c

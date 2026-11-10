@@ -1,7 +1,7 @@
 'use strict';
 // Trusted operator-side adapter. query must use authenticated, tenant-scoped DB role;
 // never accept tenantId from browser, never grant this role to anon.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const LOAD=`SELECT id,tenant_id,customer_name,whatsapp_digits,selection,consent_at,source,status,lead_id
  FROM privado.upgrade_requests_v1
  WHERE tenant_id=$1::uuid AND id=$2::uuid LIMIT 2`;

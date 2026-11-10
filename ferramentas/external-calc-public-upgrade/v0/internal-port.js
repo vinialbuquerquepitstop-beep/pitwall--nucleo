@@ -2,7 +2,7 @@
 // UP-06K: internal-only port. No Worker route, DB privilege or credentials are created here.
 const SCOPES=Object.freeze({resolveVariant:'product:resolve-variant',estimateTradeIn:'product:trade-in-estimate',simulateSale:'product:sales-simulation'});
 const FIELDS=Object.freeze({resolveVariant:['public_id','price_revision'],estimateTradeIn:['public_id','price_revision','device_model_id','capacity_gb','color'],simulateSale:['public_id','price_revision','installment_count','estimate_ref']});
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 class PortDenied extends Error {constructor(code){super(code);this.code=code;this.name='PortDenied';}}
 const deny=c=>{throw new PortDenied(c)};
 const isMoney=n=>Number.isSafeInteger(n)&&n>=0&&n<=100000000;

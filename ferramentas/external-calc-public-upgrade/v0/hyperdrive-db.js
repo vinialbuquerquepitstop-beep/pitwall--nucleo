@@ -6,7 +6,7 @@ const {SQL:CATALOG}=require('./approved-catalog-repository');
 const {INSERT,RECHECK}=require('./upgrade-capture-repository');
 const EXPECTED_ROLE='upv1_cf_public';
 const ALLOWED=new Map([[CATALOG,1],[INSERT,5],[RECHECK,5]]);
-const VALID_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const VALID_UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 class UpgradeDatabaseUnavailable extends Error{
  constructor(){super('UPGRADE_DATABASE_UNAVAILABLE');this.code='UPGRADE_DATABASE_UNAVAILABLE';}
 }

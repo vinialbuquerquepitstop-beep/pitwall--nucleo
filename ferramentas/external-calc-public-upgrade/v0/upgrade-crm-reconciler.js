@@ -4,7 +4,7 @@
 //                          p_context, p_acquisition, ...)
 // Never exposed by public Upgrade endpoints. The operator identity and org
 // must be checked by Pitwall V2 itself; no service_role or anonymous insert.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 class CrmReconcileDenied extends Error{constructor(code){super(code);this.code=code;}}
 const deny=code=>{throw new CrmReconcileDenied(code)};
 const safe=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=max;

@@ -1,6 +1,6 @@
 'use strict';
 // UP-06V: private, server-only publication reader. Not connected to Worker.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const REF=/^[A-Za-z0-9_-]{1,100}$/;
 const QUERY=`SELECT public_id,price_revision,tenant_id,status,sale_price_minor,
  expires_at_ms,offer_revision,analysis_id,offer_id,offer_value_fingerprint

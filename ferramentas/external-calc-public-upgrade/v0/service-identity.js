@@ -2,7 +2,7 @@
 // UP-06L: server-only verifier. No Worker route or DB grants.
 const {createPublicKey, verify, KeyObject}=require('node:crypto');
 const SCOPES=new Set(['product:resolve-variant','product:trade-in-estimate','product:sales-simulation']);
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const B64=/^[A-Za-z0-9_-]+$/;
 class IdentityDenied extends Error{constructor(code='SERVICE_IDENTITY_DENIED'){super(code);this.name='IdentityDenied';this.code=code;}}
 function fail(){throw new IdentityDenied();}

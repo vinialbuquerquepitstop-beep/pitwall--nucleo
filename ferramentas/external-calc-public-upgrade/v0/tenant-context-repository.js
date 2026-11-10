@@ -1,6 +1,6 @@
 'use strict';
 // UP-06W — internal-only, fail-closed context repository. No real DB route is wired.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const REF=/^[A-Za-z0-9_-]{1,100}$/;
 const SQL=`SELECT tenant_id,public_id,offer_revision,offers,trade_in_candidates,trade_in_policy,rate_profile
  FROM privado.extcalc_upgrade_context_v0
