@@ -10,11 +10,14 @@ function createUpgradeV1PublicApplication({
  enabled=false,tenantId,query,quote,loadApprovedCatalog,catalogQuery,invokeInternal,clock,expectedOrigin
 }={}){
  if(enabled!==true)return createPublicUpgradeApi();
- const trustedCatalog=typeof loadApprovedCatalog==='function'?loadApprovedCatalog:
-  createApprovedCatalogRepository({enabled:true,tenantId,query:catalogQuery,clock});
  const pricing=typeof quote==='function'
   ?quote
-  :createAuthorizedUpgradeQuote({enabled:true,tenantId,loadApprovedCatalog:trustedCatalog,invokeInternal,clock});
+  :createAuthorizedUpgradeQuote({
+    enabled:true,tenantId,
+    loadApprovedCatalog:typeof loadApprovedCatalog==='function'?loadApprovedCatalog:
+      createApprovedCatalogRepository({enabled:true,tenantId,query:catalogQuery,clock}),
+    invokeInternal,clock
+  });
  const capture=createUpgradeCaptureRepository({enabled:true,tenantId,query});
  return createPublicUpgradeApi({enabled:true,capture,quote:pricing,expectedOrigin});
 }
