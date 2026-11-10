@@ -1,0 +1,11 @@
+{
+  "name": "pitstop-external-calc-worker",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:probe": "node --test worker/upgrade-hyperdrive-probe.test.cjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}
