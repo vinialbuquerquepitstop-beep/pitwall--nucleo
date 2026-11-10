@@ -25,7 +25,7 @@
 <form id="upgrade-form" novalidate>
 <section id="stage-1">
 <div class="eyebrow">PASSO 01 / 03</div><h2 class="stage-title">Qual iPhone você quer?</h2><p class="sub">A disponibilidade e o preço final serão conferidos com a Pitstop.</p>
-<div class="field"><label for="desiredModel">Modelo desejado</label><select required id="desiredModel"><option value="">Selecione um modelo</option></select></div>
+<div class="field"><label for="desiredModel">Modelo desejado</label><select required id="desiredModel" disabled><option value="">Carregando catálogo aprovado...</option></select><input id="desiredManual" class="hidden" maxlength="100" placeholder="Ex.: iPhone 17 Pro" autocomplete="off"><div id="catalogNotice" class="notice" role="status" aria-live="polite">Verificando modelos publicados.</div></div>
 <div class="formgrid"><div class="field"><label for="desiredCapacity">Armazenamento desejado</label><select required id="desiredCapacity"><option value="">Selecione</option></select></div><div class="field"><label for="desiredCondition">Condição</label><select id="desiredCondition"><option value="lacrado">Lacrado</option><option value="seminovo">Seminovo</option></select></div></div>
 <div class="actions"><span class="notice">Sem compromisso.</span><button class="primary" id="next1" type="button">Continuar</button></div>
 </section>
@@ -54,28 +54,75 @@
 <script>
 'use strict';
 const $=s=>document.querySelector(s);
-const models=['iPhone 17','iPhone 17 Pro','iPhone 17 Pro Max','iPhone 16','iPhone 16 Plus','iPhone 16 Pro','iPhone 16 Pro Max','Outro modelo (consultar)'];
-for(const model of models){const o=document.createElement('option');o.value=o.textContent=model;$('#desiredModel').append(o);}
-for(const capacity of ['128 GB','256 GB','512 GB','1 TB','2 TB']){const o=document.createElement('option');o.value=o.textContent=capacity;$('#desiredCapacity').append(o);}
+let approvedOffers=[],manualMode=false;
+const option=(value,caption)=>{const o=document.createElement('option');o.value=value;o.textContent=caption||value;return o;};
+const setOptions=(el,values,placeholder)=>{const previous=el.value;el.replaceChildren(option('',placeholder));for(const value of values)el.append(option(value));el.value=values.includes(previous)?previous:'';};
+function desiredModel(){return manualMode?field('#desiredManual'):field('#desiredModel');}
+function renderConditions(){
+ if(manualMode)return;
+ const model=field('#desiredModel'),capacity=field('#desiredCapacity');
+ const conditions=[...new Set(approvedOffers.filter(o=>o.model===model&&o.capacity===capacity).map(o=>o.condition))];
+ const previous=field('#desiredCondition');
+ $('#desiredCondition').replaceChildren(...conditions.map(c=>option(c,c==='lacrado'?'Lacrado':'Seminovo')));
+ if(conditions.includes(previous))$('#desiredCondition').value=previous;
+}
+function renderCapacities(){
+ if(manualMode)return;
+ const model=field('#desiredModel');
+ const capacities=[...new Set(approvedOffers.filter(o=>o.model===model).map(o=>o.capacity))];
+ setOptions($('#desiredCapacity'),capacities,'Selecione');
+ renderConditions();
+}
+function manualCatalog(){
+ manualMode=true;
+ $('#desiredModel').disabled=true;$('#desiredModel').required=false;$('#desiredModel').classList.add('hidden');
+ $('#desiredManual').classList.remove('hidden');$('#desiredManual').required=true;
+ $('#desiredCapacity').disabled=false;$('#desiredCondition').disabled=false;
+ setOptions($('#desiredCapacity'),['64 GB','128 GB','256 GB','512 GB','1 TB','2 TB'],'Selecione');
+ $('#desiredCondition').replaceChildren(option('lacrado','Lacrado'),option('seminovo','Seminovo'));
+ $('#catalogNotice').textContent='Catálogo automático indisponível. Informe o modelo para solicitar atendimento; valores só serão apresentados quando confirmados pela Pitstop.';
+ refresh();
+}
+async function loadCatalog(){
+ try{
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  let response;
+  try{response=await fetch('/api/upgrade/v1/catalog',{method:'GET',credentials:'omit',signal:controller.signal});}
+  finally{clearTimeout(timer);}
+  if(!response.ok)throw Error('UNAVAILABLE');
+  const data=await response.json();
+  if(data?.ok!==true||!Array.isArray(data.offers)||data.offers.length===0||data.offers.length>500)throw Error('CATALOG_EMPTY');
+  const valid=['lacrado','seminovo'];
+  if(data.offers.some(x=>!x||typeof x.model!=='string'||!x.model.trim()||typeof x.capacity!=='string'||!valid.includes(x.condition)))throw Error('CATALOG_INVALID');
+  approvedOffers=data.offers;
+  $('#desiredModel').disabled=false;$('#desiredCapacity').disabled=false;
+  setOptions($('#desiredModel'),[...new Set(data.offers.map(x=>x.model))],'Selecione um modelo');
+  renderCapacities();
+  $('#catalogNotice').textContent='Mostrando somente modelos com publicação aprovada pela Pitstop.';
+  refresh();
+ }catch(_){manualCatalog();}
+}
+$('#desiredModel').addEventListener('change',()=>{renderCapacities();refresh();});
+$('#desiredCapacity').addEventListener('change',()=>{renderConditions();refresh();});
 let stage=1, busy=false;
 const requestKey=crypto.randomUUID();
 function field(id){return $(id).value.trim();}
 function refresh(){for(let i=1;i<=3;i++){$('#stage-'+i).classList.toggle('hidden',i!==stage);$('#s'+i).classList.toggle('active',i<=stage);}
-$('#outNew').textContent=[field('#desiredModel'),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
+$('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
 $('#outOld').textContent=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
 $('#outCondition').textContent=$('#ownedCondition').selectedOptions[0]?.textContent||'Não informada';
 }
 function requireFields(ids){for(const id of ids){const e=$(id);if(!e.value.trim()){e.focus();e.reportValidity();return false;}}return true;}
-$('#next1').onclick=()=>{if(requireFields(['#desiredModel','#desiredCapacity'])){stage=2;refresh();}};
+$('#next1').onclick=()=>{if(requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity'])){stage=2;refresh();}};
 $('#next2').onclick=()=>{if(requireFields(['#ownedModel','#ownedCapacity','#ownedCondition'])){stage=3;refresh();}};
 $('#back2').onclick=()=>{stage=1;refresh();};$('#back3').onclick=()=>{stage=2;refresh();};
 $('form').addEventListener('input',refresh);$('form').addEventListener('change',refresh);
 $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
- if(!requireFields(['#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
+ if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
- const selection={desired:{model:field('#desiredModel'),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
+ const selection={desired:{model:desiredModel(),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
   trade_in:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};
  const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp')};
  busy=true;$('#submit').disabled=true;$('#submit').textContent='Enviando...';
@@ -104,5 +151,6 @@ $('#upgrade-form').addEventListener('submit',async e=>{
  finally{busy=false;}
 });
 refresh();
+loadCatalog();
 </script>
 </body></html>
