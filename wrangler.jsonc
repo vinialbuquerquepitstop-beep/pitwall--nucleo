@@ -20,6 +20,7 @@
     // Trusted identity mapping checked against current External Calc and Pitwall V2 databases.
     // IDs are not authentication; public Upgrade still remains disabled until private bindings exist.
     "UPGRADE_PUBLIC_ENABLED": "false",
+    "UPGRADE_DB_PROBE_ENABLED": "false",
     "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
     "UPGRADE_PITWALL_ORGANIZATION_ID": "501bca7d-0833-4f99-bb3c-bbc2f82c4a6c",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
