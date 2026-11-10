@@ -8,9 +8,9 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]
 class CrmReconcileDenied extends Error{constructor(code){super(code);this.code=code;}}
 const deny=code=>{throw new CrmReconcileDenied(code)};
 const safe=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.trim().length<=max;
-function mapUpgradeRequestToCrm(request,organizationId){
- if(!request||typeof request!=='object'||!UUID.test(organizationId||'')||
-  request.tenant_id!==organizationId||!UUID.test(request.id||'')||
+function mapUpgradeRequestToCrm(request,organizationId,sourceTenantId){
+ if(!request||typeof request!=='object'||!UUID.test(organizationId||'')||!UUID.test(sourceTenantId||'')||
+  request.tenant_id!==sourceTenantId||!UUID.test(request.id||'')||
   !safe(request.customer_name,160)||request.customer_name.trim().length<2||
   !/^55[0-9]{10,11}$/.test(request.whatsapp_digits||'')||
   !request.consent_at||request.source!=='instagram_upgrade'||request.status!=='RECEIVED')deny('UPGRADE_REQUEST_INVALID');
@@ -37,19 +37,19 @@ function mapUpgradeRequestToCrm(request,organizationId){
   p_initial_stage:'new'
  });
 }
-function createUpgradeCrmReconciler({enabled=false,organizationId,loadRequest,findExistingLeads,authenticatedOperatorRpc,markLinked}={}){
+function createUpgradeCrmReconciler({enabled=false,organizationId,sourceTenantId,loadRequest,findExistingLeads,authenticatedOperatorRpc,markLinked}={}){
  if(enabled!==true)return async()=>deny('CRM_RECONCILE_DISABLED');
- if(!UUID.test(organizationId||'')||typeof loadRequest!=='function'||
+ if(!UUID.test(organizationId||'')||!UUID.test(sourceTenantId||'')||typeof loadRequest!=='function'||
  typeof findExistingLeads!=='function'||typeof authenticatedOperatorRpc!=='function'||typeof markLinked!=='function')
   throw Error('CRM_V2_OPERATOR_DEPENDENCIES_REQUIRED');
  return async function reconcile({requestId}={}){
   if(!UUID.test(requestId||''))deny('UPGRADE_REQUEST_INVALID');
   let row;
-  try{row=await loadRequest({tenantId:organizationId,requestId});}catch(_){deny('CRM_SOURCE_UNAVAILABLE');}
-  if(!row||row.tenant_id!==organizationId||row.id!==requestId)deny('UPGRADE_REQUEST_NOT_FOUND');
+  try{row=await loadRequest({tenantId:sourceTenantId,requestId});}catch(_){deny('CRM_SOURCE_UNAVAILABLE');}
+  if(!row||row.tenant_id!==sourceTenantId||row.id!==requestId)deny('UPGRADE_REQUEST_NOT_FOUND');
   if(row.status==='LINKED'&&UUID.test(row.lead_id||''))return Object.freeze({linked:true,lead_id:row.lead_id,already_linked:true});
   if(row.status!=='RECEIVED')deny('UPGRADE_REQUEST_NOT_PENDING');
-  const command=mapUpgradeRequestToCrm(row,organizationId);
+  const command=mapUpgradeRequestToCrm(row,organizationId,sourceTenantId);
   // Current Pitwall RPC has no built-in WhatsApp deduplication. An operator
   // must handle existing contacts instead of silently creating another lead.
   let existing;
@@ -60,7 +60,7 @@ function createUpgradeCrmReconciler({enabled=false,organizationId,loadRequest,fi
   // Supabase RPC returns the row directly, not a {ok,lead_id} envelope.
   if(!result||!UUID.test(result.id||'')||result.organization_id!==organizationId)deny('CRM_LEAD_NOT_CONFIRMED');
   let linked;
-  try{linked=await markLinked({tenantId:organizationId,requestId,leadId:result.id,expectedStatus:'RECEIVED'});}catch(_){deny('CRM_LINK_FAILED');}
+  try{linked=await markLinked({tenantId:sourceTenantId,requestId,leadId:result.id,expectedStatus:'RECEIVED'});}catch(_){deny('CRM_LINK_FAILED');}
   if(linked!==true)deny('CRM_LINK_FAILED');
   return Object.freeze({linked:true,lead_id:result.id,already_linked:false});
  };
