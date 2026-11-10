@@ -1,0 +1,12 @@
+{
+  "name": "pitstop-external-calc-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Existing Pitstop External Calc Cloudflare Worker; Upgrade Hyperdrive integration",
+  "scripts": {
+    "test:upgrade": "node ferramentas/external-calc-public-upgrade/v0/run-canonical-tests.cjs"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}
