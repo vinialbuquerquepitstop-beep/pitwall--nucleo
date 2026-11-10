@@ -35,7 +35,22 @@ test('wrong role and SQL failures are sanitized',async()=>{
  const denied=await create({},Fault)(req());assert.equal(denied.status,503);
  const body=await denied.text();assert(!body.includes('password'));assert(!body.includes('secret'));
 });
-test('no binding or invalid secret fail closed',async()=>{
- assert.equal((await create({UPGRADE_DB:null})(req())).status,404);
+test('authenticated operator sees sanitized actionable binding/driver errors',async()=>{
+ const noBinding=await create({UPGRADE_DB:null})(req());
+ assert.equal(noBinding.status,503);
+ assert.deepEqual(await noBinding.json(),{ok:false,code:'DB_BINDING_UNAVAILABLE'});
+ const unavailable=await createPrivateHyperdriveProbe({env,Client:null,subtle:webcrypto.subtle})(req());
+ assert.equal(unavailable.status,503);
+ assert.deepEqual(await unavailable.json(),{ok:false,code:'DB_DRIVER_UNAVAILABLE'});
+});
+test('missing binding is not disclosed without correct operator token',async()=>{
+ calls=[];
+ const denied=await create({UPGRADE_DB:null})(req('Wrong_Credential_1234567890123456789012345678'));
+ assert.equal(denied.status,404);
+ assert.deepEqual(await denied.json(),{ok:false,code:'NOT_FOUND'});
+ assert.deepEqual(calls,[]);
+});
+test('invalid secret or disabled feature remain opaque',async()=>{
  assert.equal((await create({UPGRADE_DB_PROBE_TOKEN:'bad'})(req())).status,404);
+ assert.equal((await create({UPGRADE_DB_PROBE_ENABLED:'false',UPGRADE_DB:null})(req())).status,404);
 });
