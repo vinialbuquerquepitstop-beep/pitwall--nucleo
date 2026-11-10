@@ -19,12 +19,19 @@ const required=[
  'ferramentas/external-calc-public-upgrade/v0/postgres-replay-adapter.js',
  'ferramentas/external-calc-public-upgrade/v0/key-registry.js',
  'ferramentas/external-calc-public-upgrade/v0/published-offer-repository.js',
- 'ferramentas/external-calc-public-upgrade/v0/tenant-context-repository.js'
+ 'ferramentas/external-calc-public-upgrade/v0/tenant-context-repository.js',
+ 'ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-capture-repository.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-v1-public-application.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-crm-reconciler.js'
 ];
 const tests=[
  'ferramentas/external-calc-public-upgrade/v0/internal-upgrade-e2e.test.js',
  'ferramentas/external-calc-public-upgrade/v0/private-http-handler.test.js',
  'ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.test.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-capture-repository.test.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-v1-public-application.test.js',
+ 'ferramentas/external-calc-public-upgrade/v0/upgrade-crm-reconciler.test.js',
  'ferramentas/external-calc-public-upgrade/v0/canonical-domain-adapter.test.js',
  'ferramentas/external-calc-public-upgrade/v0/internal-upgrade-application.test.js',
  'ferramentas/external-calc-public-upgrade/v0/published-offer-repository.test.js',
