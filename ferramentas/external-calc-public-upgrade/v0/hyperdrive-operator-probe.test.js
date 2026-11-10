@@ -21,3 +21,8 @@ test('correct private token verifies database identity and read privilege only',
 test('incorrect database role cannot pass verification',async()=>{class Wrong extends FakeClient{async query({text}){return {rows:text==='SELECT current_user AS db_role'?[{db_role:'postgres'}]:[]};}}const r=await make({},Wrong)(req());assert.equal(r.status,503);assert.deepEqual(await r.json(),{ok:false,code:'DB_CONNECTION_UNAVAILABLE'});});
 test('db error leaks neither credentials nor SQL',async()=>{class Broken extends FakeClient{async connect(){throw Error('secret connection string');}}const r=await make({},Broken)(req());assert.equal(r.status,503);const body=await r.text();assert(!body.includes('secret'));assert(!body.includes('postgres:'));});
 test('never treats missing catalog permission as success',async()=>{class Denied extends FakeClient{async query({text,values}){if(text===STATIC_QUERY)throw Error('permission denied');return super.query({text,values});}}const r=await make({},Denied)(req());assert.equal(r.status,503);});
+
+test('probe only reads a column granted to the restricted Cloudflare principal',()=>{
+ assert.equal(STATIC_QUERY,'SELECT desired_model FROM privado.extcalc_upgrade_public_catalog_v1 LIMIT 1');
+ assert(!/SELECT \*/i.test(STATIC_QUERY));
+});
