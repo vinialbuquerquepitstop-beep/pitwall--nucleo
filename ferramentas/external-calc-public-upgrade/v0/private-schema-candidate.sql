@@ -2,8 +2,8 @@
 -- No data migrations, no public endpoints, no credentials, no runtime toggles.
 -- All private tables fail closed: no grants to anon/authenticated/service_role.
 BEGIN;
+-- Existing privado schema is preserved; do not mutate its ACL.
 CREATE SCHEMA IF NOT EXISTS privado;
-REVOKE ALL ON SCHEMA privado FROM PUBLIC;
 
 CREATE TABLE IF NOT EXISTS privado.extcalc_upgrade_publications_v0 (
  tenant_id uuid NOT NULL,
