@@ -2,7 +2,8 @@
 // Optional operator-only live Hyperdrive smoke. Disabled by default and never
 // returns rows, SQL errors, tenant identifiers or connection strings.
 const {EXPECTED_ROLE}=require('./hyperdrive-db');
-const STATIC_QUERY='SELECT 1 FROM privado.extcalc_upgrade_public_catalog_v1 LIMIT 1';
+// Refer to an explicitly granted column: the scoped DB role has column-level SELECT, not table-wide SELECT.
+const STATIC_QUERY='SELECT desired_model FROM privado.extcalc_upgrade_public_catalog_v1 LIMIT 1';
 const HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'};
 const response=(status,code)=>new Response(JSON.stringify(status===200?{ok:true,code:'DB_CONNECTION_VERIFIED'}:{ok:false,code}),{status,headers:HEADERS});
 function createHyperdriveOperatorProbe({env,Client,subtle=globalThis.crypto?.subtle}={}){
