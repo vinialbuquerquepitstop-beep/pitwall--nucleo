@@ -22,6 +22,7 @@ const required=[
  'ferramentas/external-calc-public-upgrade/v0/key-registry.js',
  'ferramentas/external-calc-public-upgrade/v0/published-offer-repository.js',
  'ferramentas/external-calc-public-upgrade/v0/tenant-context-repository.js',
+ 'ferramentas/external-calc-public-upgrade/v0/private-http-handler.js',
  'ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.js',
  'ferramentas/external-calc-public-upgrade/v0/authorized-upgrade-quote.js',
  'ferramentas/external-calc-public-upgrade/v0/upgrade-capture-repository.js',
