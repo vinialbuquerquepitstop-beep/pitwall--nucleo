@@ -1,12 +1,18 @@
 'use strict';
 const {createPublicUpgradeApi}=require('./public-upgrade-api');
 const {createUpgradeCaptureRepository}=require('./upgrade-capture-repository');
-// Wires the two server adapters; the caller supplies an authenticated tenant authority.
-// This module NEVER derives tenantId from a browser request.
-function createUpgradeV1PublicApplication({enabled=false,tenantId,query,quote,expectedOrigin}={}){
+const {createAuthorizedUpgradeQuote}=require('./authorized-upgrade-quote');
+// Single, default-off server composition: the caller supplies a trusted tenant,
+// restricted PostgreSQL query function and a service-identity internal invoker.
+// No caller/browser can select a tenant, public price, publication or supplier.
+function createUpgradeV1PublicApplication({
+ enabled=false,tenantId,query,quote,loadApprovedCatalog,invokeInternal,clock,expectedOrigin
+}={}){
  if(enabled!==true)return createPublicUpgradeApi();
- if(typeof quote!=='function')throw Error('AUTHORIZED_QUOTE_SERVICE_REQUIRED');
+ const pricing=typeof quote==='function'
+  ?quote
+  :createAuthorizedUpgradeQuote({enabled:true,loadApprovedCatalog,invokeInternal,clock});
  const capture=createUpgradeCaptureRepository({enabled:true,tenantId,query});
- return createPublicUpgradeApi({enabled:true,capture,quote,expectedOrigin});
+ return createPublicUpgradeApi({enabled:true,capture,quote:pricing,expectedOrigin});
 }
 module.exports={createUpgradeV1PublicApplication};
