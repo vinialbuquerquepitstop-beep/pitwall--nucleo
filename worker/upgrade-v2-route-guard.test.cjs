@@ -13,6 +13,9 @@ test('existing Worker never imports or runs the legacy Calc Upgrade capture',()=
  assert(file.includes('createUpgradeV2ServiceBridge'));
  assert(file.includes('env.UPGRADE_V2_INGRESS_SERVICE'));
  assert(file.includes('env.UPGRADE_V2_BRIDGE_SECRET'));
+ assert(file.includes('createUpgradeV2EdgeAbuseGate'));
+ assert(file.includes('env.UPGRADE_V2_RATE_LIMITER'));
+ assert(file.includes('env.UPGRADE_V2_IP_HMAC_SECRET'));
  assert(!file.includes('createUpgradeV1HyperdriveApplication'));
 
 });
@@ -34,14 +37,14 @@ test('even an enabled flag cannot accept data without an approved V2 handler',as
  assert.equal(lead.headers.get('cache-control'),'no-store');
 });
 test('V2 injection cannot route quote or catalog to an unrelated backend',async()=>{
- let calls=0;const gate=createUpgradeV2Gate({enabled:true,handleV2:async()=>{calls++;return new Response('ok')}});
+ let calls=0;const gate=createUpgradeV2Gate({enabled:true,handleV2:async()=>{calls++;return new Response('ok')},authorizeRequest:async()=>null});
  for(const p of ['/api/upgrade/v1/catalog','/api/upgrade/v1/quote']){
   const x=await gate.handle(req(p));assert.equal(x.status,503);
  }
  assert.equal(calls,0);
 });
 test('explicit V2 provider is the sole route for lead after authorization',async()=>{
- let calls=0;const gate=createUpgradeV2Gate({enabled:true,handleV2:async(request)=>{
+ let calls=0;const gate=createUpgradeV2Gate({enabled:true,authorizeRequest:async()=>null,handleV2:async(request)=>{
   calls++;assert.equal(new URL(request.url).pathname,'/api/upgrade/v1/lead');
   return new Response(JSON.stringify({ok:true,reference:'upg_8b624ef6229b459daed035f9a749d131',status:'RECEIVED'}),{status:202});
  }});
@@ -49,8 +52,24 @@ test('explicit V2 provider is the sole route for lead after authorization',async
  assert.equal((await result.json()).status,'RECEIVED');assert.equal(calls,1);
 });
 test('provider failure and unrecognized paths never expose internals',async()=>{
- const gate=createUpgradeV2Gate({enabled:true,handleV2:async()=>{throw Error('secret SQL connection')}});
+ const gate=createUpgradeV2Gate({enabled:true,authorizeRequest:async()=>null,handleV2:async()=>{throw Error('secret SQL connection')}});
  const result=await gate.handle(req());assert.equal(result.status,503);
  assert(!JSON.stringify(await result.json()).includes('secret'));
  assert.equal((await gate.handle(req('/api/upgrade/v1/unknown'))).status,404);
+});
+
+test('public V2 forwarding requires an operational abuse gate, not only a provider',async()=>{
+ let called=0;
+ const gate=createUpgradeV2Gate({enabled:true,handleV2:async()=>{called++;return Response.json({ok:true})}});
+ const result=await gate.handle(req());assert.equal(result.status,503);
+ assert.equal((await result.json()).code,'UPGRADE_V2_ABUSE_PROTECTION_UNAVAILABLE');
+ assert.equal(called,0);
+});
+test('rate limiter rejects before forwarding, including invalid gate behavior',async()=>{
+ let calls=0;
+ for(const authorizeRequest of [async()=>Response.json({ok:false},{status:429}),async()=>({}),async()=>{throw Error('failure')}]){
+  const gate=createUpgradeV2Gate({enabled:true,handleV2:async()=>{calls++;},authorizeRequest});
+  const res=await gate.handle(req());assert([429,503].includes(res.status));
+ }
+ assert.equal(calls,0);
 });
