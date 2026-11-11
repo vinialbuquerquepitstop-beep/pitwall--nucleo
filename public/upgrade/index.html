@@ -147,7 +147,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
     $('#result').replaceChildren(intro,due,detail);$('#result').classList.remove('hidden');
    }
   }catch(_){/* O lead já foi confirmado. Cotação indisponível não cancela a solicitação. */}
- }catch(_){$('#error').textContent='Não conseguimos confirmar o recebimento da solicitação. Nenhum atendimento foi registrado. Verifique sua conexão e tente novamente.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Enviar minha solicitação';}
+ }catch(_){$('#error').textContent='Não foi possível confirmar o recebimento. Sua solicitação pode ter sido registrada; tente novamente sem alterar os dados ou entre em contato com a Pitstop para conferir.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Enviar minha solicitação';}
  finally{busy=false;}
 });
 refresh();
