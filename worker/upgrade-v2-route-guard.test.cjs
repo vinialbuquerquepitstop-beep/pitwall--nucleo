@@ -10,9 +10,11 @@ test('existing Worker never imports or runs the legacy Calc Upgrade capture',()=
  assert(!file.includes('createUpgradeV1HyperdriveApplication'));
  assert(!file.includes('upgrade-hyperdrive-composition'));
  assert(file.includes("env.UPGRADE_V2_PUBLIC_ENABLED === 'true'"));
- assert(file.includes('createUpgradeV2ServiceBridge'));
- assert(file.includes('env.UPGRADE_V2_INGRESS_SERVICE'));
- assert(file.includes('env.UPGRADE_V2_BRIDGE_SECRET'));
+ assert(file.includes('createUpgradeV2DirectIngress'));
+ assert(file.includes('UPGRADE_V2_DB_INGRESS')===false); // binding belongs inside the direct module
+ assert(!file.includes('createUpgradeV2ServiceBridge'));
+ assert(!file.includes('UPGRADE_V2_INGRESS_SERVICE'));
+ assert(!file.includes('upgrade-v2-service-bridge.cjs'));
  assert(file.includes('createUpgradeV2EdgeAbuseGate'));
  assert(file.includes('env.UPGRADE_V2_RATE_LIMITER'));
  assert(file.includes('env.UPGRADE_V2_IP_HMAC_SECRET'));
