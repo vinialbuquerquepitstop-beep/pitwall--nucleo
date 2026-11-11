@@ -73,6 +73,19 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
  .primary{padding-inline:14px}
  .summary{margin-top:0}
 }
+
+.inline-action{padding:3px 0;border:0;background:transparent;color:#2878F0;font-size:12px;font-weight:750;justify-self:start;text-decoration:underline;text-underline-offset:3px}
+.inline-action:focus-visible{outline:2px solid #2878F0;outline-offset:4px}
+.info-line{font-size:12px;line-height:1.6;color:#566C89;background:#F3F7FD;border-left:3px solid #2878F0;padding:12px 14px;border-radius:0 10px 10px 0}
+.review{border:1px solid #DCE7F6;background:#F9FBFF;border-radius:16px;padding:18px;margin:16px 0 22px}
+.review-head{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.review-head strong{font-size:16px;letter-spacing:-.02em}
+.review-head span{font-size:12px;color:#6B7E97;line-height:1.5}
+.review-line{display:flex;gap:14px;align-items:baseline;justify-content:space-between;padding:11px 0;border-top:1px solid #E4EBF5}
+.review-line span{font-size:12px;color:#647993}
+.review-line strong{font-size:13px;font-weight:740;text-align:right;overflow-wrap:anywhere;max-width:64%}
+#submissionNote{margin-top:12px}
+@media(max-width:480px){.review{padding:15px}.review-line{gap:9px}.review-line strong{max-width:59%}}
 </style>
 </head>
 <body>
@@ -91,7 +104,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <section id="stage-1">
 <div class="eyebrow">PASSO 01 / 03</div><h2 class="stage-title">Qual iPhone você quer?</h2><p class="sub">A disponibilidade e o preço final serão conferidos com a Pitstop.</p>
 <div class="section-slot"><div class="section-slot-number">01</div><div><strong>Seu próximo iPhone</strong><span>Escolha o modelo e como você prefere recebê-lo.</span></div></div>
-<div class="field"><label for="desiredModel">Modelo desejado</label><select required id="desiredModel" disabled><option value="">Carregando catálogo aprovado...</option></select><input id="desiredManual" class="hidden" maxlength="100" placeholder="Ex.: iPhone 17 Pro" autocomplete="off"><div id="catalogNotice" class="notice" role="status" aria-live="polite">Verificando modelos publicados.</div></div>
+<div class="field"><label for="desiredModel">Modelo desejado</label><select required id="desiredModel" disabled><option value="">Carregando catálogo aprovado...</option></select><input id="desiredManual" class="hidden" maxlength="100" placeholder="Ex.: iPhone 17 Pro" autocomplete="off"><div id="catalogNotice" class="notice" role="status" aria-live="polite">Verificando modelos publicados.</div><button class="inline-action" id="useManualModel" type="button">Não encontrei meu iPhone na lista</button></div>
 <div class="formgrid"><div class="field"><label for="desiredCapacity">Armazenamento desejado</label><select required id="desiredCapacity"><option value="">Selecione</option></select></div><div class="field"><label for="desiredCondition">Condição</label><select id="desiredCondition"><option value="lacrado">Lacrado</option><option value="seminovo">Seminovo</option></select></div></div>
 <div class="actions"><span class="notice">Sem compromisso.</span><button class="primary" id="next1" type="button">Continuar</button></div>
 </section>
@@ -100,6 +113,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="section-slot"><div class="section-slot-number">02</div><div><strong>Seu aparelho na troca</strong><span>As informações são preliminares e serão conferidas pela equipe.</span></div></div>
 <div class="field"><label for="ownedModel">Modelo atual</label><input id="ownedModel" required maxlength="80" autocomplete="off" placeholder="Ex.: iPhone 14 Pro"></div>
 <div class="formgrid"><div class="field"><label for="ownedCapacity">Armazenamento atual</label><select id="ownedCapacity"><option value="">Selecione</option><option>64 GB</option><option>128 GB</option><option>256 GB</option><option>512 GB</option><option>1 TB</option></select></div><div class="field"><label for="ownedCondition">Condição geral</label><select id="ownedCondition"><option value="">Selecione</option><option value="excelente">Excelente</option><option value="bom">Bom</option><option value="marcas">Com marcas de uso</option><option value="reparo">Precisa de reparo</option></select></div></div>
+<div class="info-line">A avaliação considera a condição informada, mas será confirmada pela equipe antes de qualquer proposta.</div>
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
@@ -108,11 +122,19 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" aria-describedby="phoneHelp" required><span class="input-help" id="phoneHelp">Inclua o DDD. Usaremos este número apenas para falar sobre seu upgrade.</span></div></div>
 <div class="field"><label style="display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.5"><input id="contactConsent" type="checkbox" style="width:18px;min-height:18px;margin-top:1px;flex:none" required>Autorizo a Pitstop Imports a entrar em contato pelo WhatsApp sobre esta solicitação de upgrade.</label></div>
+<div class="review" id="reviewSummary" aria-label="Revise seus dados antes do envio">
+<div class="review-head"><strong>Confira sua solicitação</strong><span>Você pode voltar e corrigir os dados antes de enviar.</span></div>
+<div class="review-line"><span>Novo iPhone</span><strong id="reviewDesired">A escolher</strong></div>
+<div class="review-line"><span>Seu iPhone atual</span><strong id="reviewTrade">A informar</strong></div>
+<div class="review-line"><span>Estado declarado</span><strong id="reviewCondition">Não informado</strong></div>
+<div class="review-line"><span>Pagamento preferido</span><strong id="reviewPayment">A definir</strong></div>
+</div>
 <div class="field"><button class="primary hidden" id="simulate" type="button" disabled aria-hidden="true" tabindex="-1">Calcular meu Upgrade</button><p id="quoteHelp" class="notice">A cotação automática da Calculadora Pitwall V2 ainda não está disponível. Sua solicitação pode ser enviada para avaliação individual, sem apresentar valores não confirmados.</p></div>
 <details class="field"><summary style="cursor:pointer;font-weight:700">Como funciona a avaliação do meu iPhone?</summary><p class="notice">O crédito inicial é estimado conforme o modelo, a capacidade e as políticas da Pitstop. Estado da bateria, condição física e reparos precisam ser conferidos antes de confirmar a proposta.</p></details>
 <details class="field"><summary style="cursor:pointer;font-weight:700">Posso parcelar a diferença?</summary><p class="notice">A equipe Pitstop confirmará as condições e taxas disponíveis na Calculadora Pitwall V2 antes de apresentar uma proposta.</p></details>
 <div id="result" class="hidden result" role="status" aria-live="polite"></div><div id="error" class="hidden error" role="alert"></div>
 <div id="leadStatus" class="hidden result" role="status" aria-live="polite"></div>
+<div id="submissionNote" class="notice" role="status" aria-live="polite">A solicitação será encaminhada para avaliação da equipe. Nenhum preço será calculado automaticamente.</div>
 <div class="actions"><button class="secondary" id="back3" type="button">Voltar</button><button class="primary" id="submit" type="submit">Solicitar avaliação pelo WhatsApp</button></div>
 <p class="privacy">Nenhum valor exibido nesta experiência constitui uma oferta vinculante. Os valores dependem de disponibilidade, avaliação do usado e confirmação comercial.</p>
 </section>
@@ -145,13 +167,15 @@ function renderCapacities(){
  renderConditions();
 }
 function manualCatalog(){
+ if(manualMode)return;
  manualMode=true;
  $('#desiredModel').disabled=true;$('#desiredModel').required=false;$('#desiredModel').classList.add('hidden');
  $('#desiredManual').classList.remove('hidden');$('#desiredManual').required=true;
  $('#desiredCapacity').disabled=false;$('#desiredCondition').disabled=false;
  setOptions($('#desiredCapacity'),['64 GB','128 GB','256 GB','512 GB','1 TB','2 TB'],'Selecione');
  $('#desiredCondition').replaceChildren(option('lacrado','Lacrado'),option('seminovo','Seminovo'));
- $('#catalogNotice').textContent='Não foi possível consultar os modelos automaticamente. Você pode informar o iPhone desejado e seguir normalmente para a avaliação.';
+ $('#catalogNotice').textContent='Você pode escrever o modelo desejado e continuar. Nossa equipe confirma a disponibilidade.';
+ $('#useManualModel').classList.add('hidden');
  refresh();
 }
 async function loadCatalog(){
@@ -174,6 +198,7 @@ async function loadCatalog(){
  }catch(_){manualCatalog();}
 }
 $('#desiredModel').addEventListener('change',()=>{renderCapacities();refresh();});
+$('#useManualModel').addEventListener('click',()=>{manualCatalog();$('#desiredManual').focus();});
 $('#desiredCapacity').addEventListener('change',()=>{renderConditions();refresh();});
 let stage=1, busy=false;
 const requestKey=crypto.randomUUID();
@@ -191,6 +216,12 @@ $('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boole
 $('#outOld').textContent=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
 $('#outCondition').textContent=field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
 $('#outInstallments').textContent=field('#installments')==='1'?'À vista':(field('#installments')||'12')+'x (preferência)';
+ const desired=[desiredModel(),field('#desiredCapacity'),field('#desiredCondition')].filter(Boolean).join(' · ');
+ const trade=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ');
+ $('#reviewDesired').textContent=desired||'A escolher';
+ $('#reviewTrade').textContent=trade||'A informar';
+ $('#reviewCondition').textContent=field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informado';
+ $('#reviewPayment').textContent=$('#outInstallments').textContent;
 }
 function requireFields(ids){
  for(const id of ids){const e=$(id);
@@ -264,6 +295,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
  const selection=selectedUpgrade();
  const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp')};
  busy=true;$('#submit').disabled=true;$('#submit').textContent='Enviando...';
+ $('#submissionNote').textContent='Estamos registrando a solicitação. Não feche esta página até aparecer a referência de recebimento.';
 
  try{
   const lead=await post('/api/upgrade/v1/lead',{request_key:requestKey,selection,contact,consent:true});
@@ -272,8 +304,13 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   $('#leadStatus').replaceChildren(message);$('#leadStatus').classList.remove('hidden');
   $('#leadStatus').scrollIntoView({behavior:'smooth',block:'center'});
   $('#submit').textContent='Solicitação registrada';$('#submit').disabled=true;
+  $('#submissionNote').textContent='Guarde a referência acima para consultar o atendimento. Os valores serão confirmados pela equipe.';
   $('#quoteHelp').textContent='Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
- }catch(_){$('#error').textContent='Não foi possível confirmar o recebimento. Sua solicitação pode ter sido registrada; tente novamente sem alterar os dados ou entre em contato com a Pitstop para conferir.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Solicitar avaliação pelo WhatsApp';}
+ }catch(_){
+  $('#error').textContent='Não foi possível confirmar o recebimento. A solicitação pode ter sido registrada; tente novamente sem alterar os dados. A mesma referência de envio será reutilizada.';
+  $('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Tentar confirmar envio novamente';
+  $('#submissionNote').textContent='Se houver instabilidade, sua tentativa pode já ter sido recebida. Não abra outra solicitação.';
+ }
  finally{busy=false;}
 });
 refresh();
