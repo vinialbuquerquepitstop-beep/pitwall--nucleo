@@ -43,7 +43,13 @@ const APPROVE=`UPDATE privado.extcalc_upgrade_publications_v0
  RETURNING public_id`;
 const DENIED='UPGRADE_PUBLICATION_NOT_AUTHORIZED';
 const deny=()=>{throw Object.assign(new Error(DENIED),{code:DENIED});};
-function same(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function canon(value){
+ if(Array.isArray(value))return value.map(canon);
+ if(value&&typeof value==='object')return Object.fromEntries(
+  Object.keys(value).sort().map(k=>[k,canon(value[k])]));
+ return value;
+}
+function same(a,b){return JSON.stringify(canon(a))===JSON.stringify(canon(b));}
 function countOne(result){return Array.isArray(result?.rows)&&result.rows.length===1;}
 function operatorId(v){return UUID.test(v||'');}
 function ref(v){return REF.test(v||'');}
