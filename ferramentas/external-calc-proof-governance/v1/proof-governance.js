@@ -119,6 +119,11 @@ const OWNERS = [
     /^docs\/calculadora\/EXTERNAL_CALC_AI_ADVISOR_A41_PRODUCTION_ACTIVATION_V0\.md$/,
     /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
+  { owner: 'PUBLIC_UPGRADE', patterns: [
+    /^ferramentas\\/external-calc-public-upgrade\\/v0\\//,
+    /^public\\/upgrade\\//,
+    /^worker\\/upgrade-route-wiring\\.test\\.cjs$/
+  ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//, /^worker\/external-calc-worker\.mjs$/, /^wrangler\.jsonc$/] },
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
   { owner: 'ACCESS_CONTROL_DOCS', patterns: [/^docs\/calculadora\/EXTERNAL_CALC_ACCESS_CONTROL_MANAGER_SELLER_PLAN_V1\.md$/] },
