@@ -8,6 +8,7 @@ import probeModule from './upgrade-hyperdrive-probe.cjs';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
 import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
+import upgradeServiceModule from './upgrade-v2-service-bridge.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
@@ -15,6 +16,7 @@ const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 const { createUpgradeV2Gate } = upgradeGuardModule;
+const { createUpgradeV2ServiceBridge } = upgradeServiceModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -328,9 +330,13 @@ export default {
     // UP-CRM-01: NEVER route public Upgrade to the legacy Calc/Hyperdrive DB.
     // This V2 gate remains fail-closed until an authorized V2 ingress is wired.
     if (url.pathname.startsWith('/api/upgrade/v1/')) {
-      return createUpgradeV2Gate({
-        enabled: env.UPGRADE_V2_PUBLIC_ENABLED === 'true'
-      }).handle(request);
+      const enabled = env.UPGRADE_V2_PUBLIC_ENABLED === 'true';
+      const handleV2 = enabled ? createUpgradeV2ServiceBridge({
+        binding: env.UPGRADE_V2_INGRESS_SERVICE,
+        secret: env.UPGRADE_V2_BRIDGE_SECRET,
+        publicOrigin: env.UPGRADE_EXPECTED_ORIGIN
+      }) : null;
+      return createUpgradeV2Gate({ enabled, handleV2 }).handle(request);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
