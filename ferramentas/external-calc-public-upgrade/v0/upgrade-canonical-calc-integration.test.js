@@ -9,7 +9,7 @@ const {resolveTradeIn}=require('../../external-calc-sales-product/v0/sales-produ
 const {SQL}=require('./approved-catalog-repository');
 const tenant='5212679b-8b2e-459f-a2ba-7ae8db558ba1';
 const origin='https://upgrade.example.test';
-const now=1760000000000;
+const now=Date.now();
 const publication={tenant_id:tenant,public_id:'pub17pro256',price_revision:'rev1',status:'published',
  sale_price_minor:690000,expires_at_ms:now+900000,offer_revision:1,analysis_id:'a',
  offer_id:'sale-silver',offer_value_fingerprint:'vsale-silver'};
