@@ -28,7 +28,7 @@ test('CRM-only public page never advertises obsolete financial engine or invites
  assert.match(html,/id="reviewPayment"/);
  assert.match(html,/id="submissionNote"/);
  assert.match(html,/if\(manualMode\)return; \/\/ Manual choice always wins/);
- assert.match(html,/$('#submit')\.disabled=true/);
+ assert(html.includes("$('#submit').disabled=true"));
  assert(!/<input[^>]+type="file"/i.test(html));
  assert(!/<video\b/i.test(html));
  assert.match(html,/id="contactConsent"[^>]*type="checkbox"/);
