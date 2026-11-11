@@ -61,13 +61,13 @@ test('trusted internal finance invoker is optional and never reads prices from b
  const commands=[];
  const invokeInternal=async ({action,command})=>{
   commands.push({action,command});
-  return {schema_version:'pitstop-internal-upgrade/v1',public_id:'p1',price_revision:'rev1',action,currency:'BRL',amount_minor:action==='resolveVariant'?690000:260000};
+  return {schema_version:'pitstop-internal-upgrade/v1',public_id:'p1',price_revision:'rev1',action,currency:'BRL',amount_minor:action==='resolveVariant'?690000:260000,...(action==='simulateSale'?{installment_count:12}:{})};
  };
  const response=await createUpgradeV1HyperdriveApplication({env,Client:FakeClient,invokeInternal})
   .handle(get('/api/upgrade/v1/quote','POST',selection));
  assert.equal(response.status,200);
- assert.deepEqual(await response.json(),{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL'}});
- assert.deepEqual(commands.map(c=>c.action),['resolveVariant','estimateTradeIn']);
+ assert.deepEqual(await response.json(),{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL',installment_count:12,installment_amount_minor:260000}});
+ assert.deepEqual(commands.map(c=>c.action),['resolveVariant','estimateTradeIn','simulateSale']);
  for(const call of commands){
   assert.equal(call.command.public_id,'p1');
   assert.equal(call.command.price_revision,'rev1');
