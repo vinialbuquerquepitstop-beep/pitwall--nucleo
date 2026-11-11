@@ -20,6 +20,7 @@
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
     "UPGRADE_PUBLIC_ENABLED": "false",
     "UPGRADE_V2_PUBLIC_ENABLED": "false",
+    "UPGRADE_V2_OPERATOR_ENABLED": "false",
     "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
     "UPGRADE_EXPECTED_ORIGIN": "https://flat-resonance-09ba.pitstopimports.workers.dev",
     "UPGRADE_DB_PROBE_ENABLED": "false",
@@ -43,6 +44,11 @@
   // Configurar UPGRADE_V2_ORGANIZATION_ID, UPGRADE_V2_INGRESS_LOGIN_ROLE,
   // o ratelimit UPGRADE_V2_RATE_LIMITER (namespace_id real e aprovado) e
   // secret UPGRADE_V2_IP_HMAC_SECRET. Sem isso, a rota falha fechada.
+  // Reconciliação CRM é OPERADOR-ONLY, flag independente
+  // UPGRADE_V2_OPERATOR_ENABLED=false. Usa UPGRADE_V2_DB_OPERATOR,
+  // UPGRADE_V2_OPERATOR_LOGIN_ROLE, PITWALL_V2_SUPABASE_URL e
+  // PITWALL_V2_PUBLISHABLE_KEY (projeto V2; NÃO usar SUPABASE_URL
+  // da External Calc). Dois logins e Hyperdrives distintos por capacidade.
   // Nenhum binding/secret foi criado ou publicado nesta alteração.
 
   "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
