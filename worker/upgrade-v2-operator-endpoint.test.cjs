@@ -66,7 +66,7 @@ test('operator route stays OFF independently from the public lead flag',async()=
 });
 test('requires a physically separate operator DB binding and correct V2 Auth origin',async()=>{
  for(const invalid of [{UPGRADE_V2_DB_OPERATOR:env.UPGRADE_V2_DB_INGRESS},
-  {PITWALL_V2_SUPABASE_URL:'https://v2.invalid'},{PITWALL_V2_PUBLISHABLE_KEY:null}]){
+  {PITWALL_V2_SUPABASE_URL:'https://v2.invalid/unsafe-path'},{PITWALL_V2_PUBLISHABLE_KEY:null}]){
   const h=createUpgradeV2OperatorEndpoint({env:{...env,...invalid},Client:class {}});
   assert.equal((await h.handle(request())).status,503);
  }
@@ -115,5 +115,8 @@ test('DB connectivity failures do not leak connection strings or create CRM lead
  assert.equal(res.status,503);
  const body=await res.text();
  assert(!body.includes('v2.invalid'));
- assert(f.http.length===0);
+ assert.equal(f.http.filter(x=>x.url.endsWith('/auth/v1/user')).length,1);
+ assert.equal(f.http.filter(x=>x.url.includes('/pw_memberships?')).length,1);
+ assert(!f.http.some(x=>x.url.endsWith('/rpc/pw_s01_create_lead')));
+ assert(!f.http.some(x=>x.url.includes('/pw_leads?')));
 });
