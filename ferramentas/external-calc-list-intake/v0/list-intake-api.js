@@ -450,7 +450,13 @@ function buildQueue(body){
  const type=sourceType(tentative,body.mime_type);
  const filename=normalizedFilename(body.filename,type);
  const source={filename,mime_type:body.mime_type||(type==='csv'?'text/csv':'text/plain'),content:body.content};
- const canonical=type==='csv'?parseCsvSource(source):parseTextSource(source);
+ // A retry or continuation of identical supplier content must not create
+ // a new interpretation_run_id, because C01 snapshots are immutable.
+ // Scope identity by supplier, while preserving the adapter's source hash.
+ const documentId='intake_'+stableHash(source.content+'|supplier:'+(body.supplier_id||'none')).slice(0,32);
+ const canonical=type==='csv'
+   ?parseCsvSource(source,{idFactory:()=>documentId})
+   :parseTextSource(source,{idFactory:()=>documentId});
  const raw=canonicalToRawDocument(canonical);
  const hash=canonical.source.content_hash.replace(/^sha256:/,'');
  const identityHash=body.supplier_id?crypto.createHash('sha256').update(hash+'|supplier:'+body.supplier_id).digest('hex'):hash;
