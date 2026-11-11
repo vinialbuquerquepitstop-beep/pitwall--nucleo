@@ -36,13 +36,13 @@
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
-<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title">Vamos conferir sua troca.</h2><p class="sub">Uma simulação só será exibida quando houver preço publicado e avaliação disponível no serviço autorizado.</p>
+<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title">Vamos conferir sua troca.</h2><p class="sub">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" required></div></div>
 <div class="field"><label style="display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.5"><input id="contactConsent" type="checkbox" style="width:18px;min-height:18px;margin-top:1px;flex:none" required>Autorizo a Pitstop Imports a entrar em contato pelo WhatsApp sobre esta solicitação de upgrade.</label></div>
-<div class="field"><button class="primary" id="simulate" type="button">Calcular meu Upgrade</button><p id="quoteHelp" class="notice">Veja uma estimativa com preços aprovados da External Calc. Se não houver cotação disponível, envie sua solicitação para avaliação humana.</p></div>
+<div class="field"><button class="primary hidden" id="simulate" type="button" disabled aria-hidden="true" tabindex="-1">Calcular meu Upgrade</button><p id="quoteHelp" class="notice">A cotação automática da Calculadora Pitwall V2 ainda não está disponível. Sua solicitação pode ser enviada para avaliação individual, sem apresentar valores não confirmados.</p></div>
 <details class="field"><summary style="cursor:pointer;font-weight:700">Como funciona a avaliação do meu iPhone?</summary><p class="notice">O crédito inicial é estimado conforme o modelo, a capacidade e as políticas da Pitstop. Estado da bateria, condição física e reparos precisam ser conferidos antes de confirmar a proposta.</p></details>
-<details class="field"><summary style="cursor:pointer;font-weight:700">Posso parcelar a diferença?</summary><p class="notice">As condições seguem as taxas ativas da External Calc. A simulação não é uma oferta final e pode precisar de confirmação da equipe.</p></details>
+<details class="field"><summary style="cursor:pointer;font-weight:700">Posso parcelar a diferença?</summary><p class="notice">A equipe Pitstop confirmará as condições e taxas disponíveis na Calculadora Pitwall V2 antes de apresentar uma proposta.</p></details>
 <div id="result" class="hidden result" role="status" aria-live="polite"></div><div id="error" class="hidden error" role="alert"></div>
 <div id="leadStatus" class="hidden result" role="status" aria-live="polite"></div>
 <div class="actions"><button class="secondary" id="back3" type="button">Voltar</button><button class="primary" id="submit" type="submit">Enviar minha solicitação</button></div>
@@ -136,12 +136,13 @@ function presentQuote(data){
  if(currentInstallments>1){
   const card=document.createElement('div');card.className='muted';
   card.style.marginTop='14px';
-  card.textContent='Parcelamento estimado: '+q.installment_count+'x de '+money(q.installment_amount_minor)+' (taxas da External Calc)';
+  card.textContent='Parcelamento estimado: '+q.installment_count+'x de '+money(q.installment_amount_minor)+' (condições da Calculadora Pitwall V2)';
   children.push(card);
  }
  $('#result').replaceChildren(...children);$('#result').classList.remove('hidden');return true;
 }
 let quoteSelectionKey='';
+// Cotação automática permanece desativada até o contrato financeiro V2 ser conectado.
 $('#simulate').onclick=async()=>{
  if(busy||!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition']))return;
  const b=$('#simulate');b.disabled=true;b.textContent='Calculando...';$('#result').classList.add('hidden');
@@ -149,7 +150,7 @@ $('#simulate').onclick=async()=>{
   const selection=selectedUpgrade();const data=await post('/api/upgrade/v1/quote',selection);
   if(!presentQuote(data))throw Error('INVALID_QUOTE');
   quoteSelectionKey=JSON.stringify(selection);
-  $('#quoteHelp').textContent='Estimativa consultada. Confira os dados e envie sua solicitação para atendimento.';
+  $('#quoteHelp').textContent='Estimativa consultada na Calculadora Pitwall V2. Confira os dados e envie sua solicitação para atendimento.';
  }catch(_){
   quoteSelectionKey='';
   $('#quoteHelp').textContent='Não há cotação aprovada disponível para esta combinação. Você pode enviar o pedido para avaliação personalizada sem receber valores inventados.';
