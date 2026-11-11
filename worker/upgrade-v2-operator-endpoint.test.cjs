@@ -52,7 +52,10 @@ function fixture({authorized=true,existing=false,badDbRole=false,dbAvailable=tru
    [{id:lead,organization_id:org,phone:'5521999999999',notes:'Upgrade V2: '+id}]:[]};
   if(url.includes('/rpc/pw_s01_create_lead')){
    assert.equal(params.headers.authorization,'Bearer '+token);
-   assert.equal(JSON.parse(params.body).p_org_id,org);
+   const command=JSON.parse(params.body);
+   assert.equal(command.p_org_id,org);
+   assert.deepEqual(command.p_acquisition,{source_channel:'instagram'});
+   assert(command.p_notes.includes('Upgrade V2: '+id));
    return {ok:true,json:async()=>({id:lead,organization_id:org})};
   }
   throw Error('unexpected fetch');
