@@ -47,7 +47,8 @@ function createUpgradeV2DbScope({pool,organizationId,capability,expectedLoginRol
     if(started){try{await client.query('ROLLBACK');}catch{}}
     // Preserve only known domain conflict after a completed rollback; never
     // expose raw SQL errors, authentication failures or internal DB details.
-    if(err?.code==='UPGRADE_INTAKE_CONFLICT'||err?.code==='UPGRADE_V2_DB_AUTH_DENIED')throw err;
+    if(['UPGRADE_INTAKE_CONFLICT','UPGRADE_V2_DB_AUTH_DENIED',
+        'UPGRADE_V2_OPERATOR_DENIED','UPGRADE_DELIVERY_UNAUTHORIZED'].includes(err?.code))throw err;
     deny();
    }finally{
     if(client){try{client.release();}catch{}}
