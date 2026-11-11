@@ -56,3 +56,28 @@ test('foreign-origin requests cannot use catalog',async()=>{
  const response=await app.handle(new Request('https://evil.example/api/upgrade/v1/catalog'));
  assert.equal(response.status,404);
 });
+
+test('trusted internal finance invoker is optional and never reads prices from browser',async()=>{
+ const commands=[];
+ const invokeInternal=async ({action,command})=>{
+  commands.push({action,command});
+  return {schema_version:'pitstop-internal-upgrade/v1',public_id:'p1',price_revision:'rev1',action,currency:'BRL',amount_minor:action==='resolveVariant'?690000:260000};
+ };
+ const response=await createUpgradeV1HyperdriveApplication({env,Client:FakeClient,invokeInternal})
+  .handle(get('/api/upgrade/v1/quote','POST',selection));
+ assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL'}});
+ assert.deepEqual(commands.map(c=>c.action),['resolveVariant','estimateTradeIn']);
+ for(const call of commands){
+  assert.equal(call.command.public_id,'p1');
+  assert.equal(call.command.price_revision,'rev1');
+  for(const k of ['tenant_id','supplier_id','sale_price_minor','rate_profile'])assert.equal(Object.hasOwn(call.command,k),false);
+ }
+});
+test('invalid trusted finance result fails closed without exposing price',async()=>{
+ const invokeInternal=async ({action})=>({schema_version:'pitstop-internal-upgrade/v1',public_id:'p1',price_revision:'WRONG',action,currency:'BRL',amount_minor:690000});
+ const response=await createUpgradeV1HyperdriveApplication({env,Client:FakeClient,invokeInternal})
+  .handle(get('/api/upgrade/v1/quote','POST',selection));
+ assert.equal(response.status,503);
+ assert.deepEqual(await response.json(),{ok:false,code:'QUOTE_UNAVAILABLE'});
+});
