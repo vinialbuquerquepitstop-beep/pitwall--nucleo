@@ -36,11 +36,14 @@
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 
-  // UP-CRM-01: os bindings de serviço V2 e ratelimit ainda NÃO estão
-  // configurados. Exigem destino Worker existente confirmado e namespace_id
-  // real autorizado. Não inserir IDs falsos: sem ambos + dois secrets privados,
-  // a rota continua 404/503. Secret exigidos: UPGRADE_V2_BRIDGE_SECRET e
-  // UPGRADE_V2_IP_HMAC_SECRET. Configuração de ratelimit documentada no slice.
+  // UP-CRM-01: captura V2 dentro DESTE Worker, sem segundo Worker/URL.
+  // A binding Hyperdrive V2 de ingresso (UPGRADE_V2_DB_INGRESS) deve usar
+  // login PostgreSQL separado, restrito e autorizado somente na org V2.
+  // NÃO reutilizar o Hyperdrive legado UPGRADE_DB.
+  // Configurar UPGRADE_V2_ORGANIZATION_ID, UPGRADE_V2_INGRESS_LOGIN_ROLE,
+  // o ratelimit UPGRADE_V2_RATE_LIMITER (namespace_id real e aprovado) e
+  // secret UPGRADE_V2_IP_HMAC_SECRET. Sem isso, a rota falha fechada.
+  // Nenhum binding/secret foi criado ou publicado nesta alteração.
 
   "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
 
