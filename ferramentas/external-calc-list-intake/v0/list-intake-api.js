@@ -33,10 +33,13 @@ function normalizedFilename(value,type){
 }
 function normalizeBody(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('body invalido'),{code:'LIST_INTAKE_INVALID'});
- const allowed=new Set(['filename','mime_type','content','supplier_id']);
+ const allowed=new Set(['filename','mime_type','content','supplier_id','batch_offset','expected_content_hash']);
  for(const k of Object.keys(value))if(!allowed.has(k))throw Object.assign(new Error('campo nao permitido: '+k),{code:'LIST_INTAKE_INVALID'});
  if(typeof value.content!=='string'||!value.content.trim())throw Object.assign(new Error('lista vazia'),{code:'LIST_INTAKE_INVALID'});
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
+ if(value.batch_offset!==undefined&&(!Number.isSafeInteger(value.batch_offset)||value.batch_offset<0))throw Object.assign(new Error('batch_offset invalido'),{code:'LIST_INTAKE_INVALID'});
+ if(value.expected_content_hash!==undefined&&(typeof value.expected_content_hash!=='string'||!/^sha256:[a-f0-9]{64}$/.test(value.expected_content_hash)))throw Object.assign(new Error('content_hash invalido'),{code:'LIST_INTAKE_INVALID'});
+ if(value.batch_offset>0&&!value.expected_content_hash)throw Object.assign(new Error('content_hash necessario para continuar ingestao'),{code:'LIST_INTAKE_INVALID'});
  if(value.supplier_id!=null&&(typeof value.supplier_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.supplier_id.trim())))throw Object.assign(new Error('supplier_id invalido'),{code:'LIST_INTAKE_INVALID'});
  return {...value,supplier_id:value.supplier_id==null?null:value.supplier_id.trim().toLowerCase()};
 }
@@ -466,23 +469,31 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
  }
  const partition=partitionCandidates(built.queue);
+ const all=[...partition.auto.map(item=>({kind:'auto',item})),...partition.review.map(item=>({kind:'review',item}))];
+ const bounded=command.batch_offset!==undefined;
+ const offset=bounded?command.batch_offset:0;
+ if(bounded&&command.expected_content_hash!==undefined&&command.expected_content_hash!==built.canonical.source.content_hash){
+   throw Object.assign(new Error('lista alterada durante a ingestao; nenhuma oferta gravada nesta etapa'),{code:'LIST_INTAKE_SOURCE_CHANGED',status:409});
+ }
+ if(offset>all.length)throw Object.assign(new Error('offset fora da lista'),{code:'LIST_INTAKE_INVALID'});
+ const batch=bounded?all.slice(offset,offset+8):all;
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
  const review_reasons={};
 
- for(const item of partition.auto){
+ for(const {kind,item} of batch){
+   if(kind==='auto'){
    const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
    persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
    const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
    auto_promoted+=1;
    if(promoted?.idempotent===true)idempotent+=1;
- }
-
- for(const item of partition.review){
+   }else{
    const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
    persisted+=1;if(saved?.idempotent===true)idempotent+=1;
    review_required+=1;
    for(const reason of item.assessment.reasons){
      review_reasons[reason]=(review_reasons[reason]||0)+1;
+   }
    }
  }
 
@@ -494,6 +505,7 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    filename:built.filename,
    content_hash:built.canonical.source.content_hash,
    candidates:built.queue.candidates.length,
+   ...(bounded?{batch_offset:offset,next_offset:offset+batch.length<all.length?offset+batch.length:null}:{}),
    persisted,
    auto_promoted,
    review_required,
@@ -520,7 +532,7 @@ function createListIntakeApiV0({env}={}){
     return out(200,{api_version:API_VERSION,intake},origin);
    }catch(e){
     const code=e?.code||'LIST_INTAKE_FAILED';
-    const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
+    const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_SOURCE_CHANGED'?409:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
     return out(status,{error:{code,message:e instanceof Error?e.message:'falha na entrada da lista'}},origin);
    }
   }
