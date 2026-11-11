@@ -19,6 +19,7 @@
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
     "UPGRADE_PUBLIC_ENABLED": "false",
+    "UPGRADE_V2_PUBLIC_ENABLED": "false",
     "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
     "UPGRADE_EXPECTED_ORIGIN": "https://flat-resonance-09ba.pitstopimports.workers.dev",
     "UPGRADE_DB_PROBE_ENABLED": "false",
@@ -34,6 +35,12 @@
     "EXTCALC_ADVISOR_TIMEOUT_MS": "30000",
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
+
+  // UP-CRM-01: os bindings de serviço V2 e ratelimit ainda NÃO estão
+  // configurados. Exigem destino Worker existente confirmado e namespace_id
+  // real autorizado. Não inserir IDs falsos: sem ambos + dois secrets privados,
+  // a rota continua 404/503. Secret exigidos: UPGRADE_V2_BRIDGE_SECRET e
+  // UPGRADE_V2_IP_HMAC_SECRET. Configuração de ratelimit documentada no slice.
 
   "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
 
