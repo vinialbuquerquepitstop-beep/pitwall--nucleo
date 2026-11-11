@@ -26,7 +26,9 @@ function createExternalCalcUpgradePublicationDraft({
   const c=reviewedCandidate,o=c?.reviewed_offer,model=o?.model;
   const label=typeof model?.label==='string'&&model.label.trim()?model.label.trim():null;
   const capacity=CAP.get(o?.capacity_gb);
-  const condition=o?.condition;
+  // External Calc snapshots use mixed case; normalize only known conditions.
+  // Missing or unknown conditions remain blocked, never guessed.
+  const condition=typeof o?.condition==='string'?o.condition.trim().toLowerCase():null;
   if(!c||!o||!label||label.length>100||!capacity||!['lacrado','seminovo'].includes(condition)||
    !REF.test(c.offer_id||'')||!REF.test(c.analysis_id||'')||!REF.test(c.offer_value_fingerprint||'')||
    !Number.isInteger(c.offer_revision)||c.offer_revision<1||
