@@ -120,9 +120,9 @@ const OWNERS = [
     /^supabase\/migrations\/20260925003500_external_calc_ai_advisor_a3_v0\.sql$/
   ] },
   { owner: 'PUBLIC_UPGRADE', patterns: [
-    /^ferramentas\\/external-calc-public-upgrade\\/v0\\//,
-    /^public\\/upgrade\\//,
-    /^worker\\/upgrade-route-wiring\\.test\\.cjs$/
+    new RegExp('^ferramentas/external-calc-public-upgrade/v0/'),
+    new RegExp('^public/upgrade/'),
+    new RegExp('^worker/upgrade-route-wiring[.]test[.]cjs$')
   ] },
   { owner: 'RUNTIME', patterns: [/^ferramentas\/external-calc-runtime\/v0\//, /^worker\/external-calc-worker\.mjs$/, /^wrangler\.jsonc$/] },
   { owner: 'PROOF_GOVERNANCE', patterns: [/^ferramentas\/external-calc-proof-governance\/v1\//, /^docs\/calculadora\/EXTERNAL_CALC_PROOF_GOVERNANCE_V1\.md$/, /^docs\/calculadora\/BRAIN_CHECKPOINT_EXTERNAL_CALC_PROOF_GOVERNANCE_2026_09_22\.md$/] },
