@@ -8,7 +8,7 @@ const selection={desired:{model:'iPhone 17 Pro',capacity:'256 GB',condition:'lac
 const body={request_key,selection,contact:{name:'Synthetic Tester',whatsapp:'(21) 99999-9999'},consent:true};
 const request=()=>new Request(origin+'/api/upgrade/v1/lead',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
 test('default-off public app returns 404 without dependencies',async()=>assert.equal((await createUpgradeV1PublicApplication().handle(request())).status,404));
-test('enabled app requires authorized quote provider and tenant-bound source',()=>assert.throws(()=>createUpgradeV1PublicApplication({enabled:true}),/TRUSTED_QUOTE_DEPENDENCIES_REQUIRED/));
+test('enabled app rejects missing trusted tenant and capture source',()=>assert.throws(()=>createUpgradeV1PublicApplication({enabled:true}),/CAPTURE_TRUSTED_DEPENDENCIES_REQUIRED/));
 test('end-to-end public HTTP → scoped INSERT → one receipt (no price)',async()=>{
  let called=0;
  const app=createUpgradeV1PublicApplication({enabled:true,tenantId,expectedOrigin:origin,quote:async()=>{throw Error('quote unavailable');},query:async(sql,p)=>{called++;assert.equal(sql,INSERT);assert.equal(p[0],tenantId);assert.equal(p[1],request_key);return {rows:[{id}]};}});
