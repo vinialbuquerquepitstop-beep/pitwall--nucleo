@@ -64,7 +64,7 @@ function createUpgradeCrmReconciler({enabled=false,organizationId,sourceTenantId
    if(candidate?.organization_id!==organizationId||
       !UUID.test(candidate.id||'')||
       candidate?.phone!==row.whatsapp_digits||
-      candidate?.context?.upgrade_request_id!==requestId)
+      (!candidate?.notes?.split(' | ').includes('Solicitacao: '+requestId)))
     deny('CRM_DUPLICATE_REQUIRES_REVIEW');
    result=candidate;alreadyExisting=true;
   }else{
