@@ -14,7 +14,7 @@ function createUpgradePublicationRuntime({
 }={}){
  if(enabled!==true)return createUpgradeCatalogPublicationOperator();
  if(!pool||typeof pool.connect!=='function'||typeof authenticateOperator!=='function'||
-    typeof loadTradeInCandidates!=='function')
+    (loadTradeInCandidates!=null&&typeof loadTradeInCandidates!=='function'))
   throw Error('PRIVATE_PUBLICATION_RUNTIME_DEPENDENCIES_REQUIRED');
  const loadTrustedCalcInputs=createUpgradeTrustedCalcSource({
   enabled:true,loadCalculationProfile,loadTradeInCandidates
