@@ -40,6 +40,9 @@
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" required></div></div>
 <div class="field"><label style="display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.5"><input id="contactConsent" type="checkbox" style="width:18px;min-height:18px;margin-top:1px;flex:none" required>Autorizo a Pitstop Imports a entrar em contato pelo WhatsApp sobre esta solicitação de upgrade.</label></div>
+<div class="field"><button class="primary" id="simulate" type="button">Calcular meu Upgrade</button><p id="quoteHelp" class="notice">Veja uma estimativa com preços aprovados da External Calc. Se não houver cotação disponível, envie sua solicitação para avaliação humana.</p></div>
+<details class="field"><summary style="cursor:pointer;font-weight:700">Como funciona a avaliação do meu iPhone?</summary><p class="notice">O crédito inicial é estimado conforme o modelo, a capacidade e as políticas da Pitstop. Estado da bateria, condição física e reparos precisam ser conferidos antes de confirmar a proposta.</p></details>
+<details class="field"><summary style="cursor:pointer;font-weight:700">Posso parcelar a diferença?</summary><p class="notice">As condições seguem as taxas ativas da External Calc. A simulação não é uma oferta final e pode precisar de confirmação da equipe.</p></details>
 <div id="result" class="hidden result" role="status" aria-live="polite"></div><div id="error" class="hidden error" role="alert"></div>
 <div id="leadStatus" class="hidden result" role="status" aria-live="polite"></div>
 <div class="actions"><button class="secondary" id="back3" type="button">Voltar</button><button class="primary" id="submit" type="submit">Enviar minha solicitação</button></div>
@@ -113,40 +116,55 @@ $('#outOld').textContent=[field('#ownedModel'),field('#ownedCapacity')].filter(B
 $('#outCondition').textContent=$('#ownedCondition').selectedOptions[0]?.textContent||'Não informada';
 }
 function requireFields(ids){for(const id of ids){const e=$(id);if(!e.value.trim()){e.focus();e.reportValidity();return false;}}return true;}
+function selectedUpgrade(){return {desired:{model:desiredModel(),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
+ trade_in:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};}
+async function post(path,payload){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);try{
+ const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:controller.signal,credentials:'omit'});
+ if(!response.ok)throw Error('UNAVAILABLE');
+ return await response.json();
+}finally{clearTimeout(timer);}}
+function presentQuote(data){
+ const q=data?.quote;if(data?.ok!==true||!q||q.currency!=='BRL'||![q.sale_amount_minor,q.trade_in_credit_minor,q.amount_due_minor].every(Number.isSafeInteger)||q.sale_amount_minor<0||q.trade_in_credit_minor<0||q.amount_due_minor<0||q.amount_due_minor!==q.sale_amount_minor-q.trade_in_credit_minor)return false;
+ const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n/100);
+ const intro=document.createElement('div');intro.className='muted';intro.textContent='Estimativa preliminar, sujeita à avaliação do aparelho';
+ const due=document.createElement('strong');due.textContent=money(q.amount_due_minor);
+ const detail=document.createElement('div');detail.className='muted';detail.textContent='iPhone desejado: '+money(q.sale_amount_minor)+' · Crédito estimado: '+money(q.trade_in_credit_minor);
+ $('#result').replaceChildren(intro,due,detail);$('#result').classList.remove('hidden');return true;
+}
+let quoteSelectionKey='';
+$('#simulate').onclick=async()=>{
+ if(busy||!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition']))return;
+ const b=$('#simulate');b.disabled=true;b.textContent='Calculando...';$('#result').classList.add('hidden');
+ try{
+  const selection=selectedUpgrade();const data=await post('/api/upgrade/v1/quote',selection);
+  if(!presentQuote(data))throw Error('INVALID_QUOTE');
+  quoteSelectionKey=JSON.stringify(selection);
+  $('#quoteHelp').textContent='Estimativa consultada. Confira os dados e envie sua solicitação para atendimento.';
+ }catch(_){
+  quoteSelectionKey='';
+  $('#quoteHelp').textContent='Não há cotação aprovada disponível para esta combinação. Você pode enviar o pedido para avaliação personalizada sem receber valores inventados.';
+ }finally{b.disabled=false;b.textContent='Calcular meu Upgrade';}
+};
 $('#next1').onclick=()=>{if(requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity'])){stage=2;refresh();}};
 $('#next2').onclick=()=>{if(requireFields(['#ownedModel','#ownedCapacity','#ownedCondition'])){stage=3;refresh();}};
 $('#back2').onclick=()=>{stage=1;refresh();};$('#back3').onclick=()=>{stage=2;refresh();};
-$('form').addEventListener('input',refresh);$('form').addEventListener('change',refresh);
+$('form').addEventListener('input',()=>{refresh();if(quoteSelectionKey&&JSON.stringify(selectedUpgrade())!==quoteSelectionKey){quoteSelectionKey='';$('#result').classList.add('hidden');$('#quoteHelp').textContent='Sua seleção mudou. Calcule novamente para atualizar o valor.';}});$('form').addEventListener('change',refresh);
 $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
  if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
- const selection={desired:{model:desiredModel(),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
-  trade_in:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};
+ const selection=selectedUpgrade();
  const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp')};
  busy=true;$('#submit').disabled=true;$('#submit').textContent='Enviando...';
- async function post(path,payload){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);try{
-  const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:controller.signal,credentials:'omit'});
-  if(!response.ok)throw Error('UNAVAILABLE');
-  return await response.json();
- }finally{clearTimeout(timer);}}
+
  try{
   const lead=await post('/api/upgrade/v1/lead',{request_key:requestKey,selection,contact,consent:true});
   if(lead?.ok!==true||typeof lead.reference!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(lead.reference))throw Error('CAPTURE_NOT_CONFIRMED');
   const message=document.createElement('div');message.textContent='Solicitação recebida. Referência: '+lead.reference+'. Nossa equipe poderá entrar em contato para conferir seu upgrade.';
   $('#leadStatus').replaceChildren(message);$('#leadStatus').classList.remove('hidden');
   $('#submit').textContent='Solicitação enviada';$('#submit').disabled=true;
-  try{
-   const data=await post('/api/upgrade/v1/quote',selection);
-   if(data?.ok===true&&data.quote&&data.quote.currency==='BRL'&&[data.quote.sale_amount_minor,data.quote.trade_in_credit_minor,data.quote.amount_due_minor].every(Number.isSafeInteger)&&data.quote.sale_amount_minor>=0&&data.quote.trade_in_credit_minor>=0&&data.quote.amount_due_minor===data.quote.sale_amount_minor-data.quote.trade_in_credit_minor){
-    const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n/100);
-    const intro=document.createElement('div');intro.className='muted';intro.textContent='Cotação preliminar, sujeita a conferência';
-    const due=document.createElement('strong');due.textContent=money(data.quote.amount_due_minor);
-    const detail=document.createElement('div');detail.className='muted';detail.textContent='Aparelho: '+money(data.quote.sale_amount_minor)+' · Crédito estimado: '+money(data.quote.trade_in_credit_minor);
-    $('#result').replaceChildren(intro,due,detail);$('#result').classList.remove('hidden');
-   }
-  }catch(_){/* O lead já foi confirmado. Cotação indisponível não cancela a solicitação. */}
+  $('#quoteHelp').textContent='Solicitação registrada. A Pitstop vai conferir os valores e as condições comerciais.';
  }catch(_){$('#error').textContent='Não foi possível confirmar o recebimento. Sua solicitação pode ter sido registrada; tente novamente sem alterar os dados ou entre em contato com a Pitstop para conferir.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Enviar minha solicitação';}
  finally{busy=false;}
 });
