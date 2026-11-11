@@ -55,7 +55,20 @@ function createAuthorizedUpgradeQuote({enabled=false,tenantId,loadApprovedCatalo
    }),'estimateTradeIn',pub);
   }catch(_){deny();}
   if(credit>sale)deny();
-  return Object.freeze({sale_amount_minor:sale,trade_in_credit_minor:credit,amount_due_minor:sale-credit,currency:'BRL'});
+  let installments={};
+  if(selection.installments>1){
+   let result;
+   try{result=await invokeInternal({action:'simulateSale',command:{
+    ...base,installment_count:selection.installments,
+    device_model_id:used[0].device_model_id,capacity_gb:used[0].capacity_gb
+   }});}catch(_){deny();}
+   const installmentAmount=assertPublicResult(result,'simulateSale',pub);
+   if(result.installment_count!==selection.installments||
+      installmentAmount<0||installmentAmount>100000000)deny();
+   installments={installment_count:selection.installments,installment_amount_minor:installmentAmount};
+  }
+  return Object.freeze({sale_amount_minor:sale,trade_in_credit_minor:credit,
+   amount_due_minor:sale-credit,currency:'BRL',...installments});
  };
 }
 module.exports={createAuthorizedUpgradeQuote,UpgradeQuoteUnavailable};
