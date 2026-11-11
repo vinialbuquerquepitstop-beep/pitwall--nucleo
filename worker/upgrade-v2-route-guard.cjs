@@ -7,7 +7,7 @@ const response=(status,code)=>new Response(JSON.stringify({ok:false,code}),{
  status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',
   'x-content-type-options':'nosniff'}
 });
-function createUpgradeV2Gate({enabled=false,handleV2}={}){
+function createUpgradeV2Gate({enabled=false,handleV2,authorizeRequest}={}){
  return Object.freeze({
   matches(path){return typeof path==='string'&&path.startsWith('/api/upgrade/v1/');},
   async handle(request){
@@ -20,7 +20,13 @@ function createUpgradeV2Gate({enabled=false,handleV2}={}){
    // No URL, identity, or DB key comes from the anonymous request.
    if(typeof handleV2!=='function')return response(503,'UPGRADE_V2_NOT_CONNECTED');
    if(path!=='/api/upgrade/v1/lead')return response(503,'UPGRADE_V2_NOT_CONNECTED');
+   if(typeof authorizeRequest!=='function')return response(503,'UPGRADE_V2_ABUSE_PROTECTION_UNAVAILABLE');
    try{
+    const denied=await authorizeRequest(request);
+    if(denied!==null){
+     if(!(denied instanceof Response))throw Error('INVALID_ABUSE_GATE_RESULT');
+     return denied;
+    }
     const result=await handleV2(request);
     if(!(result instanceof Response))throw Error('INVALID_UPGRADE_V2_RESPONSE');
     return result;
