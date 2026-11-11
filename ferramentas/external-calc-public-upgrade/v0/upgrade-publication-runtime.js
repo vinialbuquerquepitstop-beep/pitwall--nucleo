@@ -10,15 +10,45 @@ const MEMBER_SQL=`SELECT id,tenant_id,papel,ativo FROM public.app_usuario
 const DENIED='PUBLICATION_OPERATOR_AUTH_REQUIRED';
 const deny=()=>{throw Object.assign(new Error(DENIED),{code:DENIED});};
 function createUpgradePublicationRuntime({
- enabled=false,pool,authenticateOperator,loadCalculationProfile,loadTradeInCandidates,clock
+ enabled=false,pool,authenticateOperator,getOperatorAccessToken,calcSupabaseUrl,calcPublishableKey,fetchImpl=fetch,
+ loadCalculationProfile,loadTradeInCandidates,clock
 }={}){
  if(enabled!==true)return createUpgradeCatalogPublicationOperator();
- if(!pool||typeof pool.connect!=='function'||typeof authenticateOperator!=='function'||
+ if(!pool||typeof pool.connect!=='function'||
+    (typeof authenticateOperator!=='function'&&typeof getOperatorAccessToken!=='function')||
     (loadTradeInCandidates!=null&&typeof loadTradeInCandidates!=='function'))
   throw Error('PRIVATE_PUBLICATION_RUNTIME_DEPENDENCIES_REQUIRED');
  const loadTrustedCalcInputs=createUpgradeTrustedCalcSource({
   enabled:true,loadCalculationProfile,loadTradeInCandidates
  });
+ let verifyOperator=authenticateOperator;
+ if(typeof verifyOperator!=='function'){
+  let origin;
+  try{
+   origin=new URL(calcSupabaseUrl);
+   if(origin.protocol!=='https:'||origin.username||origin.password||
+      origin.search||origin.hash||origin.pathname!=='/')deny();
+  }catch(_){deny();}
+  if(typeof calcPublishableKey!=='string'||calcPublishableKey.length<8||
+     typeof fetchImpl!=='function')deny();
+  verifyOperator=async()=>{
+   let token;
+   try{token=await getOperatorAccessToken();}catch(_){deny();}
+   if(typeof token!=='string'||token.length<20||token.length>8192||/\\s/.test(token))deny();
+   let response,user;
+   try{
+    response=await fetchImpl(new URL('/auth/v1/user',origin).toString(),{
+     method:'GET',headers:{apikey:calcPublishableKey,
+      authorization:'Bearer '+token,accept:'application/json'},
+     redirect:'error',signal:AbortSignal.timeout(10000)
+    });
+    if(!response?.ok)deny();
+    user=await response.json();
+   }catch(_){deny();}
+   if(!UUID.test(user?.id||'')||user.is_anonymous===true)deny();
+   return {verified:true,user_id:user.id};
+  };
+ }
  async function withTransaction(fn){
   const client=await pool.connect();
   if(!client||typeof client.query!=='function'||typeof client.release!=='function')deny();
@@ -39,7 +69,7 @@ function createUpgradePublicationRuntime({
   if(!['stage','approve'].includes(action)||!tx||typeof tx.query!=='function')deny();
   // The supplied function must validate the operator's session server-side.
   // Never use a user id, token claims, or role submitted with an Upgrade form.
-  const auth=await authenticateOperator({action});
+  const auth=await verifyOperator({action});
   if(!auth||auth.verified!==true||!UUID.test(auth.user_id||''))deny();
   const members=await tx.query(MEMBER_SQL,[auth.user_id]);
   if(!Array.isArray(members?.rows)||members.rows.length!==1)deny();
