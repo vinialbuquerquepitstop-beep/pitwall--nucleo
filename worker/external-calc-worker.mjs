@@ -5,6 +5,7 @@ import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-i
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
+import upgradeHyperdriveModule from '../ferramentas/external-calc-public-upgrade/v0/upgrade-hyperdrive-composition.js';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
 
@@ -13,6 +14,7 @@ const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
+const { createUpgradeV1HyperdriveApplication } = upgradeHyperdriveModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -322,6 +324,11 @@ export default {
       // may not expose named Client under Workers.
       return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
     }
+
+    // Public Upgrade is explicitly disabled by default; preserve existing handlers.
+    // Driver uses the already-proven static pg import and restricted UPGRADE_DB.
+    const upgradePublicApi = createUpgradeV1HyperdriveApplication({ env, Client: pgModule?.Client });
+    if (upgradePublicApi.matches(url.pathname)) return upgradePublicApi.handle(request);
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
     if (batchListIntakeApi.matches(url.pathname)) return batchListIntakeApi.handle(request);
