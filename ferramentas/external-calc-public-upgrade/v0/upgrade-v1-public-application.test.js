@@ -33,14 +33,14 @@ test('one public journey resolves authorized publication + trade-in without supp
   loadApprovedCatalog:async()=>[pub],
   invokeInternal:async({action,command})=>{
    calls.push({action,command});
-   return {schema_version:'pitstop-internal-upgrade/v1',public_id:pub.public_id,price_revision:pub.price_revision,action,amount_minor:action==='resolveVariant'?690000:260000,currency:'BRL'};
+   return {schema_version:'pitstop-internal-upgrade/v1',public_id:pub.public_id,price_revision:pub.price_revision,action,amount_minor:action==='resolveVariant'?690000:260000,currency:'BRL',...(action==='simulateSale'?{installment_count:12}:{})};
   }});
  const lead=await app.handle(request());
  assert.equal(lead.status,202);
  const quote=await app.handle(new Request(origin+'/api/upgrade/v1/quote',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(selection)}));
  assert.equal(quote.status,200);
- assert.deepEqual(await quote.json(),{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL'}});
- assert.deepEqual(calls.map(c=>c.action),['resolveVariant','estimateTradeIn']);
+ assert.deepEqual(await quote.json(),{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL',installment_count:12,installment_amount_minor:260000}});
+ assert.deepEqual(calls.map(c=>c.action),['resolveVariant','estimateTradeIn','simulateSale']);
  assert(!JSON.stringify(calls[0].command).includes('supplier'));
 });
 test('without approved publication client gets no guessed price, even after lead capture',async()=>{
