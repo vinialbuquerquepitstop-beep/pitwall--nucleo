@@ -9,6 +9,7 @@ import probeModule from './upgrade-hyperdrive-probe.cjs';
 import pgModule from 'pg';
 import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
 import upgradeServiceModule from './upgrade-v2-service-bridge.cjs';
+import upgradeAbuseModule from './upgrade-v2-edge-abuse.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
@@ -17,6 +18,7 @@ const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 const { createUpgradeV2Gate } = upgradeGuardModule;
 const { createUpgradeV2ServiceBridge } = upgradeServiceModule;
+const { createUpgradeV2EdgeAbuseGate, createUpgradeV2EdgeIpHasher } = upgradeAbuseModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -336,7 +338,16 @@ export default {
         secret: env.UPGRADE_V2_BRIDGE_SECRET,
         publicOrigin: env.UPGRADE_EXPECTED_ORIGIN
       }) : null;
-      return createUpgradeV2Gate({ enabled, handleV2 }).handle(request);
+      const abuseGate = enabled ? createUpgradeV2EdgeAbuseGate({
+        limiter: env.UPGRADE_V2_RATE_LIMITER,
+        origin: env.UPGRADE_EXPECTED_ORIGIN,
+        hashIp: createUpgradeV2EdgeIpHasher(env.UPGRADE_V2_IP_HMAC_SECRET)
+      }) : null;
+      return createUpgradeV2Gate({
+        enabled,
+        handleV2,
+        authorizeRequest: abuseGate ? abuseGate.authorize : null
+      }).handle(request);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
