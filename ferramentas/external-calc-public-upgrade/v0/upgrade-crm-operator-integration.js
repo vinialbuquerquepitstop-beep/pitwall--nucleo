@@ -29,7 +29,7 @@ function createUpgradeCrmOperatorIntegration({
    try{operator=await authenticateOperator();}catch(_){deny();}
    if(!operator||operator.verified!==true||!UUID.test(operator.user_id||'')||
       operator.organization_id!==organizationId||
-      !['owner','admin','dono','validador'].includes(operator.role)||
+      !['owner','manager','operator'].includes(operator.role)||
       typeof operator.access_token!=='string'||operator.access_token.length<20||
       operator.access_token.length>8192)deny();
    const transport=createPitwallCrmOperatorTransport({
