@@ -10,6 +10,11 @@ test('existing Worker never imports or runs the legacy Calc Upgrade capture',()=
  assert(!file.includes('createUpgradeV1HyperdriveApplication'));
  assert(!file.includes('upgrade-hyperdrive-composition'));
  assert(file.includes("env.UPGRADE_V2_PUBLIC_ENABLED === 'true'"));
+ assert(file.includes('createUpgradeV2ServiceBridge'));
+ assert(file.includes('env.UPGRADE_V2_INGRESS_SERVICE'));
+ assert(file.includes('env.UPGRADE_V2_BRIDGE_SECRET'));
+ assert(!file.includes('createUpgradeV1HyperdriveApplication'));
+
 });
 test('default OFF rejects every Upgrade public route with no provider execution',async()=>{
  const gate=createUpgradeV2Gate();let called=false;
