@@ -94,6 +94,18 @@ jobs:
           npm install --no-audit --no-fund
           node -e "const pg = require('pg'); if (typeof pg.Client !== 'function') process.exit(1); console.log('EXTERNAL_CALC_PG_DRIVER=PASS')"
 
+      - name: Prove Upgrade route and repository boundaries
+        run: |
+          set -euo pipefail
+          node --test \
+            worker/upgrade-route-wiring.test.cjs \
+            ferramentas/external-calc-public-upgrade/v0/approved-catalog-repository.test.js \
+            ferramentas/external-calc-public-upgrade/v0/upgrade-capture-repository.test.js \
+            ferramentas/external-calc-public-upgrade/v0/hyperdrive-db.test.js \
+            ferramentas/external-calc-public-upgrade/v0/public-upgrade-api.test.js \
+            ferramentas/external-calc-public-upgrade/v0/upgrade-v1-public-application.test.js \
+            ferramentas/external-calc-public-upgrade/v0/upgrade-hyperdrive-composition.test.js
+
       - name: Wrangler dry-run
         run: |
           set -euo pipefail
