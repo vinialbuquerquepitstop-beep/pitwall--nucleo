@@ -30,8 +30,11 @@ function createUpgradeTrustedCalcSource({enabled=false,loadCalculationProfile,lo
  if(enabled!==true)return async()=>deny();
  if(typeof loadCalculationProfile!=='function'||typeof loadTradeInCandidates!=='function')
   throw Error('CANONICAL_CALC_READERS_REQUIRED');
- return async function loadTrustedCalcInputs({tx,tenantId,analysisId,offerId,offerRevision}={}){
+ return async function loadTrustedCalcInputs(input={}){
   try {
+   if(!input||typeof input!=='object'||Array.isArray(input)||
+      Object.keys(input).some(k=>!['tx','tenantId','analysisId','offerId','offerRevision'].includes(k)))deny();
+   const {tx,tenantId,analysisId,offerId,offerRevision}=input;
    if(!tx||typeof tx.query!=='function'||!UUID.test(tenantId||'')||
      !REF.test(analysisId||'')||!REF.test(offerId||'')||
      !Number.isInteger(offerRevision)||offerRevision<1)deny();
