@@ -5,7 +5,7 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {createUpgradeV1HyperdriveApplication}=require('./upgrade-hyperdrive-composition');
 const {createInternalUpgradePort}=require('./internal-port');
 const {createCanonicalUpgradeDomainAdapter}=require('./canonical-domain-adapter');
-const {resolveTradeIn}=require('../../external-calc-sales-product/v0/sales-product-service');
+const {resolveTradeIn,resolveSimulation}=require('../../external-calc-sales-product/v0/sales-product-service');
 const {SQL}=require('./approved-catalog-repository');
 const tenant='5212679b-8b2e-459f-a2ba-7ae8db558ba1';
 const origin='https://upgrade.example.test';
@@ -64,12 +64,17 @@ test('public Upgrade price comes from approved publication and canonical Calc tr
  // choose a publication expiry in the future relative to current date.
  const {app,get,visits}=fixture();
  const response=await app.handle(get());
- const expected=resolveTradeIn([trade],policy,{model_id:'iphone14pro',capacity_gb:128,color:null})
-  .estimated_credit.amount_minor;
+ const estimate=resolveTradeIn([trade],policy,{model_id:'iphone14pro',capacity_gb:128,color:null});
+ const expected=estimate.estimated_credit.amount_minor;
+ const installment=resolveSimulation([sale,trade],policy,rate,{
+  analysis_id:'a',offer_id:'sale-silver',offer_revision:1,
+  sale_amount:{amount_minor:690000,currency:'BRL'},
+  installment_count:12,trade_in_estimate_id:estimate.estimate_id
+ }).installment_amount.amount_minor;
  assert.equal(response.status,200);
  const body=await response.json();
  assert.deepEqual(body,{ok:true,quote:{sale_amount_minor:690000,trade_in_credit_minor:expected,
-  amount_due_minor:690000-expected,currency:'BRL'}});
+  amount_due_minor:690000-expected,currency:'BRL',installment_count:12,installment_amount_minor:installment}});
  assert(!JSON.stringify(body).includes('SUPPLIER_PRIVATE'));
  assert(!JSON.stringify(body).includes('rate_units'));
  assert(!JSON.stringify(body).includes('600000'));
