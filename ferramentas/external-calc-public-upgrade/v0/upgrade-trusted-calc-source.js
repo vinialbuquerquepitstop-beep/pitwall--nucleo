@@ -2,6 +2,7 @@
 // Server-only loader for approved publication preparation. Uses canonical
 // External Calc tables and externally injected trusted profile/candidate readers.
 // The public Worker must never import or invoke this module.
+const {createUpgradeCalcDadosProfileSource}=require('./upgrade-calc-dados-profile-source');
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const REF=/^[A-Za-z0-9_-]{1,100}$/;
 const C01_SQL=`SELECT c01_snapshot,c01_contract_version,offer_value_fingerprint,
@@ -28,8 +29,10 @@ function safeInt(value){
 }
 function createUpgradeTrustedCalcSource({enabled=false,loadCalculationProfile,loadTradeInCandidates}={}){
  if(enabled!==true)return async()=>deny();
- if(typeof loadCalculationProfile!=='function'||typeof loadTradeInCandidates!=='function')
+ if(typeof loadTradeInCandidates!=='function')
   throw Error('CANONICAL_CALC_READERS_REQUIRED');
+ const resolveProfile=typeof loadCalculationProfile==='function'?loadCalculationProfile:
+  createUpgradeCalcDadosProfileSource({enabled:true});
  return async function loadTrustedCalcInputs(input={}){
   try {
    if(!input||typeof input!=='object'||Array.isArray(input)||
@@ -73,7 +76,7 @@ function createUpgradeTrustedCalcSource({enabled=false,loadCalculationProfile,lo
    // Existing authenticated Calc authority provides its calculation profile
    // and trade-in offer candidates. Neither may come from an HTTP customer.
    const [calculationProfile,tradeInCandidates]=await Promise.all([
-    loadCalculationProfile({tx,tenantId,analysisId,offerId,offerRevision}),
+    resolveProfile({tx,tenantId,analysisId,offerId,offerRevision}),
     loadTradeInCandidates({tx,tenantId,analysisId,offerId,offerRevision})
    ]);
    if(!calculationProfile||calculationProfile.currency!=='BRL'||
