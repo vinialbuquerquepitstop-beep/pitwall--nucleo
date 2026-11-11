@@ -1,7 +1,7 @@
 'use strict';
 // UP-06K: internal-only port. No Worker route, DB privilege or credentials are created here.
 const SCOPES=Object.freeze({resolveVariant:'product:resolve-variant',estimateTradeIn:'product:trade-in-estimate',simulateSale:'product:sales-simulation'});
-const FIELDS=Object.freeze({resolveVariant:['public_id','price_revision'],estimateTradeIn:['public_id','price_revision','device_model_id','capacity_gb','color'],simulateSale:['public_id','price_revision','installment_count','estimate_ref']});
+const FIELDS=Object.freeze({resolveVariant:['public_id','price_revision'],estimateTradeIn:['public_id','price_revision','device_model_id','capacity_gb','color'],simulateSale:['public_id','price_revision','installment_count','estimate_ref','device_model_id','capacity_gb','color']});
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 class PortDenied extends Error {constructor(code){super(code);this.code=code;this.name='PortDenied';}}
 const deny=c=>{throw new PortDenied(c)};
@@ -16,6 +16,13 @@ function createInternalUpgradePort({enabled=false,verifyService,loadApprovedPubl
   if(action==='simulateSale'&&(!Number.isInteger(command.installment_count)||command.installment_count<1||command.installment_count>18))deny('INSTALLMENTS_INVALID');
   if(action==='estimateTradeIn'&&(typeof command.device_model_id!=='string'||!command.device_model_id||!Number.isInteger(command.capacity_gb)||command.capacity_gb<1||command.capacity_gb>2048||(command.color!=null&&(typeof command.color!=='string'||command.color.length>48))))deny('DEVICE_INVALID');
   if(action==='simulateSale'&&command.estimate_ref!=null&&(typeof command.estimate_ref!=='string'||!command.estimate_ref||command.estimate_ref.length>200))deny('ESTIMATE_REF_INVALID');
+  if(action==='simulateSale'&&(command.device_model_id!=null||command.capacity_gb!=null||command.color!=null)){
+   if(command.estimate_ref!=null||typeof command.device_model_id!=='string'||
+      !/^[A-Za-z0-9_-]{1,100}$/.test(command.device_model_id)||
+      !Number.isInteger(command.capacity_gb)||command.capacity_gb<1||command.capacity_gb>2048||
+      (command.color!=null&&(typeof command.color!=='string'||command.color.length>48)))
+      deny('DEVICE_INVALID');
+  }
   if(typeof credential!=='string'||credential.length===0||credential.length>8192)deny('CREDENTIAL_REQUIRED');
   // Verifier must cryptographically verify issuer/audience, revocation and one-time invocation.
   const identity=await verifyService({credential,requiredScope:SCOPES[action]});
