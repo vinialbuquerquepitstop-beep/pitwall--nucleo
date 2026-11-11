@@ -15,7 +15,7 @@ const row={id:requestId,tenant_id:sourceTenantId,customer_name:'Ana',
 const marker='Pitstop Upgrade V1 | Solicitacao: '+requestId+' | Novo: iPhone 17 Pro';
 const crmLead={id:leadId,organization_id:organizationId,phone:whatsapp,notes:marker};
 const operator={verified:true,user_id:'d71c03a5-c98d-4fe9-ad8c-ea4c20d18591',
- organization_id:organizationId,role:'admin',
+ organization_id:organizationId,role:'manager',
  access_token:'secure-operator-access-token-long-enough'};
 const denied=e=>e.code===DENIED;
 function fixture({authenticated=operator,alreadyLinked=false,existing=[],failure=null}={}){
@@ -108,4 +108,15 @@ test('source mark failure refuses success after CRM acknowledgement',async()=>{
  const f=fixture({failure:'link'});
  await assert.rejects(f.integration.reconcile({requestId}),e=>e.code==='CRM_LINK_FAILED');
  assert.deepEqual(f.calls.sql.map(x=>x.sql),[LOAD,MARK]);
+});
+
+test('canonical Pitwall owner and operator roles may reconcile, legacy admin role is denied',async()=>{
+ for(const role of ['owner','operator']){
+  const f=fixture({authenticated:{...operator,role},alreadyLinked:true});
+  const result=await f.integration.reconcile({requestId});
+  assert.equal(result.already_linked,true);
+ }
+ const forbidden=fixture({authenticated:{...operator,role:'admin'}});
+ await assert.rejects(forbidden.integration.reconcile({requestId}),denied);
+ assert.deepEqual(forbidden.calls.sql,[]);
 });
