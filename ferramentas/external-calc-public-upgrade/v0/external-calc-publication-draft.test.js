@@ -63,3 +63,19 @@ test('price revision and expiry are server-controlled and bounded',()=>{
   {expiresAtMs:now+35*86400000},{tenantId:'bad'}])
   assert.throws(()=>D({...args,...patch}),e=>e.code==='EXTERNAL_CALC_PUBLICATION_DRAFT_UNAVAILABLE');
 });
+
+test('real C01 mixed-case Lacrado and Seminovo map to public catalog enum',()=>{
+ for(const [source,expected] of [['Lacrado','lacrado'],['LACRADO','lacrado'],['Seminovo','seminovo']]){
+  const snapshot={...sale,reviewed_offer:{...sale.reviewed_offer,condition:source}};
+  const result=D({...args,reviewedCandidate:snapshot});
+  assert.equal(result.catalog.desired_condition,expected);
+  assert.equal(result.publication.status,'draft');
+ }
+});
+test('missing C01 condition fails closed instead of treating it as lacrado',()=>{
+ for(const value of [null,undefined,'', 'UNKNOWN']){
+  const snapshot={...sale,reviewed_offer:{...sale.reviewed_offer,condition:value}};
+  assert.throws(()=>D({...args,reviewedCandidate:snapshot}),
+   e=>e.code==='EXTERNAL_CALC_PUBLICATION_DRAFT_UNAVAILABLE');
+ }
+});
