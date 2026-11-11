@@ -186,6 +186,7 @@ async function loadCatalog(){
   finally{clearTimeout(timer);}
   if(!response.ok)throw Error('UNAVAILABLE');
   const data=await response.json();
+  if(manualMode)return; // Manual choice always wins over an outstanding catalog request.
   if(data?.ok!==true||!Array.isArray(data.offers)||data.offers.length===0||data.offers.length>500)throw Error('CATALOG_EMPTY');
   const valid=['lacrado','seminovo'];
   if(data.offers.some(x=>!x||typeof x.model!=='string'||!x.model.trim()||typeof x.capacity!=='string'||!valid.includes(x.condition)))throw Error('CATALOG_INVALID');
