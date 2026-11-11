@@ -23,6 +23,10 @@ function normalizeWhatsapp(s){
 }
 function validateQuote(q){
  if(!q||typeof q!=='object'||q.currency!=='BRL'||!Number.isSafeInteger(q.sale_amount_minor)||!Number.isSafeInteger(q.trade_in_credit_minor)||!Number.isSafeInteger(q.amount_due_minor)||q.sale_amount_minor<0||q.trade_in_credit_minor<0||q.amount_due_minor<0||q.trade_in_credit_minor>q.sale_amount_minor||q.amount_due_minor!==q.sale_amount_minor-q.trade_in_credit_minor)return false;
+ if(q.installment_count!=null||q.installment_amount_minor!=null){
+  if(!Number.isInteger(q.installment_count)||![6,10,12,18].includes(q.installment_count)||
+    !Number.isSafeInteger(q.installment_amount_minor)||q.installment_amount_minor<0||q.installment_amount_minor>100000000)return false;
+ }
  return true;
 }
 function createPublicUpgradeApi({enabled=false,quote,capture,catalog,expectedOrigin}={}){
@@ -68,7 +72,7 @@ function createPublicUpgradeApi({enabled=false,quote,capture,catalog,expectedOri
    }catch{return RESP(503,{ok:false,code:'CAPTURE_UNAVAILABLE'})}
   }
   if(!validateSelection(body))return RESP(400,{ok:false,code:'INVALID_SELECTION'});
-  try{const result=await quote(body);if(!validateQuote(result))throw Error('INVALID_QUOTE');return RESP(200,{ok:true,quote:{sale_amount_minor:result.sale_amount_minor,trade_in_credit_minor:result.trade_in_credit_minor,amount_due_minor:result.amount_due_minor,currency:'BRL'}})}
+  try{const result=await quote(body);if(!validateQuote(result)|| (body.installments>1&&(result.installment_count!==body.installments||!Number.isSafeInteger(result.installment_amount_minor)))|| (body.installments===1&&result.installment_count!=null))throw Error('INVALID_QUOTE');return RESP(200,{ok:true,quote:{sale_amount_minor:result.sale_amount_minor,trade_in_credit_minor:result.trade_in_credit_minor,amount_due_minor:result.amount_due_minor,currency:'BRL',...(result.installment_count!=null?{installment_count:result.installment_count,installment_amount_minor:result.installment_amount_minor}:{})}})}
   catch{return RESP(503,{ok:false,code:'QUOTE_UNAVAILABLE'})}
  }});
 }
