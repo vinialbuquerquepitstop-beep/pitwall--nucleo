@@ -56,8 +56,8 @@ function ref(v){return REF.test(v||'');}
 function createUpgradeCatalogPublicationOperator({enabled=false,withTransaction,authorizeOperator,loadTrustedCalcInputs,clock=()=>Date.now()}={}){
  if(enabled!==true)return Object.freeze({enabled:false,stage:async()=>deny(),approve:async()=>deny()});
  if(typeof withTransaction!=='function'||typeof authorizeOperator!=='function'||typeof loadTrustedCalcInputs!=='function')throw Error('PUBLICATION_OPERATOR_DEPENDENCIES_REQUIRED');
- async function authorize(action){
-  const actor=await authorizeOperator({action});
+ async function authorize(action,tx){
+  const actor=await authorizeOperator({action,tx});
   if(!actor||!operatorId(actor.user_id)||!operatorId(actor.tenant_id)||
    !['dono','validador'].includes(actor.role)||actor.authenticated!==true)deny();
   return actor;
@@ -91,8 +91,8 @@ function createUpgradeCatalogPublicationOperator({enabled=false,withTransaction,
   return {draft,inputs};
  }
  async function stage(command){
-  const actor=await authorize('stage');
   return withTransaction(async tx=>{
+   const actor=await authorize('stage',tx);
    const {draft,inputs}=await prepare(tx,actor,command);
    const p=draft.publication,c=draft.catalog;
    if(!countOne(await tx.query(INSERT_PUBLICATION,[p.tenant_id,p.public_id,p.price_revision,
@@ -107,8 +107,8 @@ function createUpgradeCatalogPublicationOperator({enabled=false,withTransaction,
   });
  }
  async function approve(command){
-  const actor=await authorize('approve');
   return withTransaction(async tx=>{
+   const actor=await authorize('approve',tx);
    // Recompute from the live canonical source, not the staged or client-supplied price.
    const {draft,inputs}=await prepare(tx,actor,command);
    const p=draft.publication,c=draft.catalog;
