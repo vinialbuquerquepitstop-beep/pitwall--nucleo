@@ -28,7 +28,7 @@ function mapUpgradeRequestToCrm(request,organizationId,sourceTenantId){
   desired_product:d.model+' / '+d.capacity+' / '+d.condition,
   payment_preference:s.installments===1?'undecided':'card',
   trade_intent:'yes',trade_model:t.model,trade_storage:t.capacity,
-  trade_condition_declared:t.condition,next_action:'Conferir aparelho usado e proposta de upgrade'
+  trade_condition_declared:t.condition,upgrade_request_id:request.id,next_action:'Conferir aparelho usado e proposta de upgrade'
  };
  return Object.freeze({
   p_org_id:organizationId,p_name:request.customer_name.trim(),
@@ -54,15 +54,28 @@ function createUpgradeCrmReconciler({enabled=false,organizationId,sourceTenantId
   // must handle existing contacts instead of silently creating another lead.
   let existing;
   try{existing=await findExistingLeads({organizationId,whatsapp:row.whatsapp_digits});}catch(_){deny('CRM_LOOKUP_UNAVAILABLE');}
-  if(!Array.isArray(existing)||existing.length>0)deny('CRM_DUPLICATE_REQUIRES_REVIEW');
-  let result;
-  try{result=await authenticatedOperatorRpc('pw_s01_create_lead',command);}catch(_){deny('CRM_RPC_UNAVAILABLE');}
-  // Supabase RPC returns the row directly, not a {ok,lead_id} envelope.
+  if(!Array.isArray(existing))deny('CRM_LOOKUP_UNAVAILABLE');
+  // An earlier successful CRM RPC can outlive a failed source-link response.
+  // Confirm the EXACT original source request before reusing a CRM lead.
+  let result,alreadyExisting=false;
+  if(existing.length){
+   if(existing.length!==1)deny('CRM_DUPLICATE_REQUIRES_REVIEW');
+   const candidate=existing[0];
+   if(candidate?.organization_id!==organizationId||
+      !UUID.test(candidate.id||'')||
+      candidate?.phone!==row.whatsapp_digits||
+      candidate?.context?.upgrade_request_id!==requestId)
+    deny('CRM_DUPLICATE_REQUIRES_REVIEW');
+   result=candidate;alreadyExisting=true;
+  }else{
+   try{result=await authenticatedOperatorRpc('pw_s01_create_lead',command);}catch(_){deny('CRM_RPC_UNAVAILABLE');}
+  }
+  // Supabase RPC returns a lead row, not a {ok,lead_id} envelope.
   if(!result||!UUID.test(result.id||'')||result.organization_id!==organizationId)deny('CRM_LEAD_NOT_CONFIRMED');
   let linked;
   try{linked=await markLinked({tenantId:sourceTenantId,requestId,leadId:result.id,expectedStatus:'RECEIVED'});}catch(_){deny('CRM_LINK_FAILED');}
   if(linked!==true)deny('CRM_LINK_FAILED');
-  return Object.freeze({linked:true,lead_id:result.id,already_linked:false});
+  return Object.freeze({linked:true,lead_id:result.id,already_linked:alreadyExisting});
  };
 }
 module.exports={mapUpgradeRequestToCrm,createUpgradeCrmReconciler,CrmReconcileDenied};
