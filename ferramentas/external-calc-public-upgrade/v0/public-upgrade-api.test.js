@@ -4,7 +4,7 @@ const {createPublicUpgradeApi,PATHS}=require('./public-upgrade-api');
 const origin='https://upgrade.example.test';
 const request_key='d71c03a5-c98d-4fe9-ad8c-ea4c20d18591';
 const selection={desired:{model:'iPhone 17 Pro',capacity:'256 GB',condition:'lacrado'},trade_in:{model:'iPhone 14 Pro',capacity:'128 GB',condition:'bom'},installments:12};
-const quote={sale_amount_minor:690000,trade_in_credit_minor:270000,amount_due_minor:420000,currency:'BRL'};
+const quote={sale_amount_minor:690000,trade_in_credit_minor:270000,amount_due_minor:420000,currency:'BRL',installment_count:12,installment_amount_minor:40000};
 const request=(path=PATHS.quote,body=selection,extras={})=>new Request(origin+path,{method:'POST',headers:{'content-type':'application/json',...extras.headers},body:JSON.stringify(body)});
 const instance=(options={})=>createPublicUpgradeApi({enabled:true,expectedOrigin:origin,quote:async()=>quote,capture:async()=>({accepted:true,reference:'lead_000001'}),catalog:async()=>[{tenant_id:'private',status:'published',approved:true,desired:selection.desired,supplier_id:'PRIVATE'}],...options});
 test('disabled by default, no route exposed',async()=>assert.equal((await createPublicUpgradeApi().handle(request())).status,404));
