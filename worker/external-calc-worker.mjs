@@ -7,12 +7,14 @@ import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
+import upgradePublicModule from '../ferramentas/external-calc-public-upgrade/v0/upgrade-hyperdrive-composition.js';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
+const { createUpgradeV1HyperdriveApplication } = upgradePublicModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -321,6 +323,14 @@ export default {
       // Pass a statically bundled driver; dynamic CommonJS namespace exports
       // may not expose named Client under Workers.
       return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
+    }
+
+    // UP-V1: flags default-off; no public catalog or lead route can be activated by a request.
+    // The private DB probe above remains isolated from these endpoints.
+    if (url.pathname.startsWith('/api/upgrade/v1/')) {
+      const upgradeApi = createUpgradeV1HyperdriveApplication({ env, Client: pgModule.Client });
+      if (upgradeApi.matches(url.pathname)) return upgradeApi.handle(request);
+      return json({ ok: false, code: 'NOT_FOUND' }, 404);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
