@@ -54,7 +54,7 @@ test('mismatched trusted tenant mapping denied',()=>assert.throws(()=>mapUpgrade
 test('retries after confirmed CRM create but failed source link without duplicate lead',async()=>{
  let created=0,links=0;
  const exact={id:leadId,organization_id:organizationId,phone:row.whatsapp_digits,
-  context:{upgrade_request_id:requestId}};
+  notes:'Pitstop Upgrade V1 | Solicitacao: '+requestId+' | Novo: teste'};
  const reconciler=setup({
   findExistingLeads:async()=>[exact],
   authenticatedOperatorRpc:async()=>{created++;return exact;},
@@ -68,7 +68,7 @@ test('same WhatsApp but different Upgrade request cannot claim an unrelated lead
  let linked=0,created=0;
  const reconciler=setup({
   findExistingLeads:async()=>[{id:leadId,organization_id:organizationId,phone:row.whatsapp_digits,
-   context:{upgrade_request_id:'efbd5c32-e2d4-4adc-964e-40ea0eae9731'}}],
+   notes:'Pitstop Upgrade V1 | Solicitacao: efbd5c32-e2d4-4adc-964e-40ea0eae9731 | Novo: teste'}],
   authenticatedOperatorRpc:async()=>{created++;},
   markLinked:async()=>{linked++;}
  });
@@ -77,8 +77,8 @@ test('same WhatsApp but different Upgrade request cannot claim an unrelated lead
 });
 test('matching request ID from different organization or telephone cannot be linked',async()=>{
  for(const existing of [
-  {id:leadId,organization_id:foreignOrg,phone:row.whatsapp_digits,context:{upgrade_request_id:requestId}},
-  {id:leadId,organization_id:organizationId,phone:'5521999999998',context:{upgrade_request_id:requestId}}
+  {id:leadId,organization_id:foreignOrg,phone:row.whatsapp_digits,notes:'Pitstop Upgrade V1 | Solicitacao: '+requestId+' | Novo: teste'},
+  {id:leadId,organization_id:organizationId,phone:'5521999999998',notes:'Pitstop Upgrade V1 | Solicitacao: '+requestId+' | Novo: teste'}
  ]){
   await denied(()=>setup({findExistingLeads:async()=>[existing]})({requestId}),'CRM_DUPLICATE_REQUIRES_REVIEW');
  }
