@@ -13,44 +13,112 @@
 .stage-title{font-weight:750;font-size:29px;line-height:1.18;letter-spacing:-.055em;margin:0 0 8px}.sub{font-size:14px;line-height:1.6;color:#70809A;margin:0 0 28px}.field{display:grid;gap:9px;margin:0 0 19px}label{font-size:13px;font-weight:700}.field select,.field input{width:100%;padding:15px 16px;border:1px solid #D5DFED;background:#FAFCFF;border-radius:12px;color:#07152F;min-height:51px;outline:none}.field select:focus,.field input:focus{border-color:#2878F0;box-shadow:0 0 0 3px #2878F021}.field select:disabled{background:#F1F4F8;color:#9AA8B9}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:27px}.primary{border:0;background:#2878F0;color:white;border-radius:12px;padding:15px 24px;font-size:14px;font-weight:750;min-height:51px}.primary:hover{background:#1761D1}.primary:disabled{background:#AFC7F0;cursor:not-allowed}.secondary{background:transparent;color:#485C7C;border:0;padding:14px 12px;font-weight:700;font-size:14px}.summary{position:sticky;top:24px;background:#07162F;color:white;border-color:#12274C;min-height:330px}.summary h3{margin:0 0 24px;font-size:21px;letter-spacing:-.04em}.summary-head{font-size:11px;font-weight:750;color:#8FADD9;letter-spacing:.15em;margin-bottom:14px}.sum-row{display:flex;justify-content:space-between;align-items:start;gap:14px;padding:17px 0;border-bottom:1px solid #ffffff1C;font-size:14px}.sum-row .val{text-align:right;color:#CFDCF0;max-width:190px}.sum-row .name{color:#A9BBDD}.sum-foot{font-size:12px;color:#91A7C7;line-height:1.6;margin-top:24px}.result{background:#F2F7FF;padding:24px;border:1px solid #DAE7FB;border-radius:18px}.result strong{display:block;font-size:32px;letter-spacing:-.06em;margin:8px 0}.result .muted{font-size:13px;color:#586B88}.error{border:1px solid #F3D8D8;background:#FFF6F5;color:#A52C32;padding:15px;border-radius:12px;font-size:13px;line-height:1.5;margin-top:16px}.notice{font-size:12px;line-height:1.55;color:#73849D}.privacy{margin-top:35px;font-size:12px;line-height:1.5;color:#7B89A0}.hidden{display:none!important}footer{border-top:1px solid #E2E9F4;padding-top:28px;margin-top:55px;color:#74849D;font-size:12px;display:flex;justify-content:space-between;gap:12px}
 @media(max-width:800px){.hero{grid-template-columns:1fr;padding:43px 0 0}.hero-visual{min-height:180px;order:-1}.symbol{font-size:60px}.workspace{grid-template-columns:1fr}.summary{position:static;order:-1;min-height:auto}.shell{padding:18px 18px 65px}.panel,.summary{padding:23px}.hero h1{font-size:48px}.hero p{font-size:15px}.tag{display:none}.formgrid{grid-template-columns:1fr}footer{flex-direction:column}.intro-line{gap:12px}}
 @media(prefers-reduced-motion:no-preference){.primary{transition:background .18s}.panel{animation:in .4s ease both}@keyframes in{from{opacity:.4;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}}
+
+/* UP-V1 | Mobile-first editorial refinement, no financial runtime dependency */
+body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
+.shell{max-width:1120px}
+.top{border-bottom-color:#E1E9F4}
+.brand{letter-spacing:-.045em}
+.hero{padding-top:48px;grid-template-columns:minmax(0,1.24fr) minmax(250px,.76fr)}
+.hero h1{font-size:clamp(40px,5.2vw,68px);max-width:690px}
+.hero p{max-width:560px}
+.hero-visual{min-height:270px;background:radial-gradient(circle at 65% 30%,#2D65C288,transparent 58%),linear-gradient(130deg,#07132D,#163B76)}
+.hero-visual:before,.hero-visual:after{border-color:#ffffff16}
+.workspace{grid-template-columns:minmax(0,1fr) 310px;gap:18px}
+.panel,.summary{box-shadow:0 15px 45px #08214C0A}
+.steps{gap:6px;margin:0 0 12px}
+.step-pill{height:auto;min-height:57px;display:flex;align-items:center;gap:9px;padding:11px 12px;border-radius:13px;background:#F0F4FB;color:#7B8EA7;transition:background .2s,color .2s}
+.step-pill.active{background:#E8F1FF;color:#1D67D9}
+.step-pill.complete{background:#EFF6F4;color:#3A7462}
+.step-number{font-size:11px;font-weight:800;letter-spacing:.04em}
+.step-label{font-size:12px;font-weight:750}
+.progress-caption{margin-bottom:28px;color:#627591;font-size:12px}
+.section-slot{display:flex;gap:14px;align-items:center;padding:16px;background:#F0F6FF;border:1px solid #DAE8FF;border-radius:16px;margin:0 0 26px}
+.section-slot-number{background:#2878F0;color:white;width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:12px;font-size:13px;font-weight:800}
+.section-slot strong{display:block;color:#06112A;font-size:14px;font-weight:750}
+.section-slot span{display:block;font-size:12px;color:#627996;margin-top:4px;line-height:1.45}
+.field input,.field select{font-size:16px}
+.input-help{font-size:12px;color:#73849D;line-height:1.5}
+.primary{box-shadow:0 5px 15px #2878F02A}
+.primary:focus-visible,.secondary:focus-visible{outline:3px solid #84B5FF;outline-offset:3px}
+.summary{background:#07162F;min-height:0}
+.summary-intro{color:#A7BCDA;line-height:1.55;font-size:13px;margin:0 0 12px}
+.summary-status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#6EABFF;margin-right:7px}
+.summary .sum-row:last-of-type{border-bottom:0}
+@media(max-width:800px){
+ .hero{padding-top:30px;grid-template-columns:1fr}
+ .hero-visual{order:0;min-height:125px;border-radius:19px}
+ .symbol{font-size:44px}
+ .symbol small{font-size:9px;margin-top:5px}
+ .hero h1{font-size:clamp(38px,9.8vw,56px)}
+ .workspace{grid-template-columns:minmax(0,1fr)}
+ .summary{order:2;position:static}
+ .panel{order:1}
+ .shell{padding:18px 16px 55px}
+ .panel,.summary{padding:22px 18px}
+ .steps{gap:5px}
+ .step-pill{padding:10px 8px;gap:5px;justify-content:center;flex-wrap:wrap;text-align:center;min-height:62px}
+ .step-label{font-size:10px}
+ .stage-title{font-size:27px}
+ .actions .primary{flex:1}
+}
+@media(max-width:480px){
+ .hero-visual{display:none}
+ .intro-line{gap:12px;font-size:12px}
+ .hero p{margin:16px 0}
+ .steps{margin-bottom:8px}
+ .formgrid{grid-template-columns:minmax(0,1fr)}
+ .actions{align-items:stretch}
+ .actions .secondary{padding-inline:8px}
+ .primary{padding-inline:14px}
+ .summary{margin-top:0}
+}
 </style>
 </head>
 <body>
 <div class="shell">
 <header class="top"><div><div class="brand">PITSTOP<span>.</span> IMPORTS</div><div class="brand-sub">Upgrade Experience</div></div><div class="tag">Uma troca mais inteligente</div></header>
-<section class="hero"><div><div class="eyebrow">PITSTOP UPGRADE</div><h1>Seu próximo iPhone começa com o atual.</h1><p>Conte qual aparelho você deseja e qual já tem. Organizamos as informações para uma avaliação transparente, sem promessas de valor antes da análise.</p><div class="intro-line"><span><strong>01</strong> Escolha o novo</span><span><strong>02</strong> Informe seu usado</span><span><strong>03</strong> Solicite a simulação</span></div></div><div class="hero-visual" aria-hidden="true"><div class="symbol">↔<small>UPGRADE</small></div></div></section>
+<section class="hero"><div><div class="eyebrow">PITSTOP UPGRADE</div><h1>Seu próximo iPhone começa com o atual.</h1><p>Conte qual aparelho você deseja e qual já tem. Organizamos as informações para uma avaliação transparente, sem promessas de valor antes da análise.</p><div class="intro-line"><span><strong>01</strong> Escolha o novo</span><span><strong>02</strong> Informe seu usado</span><span><strong>03</strong> Receba uma avaliação</span></div></div><div class="hero-visual" aria-hidden="true"><div class="symbol">↔<small>UPGRADE</small></div></div></section>
 <main class="workspace">
 <div class="panel">
-<div class="steps" aria-label="Progresso"><div class="step-pill active" id="s1"></div><div class="step-pill" id="s2"></div><div class="step-pill" id="s3"></div></div>
+<nav class="steps" aria-label="Etapas da solicitação">
+<div class="step-pill active" id="s1"><span class="step-number">01</span><span class="step-label">Novo iPhone</span></div>
+<div class="step-pill" id="s2"><span class="step-number">02</span><span class="step-label">Sua troca</span></div>
+<div class="step-pill" id="s3"><span class="step-number">03</span><span class="step-label">Seu contato</span></div>
+</nav>
+<div class="progress-caption" id="progressCaption" role="status" aria-live="polite">Etapa 1 de 3 · Escolha seu próximo iPhone</div>
 <form id="upgrade-form" novalidate>
 <section id="stage-1">
 <div class="eyebrow">PASSO 01 / 03</div><h2 class="stage-title">Qual iPhone você quer?</h2><p class="sub">A disponibilidade e o preço final serão conferidos com a Pitstop.</p>
+<div class="section-slot"><div class="section-slot-number">01</div><div><strong>Seu próximo iPhone</strong><span>Escolha o modelo e como você prefere recebê-lo.</span></div></div>
 <div class="field"><label for="desiredModel">Modelo desejado</label><select required id="desiredModel" disabled><option value="">Carregando catálogo aprovado...</option></select><input id="desiredManual" class="hidden" maxlength="100" placeholder="Ex.: iPhone 17 Pro" autocomplete="off"><div id="catalogNotice" class="notice" role="status" aria-live="polite">Verificando modelos publicados.</div></div>
 <div class="formgrid"><div class="field"><label for="desiredCapacity">Armazenamento desejado</label><select required id="desiredCapacity"><option value="">Selecione</option></select></div><div class="field"><label for="desiredCondition">Condição</label><select id="desiredCondition"><option value="lacrado">Lacrado</option><option value="seminovo">Seminovo</option></select></div></div>
 <div class="actions"><span class="notice">Sem compromisso.</span><button class="primary" id="next1" type="button">Continuar</button></div>
 </section>
 <section id="stage-2" class="hidden">
 <div class="eyebrow">PASSO 02 / 03</div><h2 class="stage-title">Fale sobre seu iPhone atual.</h2><p class="sub">O estado do aparelho influencia o crédito estimado. A avaliação definitiva depende de conferência.</p>
+<div class="section-slot"><div class="section-slot-number">02</div><div><strong>Seu aparelho na troca</strong><span>As informações são preliminares e serão conferidas pela equipe.</span></div></div>
 <div class="field"><label for="ownedModel">Modelo atual</label><input id="ownedModel" required maxlength="80" autocomplete="off" placeholder="Ex.: iPhone 14 Pro"></div>
 <div class="formgrid"><div class="field"><label for="ownedCapacity">Armazenamento atual</label><select id="ownedCapacity"><option value="">Selecione</option><option>64 GB</option><option>128 GB</option><option>256 GB</option><option>512 GB</option><option>1 TB</option></select></div><div class="field"><label for="ownedCondition">Condição geral</label><select id="ownedCondition"><option value="">Selecione</option><option value="excelente">Excelente</option><option value="bom">Bom</option><option value="marcas">Com marcas de uso</option><option value="reparo">Precisa de reparo</option></select></div></div>
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
 <div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title">Vamos conferir sua troca.</h2><p class="sub">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
+<div class="section-slot"><div class="section-slot-number">03</div><div><strong>Como podemos falar com você?</strong><span>O atendimento acontece pelo WhatsApp, após o envio.</span></div></div>
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
-<div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" required></div></div>
+<div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" aria-describedby="phoneHelp" required><span class="input-help" id="phoneHelp">Inclua o DDD. Usaremos este número apenas para falar sobre seu upgrade.</span></div></div>
 <div class="field"><label style="display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.5"><input id="contactConsent" type="checkbox" style="width:18px;min-height:18px;margin-top:1px;flex:none" required>Autorizo a Pitstop Imports a entrar em contato pelo WhatsApp sobre esta solicitação de upgrade.</label></div>
 <div class="field"><button class="primary hidden" id="simulate" type="button" disabled aria-hidden="true" tabindex="-1">Calcular meu Upgrade</button><p id="quoteHelp" class="notice">A cotação automática da Calculadora Pitwall V2 ainda não está disponível. Sua solicitação pode ser enviada para avaliação individual, sem apresentar valores não confirmados.</p></div>
 <details class="field"><summary style="cursor:pointer;font-weight:700">Como funciona a avaliação do meu iPhone?</summary><p class="notice">O crédito inicial é estimado conforme o modelo, a capacidade e as políticas da Pitstop. Estado da bateria, condição física e reparos precisam ser conferidos antes de confirmar a proposta.</p></details>
 <details class="field"><summary style="cursor:pointer;font-weight:700">Posso parcelar a diferença?</summary><p class="notice">A equipe Pitstop confirmará as condições e taxas disponíveis na Calculadora Pitwall V2 antes de apresentar uma proposta.</p></details>
 <div id="result" class="hidden result" role="status" aria-live="polite"></div><div id="error" class="hidden error" role="alert"></div>
 <div id="leadStatus" class="hidden result" role="status" aria-live="polite"></div>
-<div class="actions"><button class="secondary" id="back3" type="button">Voltar</button><button class="primary" id="submit" type="submit">Enviar minha solicitação</button></div>
+<div class="actions"><button class="secondary" id="back3" type="button">Voltar</button><button class="primary" id="submit" type="submit">Solicitar avaliação pelo WhatsApp</button></div>
 <p class="privacy">Nenhum valor exibido nesta experiência constitui uma oferta vinculante. Os valores dependem de disponibilidade, avaliação do usado e confirmação comercial.</p>
 </section>
 </form>
 </div>
-<aside class="summary" aria-label="Resumo da troca"><div class="summary-head">SUA TROCA</div><h3>Do atual ao próximo.</h3><div class="sum-row"><span class="name">Novo iPhone</span><span class="val" id="outNew">A escolher</span></div><div class="sum-row"><span class="name">Seu atual</span><span class="val" id="outOld">A informar</span></div><div class="sum-row"><span class="name">Condição</span><span class="val" id="outCondition">Não informada</span></div><div class="sum-foot">A Pitstop analisa a troca antes de confirmar disponibilidade, crédito e condições de pagamento.</div></aside>
+<aside class="summary" aria-label="Resumo da troca"><div class="summary-head">RESUMO DA SUA TROCA</div><h3>Do atual ao próximo.</h3><p class="summary-intro">Acompanhe suas escolhas enquanto preenche o formulário.</p><div class="sum-row"><span class="name">Novo iPhone</span><span class="val" id="outNew">A escolher</span></div><div class="sum-row"><span class="name">Seu atual</span><span class="val" id="outOld">A informar</span></div><div class="sum-row"><span class="name">Condição</span><span class="val" id="outCondition">Não informada</span></div><div class="sum-row"><span class="name">Pagamento</span><span class="val" id="outInstallments">A definir</span></div><div class="sum-foot"><span class="summary-status-dot"></span> Avaliação humana, sem preços automáticos. A Pitstop confirma disponibilidade, crédito e condições de pagamento antes da proposta.</div></aside>
 </main>
 <footer><span>Pitstop Imports · Experiência Upgrade</span><span>Compra é só o começo.</span></footer>
 </div>
@@ -83,7 +151,7 @@ function manualCatalog(){
  $('#desiredCapacity').disabled=false;$('#desiredCondition').disabled=false;
  setOptions($('#desiredCapacity'),['64 GB','128 GB','256 GB','512 GB','1 TB','2 TB'],'Selecione');
  $('#desiredCondition').replaceChildren(option('lacrado','Lacrado'),option('seminovo','Seminovo'));
- $('#catalogNotice').textContent='Catálogo automático indisponível. Informe o modelo para solicitar atendimento; valores só serão apresentados quando confirmados pela Pitstop.';
+ $('#catalogNotice').textContent='Não foi possível consultar os modelos automaticamente. Você pode informar o iPhone desejado e seguir normalmente para a avaliação.';
  refresh();
 }
 async function loadCatalog(){
@@ -101,7 +169,7 @@ async function loadCatalog(){
   $('#desiredModel').disabled=false;$('#desiredCapacity').disabled=false;
   setOptions($('#desiredModel'),[...new Set(data.offers.map(x=>x.model))],'Selecione um modelo');
   renderCapacities();
-  $('#catalogNotice').textContent='Mostrando somente modelos com publicação aprovada pela Pitstop.';
+  $('#catalogNotice').textContent='Modelos disponíveis para seleção. A equipe confirmará estoque e condições antes da proposta.';
   refresh();
  }catch(_){manualCatalog();}
 }
@@ -110,12 +178,39 @@ $('#desiredCapacity').addEventListener('change',()=>{renderConditions();refresh(
 let stage=1, busy=false;
 const requestKey=crypto.randomUUID();
 function field(id){return $(id).value.trim();}
-function refresh(){for(let i=1;i<=3;i++){$('#stage-'+i).classList.toggle('hidden',i!==stage);$('#s'+i).classList.toggle('active',i<=stage);}
+function refresh(){
+ for(let i=1;i<=3;i++){
+  $('#stage-'+i).classList.toggle('hidden',i!==stage);
+  $('#s'+i).classList.toggle('active',i===stage);
+  $('#s'+i).classList.toggle('complete',i<stage);
+  if(i===stage)$('#s'+i).setAttribute('aria-current','step');
+  else $('#s'+i).removeAttribute('aria-current');
+ }
+ $('#progressCaption').textContent=['Etapa 1 de 3 · Escolha seu próximo iPhone','Etapa 2 de 3 · Conte sobre sua troca','Etapa 3 de 3 · Dados para atendimento'][stage-1];
 $('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
 $('#outOld').textContent=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
-$('#outCondition').textContent=$('#ownedCondition').selectedOptions[0]?.textContent||'Não informada';
+$('#outCondition').textContent=field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
+$('#outInstallments').textContent=field('#installments')==='1'?'À vista':(field('#installments')||'12')+'x (preferência)';
 }
-function requireFields(ids){for(const id of ids){const e=$(id);if(!e.value.trim()){e.focus();e.reportValidity();return false;}}return true;}
+function requireFields(ids){
+ for(const id of ids){const e=$(id);
+  e.setCustomValidity('');
+  if(!e.value.trim()){e.setCustomValidity('Preencha este campo para continuar.');e.reportValidity();e.focus();return false;}
+  if(!e.checkValidity()){e.reportValidity();e.focus();return false;}
+ }
+ return true;
+}
+function validateContact(){
+ const name=$('#contactName'),phone=$('#contactWhatsApp');
+ name.setCustomValidity('');
+ if(name.value.trim().length<2){name.setCustomValidity('Informe seu nome com pelo menos 2 caracteres.');name.reportValidity();name.focus();return false;}
+ phone.setCustomValidity('');
+ let digits=phone.value.replace(/\D/g,'');
+ if(digits.length===10||digits.length===11)digits='55'+digits;
+ if(!/^55\d{10,11}$/.test(digits)){phone.setCustomValidity('Digite um WhatsApp válido com DDD, por exemplo (21) 99999-9999.');phone.reportValidity();phone.focus();return false;}
+ phone.value=digits;
+ return true;
+}
 function selectedUpgrade(){return {desired:{model:desiredModel(),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
  trade_in:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};}
 async function post(path,payload){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);try{
@@ -164,6 +259,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
  if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
+ if(!validateContact())return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
  const selection=selectedUpgrade();
  const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp')};
@@ -174,9 +270,10 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   if(lead?.ok!==true||typeof lead.reference!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(lead.reference))throw Error('CAPTURE_NOT_CONFIRMED');
   const message=document.createElement('div');message.textContent='Solicitação registrada para encaminhamento ao atendimento. Referência: '+lead.reference+'. A confirmação do contato ocorrerá após a conferência pela Pitstop.';
   $('#leadStatus').replaceChildren(message);$('#leadStatus').classList.remove('hidden');
-  $('#submit').textContent='Solicitação enviada';$('#submit').disabled=true;
+  $('#leadStatus').scrollIntoView({behavior:'smooth',block:'center'});
+  $('#submit').textContent='Solicitação registrada';$('#submit').disabled=true;
   $('#quoteHelp').textContent='Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
- }catch(_){$('#error').textContent='Não foi possível confirmar o recebimento. Sua solicitação pode ter sido registrada; tente novamente sem alterar os dados ou entre em contato com a Pitstop para conferir.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Enviar minha solicitação';}
+ }catch(_){$('#error').textContent='Não foi possível confirmar o recebimento. Sua solicitação pode ter sido registrada; tente novamente sem alterar os dados ou entre em contato com a Pitstop para conferir.';$('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Solicitar avaliação pelo WhatsApp';}
  finally{busy=false;}
 });
 refresh();
