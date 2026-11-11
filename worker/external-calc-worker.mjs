@@ -8,7 +8,7 @@ import probeModule from './upgrade-hyperdrive-probe.cjs';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
 import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
-import upgradeServiceModule from './upgrade-v2-service-bridge.cjs';
+import upgradeDirectModule from './upgrade-v2-direct-ingress.cjs';
 import upgradeAbuseModule from './upgrade-v2-edge-abuse.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
@@ -17,7 +17,7 @@ const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 const { createUpgradeV2Gate } = upgradeGuardModule;
-const { createUpgradeV2ServiceBridge } = upgradeServiceModule;
+const { createUpgradeV2DirectIngress } = upgradeDirectModule;
 const { createUpgradeV2EdgeAbuseGate, createUpgradeV2EdgeIpHasher } = upgradeAbuseModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -333,11 +333,12 @@ export default {
     // This V2 gate remains fail-closed until an authorized V2 ingress is wired.
     if (url.pathname.startsWith('/api/upgrade/v1/')) {
       const enabled = env.UPGRADE_V2_PUBLIC_ENABLED === 'true';
-      const handleV2 = enabled ? createUpgradeV2ServiceBridge({
-        binding: env.UPGRADE_V2_INGRESS_SERVICE,
-        secret: env.UPGRADE_V2_BRIDGE_SECRET,
-        publicOrigin: env.UPGRADE_EXPECTED_ORIGIN
+      // V2 ingress is co-located in this Worker. It uses a separate
+      // restricted Hyperdrive binding, NEVER the External Calc UPGRADE_DB.
+      const directV2 = enabled ? createUpgradeV2DirectIngress({
+        env, Client: pgModule?.Client
       }) : null;
+      const handleV2 = directV2 ? directV2.handle : null;
       const abuseGate = enabled ? createUpgradeV2EdgeAbuseGate({
         limiter: env.UPGRADE_V2_RATE_LIMITER,
         origin: env.UPGRADE_EXPECTED_ORIGIN,
