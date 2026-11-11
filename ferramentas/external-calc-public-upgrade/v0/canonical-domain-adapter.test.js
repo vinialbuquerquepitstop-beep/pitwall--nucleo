@@ -19,3 +19,17 @@ test('cross-tenant context cannot reach resolvers',async()=>{await assert.reject
 test('stale offer fingerprint is blocked before calculations',async()=>{await assert.rejects(()=>bridge.resolveVariant({context,publication:{...publication,offer_value_fingerprint:'old'}}),e=>e.code==='OFFER_FINGERPRINT_STALE');});
 test('catalog binding rejects incorrect offer and missing private data',async()=>{await assert.rejects(()=>bridge.resolveVariant({context,publication:{...publication,offer_id:'wrong'}}),e=>e.code==='OFFER_BINDING_INVALID');await assert.rejects(()=>bridge.simulateSale({context:{...context,rateProfile:null},publication,command:{installment_count:12}}),e=>e.code==='SIMULATION_CONTEXT_MISSING');});
 test('canonical variant refuses stale/unavailable selected offer',async()=>{await assert.rejects(()=>bridge.resolveVariant({context:{...context,offers:[{...sale,freshness_status:'STALE'}]},publication}),e=>e.code==='CANONICAL_VARIANT_FAILED');});
+
+test('canonical simulation derives trade-in credit from server-side device selection',async()=>{
+ const command={installment_count:12,device_model_id:'iphone14pm',capacity_gb:256};
+ const expectedEstimate=resolveTradeIn([trade],policy,{model_id:'iphone14pm',capacity_gb:256,color:null});
+ const expected=resolveSimulation([sale,trade],policy,rate,{
+  analysis_id:'a',offer_id:'sale-silver',offer_revision:1,
+  sale_amount:{amount_minor:690000,currency:'BRL'},installment_count:12,
+  trade_in_estimate_id:expectedEstimate.estimate_id
+ });
+ const result=await bridge.simulateSale({...req,command});
+ assert.equal(result.public_amount_minor,expected.installment_amount.amount_minor);
+ assert.equal(result.installment_count,12);
+ assert(!JSON.stringify(result).includes('SUPPLIER'));
+});
