@@ -28,8 +28,10 @@ function mapToCrm(row,organizationId){
     trade_intent:'yes',trade_model:t.model,trade_storage:t.capacity,
     trade_condition_declared:t.condition,
     next_action:'Analisar solicitação de Upgrade; confirmar avaliação e cotação na Calculadora V2'},
-  p_acquisition:{source_channel:'instagram',platform:'instagram',
-    acquisition_ref:'upgrade-v2:'+row.id},p_initial_stage:'new'});
+  // Real pw_lead_acquisition constraint permits platform/acquisition_ref
+  // only for paid acquisition. This is organic Instagram Upgrade, not an ad.
+  // The stable receipt marker remains in notes for deduplication/recovery.
+  p_acquisition:{source_channel:'instagram'},p_initial_stage:'new'});
 }
 function createUpgradeV2CrmDelivery({
  organizationId,authorizeOperator,claimRequest,findExistingLeads,createLead,markLinked,markReview
