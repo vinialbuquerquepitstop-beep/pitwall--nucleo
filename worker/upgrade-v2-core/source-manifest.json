@@ -1,0 +1,11 @@
+{
+  "source": "vinialbuquerquepitstop-beep/pitswal-v2",
+  "source_commit": "72b0649c1b9fb21ab0e8b4a18c3e3a98fc3547a6",
+  "source_dir": "modules/upgrade/crm-v2",
+  "files": {
+    "upgrade-db-scope.cjs": "89241289d241df48c9f4fdcd519b47e124d4337a",
+    "upgrade-intake.cjs": "9e176bc0a6b90d61ba0724bebb10e3073051fbac",
+    "upgrade-receipt-store.cjs": "47b5f6f5142a3d58fc43f0c1da90fc0d67c47139",
+    "upgrade-http-ingress.cjs": "f9014b5f67082ecd2951aa02a38d875d454c9e4b"
+  }
+}
