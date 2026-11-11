@@ -9,6 +9,7 @@ import probeModule from './upgrade-hyperdrive-probe.cjs';
 import pgModule from 'pg';
 import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
 import upgradeDirectModule from './upgrade-v2-direct-ingress.cjs';
+import upgradeOperatorModule from './upgrade-v2-operator-endpoint.cjs';
 import upgradeAbuseModule from './upgrade-v2-edge-abuse.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
@@ -18,6 +19,7 @@ const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 const { createUpgradeV2Gate } = upgradeGuardModule;
 const { createUpgradeV2DirectIngress } = upgradeDirectModule;
+const { createUpgradeV2OperatorEndpoint, PATH: UPGRADE_V2_OPERATOR_PATH } = upgradeOperatorModule;
 const { createUpgradeV2EdgeAbuseGate, createUpgradeV2EdgeIpHasher } = upgradeAbuseModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
@@ -327,6 +329,15 @@ export default {
       // Pass a statically bundled driver; dynamic CommonJS namespace exports
       // may not expose named Client under Workers.
       return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
+    }
+
+    // An independently flagged, authenticated operator route. It is NOT
+    // part of the anonymous public Upgrade intake and can never be enabled
+    // by the public-facing UPGRADE_V2_PUBLIC_ENABLED flag.
+    if (url.pathname === UPGRADE_V2_OPERATOR_PATH) {
+      return createUpgradeV2OperatorEndpoint({
+        env, Client: pgModule?.Client
+      }).handle(request);
     }
 
     // UP-CRM-01: NEVER route public Upgrade to the legacy Calc/Hyperdrive DB.
