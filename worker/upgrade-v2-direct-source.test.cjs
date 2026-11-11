@@ -7,7 +7,7 @@ test('direct-ingress snapshot matches canonical V2 pinned Git blobs',()=>{
  assert.equal(manifest.source,'vinialbuquerquepitstop-beep/pitswal-v2');
  assert.match(manifest.source_commit,/^[a-f0-9]{40}$/);
  const files=Object.entries(manifest.files);
- assert.equal(files.length,4);
+ assert.equal(files.length,8);
  for(const [name,expectedSha] of files){
   const buf=fs.readFileSync(path.join(__dirname,'upgrade-v2-core',name));
   const gitSha=createHash('sha1').update('blob '+buf.length+'\0').update(buf).digest('hex');
