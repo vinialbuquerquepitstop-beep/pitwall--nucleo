@@ -44,11 +44,21 @@ function createCanonicalUpgradeDomainAdapter(){
    assertContext(context,publication);
    if(!context.rateProfile||!context.tradeInPolicy||!Array.isArray(context.tradeInCandidates))deny('SIMULATION_CONTEXT_MISSING');
    let result;
-   try{result=resolveSimulation(context.offers.concat(context.tradeInCandidates),context.tradeInPolicy,context.rateProfile,{
-    analysis_id:publication.analysis_id,offer_id:publication.offer_id,offer_revision:publication.offer_revision,
-    sale_amount:{amount_minor:publication.sale_price_minor,currency:'BRL'},
-    installment_count:command.installment_count,trade_in_estimate_id:command.estimate_ref||null
-   });}catch(_){deny('CANONICAL_SIMULATION_FAILED');}
+   try{
+    let estimateId=command.estimate_ref||null;
+    if(command.device_model_id){
+     const estimate=resolveTradeIn(context.tradeInCandidates,context.tradeInPolicy,{
+      model_id:command.device_model_id,capacity_gb:command.capacity_gb,color:command.color??null
+     });
+     if(!money(estimate?.estimated_credit?.amount_minor)||estimate.estimated_credit.currency!=='BRL')deny('CANONICAL_SIMULATION_FAILED');
+     estimateId=estimate.estimate_id;
+    }
+    result=resolveSimulation(context.offers.concat(context.tradeInCandidates),context.tradeInPolicy,context.rateProfile,{
+     analysis_id:publication.analysis_id,offer_id:publication.offer_id,offer_revision:publication.offer_revision,
+     sale_amount:{amount_minor:publication.sale_price_minor,currency:'BRL'},
+     installment_count:command.installment_count,trade_in_estimate_id:estimateId
+    });
+   }catch(_){deny('CANONICAL_SIMULATION_FAILED');}
    if(result?.offer_reference?.offer_value_fingerprint!==publication.offer_value_fingerprint||
     !money(result?.installment_amount?.amount_minor)||result.installment_amount.currency!=='BRL'||
     result.installment_count!==command.installment_count)deny('CANONICAL_SIMULATION_INVALID');
