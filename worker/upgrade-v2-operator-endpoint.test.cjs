@@ -93,6 +93,7 @@ test('inactive or missing membership cannot create a lead',async()=>{
  const f=fixture({authorized:false}),res=await f.endpoint.handle(request());
  assert.equal(res.status,403);
  assert(!f.db.includes(SQL.CLAIM));
+ assert.equal(f.connections(),0,'unauthorized operator must not open a PostgreSQL connection');
  assert(!f.http.some(x=>x.url.endsWith('/rpc/pw_s01_create_lead')));
 });
 test('missing JWT and invalid request are rejected before DB connection',async()=>{
