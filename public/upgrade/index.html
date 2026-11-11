@@ -283,14 +283,14 @@ $('#simulate').onclick=async()=>{
   $('#quoteHelp').textContent='Não há cotação aprovada disponível para esta combinação. Você pode enviar o pedido para avaliação personalizada sem receber valores inventados.';
  }finally{b.disabled=false;b.textContent='Calcular meu Upgrade';}
 };
-$('#next1').onclick=()=>{if(requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity'])){stage=2;refresh();}};
+$('#next1').onclick=()=>{if(requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition'])){stage=2;refresh();}};
 $('#next2').onclick=()=>{if(requireFields(['#ownedModel','#ownedCapacity','#ownedCondition'])){stage=3;refresh();}};
 $('#back2').onclick=()=>{stage=1;refresh();};$('#back3').onclick=()=>{stage=2;refresh();};
 $('form').addEventListener('input',()=>{refresh();if(quoteSelectionKey&&JSON.stringify(selectedUpgrade())!==quoteSelectionKey){quoteSelectionKey='';$('#result').classList.add('hidden');$('#quoteHelp').textContent='Sua seleção mudou. Calcule novamente para atualizar o valor.';}});$('form').addEventListener('change',refresh);
 $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
- if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
+ if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
  if(!validateContact())return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
  const selection=selectedUpgrade();
