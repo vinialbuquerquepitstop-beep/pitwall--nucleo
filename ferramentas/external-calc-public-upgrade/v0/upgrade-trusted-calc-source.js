@@ -3,6 +3,7 @@
 // External Calc tables and externally injected trusted profile/candidate readers.
 // The public Worker must never import or invoke this module.
 const {createUpgradeCalcDadosProfileSource}=require('./upgrade-calc-dados-profile-source');
+const {createUpgradeTradeInCandidateSource}=require('./upgrade-trade-in-candidate-source');
 const UUID=/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 const REF=/^[A-Za-z0-9_-]{1,100}$/;
 const C01_SQL=`SELECT c01_snapshot,c01_contract_version,offer_value_fingerprint,
@@ -29,8 +30,10 @@ function safeInt(value){
 }
 function createUpgradeTrustedCalcSource({enabled=false,loadCalculationProfile,loadTradeInCandidates}={}){
  if(enabled!==true)return async()=>deny();
- if(typeof loadTradeInCandidates!=='function')
+ if(loadTradeInCandidates!=null&&typeof loadTradeInCandidates!=='function')
   throw Error('CANONICAL_CALC_READERS_REQUIRED');
+ const resolveTradeInCandidates=typeof loadTradeInCandidates==='function'?loadTradeInCandidates:
+  createUpgradeTradeInCandidateSource({enabled:true});
  const resolveProfile=typeof loadCalculationProfile==='function'?loadCalculationProfile:
   createUpgradeCalcDadosProfileSource({enabled:true});
  return async function loadTrustedCalcInputs(input={}){
@@ -77,7 +80,7 @@ function createUpgradeTrustedCalcSource({enabled=false,loadCalculationProfile,lo
    // and trade-in offer candidates. Neither may come from an HTTP customer.
    const [calculationProfile,tradeInCandidates]=await Promise.all([
     resolveProfile({tx,tenantId,analysisId,offerId,offerRevision}),
-    loadTradeInCandidates({tx,tenantId,analysisId,offerId,offerRevision})
+    resolveTradeInCandidates({tx,tenantId,analysisId,offerId,offerRevision})
    ]);
    if(!calculationProfile||calculationProfile.currency!=='BRL'||
      !Array.isArray(tradeInCandidates)||!tradeInCandidates.length||
