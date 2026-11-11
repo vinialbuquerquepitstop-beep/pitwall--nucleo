@@ -17,7 +17,10 @@ test('CRM-only public page never advertises obsolete financial engine or invites
  assert(!/External Calc/i.test(html));
  assert.match(html,/cotação automática da Calculadora Pitwall V2 ainda não está disponível/i);
  assert.match(html,/<button[^>]+id="simulate"[^>]+disabled[^>]*>/);
- assert.match(html,/id="submit" type="submit">Enviar minha solicitação/);
+ assert.match(html,/id="submit" type="submit">Solicitar avaliação pelo WhatsApp/);
+ assert.match(html,/id="progressCaption"/);
+ assert.match(html,/id="outInstallments"/);
+ assert.match(html,/function validateContact\(\)/);
  assert.match(html,/id="contactConsent"[^>]*type="checkbox"/);
 });
 test('no financial provider needed for accepted request and CRM mapping',async()=>{
