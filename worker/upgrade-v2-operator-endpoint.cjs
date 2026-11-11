@@ -78,12 +78,12 @@ function createUpgradeV2OperatorEndpoint({env,Client,fetchImpl=fetch}={}){
    return reply(400,'UPGRADE_V2_INVALID_REQUEST');
   const token=auth.slice(7);
   try{
-   const result=await scope.withQuery(({query})=>
-    createUpgradeV2OperatorJob({
-     enabled:true,organizationId:org,query,
-     supabaseUrl:v2Url,publishableKey:key,
-     getOperatorAccessToken:async()=>token,fetchImpl
-    }).deliver({requestId:body.request_id}));
+   // Perform Auth + membership checks before acquiring a DB connection.
+   const result=await createUpgradeV2OperatorJob({
+    enabled:true,organizationId:org,withQuery:scope.withQuery,
+    supabaseUrl:v2Url,publishableKey:key,
+    getOperatorAccessToken:async()=>token,fetchImpl
+   }).deliver({requestId:body.request_id});
    if(result?.linked!==true||!UUID.test(result.lead_id||''))
     return reply(503,'UPGRADE_V2_RECONCILIATION_UNAVAILABLE');
    return reply(200,'UPGRADE_V2_LINKED',{
