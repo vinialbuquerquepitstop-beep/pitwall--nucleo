@@ -71,3 +71,58 @@ test('database and auth failures rollback without revealing details',async()=>{
   assert.equal(x.released,1);
  }
 });
+
+test('real Calc Auth session verified before publishing transaction authorizes DB membership',async()=>{
+ const calls=[],user='d71c03a5-c98d-4fe9-ad8c-ea4c20d18591';
+ const client={async query(sql,values){
+  calls.push(sql);
+  if(sql==='BEGIN ISOLATION LEVEL SERIALIZABLE'||sql==='ROLLBACK'||sql==='COMMIT')return {rows:[]};
+  if(sql===MEMBER_SQL){
+   assert.deepEqual(values,[user]);
+   return {rows:[{id:user,tenant_id:tenant,papel:'dono',ativo:true}]};
+  }
+  throw Error('NO_SOURCE_IMPLEMENTED');
+ },release(){calls.push('RELEASE');}};
+ const http=[];
+ const service=createUpgradePublicationRuntime({
+  enabled:true,pool:{connect:async()=>client},calcSupabaseUrl:'https://calc.supabase.co/',
+  calcPublishableKey:'publishable-test-key',getOperatorAccessToken:async()=> 'verified-operator-user-token-placeholder',
+  fetchImpl:async(url,params)=>{http.push({url,params});return {ok:true,json:async()=>({id:user})};}
+ });
+ await denied(service.stage(command));
+ assert.equal(http.length,1);
+ assert.equal(http[0].url,'https://calc.supabase.co/auth/v1/user');
+ assert.equal(http[0].params.headers.apikey,'publishable-test-key');
+ assert.deepEqual(calls,[
+  'BEGIN ISOLATION LEVEL SERIALIZABLE',MEMBER_SQL,
+  require('./upgrade-catalog-publication-operator').SQL.SOURCE_SQL,'ROLLBACK','RELEASE']);
+});
+test('Calc Auth 401, invalid user and anonymous identity cannot access publication tables',async()=>{
+ for(const response of [
+  {ok:false,json:async()=>({message:'NOT_ALLOWED'})},
+  {ok:true,json:async()=>({id:'invalid'})},
+  {ok:true,json:async()=>({id:'d71c03a5-c98d-4fe9-ad8c-ea4c20d18591',is_anonymous:true})}
+ ]){
+  const calls=[];
+  const runtime=createUpgradePublicationRuntime({
+   enabled:true,pool:{connect:async()=>({query:async(sql)=>{calls.push(sql);return {rows:[]};},
+    release:()=>calls.push('RELEASE')})},
+   calcSupabaseUrl:'https://calc.supabase.co/',calcPublishableKey:'publishable-test-key',
+   getOperatorAccessToken:async()=> 'verified-operator-user-token-placeholder',
+   fetchImpl:async()=>response
+  });
+  await denied(runtime.stage(command));
+  assert.deepEqual(calls,['BEGIN ISOLATION LEVEL SERIALIZABLE','ROLLBACK','RELEASE']);
+ }
+});
+test('missing Calc Auth session token fails before DB membership lookup',async()=>{
+ let called=false;
+ const runtime=createUpgradePublicationRuntime({
+  enabled:true,pool:{connect:async()=>({query:async()=>({rows:[]}),release:()=>{}})},
+  calcSupabaseUrl:'https://calc.supabase.co/',calcPublishableKey:'publishable-test-key',
+  getOperatorAccessToken:async()=> '',
+  fetchImpl:async()=>{called=true;throw Error('MUST_NOT_FETCH');}
+ });
+ await denied(runtime.approve(command));
+ assert.equal(called,false);
+});
