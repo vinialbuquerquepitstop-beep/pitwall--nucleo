@@ -465,9 +465,6 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  if(!token)throw Object.assign(new Error('autenticacao obrigatoria'),{code:'UNAUTHENTICATED',status:401});
  const command=normalizeBody(rawCommand);
  const built=buildQueue(command);
- if(command.supplier_id){
-   await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
- }
  const partition=partitionCandidates(built.queue);
  const all=[...partition.auto.map(item=>({kind:'auto',item})),...partition.review.map(item=>({kind:'review',item}))];
  const bounded=command.batch_offset!==undefined;
@@ -476,6 +473,9 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
    throw Object.assign(new Error('lista alterada durante a ingestao; nenhuma oferta gravada nesta etapa'),{code:'LIST_INTAKE_SOURCE_CHANGED',status:409});
  }
  if(offset>all.length)throw Object.assign(new Error('offset fora da lista'),{code:'LIST_INTAKE_INVALID'});
+ if(command.supplier_id){
+   await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
+ }
  const batch=bounded?all.slice(offset,offset+8):all;
  let persisted=0,idempotent=0,auto_promoted=0,review_required=0;
  const review_reasons={};
