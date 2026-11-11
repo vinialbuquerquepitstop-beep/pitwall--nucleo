@@ -129,7 +129,17 @@ function presentQuote(data){
  const intro=document.createElement('div');intro.className='muted';intro.textContent='Estimativa preliminar, sujeita à avaliação do aparelho';
  const due=document.createElement('strong');due.textContent=money(q.amount_due_minor);
  const detail=document.createElement('div');detail.className='muted';detail.textContent='iPhone desejado: '+money(q.sale_amount_minor)+' · Crédito estimado: '+money(q.trade_in_credit_minor);
- $('#result').replaceChildren(intro,due,detail);$('#result').classList.remove('hidden');return true;
+ const currentInstallments=Number(field('#installments'));
+ if(currentInstallments>1&&(!Number.isSafeInteger(q.installment_amount_minor)||
+    q.installment_amount_minor<0||q.installment_count!==currentInstallments))return false;
+ const children=[intro,due,detail];
+ if(currentInstallments>1){
+  const card=document.createElement('div');card.className='muted';
+  card.style.marginTop='14px';
+  card.textContent='Parcelamento estimado: '+q.installment_count+'x de '+money(q.installment_amount_minor)+' (taxas da External Calc)';
+  children.push(card);
+ }
+ $('#result').replaceChildren(...children);$('#result').classList.remove('hidden');return true;
 }
 let quoteSelectionKey='';
 $('#simulate').onclick=async()=>{
