@@ -7,14 +7,14 @@ import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
-import upgradePublicModule from '../ferramentas/external-calc-public-upgrade/v0/upgrade-hyperdrive-composition.js';
+import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
-const { createUpgradeV1HyperdriveApplication } = upgradePublicModule;
+const { createUpgradeV2Gate } = upgradeGuardModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -325,12 +325,12 @@ export default {
       return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
     }
 
-    // UP-V1: flags default-off; no public catalog or lead route can be activated by a request.
-    // The private DB probe above remains isolated from these endpoints.
+    // UP-CRM-01: NEVER route public Upgrade to the legacy Calc/Hyperdrive DB.
+    // This V2 gate remains fail-closed until an authorized V2 ingress is wired.
     if (url.pathname.startsWith('/api/upgrade/v1/')) {
-      const upgradeApi = createUpgradeV1HyperdriveApplication({ env, Client: pgModule.Client });
-      if (upgradeApi.matches(url.pathname)) return upgradeApi.handle(request);
-      return json({ ok: false, code: 'NOT_FOUND' }, 404);
+      return createUpgradeV2Gate({
+        enabled: env.UPGRADE_V2_PUBLIC_ENABLED === 'true'
+      }).handle(request);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
