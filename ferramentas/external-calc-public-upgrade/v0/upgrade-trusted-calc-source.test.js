@@ -83,3 +83,39 @@ test('no operator-supplied price or tenant overrides are accepted',async()=>{
  const {source,tx}=fixture();
  await denied(source({...request,tx,tenantId:'OTHER',sale_price_minor:1}));
 });
+
+test('default private composition loads C01 used references and Calc dados C02 margins end to end',async()=>{
+ const {SQL:USED_SQL}=require('./upgrade-trade-in-candidate-source');
+ const {SQL:CALC_SQL}=require('./upgrade-calc-dados-profile-source');
+ const calls=[];
+ const tx={query:async(sql,args)=>{
+  calls.push({sql,args});
+  if(sql===SQL.C01_SQL)return {rows:[{c01_snapshot:candidate,c01_contract_version:candidate.contract_version,
+   offer_value_fingerprint:candidate.offer_value_fingerprint,domain_outcome:'VALID',freshness_status:'CURRENT'}]};
+  if(sql===SQL.RATE_SQL)return {rows:[{tenant_id:tenant,profile_id:rateId,version:3,status:'ACTIVE',
+   currency:'BRL',rate_scale:100,fingerprint:'ratefp'}]};
+  if(sql===SQL.TRADE_POLICY_SQL)return {rows:[{tenant_id:tenant,policy_id:policyId,version:2,status:'ACTIVE',
+   currency:'BRL',deduction_amount_minor:30000,fingerprint:'policyfp'}]};
+  if(sql===SQL.ENTRIES_SQL)return {rows:[{installment_count:12,rate_units:9}]};
+  if(sql===CALC_SQL.SOURCE_SQL)return {rows:[{model_id:'iphone17pro'}]};
+  if(sql===CALC_SQL.PROFILE_SQL)return {rows:[{tenant_id:tenant,
+   atualizado_em:'2026-11-11T12:00:00Z',dados:{config:{
+    margens:{iPhone:{av:900,pc:1000}},pb:45,taxas:{12:1.15}
+   }}}]};
+  if(sql===USED_SQL)return {rows:[{tenant_id:tenant,analysis_id:'analysis1',offer_id:'used1',
+   offer_revision:2,c01_contract_version:'external-calc-c01-readonly/v1',
+   offer_value_fingerprint:'vused1',c01_snapshot:{...used,tenant_id:undefined,offer_revision:2},
+   domain_outcome:'VALID',freshness_status:'CURRENT'}]};
+  throw Error('UNEXPECTED_SQL');
+ }};
+ const source=createUpgradeTrustedCalcSource({enabled:true});
+ const output=await source({...request,tx});
+ assert.equal(output.calculationProfile.profile_id,'pitwall-calc-dados:iPhone');
+ assert.equal(output.calculationProfile.cash_margin_minor,90000);
+ assert.equal(output.calculationProfile.installment_margin_minor,100000);
+ assert.equal(output.tradeInCandidates.length,1);
+ assert.equal(output.tradeInCandidates[0].tenant_id,tenant);
+ assert.equal(output.tradeInCandidates[0].reviewed_offer.model.id,'iphone14pro');
+ assert(calls.some(x=>x.sql===CALC_SQL.PROFILE_SQL));
+ assert(calls.some(x=>x.sql===USED_SQL));
+});
