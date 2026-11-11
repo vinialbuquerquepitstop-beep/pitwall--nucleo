@@ -120,3 +120,52 @@ test('canonical Pitwall owner and operator roles may reconcile, legacy admin rol
  await assert.rejects(forbidden.integration.reconcile({requestId}),denied);
  assert.deepEqual(forbidden.calls.sql,[]);
 });
+
+test('real Supabase Auth plus membership can drive CRM operator reconciliation',async()=>{
+ const requests=[];
+ const integration=createUpgradeCrmOperatorIntegration({
+  enabled:true,sourceTenantId,organizationId,
+  query:async(sql,args)=>{
+   if(sql===LOAD)return {rows:[row]};
+   if(sql===MARK)return {rows:[{id:requestId,tenant_id:sourceTenantId,lead_id:leadId}]};
+   throw Error('UNEXPECTED_SQL');
+  },
+  pitwallUrl:'https://pitwall-v2.supabase.co/',
+  pitwallPublishableKey:'pitwall-public-key',
+  getOperatorAccessToken:async()=>operator.access_token,
+  fetchImpl:async(url,opts)=>{
+   requests.push(url);
+   if(url.endsWith('/auth/v1/user'))return {ok:true,json:async()=>({id:operator.user_id})};
+   if(url.includes('/pw_memberships?'))return {ok:true,json:async()=>[{
+    user_id:operator.user_id,organization_id:organizationId,role:'manager',active:true
+   }]};
+   if(url.includes('/pw_leads?'))return {ok:true,json:async()=>[]};
+   if(url.endsWith('/rpc/pw_s01_create_lead'))return {ok:true,json:async()=>crmLead};
+   throw Error('UNKNOWN_HTTP');
+  }
+ });
+ assert.deepEqual(await integration.reconcile({requestId}),
+  {linked:true,lead_id:leadId,already_linked:false});
+ assert.equal(requests.length,4);
+ assert(requests[0].endsWith('/auth/v1/user'));
+ assert(requests[1].includes('/pw_memberships?'));
+ assert(requests[2].includes('/pw_leads?'));
+ assert(requests[3].endsWith('/rpc/pw_s01_create_lead'));
+});
+test('valid token but absent membership cannot reach lead source or Pitwall RPC',async()=>{
+ let sourceReads=0;
+ const integration=createUpgradeCrmOperatorIntegration({
+  enabled:true,sourceTenantId,organizationId,
+  query:async()=>{sourceReads++;throw Error('MUST_NOT_READ');},
+  pitwallUrl:'https://pitwall-v2.supabase.co/',
+  pitwallPublishableKey:'pitwall-public-key',
+  getOperatorAccessToken:async()=>operator.access_token,
+  fetchImpl:async(url)=>{
+   if(url.endsWith('/auth/v1/user'))return {ok:true,json:async()=>({id:operator.user_id})};
+   if(url.includes('/pw_memberships?'))return {ok:true,json:async()=>[]};
+   throw Error('FORBIDDEN_TRANSPORT');
+  }
+ });
+ await assert.rejects(integration.reconcile({requestId}),denied);
+ assert.equal(sourceReads,0);
+});
