@@ -5,6 +5,17 @@
 const MAX=8192,WINDOW=60;
 const RESP=(status,code)=>new Response(JSON.stringify({ok:false,code}),{status,headers:{
  'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+async function readBounded(request){
+ const reader=request.body?.getReader();if(!reader)throw Error('EMPTY_BODY');
+ let chunks=[],total=0;
+ try{for(;;){const {done,value}=await reader.read();if(done)break;
+  total+=value.byteLength;if(total>MAX)throw Error('BODY_TOO_LARGE');chunks.push(value);
+ }}finally{try{await reader.cancel();}catch{}}
+ if(total===0)throw Error('EMPTY_BODY');
+ const out=new Uint8Array(total);let pos=0;
+ for(const chunk of chunks){out.set(chunk,pos);pos+=chunk.byteLength;}
+ return out;
+}
 const encoder=new TextEncoder();
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 async function hash(bytes){return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)));}
@@ -19,8 +30,8 @@ function createUpgradeV2ServiceBridge({binding,secret,publicOrigin,now=()=>Date.
    request.method!=='POST')return RESP(403,'UPGRADE_V2_FORBIDDEN');
   const size=request.headers.get('content-length');
   if(size!==null&&(!/^\d+$/.test(size)||Number(size)>MAX))return RESP(413,'PAYLOAD_TOO_LARGE');
-  const body=await request.arrayBuffer();
-  if(body.byteLength===0||body.byteLength>MAX)return RESP(413,'PAYLOAD_TOO_LARGE');
+  let body;try{body=await readBounded(request);}
+  catch{return RESP(413,'PAYLOAD_TOO_LARGE');}
   const ts=String(Math.floor(now()/1000));
   const digest=await hash(body);
   const signature=hex(new Uint8Array(await crypto.subtle.sign('HMAC',await keyFor(secret),
