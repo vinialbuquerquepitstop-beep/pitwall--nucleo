@@ -14,7 +14,7 @@ test('maps upgrade to actual Pitwall V2 RPC context and acquisition',()=>{
  const p=mapUpgradeRequestToCrm(row,organizationId,sourceTenantId);
  assert.equal(p.p_org_id,organizationId);assert.equal(p.p_name,'Synthetic Tester');
  assert.equal(p.p_context.trade_intent,'yes');assert.equal(p.p_context.trade_model,'iPhone 14 Pro');
- assert.equal(p.p_context.trade_storage,'128 GB');assert.equal(p.p_context.payment_preference,'card');
+ assert.equal(p.p_context.trade_storage,'128 GB');assert.equal(p.p_context.payment_preference,'card');assert.equal(p.p_context.upgrade_request_id,requestId);
  assert.equal(p.p_acquisition.source_channel,'instagram');assert.equal(p.p_initial_stage,'new');
  assert(p.p_notes.includes(requestId));assert(!Object.hasOwn(p,'p_tenant_id'));
 });
@@ -50,3 +50,36 @@ test('invalid or consentless request rejected',async()=>{
  await assert.rejects(()=>setup({loadRequest:async()=>({...row,...patch})})({requestId}));
 });
 test('mismatched trusted tenant mapping denied',()=>assert.throws(()=>mapUpgradeRequestToCrm(row,organizationId,foreignOrg),/UPGRADE_REQUEST_INVALID/));
+
+test('retries after confirmed CRM create but failed source link without duplicate lead',async()=>{
+ let created=0,links=0;
+ const exact={id:leadId,organization_id:organizationId,phone:row.whatsapp_digits,
+  context:{upgrade_request_id:requestId}};
+ const reconciler=setup({
+  findExistingLeads:async()=>[exact],
+  authenticatedOperatorRpc:async()=>{created++;return exact;},
+  markLinked:async()=>{links++;return true;}
+ });
+ const result=await reconciler({requestId});
+ assert.deepEqual(result,{linked:true,lead_id:leadId,already_linked:true});
+ assert.equal(created,0);assert.equal(links,1);
+});
+test('same WhatsApp but different Upgrade request cannot claim an unrelated lead',async()=>{
+ let linked=0,created=0;
+ const reconciler=setup({
+  findExistingLeads:async()=>[{id:leadId,organization_id:organizationId,phone:row.whatsapp_digits,
+   context:{upgrade_request_id:'efbd5c32-e2d4-4adc-964e-40ea0eae9731'}}],
+  authenticatedOperatorRpc:async()=>{created++;},
+  markLinked:async()=>{linked++;}
+ });
+ await denied(()=>reconciler({requestId}),'CRM_DUPLICATE_REQUIRES_REVIEW');
+ assert.equal(created,0);assert.equal(linked,0);
+});
+test('matching request ID from different organization or telephone cannot be linked',async()=>{
+ for(const existing of [
+  {id:leadId,organization_id:foreignOrg,phone:row.whatsapp_digits,context:{upgrade_request_id:requestId}},
+  {id:leadId,organization_id:organizationId,phone:'5521999999998',context:{upgrade_request_id:requestId}}
+ ]){
+  await denied(()=>setup({findExistingLeads:async()=>[existing]})({requestId}),'CRM_DUPLICATE_REQUIRES_REVIEW');
+ }
+});
