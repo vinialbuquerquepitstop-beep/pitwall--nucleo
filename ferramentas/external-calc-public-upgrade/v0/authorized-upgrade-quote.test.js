@@ -19,3 +19,27 @@ test('sale and trade-in are bound to the same revision',async()=>{const quote=cr
 test('no internal or supplier values can leave the public quote response',async()=>{const quote=createAuthorizedUpgradeQuote(dependencies({invokeInternal:async({action})=>({...result(action,100000),supplier_cost_minor:1,supplier_id:'SECRET'})}));const r=await quote(selection);assert.deepEqual(Object.keys(r),['sale_amount_minor','trade_in_credit_minor','amount_due_minor','currency','installment_count','installment_amount_minor']);assert(!JSON.stringify(r).includes('SECRET'));});
 test('credit above sale and unavailable domain fail closed',async()=>{for(const fn of [async({action})=>result(action,action==='resolveVariant'?100000:300000),async()=>{throw Error('DB secret')}]){const quote=createAuthorizedUpgradeQuote(dependencies({invokeInternal:fn}));await assert.rejects(()=>quote(selection),e=>e.code==='QUOTE_UNAVAILABLE');}});
 test('browser-supplied price and tenant fields rejected before catalog',async()=>{let calls=0;const quote=createAuthorizedUpgradeQuote(dependencies({loadApprovedCatalog:async()=>{calls++;return [pub];}}));for(const extra of [{sale_price_minor:1},{tenant_id:tenant},{offer_id:'x'}])await assert.rejects(()=>quote({...selection,...extra}),e=>e.code==='QUOTE_UNAVAILABLE');assert.equal(calls,0);});
+
+test('cash quote does not invent installment figures or call a rate resolver',async()=>{
+ const actions=[];
+ const quote=createAuthorizedUpgradeQuote(dependencies({invokeInternal:async({action})=>{
+  actions.push(action);return result(action,action==='resolveVariant'?690000:260000);
+ }}));
+ const value=await quote({...selection,installments:1});
+ assert.deepEqual(value,{sale_amount_minor:690000,trade_in_credit_minor:260000,amount_due_minor:430000,currency:'BRL'});
+ assert.deepEqual(actions,['resolveVariant','estimateTradeIn']);
+});
+test('missing canonical installments or inconsistent count fails closed',async()=>{
+ for(const response of [
+  {schema_version:'pitstop-internal-upgrade/v1',public_id:pub.public_id,price_revision:pub.price_revision,
+   action:'simulateSale',currency:'BRL',amount_minor:39000},
+  {...result('simulateSale',39000),installment_count:6},
+  {...result('simulateSale',-10),installment_count:12}
+ ]){
+  const quote=createAuthorizedUpgradeQuote(dependencies({invokeInternal:async({action})=>{
+   if(action==='simulateSale')return response;
+   return result(action,action==='resolveVariant'?690000:260000);
+  }}));
+  await assert.rejects(()=>quote(selection),e=>e.code==='QUOTE_UNAVAILABLE');
+ }
+});
