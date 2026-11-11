@@ -538,7 +538,7 @@ function createListIntakeApiV0({env}={}){
     return out(200,{api_version:API_VERSION,intake},origin);
    }catch(e){
     const code=e?.code||'LIST_INTAKE_FAILED';
-    const status=e?.status===401||e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_SOURCE_CHANGED'?409:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
+    const status=e?.status===401||code==='UNAUTHENTICATED'?401:e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_SOURCE_CHANGED'||code==='EXTCALC_REVIEW_CANDIDATE_CONFLICT'?409:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
     return out(status,{error:{code,message:e instanceof Error?e.message:'falha na entrada da lista'}},origin);
    }
   }
