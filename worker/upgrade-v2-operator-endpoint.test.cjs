@@ -21,7 +21,7 @@ const env={
 const request=(body={request_id:id},headers={})=>new Request(origin+PATH,{method:'POST',
  headers:{authorization:'Bearer '+token,'content-type':'application/json',...headers},
  body:JSON.stringify(body)});
-function fixture({authorized=true,existing=false,badDbRole=false,dbAvailable=true}={}){
+function fixture({authorized=true,existing=false,conflicting=false,badDbRole=false,dbAvailable=true}={}){
  const db=[],http=[],row={id,organization_id:org,customer_name:'Cliente Sintético',whatsapp_digits:'5521999999999',
   selection:{desired:{model:'iPhone 17 Pro',capacity:'256 GB',condition:'lacrado'},
    trade_in:{model:'iPhone 14 Pro',capacity:'128 GB',condition:'bom'},installments:12},
@@ -49,7 +49,7 @@ function fixture({authorized=true,existing=false,badDbRole=false,dbAvailable=tru
   if(url.includes('/pw_memberships?'))return {ok:true,json:async()=>authorized?
    [{organization_id:org,user_id:user,active:true,role:'owner'}]:[]};
   if(url.includes('/pw_leads?'))return {ok:true,json:async()=>existing?
-   [{id:lead,organization_id:org,phone:'5521999999999',notes:'Upgrade V2: '+id}]:[]};
+   [{id:lead,organization_id:org,phone:'5521999999999',notes:conflicting?'Other lead':'Upgrade V2: '+id}]:[]};
   if(url.includes('/rpc/pw_s01_create_lead')){
    assert.equal(params.headers.authorization,'Bearer '+token);
    const command=JSON.parse(params.body);
@@ -90,6 +90,15 @@ test('existing lead with same upgrade receipt is linked without duplicate CRM cr
  const f=fixture({existing:true});
  const res=await f.endpoint.handle(request());
  assert.equal(res.status,200);assert.equal((await res.json()).already_linked,true);
+ assert(!f.http.some(x=>x.url.endsWith('/rpc/pw_s01_create_lead')));
+});
+test('conflicting existing lead commits REVIEW_REQUIRED and returns 409 without RPC',async()=>{
+ const f=fixture({existing:true,conflicting:true});
+ const res=await f.endpoint.handle(request());
+ assert.equal(res.status,409);
+ assert.equal((await res.json()).code,'UPGRADE_V2_REVIEW_REQUIRED');
+ assert.equal(f.row.status,'REVIEW_REQUIRED');
+ assert(f.db.includes('COMMIT'));
  assert(!f.http.some(x=>x.url.endsWith('/rpc/pw_s01_create_lead')));
 });
 test('inactive or missing membership cannot create a lead',async()=>{
