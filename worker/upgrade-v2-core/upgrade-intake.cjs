@@ -24,11 +24,11 @@ function normalize(body){
    body.consent!==true||!UUID.test(body.request_key||'')||
    !own(body.selection,['desired','trade_in','installments'])||
    !own(body.selection.desired,['model','capacity','condition'])||
-   !own(body.selection.trade_in,['model','capacity','condition'])||
+   !(body.selection.trade_in===null||own(body.selection.trade_in,['model','capacity','condition']))||
    !own(body.contact,['name','whatsapp']))fail('UPGRADE_INTAKE_INVALID');
  const {desired,trade_in,installments}=body.selection;
  if(!string(desired.model,100)||!CAP.test(desired.capacity)||!NEW.has(desired.condition)||
-    !string(trade_in.model,100)||!CAP.test(trade_in.capacity)||!USED.has(trade_in.condition)||
+    (trade_in!==null&&(!string(trade_in.model,100)||!CAP.test(trade_in.capacity)||!USED.has(trade_in.condition)))||
     !PAYMENTS.has(installments)||!string(body.contact.name,80)||
     body.contact.name.trim().length<2)fail('UPGRADE_INTAKE_INVALID');
  const phone=normalizePhone(body.contact.whatsapp);
@@ -36,7 +36,7 @@ function normalize(body){
  return {
   request_key:body.request_key.toLowerCase(),
   selection:{desired:{model:desired.model.trim(),capacity:desired.capacity,condition:desired.condition},
-   trade_in:{model:trade_in.model.trim(),capacity:trade_in.capacity,condition:trade_in.condition},
+   trade_in:trade_in===null?null:{model:trade_in.model.trim(),capacity:trade_in.capacity,condition:trade_in.condition},
    installments},
   contact:{name:body.contact.name.trim(),whatsapp:phone},consent:true
  };
