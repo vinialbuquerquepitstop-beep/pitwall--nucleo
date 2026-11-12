@@ -25,19 +25,25 @@ function normalize(body){
    !own(body.selection,['desired','trade_in','installments'])||
    !own(body.selection.desired,['model','capacity','condition'])||
    !(body.selection.trade_in===null||own(body.selection.trade_in,['model','capacity','condition']))||
-   !own(body.contact,['name','whatsapp']))fail('UPGRADE_INTAKE_INVALID');
+   !body.contact||typeof body.contact!=='object'||Array.isArray(body.contact)||
+   !Object.keys(body.contact).every(k=>['name','whatsapp','address'].includes(k))||
+   !['name','whatsapp'].every(k=>Object.hasOwn(body.contact,k))||
+   (Object.hasOwn(body.contact,'address')&&
+    (typeof body.contact.address!=='string'||body.contact.address.length>200||
+     /[\r\n\u0000-\u001f]/.test(body.contact.address))))fail('UPGRADE_INTAKE_INVALID');
  const {desired,trade_in,installments}=body.selection;
  if(!string(desired.model,100)||!CAP.test(desired.capacity)||!NEW.has(desired.condition)||
     (trade_in!==null&&(!string(trade_in.model,100)||!CAP.test(trade_in.capacity)||!USED.has(trade_in.condition)))||
     !PAYMENTS.has(installments)||!string(body.contact.name,80)||
     body.contact.name.trim().length<2)fail('UPGRADE_INTAKE_INVALID');
+ const address=typeof body.contact.address==='string'?body.contact.address.trim():'';
  const phone=normalizePhone(body.contact.whatsapp);
  if(!phone)fail('UPGRADE_INTAKE_INVALID');
  return {
   request_key:body.request_key.toLowerCase(),
   selection:{desired:{model:desired.model.trim(),capacity:desired.capacity,condition:desired.condition},
    trade_in:trade_in===null?null:{model:trade_in.model.trim(),capacity:trade_in.capacity,condition:trade_in.condition},
-   installments},
+   installments,...(address?{address}:{} )},
   contact:{name:body.contact.name.trim(),whatsapp:phone},consent:true
  };
 }
