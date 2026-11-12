@@ -47,4 +47,18 @@ verify('two models same price line',[
  {source_ref:'s',text:'iPhone 17 Pro 256GB / iPhone 17 Air 256GB - R$ 5.399,99'}],
  [offer('a','iPhone 17 Pro','R$ 5.399,99',null,fields('s','iPhone 17 Pro','R$ 5.399,99'))],
  ['MULTIPLE_MODELS_SAME_LINE']);
-console.log('EXTERNAL_AI_VARIANT_PRICE_BINDING=PASS',10);
+const capacityOffer=offer('c','iPhone 17','R$ 5.399,99','Azul',
+ {...fields('s','iPhone 17','R$ 5.399,99','Azul'),
+ capacity_gb:[{source_ref:'s',quote:'512GB'}]});
+capacityOffer.capacity_gb=512;
+verify('capacity borrowed from later variant',[
+ {source_ref:'s',text:'iPhone 17 256GB Azul - R$ 5.399,99\niPhone 17 Pro 512GB - R$ 7.999,99'}],
+ [capacityOffer],['CAPACITY_OUTSIDE_VARIANT_BLOCK']);
+const exactCapacity=offer('c','iPhone 17','R$ 5.399,99','Azul',
+ {...fields('s','iPhone 17','R$ 5.399,99','Azul'),
+ capacity_gb:[{source_ref:'s',quote:'256GB'}]});
+exactCapacity.capacity_gb=256;
+verify('capacity quoted in correct model row',[
+ {source_ref:'s',text:'iPhone 17 256GB Azul - R$ 5.399,99'}],
+ [exactCapacity],[]);
+console.log('EXTERNAL_AI_VARIANT_PRICE_BINDING=PASS',12);
