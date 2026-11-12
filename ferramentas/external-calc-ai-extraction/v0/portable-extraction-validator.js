@@ -128,7 +128,7 @@ function parseExternalAiExtraction(input){
  return {contract_version:VERSION,valid:true,coverage_complete:!incomplete,
   accepted_for_staging:recognized.length-reviewRefs.size,needs_review:reviewRefs.size,
   issues,offers:recognized,sources:[...sources.values()],unresolved:data.unresolved,
-  chronology:{issues:chronology.issues,events:chronology.events,chronological_authority:false,selected_latest_offer_ref:null},
+  chronology:{issues:chronology.issues,events:chronology.events,unbound_partial_updates:chronology.unbound_partial_updates,chronological_authority:false,selected_latest_offer_ref:null},
   persistence_allowed:false,authority:'STAGING_ONLY',c01_import_ready:false};
 }
 module.exports={VERSION,parseExternalAiExtraction};
