@@ -122,3 +122,13 @@ Backend PR #209 based on #208; frontend PR #101 based on #100. No merge/deploy/m
 - Actual External Calc supplier RLS policy had already been verified read-only in Supabase; this proves policy presence, not live HTTP role isolation with real JWTs.
 
 **Release HOLD:** run the ten suites natively from a fully checked-out branch, run Next typecheck/build, validate real Worker and JWT role cases, then decide on bounded persistence C01 separately. No merge, deploy, migration or write on production in this follow-up.
+
+
+## Gate 1.7 | Contract parity & ZIP source reference correction (2026-11-12)
+Two concrete integration bugs were fixed in existing draft PRs, with no new architecture:
+1. `portable-extraction-validator.js` previously omitted `chronology.unbound_partial_updates` even though the diagnostics computed it; `portable-extraction-api.js` forwarded `undefined`, which JSON omitted and the frontend rejected as a response-shape mismatch. Fixed by propagating an integer; a validator regression now checks a real text sequence ('Baixou para R$ 5.200,00') and the API regression checks the integer field. The validator test source ran in isolated V8: 12/12 PASS.
+2. Frontend `external-ai-extraction-panel.tsx` previously treated a one-file ZIP as arbitrary pasted text, dropping the actual `zip:<path>` source_ref. Fixed by keeping the extracted ZIP reference set even for a single TXT/CSV, requiring the AI JSON source_ref set to equal the extracted set, and always populating the exact ZIP original-source map. ZIP skipped-file count now prevents the UI from claiming complete coverage. Changes to manual text reset the ZIP-specific reference lock.
+3. Executed an integrated isolated V8 request using real GitHub versions of the input validator, original verifier, canonical catalog resolver, C01 preview bridge and API (mocked Auth/RLS fetch and crypto shim). Returned HTTP 200, `unbound_partial_updates=1`, `persistence_allowed=false`, C01 review candidate only. Not an actual Worker, native Node or browser run.
+4. Frontend ZIP source_ref and incomplete-coverage path: 5/5 static branch checks PASS; additional checks versioned in `frontend-next/scripts/prove-external-ai-extraction-static.mjs`. Actual Next build/browser gate remains not executed.
+
+No deploy/merge/production writes. Source identity references are now checked in the browser for ZIP input, but a cryptographic proof of WhatsApp origin and an end-to-end archive import still require real authenticated operational testing.
