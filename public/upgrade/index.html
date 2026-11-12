@@ -109,11 +109,12 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="actions"><span class="notice">Sem compromisso.</span><button class="primary" id="next1" type="button">Continuar</button></div>
 </section>
 <section id="stage-2" class="hidden">
-<div class="eyebrow">PASSO 02 / 03</div><h2 class="stage-title">Fale sobre seu iPhone atual.</h2><p class="sub">O estado do aparelho influencia o crédito estimado. A avaliação definitiva depende de conferência.</p>
+<div class="eyebrow">PASSO 02 / 03</div><h2 class="stage-title">Você tem um iPhone para troca?</h2><p class="sub">A troca é opcional. Se não tiver aparelho para oferecer, pode continuar normalmente.</p>
 <div class="section-slot"><div class="section-slot-number">02</div><div><strong>Seu aparelho na troca</strong><span>As informações são preliminares e serão conferidas pela equipe.</span></div></div>
-<div class="field"><label for="ownedModel">Modelo atual</label><input id="ownedModel" required maxlength="80" autocomplete="off" placeholder="Ex.: iPhone 14 Pro"></div>
+<div class="field"><label for="noTrade"><input id="noTrade" type="checkbox"> Não tenho aparelho para troca</label></div>
+<div id="tradeFields"><div class="field"><label for="ownedModel">Modelo atual</label><input id="ownedModel" required maxlength="80" autocomplete="off" placeholder="Ex.: iPhone 14 Pro"></div>
 <div class="formgrid"><div class="field"><label for="ownedCapacity">Armazenamento atual</label><select id="ownedCapacity"><option value="">Selecione</option><option>64 GB</option><option>128 GB</option><option>256 GB</option><option>512 GB</option><option>1 TB</option></select></div><div class="field"><label for="ownedCondition">Condição geral</label><select id="ownedCondition"><option value="">Selecione</option><option value="excelente">Excelente</option><option value="bom">Bom</option><option value="marcas">Com marcas de uso</option><option value="reparo">Precisa de reparo</option></select></div></div>
-<div class="info-line">A avaliação considera a condição informada, mas será confirmada pela equipe antes de qualquer proposta.</div>
+<div class="info-line">Se optar pela troca, a avaliação será confirmada pela equipe antes de qualquer proposta.</div></div>
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
@@ -214,14 +215,14 @@ function refresh(){
  }
  $('#progressCaption').textContent=['Etapa 1 de 3 · Escolha seu próximo iPhone','Etapa 2 de 3 · Conte sobre sua troca','Etapa 3 de 3 · Dados para atendimento'][stage-1];
 $('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
-$('#outOld').textContent=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
-$('#outCondition').textContent=field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
+$('#outOld').textContent=$('#noTrade').checked?'Sem troca':[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
+$('#outCondition').textContent=$('#noTrade').checked?'Não se aplica':field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
 $('#outInstallments').textContent=field('#installments')==='1'?'À vista':(field('#installments')||'12')+'x (preferência)';
  const desired=[desiredModel(),field('#desiredCapacity'),field('#desiredCondition')].filter(Boolean).join(' · ');
  const trade=[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ');
  $('#reviewDesired').textContent=desired||'A escolher';
- $('#reviewTrade').textContent=trade||'A informar';
- $('#reviewCondition').textContent=field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informado';
+ $('#reviewTrade').textContent=$('#noTrade').checked?'Sem aparelho para troca':trade||'A informar';
+ $('#reviewCondition').textContent=$('#noTrade').checked?'Não se aplica':field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informado';
  $('#reviewPayment').textContent=$('#outInstallments').textContent;
 }
 function requireFields(ids){
@@ -244,7 +245,7 @@ function validateContact(){
  return true;
 }
 function selectedUpgrade(){return {desired:{model:desiredModel(),capacity:field('#desiredCapacity'),condition:field('#desiredCondition')},
- trade_in:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};}
+ trade_in:$('#noTrade').checked?null:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};}
 async function post(path,payload){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);try{
  const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:controller.signal,credentials:'omit'});
  if(!response.ok)throw Error('UNAVAILABLE');
@@ -284,13 +285,21 @@ $('#simulate').onclick=async()=>{
  }finally{b.disabled=false;b.textContent='Calcular meu Upgrade';}
 };
 $('#next1').onclick=()=>{if(requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition'])){stage=2;refresh();}};
-$('#next2').onclick=()=>{if(requireFields(['#ownedModel','#ownedCapacity','#ownedCondition'])){stage=3;refresh();}};
+$('#noTrade').addEventListener('change',()=>{
+ const disabled=$('#noTrade').checked;
+ $('#tradeFields').classList.toggle('hidden',disabled);
+ for(const id of ['#ownedModel','#ownedCapacity','#ownedCondition']){
+   const el=$(id);el.disabled=disabled;el.required=!disabled;
+ }
+ refresh();
+});
+$('#next2').onclick=()=>{if($('#noTrade').checked||requireFields(['#ownedModel','#ownedCapacity','#ownedCondition'])){stage=3;refresh();}};
 $('#back2').onclick=()=>{stage=1;refresh();};$('#back3').onclick=()=>{stage=2;refresh();};
 $('form').addEventListener('input',()=>{refresh();if(quoteSelectionKey&&JSON.stringify(selectedUpgrade())!==quoteSelectionKey){quoteSelectionKey='';$('#result').classList.add('hidden');$('#quoteHelp').textContent='Sua seleção mudou. Calcule novamente para atualizar o valor.';}});$('form').addEventListener('change',refresh);
 $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
- if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition','#ownedModel','#ownedCapacity','#ownedCondition','#contactName','#contactWhatsApp']))return;
+ if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition',...($('#noTrade').checked?[]:['#ownedModel','#ownedCapacity','#ownedCondition']),'#contactName','#contactWhatsApp']))return;
  if(!validateContact())return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
  const selection=selectedUpgrade();
