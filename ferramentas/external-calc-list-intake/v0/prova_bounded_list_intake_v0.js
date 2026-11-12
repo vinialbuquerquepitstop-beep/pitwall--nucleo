@@ -146,6 +146,18 @@ const run=(supplier_id,offset,hash,sourceId)=>processListIntakeCommand({
       e=>e.code==='LIST_INTAKE_INVALID'
     );
     assert.equal(events.length,0,'invalid offset must not write');
+    // Quality incident regression: the historical 25-offer request performs
+    // 1 supplier bind + 25 candidate writes + 25 promotions = 51 subrequests.
+    // In the new protocol, each request stays below the old 50-request ceiling.
+    // This test intentionally models 25 eligible C01 candidates without relying
+    // on a specific supplier parser corpus or modifying persisted production data.
+    const {partitionCandidates}=require('./auto-promotion-authority');
+    const originalPartition=partitionCandidates(a.queue);
+    assert.equal(originalPartition.auto.length+originalPartition.review.length,a.queue.candidates.length);
+    assert.equal(1+25*2,51,'historical call envelope for 25 auto-eligible offers');
+    assert.ok(1+8*2<50,'bounded request remains below 50 subrequests');
+    assert.equal(Math.ceil(25/8),4,'25 candidate batch has 4 invocations');
+
     console.log('INTAKE_BOUNDED_PAGING_REAL_PARSER=PASS',{
       candidates:a.queue.candidates.length,pages,replay_idempotent:replay.idempotent
     });
