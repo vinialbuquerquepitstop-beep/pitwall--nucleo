@@ -111,3 +111,14 @@ Backend PR #209 based on #208; frontend PR #101 based on #100. No merge/deploy/m
 - Real External Calc Supabase project `unjzpyexgtbcmjfgcqrx` was inspected with SELECT only: `public.extcalc_supplier` has `relrowsecurity=true`, an authenticated SELECT grant and SELECT policy expression `tenant_id = privado.fn_tenant_atual() AND privado.fn_papel_atual() = 'dono'`. This confirms the RLS policy exists in the live DB, but does not replace testing actual owner/non-owner access JWTs.
 - The deployed Worker `flat-resonance-09ba` already has `nodejs_compat` in its tracked wrangler config. No new Worker created.
 - **HOLD:** no merge, no deploy, no writes, no production test using personal WhatsApp archives; no release until native/backend API tests and Next typecheck/build/browser are really green. Gate 2 C01 authority and paginated persistence remain distinct from validating this staging UX.
+
+
+## Gate 1.6 follow-up | Private text sanitization and syntax audit (2026-11-12)
+- Direct clone of private GitHub repository from the available Node 22 runtime was independently attempted and failed at DNS resolution (`Could not resolve host: github.com`). Therefore neither `npm run test:external-ai:native` nor full Next typecheck/build was executed; do not elevate isolated V8 checks to native PASS.
+- All 20 backend external-AI `.js` implementation/test/runner files were fetched from the current GitHub branch and individually compiled with the JavaScript Function parser: **20/20 syntax checks PASS**. This is syntax-only, not an execution, test suite or bundler proof.
+- Security issue found: `portable-extraction-api.js` used to return raw `String(e.message)`; malformed JSON parser exceptions can include excerpts of uploaded supplier/group messages in a response. Fixed by `safeApiError()`, which emits only allowlisted error codes and controlled generic messages, never raw parse exceptions or ZIP filenames.
+- Added regression to `prova_portable_extraction_api_v0.js`: submit deliberately malformed JSON containing a private marker; request invalid ZIP with private marker; assert that responses do not echo the markers. Test remains committed but not executed in native Node.
+- Ran latest real API source through V8 with mocked Supabase RLS/Auth, original verification, ZIP and C01 preview: malformed JSON returned 400 without leaked text; invalid ZIP returned 422 without leaked text; valid validation returned 200. **3/3 isolated checks PASS**; not a production Worker or native Node result.
+- Actual External Calc supplier RLS policy had already been verified read-only in Supabase; this proves policy presence, not live HTTP role isolation with real JWTs.
+
+**Release HOLD:** run the ten suites natively from a fully checked-out branch, run Next typecheck/build, validate real Worker and JWT role cases, then decide on bounded persistence C01 separately. No merge, deploy, migration or write on production in this follow-up.
