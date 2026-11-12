@@ -11,7 +11,8 @@ test('Upgrade starts in manual capture mode without a non-operational catalog re
  assert.match(html,/function manualCatalog\(\)/);
 });
 test('public submission still targets V2 endpoint with stable request key',()=>{
- assert.match(html,/post\('\/api\/upgrade\/v1\/lead',\{request_key:requestKey,selection,contact,consent:true\}\)/);
+ assert.match(html,/post\('\/api\/upgrade\/v1\/lead',pendingSubmission\)/);
+ assert.match(html,/pendingSubmission=\{request_key:requestKey,selection,contact,consent:true\}/);
  assert.match(html,/const requestKey=crypto\.randomUUID\(\)/);
  assert.match(html,/Não foi possível confirmar o recebimento/);
 });
