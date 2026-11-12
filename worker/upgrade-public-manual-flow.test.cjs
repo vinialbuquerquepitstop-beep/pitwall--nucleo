@@ -38,14 +38,16 @@ test('optional address field is included in private V2 lead payload',()=>{
 
 
 test('ambiguous network failure retries the identical frozen payload and key',()=>{
- const script=html.match(/<script>([\\s\\S]*?)<\\/script>/)?.[1];
+ const script=html.split('<script>')[1]?.split('</script>')[0];
  assert.ok(script,'expected executable landing script');
  assert.doesNotThrow(()=>new Function(script));
- assert.match(script,/let pendingSubmission=null/);
- assert.match(script,/if\\(!pendingSubmission\\)\\{/);
- assert.match(script,/pendingSubmission=\\{request_key:requestKey,selection,contact,consent:true\\}/);
- assert.match(script,/lockSubmittedFields\\(\\)/);
- assert.match(script,/post\\('\\/api\\/upgrade\\/v1\\/lead',pendingSubmission\\)/);
- assert.match(script,/querySelectorAll\\('#upgrade-form input, #upgrade-form select'\\)/);
- assert.match(script,/sem recarregar a página/);
+ for(const fragment of [
+  'let pendingSubmission=null',
+  'if(!pendingSubmission){',
+  'pendingSubmission={request_key:requestKey,selection,contact,consent:true}',
+  'lockSubmittedFields();',
+  "post('/api/upgrade/v1/lead',pendingSubmission)",
+  "querySelectorAll('#upgrade-form input, #upgrade-form select')",
+  'sem recarregar a página'
+ ])assert.ok(script.includes(fragment),fragment);
 });
