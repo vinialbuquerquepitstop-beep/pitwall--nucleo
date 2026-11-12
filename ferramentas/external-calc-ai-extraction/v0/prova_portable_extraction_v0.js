@@ -30,5 +30,8 @@ pass('partial WhatsApp price update count is numeric in validator response',()=>
  '\\n[12/11/2026, 14:00] Quality: Baixou para R$ 5.200,00'.replace('\\n','\n');
  const r=parseExternalAiExtraction(v);
  assert.equal(r.chronology.unbound_partial_updates,1);
+ assert.equal(r.needs_review,1,'original list item must remain under review while unbound update may supersede it');
+ assert.equal(r.accepted_for_staging,0);
+ assert.equal(r.issues.some(i=>i.reason==='UNBOUND_PARTIAL_UPDATE_IN_SOURCE'),true);
 });
 console.log('EXTERNAL_AI_EXTRACTION_VALIDATION=PASS',checks);
