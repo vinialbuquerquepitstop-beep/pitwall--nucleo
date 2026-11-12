@@ -39,7 +39,7 @@ function createAiExtractionValidationApiV0({env}={}){
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
       unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
-      c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped}}});
+      c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped,catalog_resolved:preview.catalog_resolved,catalog_needs_review:preview.catalog_needs_review}}});
    }catch(e){
     return response(e.status===422?422:e.status===413?413:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
    }
