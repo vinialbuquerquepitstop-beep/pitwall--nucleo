@@ -29,10 +29,14 @@ const events=[];
 const persisted=new Set();
 let failPromotionOnce=false;
 let invalidAckOnce=null;
+let subrequestLimit=Infinity;
 globalThis.fetch=async (url,options)=>{
   const rpc=String(url).split('/').pop();
   const payload=JSON.parse(options.body);
   events.push({rpc,payload});
+  if(events.length>subrequestLimit){
+    throw new Error('Too many subrequests by single Worker invocation');
+  }
   const offerId=payload.p_candidate?.offer_id||payload.p_promoted?.offer_id||'';
   const key=rpc+'|'+offerId;
   if(invalidAckOnce===rpc){
@@ -146,17 +150,60 @@ const run=(supplier_id,offset,hash,sourceId)=>processListIntakeCommand({
       e=>e.code==='LIST_INTAKE_INVALID'
     );
     assert.equal(events.length,0,'invalid offset must not write');
-    // Quality incident regression: the historical 25-offer request performs
-    // 1 supplier bind + 25 candidate writes + 25 promotions = 51 subrequests.
-    // In the new protocol, each request stays below the old 50-request ceiling.
-    // This test intentionally models 25 eligible C01 candidates without relying
-    // on a specific supplier parser corpus or modifying persisted production data.
+    // The real Quality incident persisted 25 C01 candidates but only 24
+    // promoted revisions. Reproduce the exact request count against the
+    // real parser and the real page iterator, with only network mocked.
     const {partitionCandidates}=require('./auto-promotion-authority');
-    const originalPartition=partitionCandidates(a.queue);
-    assert.equal(originalPartition.auto.length+originalPartition.review.length,a.queue.candidates.length);
-    assert.equal(1+25*2,51,'historical call envelope for 25 auto-eligible offers');
-    assert.ok(1+8*2<50,'bounded request remains below 50 subrequests');
-    assert.equal(Math.ceil(25/8),4,'25 candidate batch has 4 invocations');
+    const qualitySupplier='55555555-5555-4555-8555-555555555555';
+    const qualityLike={
+      filename:'quality-25-repro.txt',
+      mime_type:'text/plain',
+      content:Array.from({length:25},(_,i)=>[
+        'iPhone 15 128GB','Preto','R$ '+(4800+i)+',00'
+      ].join('\\n')).join('\\n\\n')
+    };
+    const qualityQueue=buildQueue({...qualityLike,supplier_id:qualitySupplier});
+    assert.equal(qualityQueue.queue.candidates.length,25,
+      'the reproduction fixture must generate exactly 25 candidates');
+    const qualityPartition=partitionCandidates(qualityQueue.queue);
+    assert.equal(qualityPartition.auto.length,25,
+      'the simulated historical failure requires 25 auto-eligible candidates');
+    events.length=0;
+    subrequestLimit=50;
+    await assert.rejects(
+      processListIntakeCommand({
+        env:{SUPABASE_URL:'https://stub.invalid',SUPABASE_ANON_KEY:'test-key'},
+        token:'test-token',
+        rawCommand:{...qualityLike,supplier_id:qualitySupplier}
+      }),
+      /Too many subrequests by single Worker invocation/
+    );
+    assert.equal(events.length,51,'old single request must hit the 51st RPC');
+    const savedCandidates=events.filter(e=>e.rpc==='extcalc_persist_review_candidate_v0').length;
+    const attemptedPromotions=events.filter(e=>e.rpc==='extcalc_persist_auto_promoted_c01_v0').length;
+    assert.equal(savedCandidates,25);
+    assert.equal(attemptedPromotions,25,'the 25th promotion is rejected by the mock limit');
+    let qualityCursor=0,qualityPages=0,qualityTotal=0;
+    while(qualityCursor!==null){
+      events.length=0;
+      const result=await processListIntakeCommand({
+        env:{SUPABASE_URL:'https://stub.invalid',SUPABASE_ANON_KEY:'test-key'},
+        token:'test-token',
+        rawCommand:{...qualityLike,supplier_id:qualitySupplier,batch_offset:qualityCursor,
+          ...(qualityCursor?{
+            expected_content_hash:qualityQueue.canonical.source.content_hash,
+            expected_source_id:qualityQueue.source_id
+          }:{})}
+      });
+      assert.ok(events.length<=17,'all bounded requests fit below limit 50');
+      qualityTotal+=result.persisted;
+      qualityPages++;
+      qualityCursor=result.next_offset;
+      assert.ok(qualityPages<=4);
+    }
+    subrequestLimit=Infinity;
+    assert.equal(qualityTotal,25);
+    assert.equal(qualityPages,4);
 
     console.log('INTAKE_BOUNDED_PAGING_REAL_PARSER=PASS',{
       candidates:a.queue.candidates.length,pages,replay_idempotent:replay.idempotent
