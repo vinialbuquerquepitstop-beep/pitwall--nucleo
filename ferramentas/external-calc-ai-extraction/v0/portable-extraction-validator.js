@@ -4,6 +4,7 @@
  * extraction; it never approves C01, assigns tenant, or writes to the DB.
  * Sources must be supplied again with original text to verify quoted evidence.
  */
+const {checkVariantEvidenceBinding}=require('./variant-price-binding');
 const VERSION='external-calc-extraction/v0';
 const MAX_OFFERS=300,MAX_SOURCES=100,MAX_JSON_BYTES=1024*1024;
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
@@ -116,6 +117,7 @@ function parseExternalAiExtraction(input){
   if(data.unresolved.some(u=>offer.source_refs.includes(u.source_ref)))
    issues.push({offer_ref:offer.offer_ref,field:'*',reason:'UNRESOLVED_SOURCE_CONTEXT'});
  }
+ issues.push(...checkVariantEvidenceBinding({offers:recognized,sources:[...sources.values()]}));
  const incomplete=counts.some(x=>x===null)||data.coverage.unprocessed_items!==0;
  const reviewRefs=new Set(issues.map(x=>x.offer_ref));
  // Output JSON is NEVER an authoritative Reviewed Offer. Even fully evidenced
