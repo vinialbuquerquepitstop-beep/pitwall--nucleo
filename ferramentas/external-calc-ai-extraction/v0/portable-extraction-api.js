@@ -2,6 +2,7 @@
 const {verifyPortableAiInput}=require('./original-source-verifier');
 const {previewExternalAiC01}=require('./external-ai-c01-preview');
 const {unpackOriginalZip}=require('./original-zip-unpacker');
+const {checkSupplierAuthority}=require('./supplier-session-authority');
 const PATH='/api/external-calc/v0/ai-extraction/validate';
 const UNPACK_PATH='/api/external-calc/v0/ai-extraction/unpack';
 function createAiExtractionValidationApiV0({env}={}){
@@ -30,11 +31,22 @@ function createAiExtractionValidationApiV0({env}={}){
       return response(200,{api_version:'external-calc-ai-unpack/v0',unpack:unpackOriginalZip(input.content_base64)});
     }
     const payload=JSON.parse(raw);
-    const result=verifyPortableAiInput(payload);
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+      typeof payload.supplier_id!=='string')throw Object.assign(new Error('Fornecedor obrigatorio'),{code:'AI_SUPPLIER_ID_INVALID',status:422});
+    const supplier=await checkSupplierAuthority({env,token:bearer[1],supplier_id:payload.supplier_id});
+    const result=verifyPortableAiInput({extraction:payload.extraction,original_sources:payload.original_sources});
+    // An AI-asserted supplier identity is never trusted. If the AI declares
+    // a different supplier, stop the preview and require owner adjudication.
+    const claims=result.offers.map(o=>o.supplier_ref).filter(Boolean);
+    if(claims.some(s=>s.toLowerCase()!==supplier.name.trim().toLowerCase())){
+      throw Object.assign(new Error('Fornecedor informado pela IA diverge do fornecedor autorizado'),
+        {code:'AI_SUPPLIER_CLAIM_CONFLICT',status:422});
+    }
     const preview=previewExternalAiC01(result);
     // Do not echo originals, potentially sensitive group messages or phone numbers.
     return response(200,{api_version:'external-calc-ai-extraction-validate/v0',
       validation:{contract_version:result.contract_version,coverage_complete:result.coverage_complete,
+      supplier_authority:{verified:true,scope:'RLS_AUTHENTICATED_READ',supplier_id:supplier.supplier_id},
       original_sources_verified:result.original_sources_verified,original_source_count:result.original_source_count,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
@@ -43,7 +55,7 @@ function createAiExtractionValidationApiV0({env}={}){
       persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
       c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped,catalog_resolved:preview.catalog_resolved,catalog_needs_review:preview.catalog_needs_review}}});
    }catch(e){
-    return response(e.status===422?422:e.status===413?413:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
+    return response([401,403,413,422,503].includes(e.status)?e.status:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
    }
   }
  };
