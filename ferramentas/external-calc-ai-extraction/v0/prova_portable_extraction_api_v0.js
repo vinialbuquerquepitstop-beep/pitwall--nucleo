@@ -27,10 +27,18 @@ try{
  broken.offers[0].field_evidence.price[0].quote='R$ 1,00';
  r=await api.handle(request('owner',broken));assert.equal(r.status,422);
  assert.equal((await r.json()).error.code,'AI_EXTRACTION_EVIDENCE_MISMATCH');
+ const mismatch=JSON.parse(JSON.stringify(valid));
+ r=await api.handle(new Request('https://calc.test/api/external-calc/v0/ai-extraction/validate',{
+   method:'POST',headers:{authorization:'Bearer owner','content-type':'application/json'},
+   body:JSON.stringify({extraction:mismatch,original_sources:[{source_ref:'s1',text:'iPhone 17 128GB Azul R$ 5.399,99'}]})
+ }));
+ assert.equal(r.status,422);
+ assert.equal((await r.json()).error.code,'AI_ORIGINAL_SOURCE_MISMATCH');
+
  const altered=JSON.parse(JSON.stringify(valid));
  altered.sources[0].text='iPhone 17 256GB Azul R$ 1,00';
  r=await api.handle(request('owner',altered));assert.equal(r.status,422);
  assert.equal((await r.json()).error.code,'AI_EXTRACTION_EVIDENCE_MISMATCH');
- console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',4);
+ console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',5);
 }finally{globalThis.fetch=oldFetch}
 })().catch(e=>{console.error(e);process.exitCode=1});
