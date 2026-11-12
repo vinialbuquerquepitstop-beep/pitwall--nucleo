@@ -24,4 +24,11 @@ pass('missing material field to review',()=>{const v=clone();v.offers[0].price=n
 pass('unknown coverage never complete',()=>{const v=clone();v.coverage.source_items_total=null;const r=parseExternalAiExtraction(v);assert.equal(r.coverage_complete,false)});
 pass('uncertainty with verified source quote',()=>{const v=clone();v.unresolved=[{source_ref:'s1',quote:'Azul',reason:'cor possivelmente duplicada'}];const r=parseExternalAiExtraction(v);assert.equal(r.unresolved.length,1);assert.equal(r.needs_review,1)});
 pass('price conflict on same variant',()=>{const v=clone();const o=JSON.parse(JSON.stringify(v.offers[0]));o.offer_ref='o2';o.price.amount_minor=540099;v.offers.push(o);const r=parseExternalAiExtraction(v);assert.equal(r.needs_review,2);assert.equal(r.issues.filter(i=>i.reason==='CONFLICTING_PRICE_FOR_VARIANT').length,2)});
+pass('partial WhatsApp price update count is numeric in validator response',()=>{
+ const v=clone();
+ v.sources[0].text='[12/11/2026, 10:00] Quality: '+v.sources[0].text+
+ '\\n[12/11/2026, 14:00] Quality: Baixou para R$ 5.200,00'.replace('\\n','\n');
+ const r=parseExternalAiExtraction(v);
+ assert.equal(r.chronology.unbound_partial_updates,1);
+});
 console.log('EXTERNAL_AI_EXTRACTION_VALIDATION=PASS',checks);
