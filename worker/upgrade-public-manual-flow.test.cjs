@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
-const html = readFileSync(join(__dirname,'../../public/upgrade/index.html'),'utf8');
+const html = readFileSync(join(__dirname,'../public/upgrade/index.html'),'utf8');
 
 test('Upgrade starts in manual capture mode without a non-operational catalog request',()=>{
  assert.match(html,/manualCatalog\(\);\s*<\/script>/);
