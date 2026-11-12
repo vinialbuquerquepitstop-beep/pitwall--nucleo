@@ -64,6 +64,30 @@ function parseExternalAiExtraction(input){
   exact(u,['source_ref','reason','quote'],'unresolved');
   if(!sources.has(u.source_ref)||!str(u.reason,250)||!str(u.quote,500)||!sources.get(u.source_ref).text.includes(u.quote))fail('AI_EXTRACTION_EVIDENCE_MISMATCH','unresolved sem proveniencia');
  }
+ // A message may update the same model/color/condition price. This needs
+ // adjudication, not a silent "take latest" or AI-selected overwrite.
+ const priceGroups=new Map();
+ for(const offer of recognized){
+  if(!offer.model||!offer.price)continue;
+  const key=JSON.stringify([
+   offer.supplier_ref||offer.source_refs.slice().sort().join(','),
+   offer.model.trim().toLowerCase(),offer.capacity_gb,
+   offer.color?.trim().toLowerCase()||null,
+   offer.condition?.trim().toLowerCase()||null
+  ]);
+  if(!priceGroups.has(key))priceGroups.set(key,[]);
+  priceGroups.get(key).push(offer);
+ }
+ for(const offers of priceGroups.values()){
+  if(offers.length>1&&new Set(offers.map(o=>o.price.amount_minor)).size>1)
+   for(const offer of offers)issues.push({offer_ref:offer.offer_ref,field:'price',reason:'CONFLICTING_PRICE_FOR_VARIANT'});
+ }
+ // Unresolved source messages are evidence of uncertainty, even when the
+ // extracted offer fields look complete.
+ for(const offer of recognized){
+  if(data.unresolved.some(u=>offer.source_refs.includes(u.source_ref)))
+   issues.push({offer_ref:offer.offer_ref,field:'*',reason:'UNRESOLVED_SOURCE_CONTEXT'});
+ }
  const incomplete=counts.some(x=>x===null)||data.coverage.unprocessed_items!==0;
  const reviewRefs=new Set(issues.map(x=>x.offer_ref));
  // Output JSON is NEVER an authoritative Reviewed Offer. Even fully evidenced
