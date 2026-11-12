@@ -17,7 +17,7 @@ verify('multi color under single model heading',[
 verify('wrong color from other variant row',[
  {source_ref:'s',text:'iPhone 17 256GB\nAzul - R$ 5.399,99\nPreto - R$ 5.499,99'}],
  [offer('a','iPhone 17','R$ 5.399,99','Preto',fields('s','iPhone 17','R$ 5.399,99','Preto'))],
- ['COLOR_PRICE_ROW_MISMATCH']);
+ ['MULTI_PRICE_VARIANT_COLOR_NOT_LINKED']);
 verify('intervening new model heading',[
  {source_ref:'s',text:'iPhone 17 256GB\niPhone 17 Pro 256GB\nR$ 5.399,99'}],
  [offer('a','iPhone 17','R$ 5.399,99',null,fields('s','iPhone 17','R$ 5.399,99'))],
