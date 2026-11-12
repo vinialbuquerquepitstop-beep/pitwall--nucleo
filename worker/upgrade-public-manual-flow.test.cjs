@@ -28,3 +28,10 @@ test('optional trade checkbox is sent as null while the normal trade path remain
  assert.match(html,/\$\('#noTrade'\)\.checked\|\|requireFields\(\['#ownedModel','#ownedCapacity','#ownedCondition'\]\)/);
  assert.match(html,/\$\('#tradeFields'\)\.classList\.toggle\('hidden',disabled\)/);
 });
+
+
+test('optional address field is included in private V2 lead payload',()=>{
+ assert.match(html,/id="contactAddress" maxlength="200"/);
+ assert.match(html,/\.\.\.\(field\('#contactAddress'\)\?\{address:field\('#contactAddress'\)\}:\{\}\s*\)/);
+ assert.match(html,/post\('\/api\/upgrade\/v1\/lead'/);
+});
