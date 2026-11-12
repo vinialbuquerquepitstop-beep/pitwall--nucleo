@@ -19,3 +19,12 @@ test('financial quote UI remains disabled without approved pricing',()=>{
  assert.match(html,/id="simulate"[^>]+disabled/);
  assert.match(html,/A cotação automática da Calculadora Pitwall V2 ainda não está disponível/);
 });
+
+
+test('optional trade checkbox is sent as null while the normal trade path remains available',()=>{
+ assert.match(html,/id="noTrade" type="checkbox"/);
+ assert.match(html,/id="tradeFields"/);
+ assert.match(html,/trade_in:\$\('#noTrade'\)\.checked\?null:/);
+ assert.match(html,/\$\('#noTrade'\)\.checked\|\|requireFields\(\['#ownedModel','#ownedCapacity','#ownedCondition'\]\)/);
+ assert.match(html,/\$\('#tradeFields'\)\.classList\.toggle\('hidden',disabled\)/);
+});
