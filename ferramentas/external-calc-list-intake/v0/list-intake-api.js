@@ -33,13 +33,14 @@ function normalizedFilename(value,type){
 }
 function normalizeBody(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('body invalido'),{code:'LIST_INTAKE_INVALID'});
- const allowed=new Set(['filename','mime_type','content','supplier_id','batch_offset','expected_content_hash']);
+ const allowed=new Set(['filename','mime_type','content','supplier_id','batch_offset','expected_content_hash','expected_source_id']);
  for(const k of Object.keys(value))if(!allowed.has(k))throw Object.assign(new Error('campo nao permitido: '+k),{code:'LIST_INTAKE_INVALID'});
  if(typeof value.content!=='string'||!value.content.trim())throw Object.assign(new Error('lista vazia'),{code:'LIST_INTAKE_INVALID'});
  if(Buffer.byteLength(value.content,'utf8')>MAX_TEXT_BYTES)throw Object.assign(new Error('lista excede 2 MB'),{code:'LIST_INTAKE_TOO_LARGE'});
  if(value.batch_offset!==undefined&&(!Number.isSafeInteger(value.batch_offset)||value.batch_offset<0))throw Object.assign(new Error('batch_offset invalido'),{code:'LIST_INTAKE_INVALID'});
  if(value.expected_content_hash!==undefined&&(typeof value.expected_content_hash!=='string'||!/^sha256:[a-f0-9]{64}$/.test(value.expected_content_hash)))throw Object.assign(new Error('content_hash invalido'),{code:'LIST_INTAKE_INVALID'});
- if(value.batch_offset>0&&!value.expected_content_hash)throw Object.assign(new Error('content_hash necessario para continuar ingestao'),{code:'LIST_INTAKE_INVALID'});
+ if(value.expected_source_id!==undefined&&(typeof value.expected_source_id!=='string'||!/^source_[a-f0-9]{24}$/.test(value.expected_source_id)))throw Object.assign(new Error('source_id invalido'),{code:'LIST_INTAKE_INVALID'});
+ if(value.batch_offset>0&&(!value.expected_content_hash||!value.expected_source_id))throw Object.assign(new Error('hash e source_id necessarios para continuar ingestao'),{code:'LIST_INTAKE_INVALID'});
  if(value.supplier_id!=null&&(typeof value.supplier_id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.supplier_id.trim())))throw Object.assign(new Error('supplier_id invalido'),{code:'LIST_INTAKE_INVALID'});
  return {...value,supplier_id:value.supplier_id==null?null:value.supplier_id.trim().toLowerCase()};
 }
@@ -475,10 +476,13 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  const all=[...partition.auto.map(item=>({kind:'auto',item})),...partition.review.map(item=>({kind:'review',item}))];
  const bounded=command.batch_offset!==undefined;
  const offset=bounded?command.batch_offset:0;
+ if(bounded&&command.expected_source_id!==undefined&&command.expected_source_id!==built.source_id){
+   throw Object.assign(new Error('fornecedor ou origem da lista mudou durante a ingestao; nenhuma oferta gravada nesta etapa'),{code:'LIST_INTAKE_SOURCE_CHANGED',status:409});
+ }
  if(bounded&&command.expected_content_hash!==undefined&&command.expected_content_hash!==built.canonical.source.content_hash){
    throw Object.assign(new Error('lista alterada durante a ingestao; nenhuma oferta gravada nesta etapa'),{code:'LIST_INTAKE_SOURCE_CHANGED',status:409});
  }
- if(offset>all.length)throw Object.assign(new Error('offset fora da lista'),{code:'LIST_INTAKE_INVALID'});
+ if(offset>all.length||offset%8!==0)throw Object.assign(new Error('offset fora da sequencia de lotes'),{code:'LIST_INTAKE_INVALID'});
  if(command.supplier_id){
    await rpc(env,token,'extcalc_bind_source_supplier_v0',{p_source_id:built.source_id,p_supplier_id:command.supplier_id});
  }
