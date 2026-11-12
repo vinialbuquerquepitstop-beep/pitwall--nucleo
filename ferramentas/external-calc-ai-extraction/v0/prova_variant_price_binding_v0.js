@@ -43,4 +43,8 @@ verify('paragraph boundary',[
  {source_ref:'s',text:'iPhone 17 256GB\n\nR$ 5.399,99'}],
  [offer('a','iPhone 17','R$ 5.399,99',null,fields('s','iPhone 17','R$ 5.399,99'))],
  ['PRICE_OUTSIDE_MODEL_BLOCK']);
-console.log('EXTERNAL_AI_VARIANT_PRICE_BINDING=PASS',9);
+verify('two models same price line',[
+ {source_ref:'s',text:'iPhone 17 Pro 256GB / iPhone 17 Air 256GB - R$ 5.399,99'}],
+ [offer('a','iPhone 17 Pro','R$ 5.399,99',null,fields('s','iPhone 17 Pro','R$ 5.399,99'))],
+ ['MULTIPLE_MODELS_SAME_LINE']);
+console.log('EXTERNAL_AI_VARIANT_PRICE_BINDING=PASS',10);
