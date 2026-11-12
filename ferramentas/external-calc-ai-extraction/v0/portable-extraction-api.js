@@ -1,11 +1,13 @@
 'use strict';
 const {verifyPortableAiInput}=require('./original-source-verifier');
 const {previewExternalAiC01}=require('./external-ai-c01-preview');
+const {unpackOriginalZip}=require('./original-zip-unpacker');
 const PATH='/api/external-calc/v0/ai-extraction/validate';
+const UNPACK_PATH='/api/external-calc/v0/ai-extraction/unpack';
 function createAiExtractionValidationApiV0({env}={}){
  if(!env)throw new Error('env obrigatorio');
  return {
-  matches(path){return path===PATH},
+  matches(path){return path===PATH||path===UNPACK_PATH},
   async handle(request){
    const origin=request.headers.get('origin');
    const allowedOrigins=new Set(String(env.EXTCALC_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean));
@@ -20,6 +22,13 @@ function createAiExtractionValidationApiV0({env}={}){
     const auth=await fetch(env.SUPABASE_URL+'/auth/v1/user',{headers:{apikey:env.SUPABASE_ANON_KEY,authorization:'Bearer '+bearer[1]}});
     if(!auth.ok)return response(401,{error:{code:'UNAUTHENTICATED'}});
     const raw=await request.text();
+    if(raw.length>3*1024*1024)throw Object.assign(new Error('payload muito grande'),{code:'AI_EXTRACTION_TOO_LARGE',status:413});
+    if(new URL(request.url).pathname===UNPACK_PATH){
+      const input=JSON.parse(raw);
+      if(!input||typeof input!=='object'||Array.isArray(input)||
+        Object.keys(input).join(',')!=='content_base64')throw Object.assign(new Error('ZIP esperado'),{code:'AI_ZIP_INVALID',status:422});
+      return response(200,{api_version:'external-calc-ai-unpack/v0',unpack:unpackOriginalZip(input.content_base64)});
+    }
     const payload=JSON.parse(raw);
     const result=verifyPortableAiInput(payload);
     const preview=previewExternalAiC01(result);
@@ -32,9 +41,9 @@ function createAiExtractionValidationApiV0({env}={}){
       unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
       c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped}}});
    }catch(e){
-    return response(e.status===422?422:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
+    return response(e.status===422?422:e.status===413?413:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
    }
   }
  };
 }
-module.exports={PATH,createAiExtractionValidationApiV0};
+module.exports={PATH,UNPACK_PATH,createAiExtractionValidationApiV0};
