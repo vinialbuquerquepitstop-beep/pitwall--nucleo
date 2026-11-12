@@ -28,12 +28,17 @@ const originalFetch=globalThis.fetch;
 const events=[];
 const persisted=new Set();
 let failPromotionOnce=false;
+let invalidAckOnce=null;
 globalThis.fetch=async (url,options)=>{
   const rpc=String(url).split('/').pop();
   const payload=JSON.parse(options.body);
   events.push({rpc,payload});
   const offerId=payload.p_candidate?.offer_id||payload.p_promoted?.offer_id||'';
   const key=rpc+'|'+offerId;
+  if(invalidAckOnce===rpc){
+    invalidAckOnce=null;
+    return {ok:true,status:200,text:async()=>JSON.stringify({idempotent:false})};
+  }
   if(failPromotionOnce&&rpc==='extcalc_persist_auto_promoted_c01_v0'){
     failPromotionOnce=false;
     throw new Error('NETWORK_INTERRUPTED_DURING_PROMOTION');
@@ -114,6 +119,25 @@ const run=(supplier_id,offset,hash,sourceId)=>processListIntakeCommand({
     const recovered=await run(partialSupplier,0);
     assert.equal(recovered.persisted,Math.min(8,a.queue.candidates.length));
     assert.ok(recovered.idempotent>0,'retry must reuse the earlier candidate');
+    // HTTP 200 without explicit RPC acknowledgement must fail closed.
+    const ackSupplier='44444444-4444-4444-8444-444444444444';
+    events.length=0;
+    invalidAckOnce='extcalc_persist_review_candidate_v0';
+    await assert.rejects(
+      run(ackSupplier,0),
+      e=>e.code==='LIST_INTAKE_PERSIST_ACK_INVALID' && e.status===502
+    );
+    assert.ok(events.some(x=>x.rpc==='extcalc_persist_review_candidate_v0'));
+    assert.equal(events.filter(x=>x.rpc==='extcalc_persist_auto_promoted_c01_v0').length,0,
+      'a missing candidate ack must not proceed to auto-promotion');
+
+    events.length=0;
+    invalidAckOnce='extcalc_persist_auto_promoted_c01_v0';
+    await assert.rejects(
+      run(ackSupplier,0),
+      e=>e.code==='LIST_INTAKE_PERSIST_ACK_INVALID' && e.status===502
+    );
+
     const alternate=await run(supplierB,0);
     assert.notEqual(first.source_id,alternate.source_id);
     events.length=0;
