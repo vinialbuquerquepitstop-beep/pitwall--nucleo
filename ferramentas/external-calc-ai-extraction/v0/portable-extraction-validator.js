@@ -5,6 +5,7 @@
  * Sources must be supplied again with original text to verify quoted evidence.
  */
 const {checkVariantEvidenceBinding}=require('./variant-price-binding');
+const {temporalDiagnostics}=require('./temporal-offer-diagnostics');
 const VERSION='external-calc-extraction/v0';
 const MAX_OFFERS=300,MAX_SOURCES=100,MAX_JSON_BYTES=1024*1024;
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
@@ -118,6 +119,8 @@ function parseExternalAiExtraction(input){
    issues.push({offer_ref:offer.offer_ref,field:'*',reason:'UNRESOLVED_SOURCE_CONTEXT'});
  }
  issues.push(...checkVariantEvidenceBinding({offers:recognized,sources:[...sources.values()]}));
+ const chronology=temporalDiagnostics({offers:recognized,sources:[...sources.values()]});
+ issues.push(...chronology.issues);
  const incomplete=counts.some(x=>x===null)||data.coverage.unprocessed_items!==0;
  const reviewRefs=new Set(issues.map(x=>x.offer_ref));
  // Output JSON is NEVER an authoritative Reviewed Offer. Even fully evidenced
@@ -125,6 +128,7 @@ function parseExternalAiExtraction(input){
  return {contract_version:VERSION,valid:true,coverage_complete:!incomplete,
   accepted_for_staging:recognized.length-reviewRefs.size,needs_review:reviewRefs.size,
   issues,offers:recognized,sources:[...sources.values()],unresolved:data.unresolved,
+  chronology:{issues:chronology.issues,events:chronology.events,chronological_authority:false,selected_latest_offer_ref:null},
   persistence_allowed:false,authority:'STAGING_ONLY',c01_import_ready:false};
 }
 module.exports={VERSION,parseExternalAiExtraction};
