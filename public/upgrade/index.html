@@ -205,6 +205,12 @@ $('#useManualModel').addEventListener('click',()=>{manualCatalog();$('#desiredMa
 $('#desiredCapacity').addEventListener('change',()=>{renderConditions();refresh();});
 let stage=1, busy=false;
 const requestKey=crypto.randomUUID();
+let pendingSubmission=null;
+function lockSubmittedFields(){
+ // Once a request may have reached the database, allow only an exact replay.
+ for(const el of document.querySelectorAll('#upgrade-form input, #upgrade-form select'))el.disabled=true;
+ for(const id of ['#next1','#next2','#back2','#back3'])$(id).disabled=true;
+}
 function field(id){return $(id).value.trim();}
 function refresh(){
  for(let i=1;i<=3;i++){
@@ -300,16 +306,20 @@ $('form').addEventListener('input',()=>{refresh();if(quoteSelectionKey&&JSON.str
 $('#upgrade-form').addEventListener('submit',async e=>{
  e.preventDefault();if(busy)return;
  $('#error').classList.add('hidden');$('#result').classList.add('hidden');$('#leadStatus').classList.add('hidden');
- if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition',...($('#noTrade').checked?[]:['#ownedModel','#ownedCapacity','#ownedCondition']),'#contactName','#contactWhatsApp']))return;
- if(!validateContact())return;
- if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
- const selection=selectedUpgrade();
- const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp'),...(field('#contactAddress')?{address:field('#contactAddress')}:{} )};
+ if(!pendingSubmission){
+  if(!requireFields([manualMode?'#desiredManual':'#desiredModel','#desiredCapacity','#desiredCondition',...($('#noTrade').checked?[]:['#ownedModel','#ownedCapacity','#ownedCondition']),'#contactName','#contactWhatsApp']))return;
+  if(!validateContact())return;
+  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
+  const selection=selectedUpgrade();
+  const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp'),...(field('#contactAddress')?{address:field('#contactAddress')}:{} )};
+  pendingSubmission={request_key:requestKey,selection,contact,consent:true};
+  lockSubmittedFields();
+ }
  busy=true;$('#submit').disabled=true;$('#submit').textContent='Enviando...';
  $('#submissionNote').textContent='Estamos registrando a solicitação. Não feche esta página até aparecer a referência de recebimento.';
 
  try{
-  const lead=await post('/api/upgrade/v1/lead',{request_key:requestKey,selection,contact,consent:true});
+  const lead=await post('/api/upgrade/v1/lead',pendingSubmission);
   if(lead?.ok!==true||typeof lead.reference!=='string'||!/^[A-Za-z0-9_-]{8,100}$/.test(lead.reference))throw Error('CAPTURE_NOT_CONFIRMED');
   const message=document.createElement('div');message.textContent='Solicitação registrada para encaminhamento ao atendimento. Referência: '+lead.reference+'. A confirmação do contato ocorrerá após a conferência pela Pitstop.';
   $('#leadStatus').replaceChildren(message);$('#leadStatus').classList.remove('hidden');
@@ -318,9 +328,9 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   $('#submissionNote').textContent='Guarde a referência acima para consultar o atendimento. Os valores serão confirmados pela equipe.';
   $('#quoteHelp').textContent='Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
  }catch(_){
-  $('#error').textContent='Não foi possível confirmar o recebimento. A solicitação pode ter sido registrada; tente novamente sem alterar os dados. A mesma referência de envio será reutilizada.';
+  $('#error').textContent='Não foi possível confirmar o recebimento. A solicitação pode ter sido registrada. Use o botão abaixo para reenviar exatamente os mesmos dados, sem recarregar a página.';
   $('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Tentar confirmar envio novamente';
-  $('#submissionNote').textContent='Se houver instabilidade, sua tentativa pode já ter sido recebida. Não abra outra solicitação.';
+  $('#submissionNote').textContent='Os dados estão protegidos contra alterações para evitar pedidos duplicados. Não recarregue esta página; o reenvio utiliza a mesma chave.';
  }
  finally{busy=false;}
 });
