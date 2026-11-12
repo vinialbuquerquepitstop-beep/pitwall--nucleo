@@ -1,5 +1,6 @@
 'use strict';
 const {parseExternalAiExtraction}=require('./portable-extraction-validator');
+const {previewExternalAiC01}=require('./external-ai-c01-preview');
 const PATH='/api/external-calc/v0/ai-extraction/validate';
 function createAiExtractionValidationApiV0({env}={}){
  if(!env)throw new Error('env obrigatorio');
@@ -20,12 +21,14 @@ function createAiExtractionValidationApiV0({env}={}){
     if(!auth.ok)return response(401,{error:{code:'UNAUTHENTICATED'}});
     const raw=await request.text();
     const result=parseExternalAiExtraction(raw);
+    const preview=previewExternalAiC01(result);
     // Do not echo originals, potentially sensitive group messages or phone numbers.
     return response(200,{api_version:'external-calc-ai-extraction-validate/v0',
       validation:{contract_version:result.contract_version,coverage_complete:result.coverage_complete,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
-      unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY'}});
+      unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
+      c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped}}});
    }catch(e){
     return response(e.status===422?422:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
    }
