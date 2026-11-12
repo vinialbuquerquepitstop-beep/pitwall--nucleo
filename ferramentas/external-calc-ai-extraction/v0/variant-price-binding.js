@@ -55,6 +55,23 @@ function checkVariantEvidenceBinding(extraction){
      !/\b(?:pro|plus|air|max)\b/i.test(offer.model)){
     issues.push(reason(offer.offer_ref,'MODEL_VARIANT_SUFFIX_CONFLICT'));continue;
   }
+  if(offer.capacity_gb!==null){
+   const caps=offer.field_evidence.capacity_gb||[];
+   if(caps.length!==1||caps[0].source_ref!==p.source_ref){
+    issues.push(reason(offer.offer_ref,'CAPACITY_SOURCE_MISMATCH'));continue;
+   }
+   const capLoc=location(source,caps[0].quote);
+   if(!capLoc.unique||capLoc.line<modelLoc.line||capLoc.line>priceLoc.line){
+    issues.push(reason(offer.offer_ref,'CAPACITY_OUTSIDE_VARIANT_BLOCK'));continue;
+   }
+   if(capLoc.line>modelLoc.line && capLoc.line<priceLoc.line){
+    const betweenModelAndCap=source.text.split(/\r?\n/).slice(modelLoc.line+1,capLoc.line);
+    if(betweenModelAndCap.some(line=>/\b(?:iphone|ipad|macbook|airpods|galaxy|poco)\b/i.test(line)||
+      moneyTokens(line).length)){
+      issues.push(reason(offer.offer_ref,'CAPACITY_OUTSIDE_VARIANT_BLOCK'));continue;
+    }
+   }
+  }
   if(modelLoc.line>priceLoc.line){
    issues.push(reason(offer.offer_ref,'PRICE_BEFORE_MODEL_CONTEXT'));continue;
   }
