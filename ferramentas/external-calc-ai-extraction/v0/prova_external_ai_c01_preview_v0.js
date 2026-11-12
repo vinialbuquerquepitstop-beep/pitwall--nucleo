@@ -28,6 +28,7 @@ assert.equal(candidate.domain_outcome,'REVIEW_REQUIRED');
 assert.equal(candidate.interpreted_offer.model.id,null,'untrusted AI must not invent catalog model id');
 assert.equal(candidate.interpreted_offer.price.amount_minor,539999);
 assert.equal(candidate.review_evidence.source_lines.some(s=>s.raw==='R$ 5.399,99'),true);
+assert.equal(candidate.provenance_refs.includes('external_ai_source:s1'),true);
 assert.deepEqual(previewExternalAiC01(parseExternalAiExtraction(sample)).queue,preview.queue,'stable ids and snapshots across retries');
 const incomplete=JSON.parse(JSON.stringify(sample));
 incomplete.offers[0].price=null;incomplete.offers[0].field_evidence.price=[];
