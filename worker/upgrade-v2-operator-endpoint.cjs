@@ -84,6 +84,9 @@ function createUpgradeV2OperatorEndpoint({env,Client,fetchImpl=fetch}={}){
     supabaseUrl:v2Url,publishableKey:key,
     getOperatorAccessToken:async()=>token,fetchImpl
    }).deliver({requestId:body.request_id});
+   // A review outcome commits within scope.withQuery before returning 409.
+   if(result?.review_required===true&&result.linked===false)
+    return reply(409,'UPGRADE_V2_REVIEW_REQUIRED');
    if(result?.linked!==true||!UUID.test(result.lead_id||''))
     return reply(503,'UPGRADE_V2_RECONCILIATION_UNAVAILABLE');
    return reply(200,'UPGRADE_V2_LINKED',{
