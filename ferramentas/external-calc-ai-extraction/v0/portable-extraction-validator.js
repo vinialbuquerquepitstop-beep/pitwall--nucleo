@@ -41,7 +41,7 @@ function parseExternalAiExtraction(input){
   if(o.price!==null){exact(o.price,['amount_minor','currency'],'price');if(!Number.isSafeInteger(o.price.amount_minor)||o.price.amount_minor<=0||o.price.currency!=='BRL')fail('AI_EXTRACTION_SCHEMA_INVALID',path+' price invalido')}
   if(!Array.isArray(o.source_refs)||!o.source_refs.length||o.source_refs.some(ref=>!sources.has(ref)))fail('AI_EXTRACTION_SOURCE_MISSING',path+' referencia sem fonte');
   if(!object(o.field_evidence)||!Array.isArray(o.issues)||o.issues.some(x=>!str(x,200))||typeof o.extraction_confidence!=='number'||o.extraction_confidence<0||o.extraction_confidence>1)fail('AI_EXTRACTION_SCHEMA_INVALID',path+' diagnostico invalido');
-  const requiredEvidence=['raw_model','model','capacity_gb','color','condition','price','supplier_ref'];
+  const requiredEvidence=['raw_model','brand','model','capacity_gb','color','condition','price','supplier_ref'];
   exact(o.field_evidence,requiredEvidence,path+'.field_evidence');
   let evidenceCount=0;
   for(const field of requiredEvidence){
