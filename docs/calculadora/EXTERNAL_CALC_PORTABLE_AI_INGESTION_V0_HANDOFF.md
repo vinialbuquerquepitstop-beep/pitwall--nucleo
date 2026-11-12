@@ -77,3 +77,14 @@ Backend PR #209 based on #208; frontend PR #101 based on #100. No merge/deploy/m
 - Frontend existing UI now maps binding issue codes to legible Portuguese review reasons. Validation remains read-only, `persistence_allowed=false` and all C01 snapshots remain REVIEW_REQUIRED.
 
 **Scope limitations:** evidence-location matching is conservative and deterministic, not a universal natural-language proof. Complex nested message chains, inherited stock/condition, mixed source files, temporal updates and same-row ambiguous tables may be flagged for review. Unknown or unsupported formats should not be silently accepted. Source completeness and origin authenticity are distinct gates.
+
+
+## Gate 1.4 | WhatsApp message chronology, conservative dedupe (2026-11-12)
+- New `temporal-offer-diagnostics.js`: identifies two common Brazilian WhatsApp export header forms (bracketed and unbracketed date/time/sender). Validates calendar dates, separates message spans by source text position, and associates unique price citations with their containing message.
+- For offers of the same exact model/capacity/color/condition **within the same source and claimed sender**, repeated amounts trigger `REPEATED_SAME_PRICE_MESSAGE` (or `POSSIBLE_DUPLICATE_OFFER` when ordering is not verified). Different amounts trigger `HISTORICAL_PRICE_UPDATE_REQUIRES_REVIEW` if timestamps are uniquely ordered, otherwise `CONFLICTING_PRICE_CHRONOLOGY_UNKNOWN`.
+- Separate source files or different claimed senders are *not* automatically merged; the JSON's `supplier_ref` is not authenticated identity. Date/time strings are untrusted and not authoritative for selecting a price. **The system never chooses a latest price, rewrites past C01 revisions or merges offers in this gate.**
+- The validator includes chronological issues in the same selective-review routing; API returns chronology issue counts only with `latest_selected:false` and `chronological_authority:false`. Frontend checks both flags, shows counts and Portuguese explanations, no optimistic auto-update.
+- `prova_temporal_offer_diagnostics_v0.js`: 7/7 PASS on actual source in V8: ordered price change, duplicate amount, different sender, missing/invalid dates, separate files. Initial regex parser syntax error was detected and corrected before pass.
+- Regressions after integration: existing JSON validator 11/11, independent original 9/9, multi-color price binding 4/4 PASS in V8; frontend new contract and text checked statically.
+
+**HOLD:** Full WhatsApp archive authenticity, date timezone corrections, multi-chat supplier reconciliation, partial updates that omit model, deduplication across files, and independently verifiable latest valid price remain unsettled. No C01 persistence/auto-promotion is enabled. Native Node/Next build and live Worker auth still pending.
