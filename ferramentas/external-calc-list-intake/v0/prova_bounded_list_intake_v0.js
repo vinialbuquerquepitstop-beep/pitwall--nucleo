@@ -42,11 +42,12 @@ globalThis.fetch=async (url,options)=>{
   persisted.add(key);
   return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,idempotent})};
 };
-const run=(supplier_id,offset,hash)=>processListIntakeCommand({
+const run=(supplier_id,offset,hash,sourceId)=>processListIntakeCommand({
   env:{SUPABASE_URL:'https://stub.invalid',SUPABASE_ANON_KEY:'test-key'},
   token:'test-token',
   rawCommand:{...list,supplier_id,batch_offset:offset,
-    ...(hash?{expected_content_hash:hash}:{})}
+    ...(hash?{expected_content_hash:hash}:{}),
+    ...(sourceId?{expected_source_id:sourceId}:{})}
 });
 (async()=>{
   try{
@@ -55,7 +56,7 @@ const run=(supplier_id,offset,hash)=>processListIntakeCommand({
     const all=[];
     while(offset!==null){
       events.length=0;
-      const result=await run(supplierA,offset,offset===0?undefined:hash);
+      const result=await run(supplierA,offset,offset===0?undefined:hash,offset===0?undefined:a.source_id);
       assert.ok(result.persisted<=8);
       assert.ok(events.length<=17,'maximum 1 supplier bind + 2 RPCs per item');
       assert.equal(result.batch_offset,offset);
@@ -77,10 +78,29 @@ const run=(supplier_id,offset,hash)=>processListIntakeCommand({
     assert.ok(replay.idempotent>0,'replaying the same page must be idempotent');
     events.length=0;
     await assert.rejects(
-      run(supplierA,8,'sha256:'+'f'.repeat(64)),
+      run(supplierA,8,'sha256:'+'f'.repeat(64),a.source_id),
       e=>e.code==='LIST_INTAKE_SOURCE_CHANGED'
     );
     assert.equal(events.length,0,'changed source must be rejected before all DB RPCs');
+    events.length=0;
+    await assert.rejects(
+      run(supplierB,8,hash,a.source_id),
+      e=>e.code==='LIST_INTAKE_SOURCE_CHANGED'
+    );
+    assert.equal(events.length,0,'supplier drift must be rejected before all DB RPCs');
+    events.length=0;
+    await assert.rejects(
+      run(supplierA,8,hash),
+      e=>e.code==='LIST_INTAKE_INVALID'
+    );
+    assert.equal(events.length,0,'missing continuation source id must be rejected');
+    events.length=0;
+    await assert.rejects(
+      run(supplierA,9,hash,a.source_id),
+      e=>e.code==='LIST_INTAKE_INVALID'
+    );
+    assert.equal(events.length,0,'misaligned page cursor must be rejected');
+
     // Partial-write recovery: a candidate can be persisted before its
     // separate auto-promotion RPC fails. Retrying the SAME page must
     // preserve the immutable snapshots and recover idempotently.
@@ -98,7 +118,7 @@ const run=(supplier_id,offset,hash)=>processListIntakeCommand({
     assert.notEqual(first.source_id,alternate.source_id);
     events.length=0;
     await assert.rejects(
-      run(supplierA,a.queue.candidates.length+1,hash),
+      run(supplierA,a.queue.candidates.length+6,hash,a.source_id),
       e=>e.code==='LIST_INTAKE_INVALID'
     );
     assert.equal(events.length,0,'invalid offset must not write');
