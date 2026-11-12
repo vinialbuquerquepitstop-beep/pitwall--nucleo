@@ -88,3 +88,17 @@ Backend PR #209 based on #208; frontend PR #101 based on #100. No merge/deploy/m
 - Regressions after integration: existing JSON validator 11/11, independent original 9/9, multi-color price binding 4/4 PASS in V8; frontend new contract and text checked statically.
 
 **HOLD:** Full WhatsApp archive authenticity, date timezone corrections, multi-chat supplier reconciliation, partial updates that omit model, deduplication across files, and independently verifiable latest valid price remain unsettled. No C01 persistence/auto-promotion is enabled. Native Node/Next build and live Worker auth still pending.
+
+
+## Gate 1.5 | Session-scoped supplier authority + partial message updates (2026-11-12)
+**Read-only, branch implementation only, NOT deployed.**
+- `supplier-session-authority.js` checks the selected supplier UUID through `GET /rest/v1/extcalc_supplier?select=supplier_id,name&supplier_id=eq.<uuid>&limit=2`, using the caller's **JWT** and `SUPABASE_ANON_KEY` only. Existing Supabase RLS migration `20261001192000_external_calc_supplier_context_v0.sql` restricts authenticated reads to `tenant_id=privado.fn_tenant_atual()` AND `privado.fn_papel_atual()='dono'`. No new security-definer RPC, service-role credential or DB mutation.
+- Validation endpoint now **requires `supplier_id`** and fails closed on inaccessible or malformed ID; it rejects a non-null AI `supplier_ref` that differs from the RLS-visible supplier name, rather than trusting AI supplier assertions. It returns `supplier_authority: { verified:true, scope:'RLS_AUTHENTICATED_READ', supplier_id }` as a read-only finding, **not source authenticity**.
+- Existing frontend passes selectedSupplier.supplier_id explicitly; adapter validates the returned ID and `verified=true`. The previously created Markdown prompt and input scheme stay additive.
+- `temporal-offer-diagnostics.js` now marks model-less price corrections (e.g., 'Baixou para R$ 5.200,00') as `unbound_partial_updates`. This never assigns the corrected price to the preceding offer. UI displays count as a pending independent source review, not an eligible C01.
+- The existing timestamp/claimed sender fields are not WhatsApp authenticity evidence. Matching user-selected registered supplier to the caller's tenant proves ownership of a **registry record**, not whether a group participant was that supplier or whether a message is trustworthy.
+- The validation endpoint remains `persistence_allowed=false`, `c01_import_ready=false`, `auto_promoted=0`; all C01 snapshots remain `REVIEW_REQUIRED`.
+
+**Evidence:** 6/6 scenarios in the supplier check's actual JS source with network mocked (visible supplier, cross-tenant empty read, mismatched supplier, forbidden, missing JWT, malformed ID); endpoint with actual supplier authority, Auth/RLS responses mocked: 5/5 HTTP cases (200/403/401/422/401). Temporal parser 8/8 assertions with added unbound partial update case. Frontend 9/9 structural supplier/temporal contract checks. Tests executed in V8 isolate; **native Node, Next build, live authenticated Worker and RLS behavior in deployed Supabase are not yet proven in this gate.**
+
+**Next release gates:** actual Node/Next/ZIP tests; live authorization with real owner and non-owner sessions; exhaustive supplier alias/phone identity adjudication; original WhatsApp export provenance, multi-file/long-list coverage and safe persisted offer replay; C01 preview→persistence idempotency and read-after-write. Review-only partial update must never overwrite historic price without explicit source and operator adjudication.
