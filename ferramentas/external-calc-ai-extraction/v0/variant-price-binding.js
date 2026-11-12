@@ -59,8 +59,13 @@ function checkVariantEvidenceBinding(extraction){
     issues.push(reason(offer.offer_ref,'PRICE_OUTSIDE_MODEL_BLOCK'));continue;
    }
    // A later, intervening model title or other price could override scope.
-   if(between.some(line=>/\b(?:iphone|ipad|macbook|airpods|galaxy|poco)\b/i.test(line) ||
-     moneyTokens(line).length)){
+   if(between.some(line=>/\b(?:iphone|ipad|macbook|airpods|galaxy|poco)\b/i.test(line))){
+    issues.push(reason(offer.offer_ref,'INTERVENING_MODEL_OR_PRICE'));continue;
+   }
+   const previousPrices=between.filter(line=>moneyTokens(line).length);
+   if(previousPrices.length && (!offer.color ||
+      !key(priceLoc.text).includes(key(offer.color)) ||
+      previousPrices.some(line=>key(line).includes(key(offer.color))))){
     issues.push(reason(offer.offer_ref,'INTERVENING_MODEL_OR_PRICE'));continue;
    }
    // Multiple price rows under one heading are permitted only when color
