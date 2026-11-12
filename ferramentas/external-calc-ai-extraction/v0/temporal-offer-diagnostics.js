@@ -31,11 +31,31 @@ function location(s,quote){
  if(first<0||s.text.indexOf(quote,first+quote.length)>=0)return null;
  return first;
 }
+function detectUnboundPartialUpdates(sources){
+ const found=[];
+ for(const source of sources){
+  for(const message of messages(source)){
+   const body=source.text.slice(message.start,message.end);
+   // Strip only the first WhatsApp header. The remaining message is not
+   // trusted and must never be applied as an authoritative update.
+   const stripped=body.replace(HEADER,'');
+   const hasPrice=/(?:R\\$\\s*)?(?:\\d{1,3}(?:\\.\\d{3})+|\\d{4,7}),\\d{2}/i.test(stripped);
+   const explicitUpdate=/\\b(?:baixou|aumentou|atualizad[oa]|novo\\s+preco|novo\\s+valor|agora\\s+r\\$|corrigindo|alterado)\\b/i.test(stripped);
+   const product=/\\b(?:iphone|ipad|macbook|airpods|galaxy|poco|samsung|xiaomi)\\b/i.test(stripped);
+   if(hasPrice&&explicitUpdate&&!product){
+    found.push({source_ref:source.source_ref,reason:'PARTIAL_PRICE_UPDATE_UNBOUND',
+      timestamp_claim:message.stamp,sender_claim:message.sender});
+   }
+  }
+ }
+ return found;
+}
 function temporalDiagnostics(extraction){
  const sourceMap=new Map(extraction.sources.map(s=>[s.source_ref,s]));
  const segments=new Map(extraction.sources.map(s=>[s.source_ref,messages(s)]));
  const groups=new Map();
  const issues=[],events=[];
+ const partialUpdates=detectUnboundPartialUpdates(extraction.sources);
  for(const o of extraction.offers){
   if(!o.model||!o.price)continue;
   const priceEv=o.field_evidence.price;
@@ -68,6 +88,7 @@ function temporalDiagnostics(extraction){
   for(const e of group)issues.push({offer_ref:e.offer_ref,field:'price',reason});
  }
  return {issues,events:events.map(({offer_ref,source_ref,scope_verified})=>({offer_ref,source_ref,scope_verified})),
+   unbound_partial_updates:partialUpdates.length,partial_update_sources:[...new Set(partialUpdates.map(x=>x.source_ref))],
    chronological_authority:false,selected_latest_offer_ref:null};
 }
-module.exports={temporalDiagnostics,messages};
+module.exports={temporalDiagnostics,messages,detectUnboundPartialUpdates};
