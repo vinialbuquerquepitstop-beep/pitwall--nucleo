@@ -55,7 +55,7 @@ function checkVariantEvidenceBinding(extraction){
      !/\b(?:pro|plus|air|max)\b/i.test(offer.model)){
     issues.push(reason(offer.offer_ref,'MODEL_VARIANT_SUFFIX_CONFLICT'));continue;
   }
-  if(offer.capacity_gb!==null){
+  if(Number.isSafeInteger(offer.capacity_gb)){
    const caps=offer.field_evidence.capacity_gb||[];
    if(caps.length!==1||caps[0].source_ref!==p.source_ref){
     issues.push(reason(offer.offer_ref,'CAPACITY_SOURCE_MISMATCH'));continue;
