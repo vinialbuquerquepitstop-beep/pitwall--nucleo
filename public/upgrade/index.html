@@ -314,7 +314,8 @@ $('#upgrade-form').addEventListener('submit',async e=>{
  }
  finally{busy=false;}
 });
-refresh();
-loadCatalog();
+// UP-CRM-01: use the manual capture journey until the V2 catalog is authorized.
+// Avoid a known 503 fetch and keep approved catalog code intact for later activation.
+manualCatalog();
 </script>
 </body></html>
