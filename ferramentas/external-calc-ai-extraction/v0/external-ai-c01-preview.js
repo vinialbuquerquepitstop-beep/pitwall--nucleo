@@ -13,7 +13,7 @@ function previewExternalAiC01(extraction){
  const analysis_id=id('analysis','ai-preview|'+sourceFingerprint);
  const source_id=id('source','ai-preview|'+sourceFingerprint);
  const run_id='ai-preview-'+sourceFingerprint.slice(0,24);
- const records=[],segments=[],reviewOnly=[];
+ const records=[],segments=[],reviewOnly=[],sourceRefsByRecord=[];
  let line=0;
  const sourceIds=new Set(extraction.sources.map(s=>s.source_ref));
  const issueRefs=new Set(extraction.issues.map(i=>i.offer_ref));
@@ -36,6 +36,7 @@ function previewExternalAiC01(extraction){
    trace.push({field,rules:['external_ai:quoted_source_untrusted'],score:null,sources:refs,alternatives:[],derived_from:refs});
   }
   // Retain a human-readable model but never fabricate a catalog model.id.
+  sourceRefsByRecord.push(offer.source_refs.slice());
   records.push({
    record_id:'ai-'+sha(offer.offer_ref+'|'+sourceFingerprint).slice(0,24),
    state:'REVIEW_REQUIRED',
@@ -57,6 +58,9 @@ function previewExternalAiC01(extraction){
   records,segments,ambiguities:[],invalid:[],warnings:[]
  };
  const queue=mapBundleToC01ReviewQueue(bundle,{analysis_id,source_id,currency:'BRL'});
+ for(let i=0;i<queue.candidates.length;i++){
+  queue.candidates[i].provenance_refs.push(...sourceRefsByRecord[i].map(ref=>'external_ai_source:'+ref));
+ }
  // Restrict all output to manual review. The model.id is null and trace has
  // no internal authority score. Never call auto-promotion from this bridge.
  if(queue.candidates.some(x=>x.domain_outcome!=='REVIEW_REQUIRED'||x.interpreted_offer.model.id!==null))
