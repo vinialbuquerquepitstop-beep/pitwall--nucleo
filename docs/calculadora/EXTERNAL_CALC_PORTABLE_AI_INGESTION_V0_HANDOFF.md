@@ -41,3 +41,16 @@ No supplier selected in the UI can be treated as authenticated tenancy in the JS
 
 ## Ownership & release
 Backend PR #209 based on #208; frontend PR #101 based on #100. No merge/deploy/migration, no changes to Pitwall V2 CRM. External Calc Quality 24/25 legacy reconciliation is a distinct operational recovery gate.
+
+
+## Gate 1.1: independent operator originals and ZIP text source (2026-11-12)
+**Actual implemented branch changes:**
+- `original-source-verifier.js` now requires request envelope `{extraction,original_sources:[{source_ref,text}]}`; all sources must be present. Exact source text comparison stops a model from fabricating both an offer and the alleged original quote. A changed/omitted original fails 422.
+- `original-zip-unpacker.js` reuses the existing constrained ZIP parser via a new authenticated, **read-only** `/api/external-calc/v0/ai-extraction/unpack` endpoint. Limit: 2MB ZIP compressed, 32 entries, 1MB total uncompressed. Only UTF-8 TXT/CSV is returned; media/unsupported files are explicitly flagged as skipped. Path traversal/ZIP64/bombs are governed by the established reader; a native Node regression is versioned, not yet executed.
+- The browser can upload an original ZIP, then populate the original source text or source_ref→text mapping. References from ZIP must use `zip:<entry-path>` and preserve each full TXT/CSV without rewriting it. Raw chat data stays in memory/response for the authenticated operator; this endpoint intentionally returns uploaded original text to the same operator, unlike the validation endpoint, which only returns a summary.
+- Validator also marks model, color, condition, capacity and price **value-vs-quote mismatches** for review, rather than trusting confidence scores. Conflicting prices / unresolved source contexts likewise trigger review.
+- The operator must supply the original separately. For multi-source input without ZIP, provide exact source_ref→text mapping. Multi-file ZIP coverage is not proven if files are skipped, if content is too large, or if the AI cannot read attachments; never claim complete coverage based solely on the AI's declared count.
+
+**Evidence:** 9/9 independent-original negative/positive cases run in V8 using the actual GitHub code with a Buffer shim. Authenticated endpoint + real C01 staging source in V8 with simulated Auth/ZIP reader: valid source 200, original mismatch 422, invalid JWT 401, ZIP TXT extracted and ignored media reported. Frontend 16/16 static checks on the current branch. ZIP parser's native Node test `prova_original_zip_unpacked_v0.js` and full Next build are **not run**. Supabase/Cloudflare production unmodified.
+
+**Trust limitation:** Independently submitted original text prevents the AI from falsifying the text *relative to the operator's copy*. It cannot cryptographically verify sender authenticity, WhatsApp origin or completeness of an export; that is a separate gate. Source coverage counters remain claims until independently reconciled. `C01 VALID` remains backend-owned, and every staged C01 preview is `REVIEW_REQUIRED` pending a safe authority path.
