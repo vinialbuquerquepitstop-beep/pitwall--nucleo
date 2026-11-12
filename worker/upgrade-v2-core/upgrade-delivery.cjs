@@ -60,8 +60,12 @@ function createUpgradeV2CrmDelivery({
     x.phone===row.whatsapp_digits&&VALID_UUID.test(x.id||'')&&
     typeof x.notes==='string'&&x.notes.split(' | ').includes('Upgrade V2: '+requestId));
   if(matches.length&&! (matches.length===1&&matching.length===1)){
-   try{await markReview({organizationId,requestId});}catch{}
-   deny('UPGRADE_DELIVERY_REVIEW_REQUIRED');
+   let reviewed=false;
+   try{reviewed=await markReview({organizationId,requestId});}catch{}
+   if(reviewed!==true)deny('UPGRADE_DELIVERY_UNAVAILABLE');
+   // Return a domain outcome, not an exception: the surrounding SQL scope
+   // must COMMIT REVIEW_REQUIRED before HTTP translates it to 409.
+   return {linked:false,review_required:true};
   }
   let lead=matching[0],recovered=!!lead;
   if(!lead){
