@@ -41,4 +41,10 @@ ok('different source files do not merge by AI supplier label',()=>{
  const o=[{...older,field_evidence:{price:[{source_ref:'a',quote:'R$ 5.399,99'}]}},{...newer,field_evidence:{price:[{source_ref:'b',quote:'R$ 5.299,99'}]}}];
  assert.equal(temporalDiagnostics({sources:s,offers:o}).issues.length,0);
 });
+ok('partial price update without model stays unbound',()=>{
+ const src=[{source_ref:'chat',text:'[12/11/2026, 10:00] Quality: iPhone 17 256GB Azul R$ 5.399,99\\n[12/11/2026, 14:00] Quality: Baixou para R$ 5.200,00'.replace('\\n','\n')}];
+ const x=temporalDiagnostics({sources:src,offers:[]});
+ assert.equal(x.unbound_partial_updates,1);
+ assert.equal(x.selected_latest_offer_ref,null);
+});
 console.log('EXTERNAL_AI_TEMPORAL_DIAGNOSTICS=PASS',checks);
