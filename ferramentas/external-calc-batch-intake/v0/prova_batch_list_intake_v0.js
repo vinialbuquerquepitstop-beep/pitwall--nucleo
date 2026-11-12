@@ -219,10 +219,10 @@ global.fetch = async (url, init = {}) => {
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
   if (String(url).includes('/rest/v1/rpc/extcalc_persist_review_candidate_v0')) {
-    return new Response(JSON.stringify({ idempotent: false }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true, idempotent: false }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
   if (String(url).includes('/rest/v1/rpc/extcalc_persist_auto_promoted_c01_v0')) {
-    return new Response(JSON.stringify({ idempotent: false }), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true, idempotent: false }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
 
   throw new Error('unexpected fetch: ' + url);
