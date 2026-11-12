@@ -50,7 +50,7 @@ function parseExternalAiExtraction(input){
    for(const e of evidence){
     exact(e,['source_ref','quote'],path+'.evidence');
     const s=sources.get(e.source_ref);
-    if(!s||!str(e.quote,500)||!s.text.includes(e.quote))fail('AI_EXTRACTION_EVIDENCE_MISMATCH',path+'.'+field+' evidencia nao confere com fonte');
+    if(!s||!o.source_refs.includes(e.source_ref)||!str(e.quote,500)||!s.text.includes(e.quote))fail('AI_EXTRACTION_EVIDENCE_MISMATCH',path+'.'+field+' evidencia nao confere com fonte');
     evidenceCount++;
    }
    if(o[field]!==null && field!=='supplier_ref' && evidence.length===0)issues.push({offer_ref:o.offer_ref,field,reason:'MISSING_FIELD_PROVENANCE'});
@@ -71,6 +71,6 @@ function parseExternalAiExtraction(input){
  return {contract_version:VERSION,valid:true,coverage_complete:!incomplete,
   accepted_for_staging:recognized.length-reviewRefs.size,needs_review:reviewRefs.size,
   issues,offers:recognized,sources:[...sources.values()],unresolved:data.unresolved,
-  persistence_allowed:false,authority:'STAGING_ONLY'};
+  persistence_allowed:false,authority:'STAGING_ONLY',c01_import_ready:false};
 }
 module.exports={VERSION,parseExternalAiExtraction};
