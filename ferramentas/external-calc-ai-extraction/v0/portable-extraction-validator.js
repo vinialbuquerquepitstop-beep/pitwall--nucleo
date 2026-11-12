@@ -121,6 +121,13 @@ function parseExternalAiExtraction(input){
  issues.push(...checkVariantEvidenceBinding({offers:recognized,sources:[...sources.values()]}));
  const chronology=temporalDiagnostics({offers:recognized,sources:[...sources.values()]});
  issues.push(...chronology.issues);
+ // A model-less price correction in the same original source may supersede
+ // ANY item in that conversation. Until an operator binds it to a variant,
+ // no related item should appear as a conflict-free catalog resolution.
+ for(const offer of recognized){
+  if(offer.source_refs.some(ref=>chronology.partial_update_sources?.includes(ref)))
+   issues.push({offer_ref:offer.offer_ref,field:'price',reason:'UNBOUND_PARTIAL_UPDATE_IN_SOURCE'});
+ }
  const incomplete=counts.some(x=>x===null)||data.coverage.unprocessed_items!==0;
  const reviewRefs=new Set(issues.map(x=>x.offer_ref));
  // Output JSON is NEVER an authoritative Reviewed Offer. Even fully evidenced
