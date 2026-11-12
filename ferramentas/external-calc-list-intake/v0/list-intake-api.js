@@ -491,19 +491,24 @@ async function processListIntakeCommand({env,token,rawCommand}={}){
  const review_reasons={};
 
  for(const {kind,item} of batch){
-   if(kind==='auto'){
    const candidateSaved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-   persisted+=1;if(candidateSaved?.idempotent===true)idempotent+=1;
-   const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
-   auto_promoted+=1;
-   if(promoted?.idempotent===true)idempotent+=1;
-   }else{
-   const saved=await rpc(env,token,'extcalc_persist_review_candidate_v0',{p_candidate:item.candidate});
-   persisted+=1;if(saved?.idempotent===true)idempotent+=1;
-   review_required+=1;
-   for(const reason of item.assessment.reasons){
-     review_reasons[reason]=(review_reasons[reason]||0)+1;
+   if(candidateSaved?.ok!==true){
+     throw Object.assign(new Error('confirmacao de persistencia C01 invalida'),{code:'LIST_INTAKE_PERSIST_ACK_INVALID',status:502});
    }
+   persisted+=1;
+   if(candidateSaved.idempotent===true)idempotent+=1;
+   if(kind==='auto'){
+     const promoted=await rpc(env,token,'extcalc_persist_auto_promoted_c01_v0',{p_promoted:item.promoted});
+     if(promoted?.ok!==true){
+       throw Object.assign(new Error('confirmacao de autopromocao C01 invalida'),{code:'LIST_INTAKE_PERSIST_ACK_INVALID',status:502});
+     }
+     auto_promoted+=1;
+     if(promoted.idempotent===true)idempotent+=1;
+   }else{
+     review_required+=1;
+     for(const reason of item.assessment.reasons){
+       review_reasons[reason]=(review_reasons[reason]||0)+1;
+     }
    }
  }
 
@@ -542,7 +547,7 @@ function createListIntakeApiV0({env}={}){
     return out(200,{api_version:API_VERSION,intake},origin);
    }catch(e){
     const code=e?.code||'LIST_INTAKE_FAILED';
-    const status=e?.status===401||code==='UNAUTHENTICATED'?401:e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_SOURCE_CHANGED'||code==='EXTCALC_REVIEW_CANDIDATE_CONFLICT'?409:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:400;
+    const status=e?.status===401||code==='UNAUTHENTICATED'?401:e?.status===403||String(e?.message||'').includes('FORBIDDEN')?403:code==='LIST_INTAKE_SOURCE_CHANGED'||code==='EXTCALC_REVIEW_CANDIDATE_CONFLICT'?409:code==='LIST_INTAKE_TOO_LARGE'?413:code==='XLSX_NOT_ACTIVATED'?422:code==='LIST_INTAKE_PERSIST_ACK_INVALID'?502:400;
     return out(status,{error:{code,message:e instanceof Error?e.message:'falha na entrada da lista'}},origin);
    }
   }
