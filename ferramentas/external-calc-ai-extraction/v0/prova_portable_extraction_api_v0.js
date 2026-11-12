@@ -20,6 +20,8 @@ try{
  assert.equal(body.validation.accepted_for_staging,1);
  assert.equal(body.validation.original_sources_verified,true);
  assert.equal(body.validation.original_source_count,1);
+ assert.equal(Number.isSafeInteger(body.validation.chronology.unbound_partial_updates),true);
+ assert.equal(body.validation.chronology.unbound_partial_updates,0);
  assert.equal(body.validation.supplier_authority.verified,true);
  assert.equal(body.validation.supplier_authority.supplier_id,supplierId);
  assert.equal(body.validation.persistence_allowed,false);
