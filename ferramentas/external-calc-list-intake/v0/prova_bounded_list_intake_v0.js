@@ -27,12 +27,17 @@ assert.ok(a.queue.candidates.length>8,'fixture must exercise more than one page'
 const originalFetch=globalThis.fetch;
 const events=[];
 const persisted=new Set();
+let failPromotionOnce=false;
 globalThis.fetch=async (url,options)=>{
   const rpc=String(url).split('/').pop();
   const payload=JSON.parse(options.body);
   events.push({rpc,payload});
   const offerId=payload.p_candidate?.offer_id||payload.p_promoted?.offer_id||'';
   const key=rpc+'|'+offerId;
+  if(failPromotionOnce&&rpc==='extcalc_persist_auto_promoted_c01_v0'){
+    failPromotionOnce=false;
+    throw new Error('NETWORK_INTERRUPTED_DURING_PROMOTION');
+  }
   const idempotent=persisted.has(key);
   persisted.add(key);
   return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,idempotent})};
@@ -76,6 +81,19 @@ const run=(supplier_id,offset,hash)=>processListIntakeCommand({
       e=>e.code==='LIST_INTAKE_SOURCE_CHANGED'
     );
     assert.equal(events.length,0,'changed source must be rejected before all DB RPCs');
+    // Partial-write recovery: a candidate can be persisted before its
+    // separate auto-promotion RPC fails. Retrying the SAME page must
+    // preserve the immutable snapshots and recover idempotently.
+    const partialSupplier='33333333-3333-4333-8333-333333333333';
+    events.length=0;
+    failPromotionOnce=true;
+    await assert.rejects(run(partialSupplier,0),/NETWORK_INTERRUPTED_DURING_PROMOTION/);
+    assert.ok(events.some(x=>x.rpc==='extcalc_persist_review_candidate_v0'),
+      'the interrupted page must have persisted a candidate first');
+    events.length=0;
+    const recovered=await run(partialSupplier,0);
+    assert.equal(recovered.persisted,Math.min(8,a.queue.candidates.length));
+    assert.ok(recovered.idempotent>0,'retry must reuse the earlier candidate');
     const alternate=await run(supplierB,0);
     assert.notEqual(first.source_id,alternate.source_id);
     events.length=0;
