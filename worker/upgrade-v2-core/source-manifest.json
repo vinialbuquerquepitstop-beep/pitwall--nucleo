@@ -1,6 +1,6 @@
 {
   "source": "vinialbuquerquepitstop-beep/pitswal-v2",
-  "source_commit": "ece26b395901910d6992140341655d133da533b2",
+  "source_commit": "73e2cc9d0f8b6d7b65ad0443f3dd933f29146871",
   "source_dir": "modules/upgrade/crm-v2",
   "files": {
     "upgrade-db-scope.cjs": "f397147bec2da3758346c2ed2c336f29a73defbd",
@@ -10,6 +10,6 @@
     "upgrade-operator-job.cjs": "ab6a6e6f37c0d77862464371bd41e099a912add0",
     "upgrade-operator-transport.cjs": "e66ca12cedae5bd6812d0067d481b6cf84dc4859",
     "upgrade-delivery-store.cjs": "e37d4c78b33bbb16af1676fcdf116f426b0994e7",
-    "upgrade-delivery.cjs": "856be2a891582648831030d42e24cb79ebb1447e"
+    "upgrade-delivery.cjs": "54dca141d82f61bf32017a010c615b13c59af110"
   }
 }
