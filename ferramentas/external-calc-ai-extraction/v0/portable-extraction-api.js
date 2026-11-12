@@ -25,7 +25,7 @@ function createAiExtractionValidationApiV0({env}={}){
       validation:{contract_version:result.contract_version,coverage_complete:result.coverage_complete,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
-      unresolved_count:result.unresolved.length,persistence_allowed:false,authority:'STAGING_ONLY'}});
+      unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY'}});
    }catch(e){
     return response(e.status===422?422:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
    }
