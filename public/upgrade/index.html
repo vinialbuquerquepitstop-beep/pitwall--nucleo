@@ -122,6 +122,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="section-slot"><div class="section-slot-number">03</div><div><strong>Como podemos falar com você?</strong><span>O atendimento acontece pelo WhatsApp, após o envio.</span></div></div>
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" aria-describedby="phoneHelp" required><span class="input-help" id="phoneHelp">Inclua o DDD. Usaremos este número apenas para falar sobre seu upgrade.</span></div></div>
+<div class="field"><label for="contactAddress">Endereço ou bairro e cidade (opcional)</label><input id="contactAddress" maxlength="200" autocomplete="street-address" placeholder="Ex.: Centro, Rio de Janeiro"><span class="input-help">Ajuda a equipe a avaliar as opções de entrega. Nenhum frete é calculado automaticamente.</span></div>
 <div class="field"><label style="display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.5"><input id="contactConsent" type="checkbox" style="width:18px;min-height:18px;margin-top:1px;flex:none" required>Autorizo a Pitstop Imports a entrar em contato pelo WhatsApp sobre esta solicitação de upgrade.</label></div>
 <div class="review" id="reviewSummary" aria-label="Revise seus dados antes do envio">
 <div class="review-head"><strong>Confira sua solicitação</strong><span>Você pode voltar e corrigir os dados antes de enviar.</span></div>
@@ -303,7 +304,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
  if(!validateContact())return;
  if(!$('#contactConsent').checked){$('#contactConsent').focus();$('#contactConsent').reportValidity();return;}
  const selection=selectedUpgrade();
- const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp')};
+ const contact={name:field('#contactName'),whatsapp:field('#contactWhatsApp'),...(field('#contactAddress')?{address:field('#contactAddress')}:{} )};
  busy=true;$('#submit').disabled=true;$('#submit').textContent='Enviando...';
  $('#submissionNote').textContent='Estamos registrando a solicitação. Não feche esta página até aparecer a referência de recebimento.';
 
