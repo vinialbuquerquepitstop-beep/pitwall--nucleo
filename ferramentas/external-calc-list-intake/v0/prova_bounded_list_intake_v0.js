@@ -160,7 +160,7 @@ const run=(supplier_id,offset,hash,sourceId)=>processListIntakeCommand({
       mime_type:'text/plain',
       content:Array.from({length:25},(_,i)=>[
         'iPhone 15 128GB','Preto','R$ '+(4800+i)+',00'
-      ].join('\\n')).join('\\n\\n')
+      ].join('\n')).join('\n\n')
     };
     const qualityQueue=buildQueue({...qualityLike,supplier_id:qualitySupplier});
     assert.equal(qualityQueue.queue.candidates.length,25,
