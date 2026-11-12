@@ -49,6 +49,22 @@ try{
  const wrong=JSON.parse(JSON.stringify(valid));wrong.offers[0].supplier_ref='Another Dealer';
  r=await api.handle(request('owner',wrong));assert.equal(r.status,422);
  assert.equal((await r.json()).error.code,'AI_SUPPLIER_CLAIM_CONFLICT');
- console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',7);
+ const privateText='WHATSAPP_PRIVATE_GROUP_PHONE_21999999999';
+ r=await api.handle(new Request('https://calc.test/api/external-calc/v0/ai-extraction/validate',{
+   method:'POST',headers:{authorization:'Bearer owner','content-type':'application/json'},
+   body:'{"extraction":"'+privateText+'" BROKEN'
+ }));
+ const privateError=await r.json();
+ assert.equal(r.status,400);
+ assert.equal(privateError.error.code,'AI_EXTRACTION_INVALID');
+ assert.equal(JSON.stringify(privateError).includes(privateText),false,'never echo malformed JSON snippets');
+ r=await api.handle(new Request('https://calc.test/api/external-calc/v0/ai-extraction/unpack',{
+   method:'POST',headers:{authorization:'Bearer owner','content-type':'application/json'},
+   body:JSON.stringify({content_base64:'not-a-valid-zip!'+privateText})
+ }));
+ const zipError=await r.json();
+ assert.equal(r.status,422);
+ assert.equal(JSON.stringify(zipError).includes(privateText),false,'never echo ZIP upload content');
+ console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',9);
 }finally{globalThis.fetch=oldFetch}
 })().catch(e=>{console.error(e);process.exitCode=1});
