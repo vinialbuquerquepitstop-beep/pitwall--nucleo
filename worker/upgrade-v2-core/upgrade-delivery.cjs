@@ -19,7 +19,8 @@ function mapToCrm(row,organizationId){
  const identifier='Upgrade V2: '+row.id;
  const notes=[identifier,'Desejado: '+d.model+' / '+d.capacity+' / '+d.condition,
   t===null?'Troca: não possui aparelho para troca':'Troca: '+t.model+' / '+t.capacity+' / '+t.condition,
-  'Pagamento pretendido: '+s.installments+'x','Avaliação humana; sem preço aprovado'].join(' | ');
+  'Pagamento pretendido: '+s.installments+'x',...(typeof s.address==='string'&&s.address.trim()?['Endereço informado: '+s.address.trim()]:[]),
+  'Avaliação humana; sem preço aprovado'].join(' | ');
  if(notes.length>1200)deny('UPGRADE_DELIVERY_INVALID');
  return Object.freeze({p_org_id:organizationId,p_name:row.customer_name,
   p_phone:row.whatsapp_digits,p_notes:notes,
