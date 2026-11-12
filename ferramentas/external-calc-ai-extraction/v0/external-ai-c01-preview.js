@@ -46,7 +46,7 @@ function previewExternalAiC01(extraction){
    state:'REVIEW_REQUIRED',
    fields:{
     supplier:null,
-    model:resolution?.model_entity||String(offer.model),
+    model:resolution?.state==='CATALOG_RESOLVED_PREVIEW'&&resolution.model_entity?resolution.model_entity:String(offer.model),
     capacity_gb:offer.capacity_gb,
     color:offer.color,
     condition:offer.condition,
