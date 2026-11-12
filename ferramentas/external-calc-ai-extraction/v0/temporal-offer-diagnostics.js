@@ -39,9 +39,9 @@ function detectUnboundPartialUpdates(sources){
    // Strip only the first WhatsApp header. The remaining message is not
    // trusted and must never be applied as an authoritative update.
    const stripped=body.replace(HEADER,'');
-   const hasPrice=/(?:R\\$\\s*)?(?:\\d{1,3}(?:\\.\\d{3})+|\\d{4,7}),\\d{2}/i.test(stripped);
-   const explicitUpdate=/\\b(?:baixou|aumentou|atualizad[oa]|novo\\s+preco|novo\\s+valor|agora\\s+r\\$|corrigindo|alterado)\\b/i.test(stripped);
-   const product=/\\b(?:iphone|ipad|macbook|airpods|galaxy|poco|samsung|xiaomi)\\b/i.test(stripped);
+   const hasPrice=/(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})+|\d{4,7}),\d{2}/i.test(stripped);
+   const explicitUpdate=/\b(?:baixou|aumentou|atualizad[oa]|novo\s+preco|novo\s+valor|agora\s+r\$|corrigindo|alterado)\b/i.test(stripped);
+   const product=/\b(?:iphone|ipad|macbook|airpods|galaxy|poco|samsung|xiaomi)\b/i.test(stripped);
    if(hasPrice&&explicitUpdate&&!product){
     found.push({source_ref:source.source_ref,reason:'PARTIAL_PRICE_UPDATE_UNBOUND',
       timestamp_claim:message.stamp,sender_claim:message.sender});
