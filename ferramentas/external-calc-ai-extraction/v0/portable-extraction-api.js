@@ -5,6 +5,30 @@ const {unpackOriginalZip}=require('./original-zip-unpacker');
 const {checkSupplierAuthority}=require('./supplier-session-authority');
 const PATH='/api/external-calc/v0/ai-extraction/validate';
 const UNPACK_PATH='/api/external-calc/v0/ai-extraction/unpack';
+const SAFE_ERROR_CODES=new Set([
+ 'UNAUTHENTICATED','AI_EXTRACTION_TOO_LARGE','AI_ZIP_INVALID','AI_ZIP_TOO_LARGE',
+ 'AI_ZIP_NO_READABLE_TEXT','AI_SUPPLIER_ID_INVALID','AI_SUPPLIER_FORBIDDEN',
+ 'AI_SUPPLIER_AUTH_UNAVAILABLE','AI_SUPPLIER_AUTH_CONFIG','AI_SUPPLIER_CLAIM_CONFLICT',
+ 'AI_ORIGINAL_SOURCE_REQUIRED','AI_ORIGINAL_SOURCE_INVALID',
+ 'AI_ORIGINAL_SOURCE_DUPLICATE','AI_ORIGINAL_SOURCE_TOO_LARGE',
+ 'AI_ORIGINAL_SOURCE_MISSING','AI_ORIGINAL_SOURCE_MISMATCH',
+ 'AI_EXTRACTION_SCHEMA_INVALID','AI_EXTRACTION_EVIDENCE_MISMATCH',
+ 'AI_EXTRACTION_COVERAGE_CONFLICT','AI_EXTRACTION_SOURCE_MISSING',
+ 'PARSER_FAILURE'
+]);
+function safeApiError(error){
+ const status=[401,403,413,422,503].includes(error?.status)?error.status:400;
+ const code=SAFE_ERROR_CODES.has(error?.code)?error.code:'AI_EXTRACTION_INVALID';
+ // Never reflect raw JSON parser errors, ZIP filenames, original message text,
+ // source quotes, SQL/HTTP errors, stack traces or provider error descriptions.
+ const message=status===413?'Arquivo excede o limite permitido':
+  status===401?'Autenticacao necessaria':
+  status===403?'Acesso negado':
+  status===503?'Validacao temporariamente indisponivel':
+  'Nao foi possivel validar o arquivo enviado';
+ return {status,payload:{error:{code,message}}};
+}
+
 function createAiExtractionValidationApiV0({env}={}){
  if(!env)throw new Error('env obrigatorio');
  return {
@@ -55,7 +79,8 @@ function createAiExtractionValidationApiV0({env}={}){
       persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
       c01_preview:{review_candidates:preview.c01_review_candidates,auto_promoted:0,invalid_or_unmapped:preview.invalid_or_unmapped,catalog_resolved:preview.catalog_resolved,catalog_needs_review:preview.catalog_needs_review}}});
    }catch(e){
-    return response([401,403,413,422,503].includes(e.status)?e.status:400,{error:{code:e.code||'AI_EXTRACTION_INVALID',message:String(e.message||'invalid extraction')}});
+    const safe=safeApiError(e);
+    return response(safe.status,safe.payload);
    }
   }
  };
