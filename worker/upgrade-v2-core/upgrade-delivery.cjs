@@ -13,20 +13,20 @@ function mapToCrm(row,organizationId){
    !compact(row.customer_name)||!/^55[0-9]{10,11}$/.test(row.whatsapp_digits||''))
   deny('UPGRADE_DELIVERY_INVALID');
  const s=row.selection,d=s?.desired,t=s?.trade_in;
- if(!d||!t||!compact(d.model)||!compact(d.capacity)||!compact(t.model)||!compact(t.capacity)||
+ if(!d||!(t===null||(t&&compact(t.model)&&compact(t.capacity)&&compact(t.condition)))||!compact(d.model)||!compact(d.capacity)||
   !Number.isInteger(s.installments)||s.installments<1||s.installments>18)
   deny('UPGRADE_DELIVERY_INVALID');
  const identifier='Upgrade V2: '+row.id;
  const notes=[identifier,'Desejado: '+d.model+' / '+d.capacity+' / '+d.condition,
-  'Troca: '+t.model+' / '+t.capacity+' / '+t.condition,
+  t===null?'Troca: não possui aparelho para troca':'Troca: '+t.model+' / '+t.capacity+' / '+t.condition,
   'Pagamento pretendido: '+s.installments+'x','Avaliação humana; sem preço aprovado'].join(' | ');
  if(notes.length>1200)deny('UPGRADE_DELIVERY_INVALID');
  return Object.freeze({p_org_id:organizationId,p_name:row.customer_name,
   p_phone:row.whatsapp_digits,p_notes:notes,
   p_context:{desired_product:d.model+' / '+d.capacity+' / '+d.condition,
     payment_preference:s.installments===1?'undecided':'card',
-    trade_intent:'yes',trade_model:t.model,trade_storage:t.capacity,
-    trade_condition_declared:t.condition,
+    trade_intent:t===null?'no':'yes',trade_model:t?.model||null,trade_storage:t?.capacity||null,
+    trade_condition_declared:t?.condition||null,
     next_action:'Analisar solicitação de Upgrade; confirmar avaliação e cotação na Calculadora V2'},
   // Real pw_lead_acquisition constraint permits platform/acquisition_ref
   // only for paid acquisition. This is organic Instagram Upgrade, not an ad.
