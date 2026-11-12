@@ -21,7 +21,7 @@ verify('wrong color from other variant row',[
 verify('intervening new model heading',[
  {source_ref:'s',text:'iPhone 17 256GB\niPhone 17 Pro 256GB\nR$ 5.399,99'}],
  [offer('a','iPhone 17','R$ 5.399,99',null,fields('s','iPhone 17','R$ 5.399,99'))],
- ['INTERVENING_MODEL_OR_PRICE']);
+ ['DUPLICATED_QUOTE_LOCATION']);
 verify('crossed source references',[
  {source_ref:'a',text:'iPhone 17'},{source_ref:'b',text:'R$ 5.399,99'}],
  [offer('a','iPhone 17','R$ 5.399,99',null,{
