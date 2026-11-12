@@ -1,5 +1,5 @@
 'use strict';
-const {parseExternalAiExtraction}=require('./portable-extraction-validator');
+const {verifyPortableAiInput}=require('./original-source-verifier');
 const {previewExternalAiC01}=require('./external-ai-c01-preview');
 const PATH='/api/external-calc/v0/ai-extraction/validate';
 function createAiExtractionValidationApiV0({env}={}){
@@ -20,11 +20,13 @@ function createAiExtractionValidationApiV0({env}={}){
     const auth=await fetch(env.SUPABASE_URL+'/auth/v1/user',{headers:{apikey:env.SUPABASE_ANON_KEY,authorization:'Bearer '+bearer[1]}});
     if(!auth.ok)return response(401,{error:{code:'UNAUTHENTICATED'}});
     const raw=await request.text();
-    const result=parseExternalAiExtraction(raw);
+    const payload=JSON.parse(raw);
+    const result=verifyPortableAiInput(payload);
     const preview=previewExternalAiC01(result);
     // Do not echo originals, potentially sensitive group messages or phone numbers.
     return response(200,{api_version:'external-calc-ai-extraction-validate/v0',
       validation:{contract_version:result.contract_version,coverage_complete:result.coverage_complete,
+      original_sources_verified:result.original_sources_verified,original_source_count:result.original_source_count,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
       unresolved_count:result.unresolved.length,persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
