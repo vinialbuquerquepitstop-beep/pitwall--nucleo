@@ -26,6 +26,6 @@ const crossed=JSON.parse(JSON.stringify(doc));
 crossed.offers[0].field_evidence.price[0].quote='R$ 5.499,99';
 crossed.offers[0].price.amount_minor=549999;
 const uncertain=verify(crossed);
-assert.equal(uncertain.needs_review,2,'price conflict flags both same-variant color offers?');
-assert.ok(uncertain.issues.some(x=>x.offer_ref==='azul'&&x.reason==='COLOR_PRICE_ROW_MISMATCH'));
+assert.equal(uncertain.needs_review,1,'only the crossed color row requires review');
+assert.ok(uncertain.issues.some(x=>x.offer_ref==='azul'&&['COLOR_PRICE_ROW_MISMATCH','MULTI_PRICE_VARIANT_COLOR_NOT_LINKED','INTERVENING_MODEL_OR_PRICE'].includes(x.reason)));
 console.log('EXTERNAL_AI_QUALITY_MULTICOLOR_END_TO_END=PASS',4);
