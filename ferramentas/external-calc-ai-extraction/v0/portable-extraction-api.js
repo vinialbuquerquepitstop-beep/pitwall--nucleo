@@ -23,7 +23,7 @@ function createAiExtractionValidationApiV0({env}={}){
     if(!auth.ok)return response(401,{error:{code:'UNAUTHENTICATED'}});
     const raw=await request.text();
     if(raw.length>3*1024*1024)throw Object.assign(new Error('payload muito grande'),{code:'AI_EXTRACTION_TOO_LARGE',status:413});
-    if(typeof request.url==='string' && new URL(request.url).pathname===UNPACK_PATH){
+    if(typeof request.url==='string' && request.url.split('?')[0].endsWith(UNPACK_PATH)){
       const input=JSON.parse(raw);
       if(!input||typeof input!=='object'||Array.isArray(input)||
         Object.keys(input).join(',')!=='content_base64')throw Object.assign(new Error('ZIP esperado'),{code:'AI_ZIP_INVALID',status:422});
