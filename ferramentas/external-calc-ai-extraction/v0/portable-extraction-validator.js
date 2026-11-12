@@ -12,6 +12,23 @@ function object(x){return x!==null&&typeof x==='object'&&!Array.isArray(x)}
 function str(x,max=500){return typeof x==='string'&&x.length>0&&x.length<=max}
 function optional(x,max=500){return x===null||str(x,max)}
 function exact(o,keys,path){if(!object(o))fail('AI_EXTRACTION_SCHEMA_INVALID',path+' deve ser objeto');for(const k of Object.keys(o))if(!keys.includes(k))fail('AI_EXTRACTION_SCHEMA_INVALID',path+'.'+k+' desconhecido');for(const k of keys)if(!own(o,k))fail('AI_EXTRACTION_SCHEMA_INVALID',path+'.'+k+' ausente')}
+function normalized(v){return String(v).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase()}
+function citedValue(evidence,value){
+ return evidence.some(e=>normalized(e.quote).includes(normalized(value)));
+}
+function citedMoney(evidence,minor){
+ return evidence.some(e=>{
+  const matches=e.quote.match(/(?:\d{1,3}(?:\.\d{3})+|\d{4,7})(?:,\d{2})?/g)||[];
+  return matches.some(token=>{
+   const whole=token.replace(/\./g,'').split(',');
+   const value=Number(whole[0])*100+Number((whole[1]||'00').padEnd(2,'0'));
+   return Number.isSafeInteger(value)&&value===minor;
+  });
+ });
+}
+function citedCapacity(evidence,gb){
+ return evidence.some(e=>new RegExp('(^|\\D)'+gb+'\\s*(?:GB|G)(?![a-z])','i').test(e.quote));
+}
 function parseExternalAiExtraction(input){
  const raw=typeof input==='string'?input:JSON.stringify(input);
  if(Buffer.byteLength(raw,'utf8')>MAX_JSON_BYTES)fail('AI_EXTRACTION_TOO_LARGE','JSON excedeu limite de 1MB');
@@ -55,6 +72,17 @@ function parseExternalAiExtraction(input){
    }
    if(o[field]!==null && field!=='supplier_ref' && evidence.length===0)issues.push({offer_ref:o.offer_ref,field,reason:'MISSING_FIELD_PROVENANCE'});
   }
+  // Literal substring membership alone can cite the wrong value from the
+  // same message. Use local, deterministic semantic cross-checks to mark
+  // suspicious values for review without trusting AI confidence.
+  for(const field of ['model','color','condition']){
+   if(o[field]!==null && !citedValue(o.field_evidence[field],o[field]))
+    issues.push({offer_ref:o.offer_ref,field,reason:'EVIDENCE_VALUE_MISMATCH'});
+  }
+  if(o.capacity_gb!==null&&!citedCapacity(o.field_evidence.capacity_gb,o.capacity_gb))
+   issues.push({offer_ref:o.offer_ref,field:'capacity_gb',reason:'EVIDENCE_VALUE_MISMATCH'});
+  if(o.price!==null&&!citedMoney(o.field_evidence.price,o.price.amount_minor))
+   issues.push({offer_ref:o.offer_ref,field:'price',reason:'EVIDENCE_VALUE_MISMATCH'});
   if(evidenceCount===0)issues.push({offer_ref:o.offer_ref,field:'*',reason:'NO_SOURCE_EVIDENCE'});
   for(const f of ['model','price'])if(o[f]===null)issues.push({offer_ref:o.offer_ref,field:f,reason:'MISSING_CRITICAL_FIELD'});
   if(o.issues.length)issues.push({offer_ref:o.offer_ref,field:'*',reason:'AI_DECLARED_ISSUES'});
