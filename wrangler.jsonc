@@ -21,6 +21,10 @@
     "UPGRADE_PUBLIC_ENABLED": "false",
     "UPGRADE_V2_PUBLIC_ENABLED": "false",
     "UPGRADE_V2_OPERATOR_ENABLED": "false",
+    "UPGRADE_V2_ORGANIZATION_ID": "501bca7d-0833-4f99-bb3c-bbc2f82c4a6c",
+    "UPGRADE_V2_INGRESS_LOGIN_ROLE": "pw_upgrade_ingress_backend_login",
+    "UPGRADE_V2_OPERATOR_LOGIN_ROLE": "pw_upgrade_operator_backend_login",
+    "PITWALL_V2_SUPABASE_URL": "https://wmtzmodavmipmcqybpqs.supabase.co",
     "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
     "UPGRADE_EXPECTED_ORIGIN": "https://flat-resonance-09ba.pitstopimports.workers.dev",
     "UPGRADE_DB_PROBE_ENABLED": "false",
@@ -51,6 +55,14 @@
   // da External Calc). Dois logins e Hyperdrives distintos por capacidade.
   // Nenhum binding/secret foi criado ou publicado nesta alteração.
 
+  // Public ingress is rate-limited per HMAC(IP) at the Cloudflare edge.
+  // The namespace_id must remain unique in this Cloudflare account.
+  // The dedicated V2 Hyperdrives are added only after each restricted login
+  // and its origin credentials are provisioned. Keep both V2 flags OFF.
+  "ratelimits": [
+    {"name":"UPGRADE_V2_RATE_LIMITER","namespace_id":"2048112611",
+     "simple":{"limit":5,"period":60}}
+  ],
   "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
 
   "assets": {
