@@ -3,7 +3,7 @@
 // Timestamps and senders are *claims in untrusted text*, not authenticated facts.
 // Never select a winning/latest price or persist over a previous revision.
 function norm(s){return String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/\s+/g,' ')}
-const HEADER=/^(?:\u200e)?(?:\[(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s*(\d{1,2}:\d{2})(?::\d{2})?\]\s*([^:]+?)\s*:\s?|(?:(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s*(\d{1,2}:\d{2})(?::\d{2})?)\s+-\s+([^:]+?)\s*:\s?))/;
+const HEADER=/^(?:\u200e)?(?:\[(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s*(\d{1,2}:\d{2})(?::\d{2})?\]\s*([^:]+?)\s*:\s?|(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s*(\d{1,2}:\d{2})(?::\d{2})?\s+-\s+([^:]+?)\s*:\s?)/;
 function dateKey(match){
  const day=Number(match[1]||match[6]),month=Number(match[2]||match[7]);
  let year=Number(match[3]||match[8]);if(year<100)year+=2000;
