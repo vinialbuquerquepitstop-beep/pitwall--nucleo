@@ -43,6 +43,11 @@ function checkVariantEvidenceBinding(extraction){
   if(moneyTokens(priceLoc.text).length!==1){
    issues.push(reason(offer.offer_ref,'MULTIPLE_PRICES_SAME_LINE'));continue;
   }
+  // Multiple product headings on a single source line defeat a single-variant
+  // assignment even when the AI supplies an apparently precise model quote.
+  if((modelLoc.text.match(/\b(?:iphone|ipad|macbook|airpods|galaxy|poco)\b/gi)||[]).length>1){
+   issues.push(reason(offer.offer_ref,'MULTIPLE_MODELS_SAME_LINE'));continue;
+  }
   // If a model name is a prefix of another more specific model on the same
   // line, a bare iPhone 17 must not be confused with an iPhone 17 Pro/Max.
   const suffix=modelLoc.text.slice(modelLoc.text.indexOf(m.quote)+m.quote.length);
