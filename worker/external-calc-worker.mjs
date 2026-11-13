@@ -2,6 +2,7 @@
 import runtimeModule from '../ferramentas/external-calc-runtime/v0/runtime.js';
 import trackedModelModule from '../ferramentas/external-calc-tracked-model/v0/tracked-model-api.js';
 import listIntakeModule from '../ferramentas/external-calc-list-intake/v0/list-intake-api.js';
+import aiExtractionModule from '../ferramentas/external-calc-ai-extraction/v0/portable-extraction-api.js';
 import batchListIntakeModule from '../ferramentas/external-calc-batch-intake/v0/batch-list-intake-api.js';
 import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
@@ -11,6 +12,7 @@ import pgModule from 'pg';
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
+const { createAiExtractionValidationApiV0 } = aiExtractionModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
 
@@ -326,6 +328,8 @@ export default {
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
     if (batchListIntakeApi.matches(url.pathname)) return batchListIntakeApi.handle(request);
 
+    const aiExtractionApi = createAiExtractionValidationApiV0({ env });
+    if (aiExtractionApi.matches(url.pathname)) return aiExtractionApi.handle(request);
     const listIntakeApi = createListIntakeApiV0({ env });
     if (listIntakeApi.matches(url.pathname)) return listIntakeApi.handle(request);
 

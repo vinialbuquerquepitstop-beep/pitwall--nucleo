@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "test:probe": "node --test worker/upgrade-hyperdrive-probe.test.cjs"
+    "test:probe": "node --test worker/upgrade-hyperdrive-probe.test.cjs",
+    "test:external-ai:native": "node ferramentas/external-calc-ai-extraction/v0/prova_native_gate_v0.js"
   },
   "dependencies": {
     "pg": "8.16.3"
