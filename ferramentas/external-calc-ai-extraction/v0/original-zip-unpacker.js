@@ -19,6 +19,8 @@ function unpackOriginalZip(base64){
   fail('AI_ZIP_TOO_LARGE','ZIP original fora do limite');
  const parsed=readZipEntries(bytes,LIMITS);
  const original_sources=[],skipped=[];
+ // Match the portable validator: a source text must fit 200,000 JS characters
+ // and its source_ref must fit 100. Reject rather than truncating evidence.
  const decode=new TextDecoder('utf-8',{fatal:true});
  for(const [path,content] of parsed.entries){
   const lower=path.toLowerCase();
@@ -38,6 +40,9 @@ function unpackOriginalZip(base64){
    continue;
   }
   if(!text.trim()){skipped.push({filename:path,reason:'EMPTY_TEXT'});continue}
+  if(text.length>200000)fail('AI_ZIP_SOURCE_TOO_LARGE','Um texto ZIP excede os 200 mil caracteres aceitos na validacao');
+  if(('zip:'+path).length>100||path.length>180)
+   fail('AI_ZIP_SOURCE_REF_TOO_LONG','O caminho interno ZIP excede o limite de referencia da fonte');
   original_sources.push({source_ref:'zip:'+path,text});
  }
  if(!original_sources.length)fail('AI_ZIP_NO_READABLE_TEXT','ZIP sem TXT/CSV legivel em UTF-8');
