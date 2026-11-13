@@ -19,7 +19,15 @@
   "vars": {
     "SUPABASE_URL": "https://unjzpyexgtbcmjfgcqrx.supabase.co",
     "UPGRADE_PUBLIC_ENABLED": "false",
-    "UPGRADE_DB_PROBE_ENABLED": "false",
+    "UPGRADE_V2_PUBLIC_ENABLED": "false",
+    "UPGRADE_V2_OPERATOR_ENABLED": "false",
+    "UPGRADE_V2_ORGANIZATION_ID": "501bca7d-0833-4f99-bb3c-bbc2f82c4a6c",
+    "UPGRADE_V2_INGRESS_LOGIN_ROLE": "pw_upgrade_ingress_backend_login",
+    "UPGRADE_V2_OPERATOR_LOGIN_ROLE": "pw_upgrade_operator_backend_login",
+    "PITWALL_V2_SUPABASE_URL": "https://wmtzmodavmipmcqybpqs.supabase.co",
+    "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
+    "UPGRADE_EXPECTED_ORIGIN": "https://flat-resonance-09ba.pitstopimports.workers.dev",
+    "UPGRADE_DB_PROBE_ENABLED": "true",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
     "EXTCALC_RESEARCH_PROFILE_JSON": "{\"profile_id\":\"external-calc-research-production-v1\",\"profile_version\":\"1\",\"required_match_fields\":[\"model_id\",\"capacity_gb\",\"condition\",\"color\"],\"min_evidence_confidence\":0.9,\"max_age_seconds\":604800}",
     "EXTCALC_INDICATOR_PROFILE_JSON": "{\"profile_id\":\"external-calc-indicator-production-v1\",\"profile_version\":\"1\",\"min_evidence_count\":3,\"cheap_at_or_below_percent\":-5,\"expensive_at_or_above_percent\":5}",
@@ -33,12 +41,37 @@
     "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuanpweWV4Z3RiY21qZmdjcXJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTgyOTQsImV4cCI6MjA5ODY5NDI5NH0.SDH7Wa7z4jS6M4unhZcKRJJbrrTvi9jXkbs9JqdM-ZU"
   },
 
-  "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
+  // UP-CRM-01: captura V2 dentro DESTE Worker, sem segundo Worker/URL.
+  // A binding Hyperdrive V2 de ingresso (UPGRADE_V2_DB_INGRESS) deve usar
+  // login PostgreSQL separado, restrito e autorizado somente na org V2.
+  // NÃO reutilizar o Hyperdrive legado UPGRADE_DB.
+  // Configurar UPGRADE_V2_ORGANIZATION_ID, UPGRADE_V2_INGRESS_LOGIN_ROLE,
+  // o ratelimit UPGRADE_V2_RATE_LIMITER (namespace_id real e aprovado) e
+  // secret UPGRADE_V2_IP_HMAC_SECRET. Sem isso, a rota falha fechada.
+  // Reconciliação CRM é OPERADOR-ONLY, flag independente
+  // UPGRADE_V2_OPERATOR_ENABLED=false. Usa UPGRADE_V2_DB_OPERATOR,
+  // UPGRADE_V2_OPERATOR_LOGIN_ROLE, PITWALL_V2_SUPABASE_URL e
+  // PITWALL_V2_PUBLISHABLE_KEY (projeto V2; NÃO usar SUPABASE_URL
+  // da External Calc). Dois logins e Hyperdrives distintos por capacidade.
+  // Binding V2 ingress configurado na branch; NÃO publicado. Secret HMAC permanece externo.
+
+  // Public ingress is rate-limited per HMAC(IP) at the Cloudflare edge.
+  // The namespace_id must remain unique in this Cloudflare account.
+  // The dedicated V2 Hyperdrives are added only after each restricted login
+  // and its origin credentials are provisioned. Keep both V2 flags OFF.
+  "ratelimits": [
+    {"name":"UPGRADE_V2_RATE_LIMITER","namespace_id":"2048112611",
+     "simple":{"limit":5,"period":60}}
+  ],
+  "hyperdrive": [
+    {"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"},
+    {"binding":"UPGRADE_V2_DB_INGRESS","id":"46ef09094f34420490a060efd9297d62"}
+  ],
 
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/upgrade/v1/_db-probe", "/api/external-calc/*", "/api/pitsquad/acquisition/*", "/api/pitsquad/whatsapp/*", "/api/pitsquad/assistant/*", "/a/*"],
+    "run_worker_first": ["/api/upgrade/v1/*", "/api/external-calc/*", "/api/pitsquad/acquisition/*", "/api/pitsquad/whatsapp/*", "/api/pitsquad/assistant/*", "/a/*"],
     // Qualquer rota que nao casar com um arquivo devolve o index.html
     // (200), em vez de 404. Protege o link de recovery de senha.
     "not_found_handling": "single-page-application"
