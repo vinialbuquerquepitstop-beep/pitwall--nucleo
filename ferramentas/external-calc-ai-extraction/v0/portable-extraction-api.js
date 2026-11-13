@@ -73,8 +73,8 @@ function createAiExtractionValidationApiV0({env}={}){
     const displayLabel=(value,max)=>{
       if(typeof value!=='string')return null;
       return value
-        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi,'[email omitido]')
-        .replace(/(?:\\+?55[\\s().-]*)?(?:\\(?\\d{2}\\)?[\\s().-]*)?\\d{4,5}[\\s.-]?\\d{4}/g,'[telefone omitido]')
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email omitido]')
+        .replace(/(?:\+?55[\s().-]*)?(?:\(?\d{2}\)?[\s().-]*)?\d{4,5}[\s.-]?\d{4}/g,'[telefone omitido]')
         .slice(0,max);
     };
     const issueRefs=new Map();
