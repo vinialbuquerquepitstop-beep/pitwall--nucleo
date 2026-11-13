@@ -26,6 +26,15 @@ try{
  assert.equal(body.validation.supplier_authority.supplier_id,supplierId);
  assert.equal(body.validation.persistence_allowed,false);
  assert.equal(body.validation.c01_import_ready,false);
+ assert.equal(body.validation.review_preview.total_offers,1);
+ assert.equal(body.validation.review_preview.shown,1);
+ assert.equal(body.validation.review_preview.items.length,1);
+ assert.equal(body.validation.review_preview.items[0].model,'iPhone 17');
+ assert.equal(body.validation.review_preview.items[0].price_amount_minor,539999);
+ assert.equal(body.validation.review_preview.items[0].status,'REVIEW_REQUIRED');
+ assert.equal('source_refs' in body.validation.review_preview.items[0],false);
+ assert.equal('field_evidence' in body.validation.review_preview.items[0],false);
+
  assert.equal(body.validation.authority,'STAGING_ONLY');
  assert.equal(JSON.stringify(body).includes(original),false);
  const broken=JSON.parse(JSON.stringify(valid));
@@ -67,6 +76,6 @@ try{
  const zipError=await r.json();
  assert.equal(r.status,422);
  assert.equal(JSON.stringify(zipError).includes(privateText),false,'never echo ZIP upload content');
- console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',9);
+ console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',10);
 }finally{globalThis.fetch=oldFetch}
 })().catch(e=>{console.error(e);process.exitCode=1});
