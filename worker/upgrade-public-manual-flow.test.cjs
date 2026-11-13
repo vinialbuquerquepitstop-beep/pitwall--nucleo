@@ -101,3 +101,13 @@ test('no-trade journey adjusts final-stage and receipt copy',()=>{
  assert.match(html,/quoteHelp'\)\.textContent=\$\('#noTrade'\)\.checked/);
  assert.match(html,/Vamos confirmar seu próximo iPhone/);
 });
+
+test('public copy does not require a trade-in or imply an approved price',()=>{
+ assert.match(html,/Seu próximo iPhone começa aqui/);
+ assert.match(html,/Troca opcional/);
+ assert.match(html,/RESUMO DO SEU UPGRADE/);
+ assert.match(html,/id="finalStageDescription"/);
+ assert.match(html,/finalStageDescription'\)\.textContent=\$\('#noTrade'\)\.checked/);
+ assert.match(html,/A disponibilidade e as condições de pagamento serão confirmadas/);
+ assert.doesNotMatch(html,/Seu próximo iPhone começa com o atual/);
+});
