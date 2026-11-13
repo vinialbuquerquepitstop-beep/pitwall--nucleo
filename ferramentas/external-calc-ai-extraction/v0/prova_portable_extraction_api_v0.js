@@ -30,6 +30,8 @@ try{
  assert.equal(body.validation.review_preview.shown,1);
  assert.equal(body.validation.review_preview.items.length,1);
  assert.equal(body.validation.review_preview.items[0].model,'iPhone 17');
+ assert.equal(body.validation.review_preview.items[0].review_ref,'item-1');
+ assert.equal('offer_ref' in body.validation.review_preview.items[0],false);
  assert.equal(body.validation.review_preview.items[0].price_amount_minor,539999);
  assert.equal(body.validation.review_preview.items[0].status,'REVIEW_REQUIRED');
  assert.equal('source_refs' in body.validation.review_preview.items[0],false);
