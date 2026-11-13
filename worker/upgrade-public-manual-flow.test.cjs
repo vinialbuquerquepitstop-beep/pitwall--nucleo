@@ -94,3 +94,10 @@ test('HTTP rejection is distinguishable from unknown network failures',async()=>
  assert.ok(script.includes('const invalid=err?.status===400'));
  assert.ok(script.includes('unlockRejectedSubmission();'));
 });
+
+test('no-trade journey adjusts final-stage and receipt copy',()=>{
+ assert.match(html,/id="finalStageTitle"/);
+ assert.match(html,/finalStageTitle'\)\.textContent=\$\('#noTrade'\)\.checked/);
+ assert.match(html,/quoteHelp'\)\.textContent=\$\('#noTrade'\)\.checked/);
+ assert.match(html,/Vamos confirmar seu próximo iPhone/);
+});
