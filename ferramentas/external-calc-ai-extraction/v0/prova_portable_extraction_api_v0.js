@@ -39,6 +39,17 @@ try{
 
  assert.equal(body.validation.authority,'STAGING_ONLY');
  assert.equal(JSON.stringify(body).includes(original),false);
+ const contactLeak=JSON.parse(JSON.stringify(valid));
+ contactLeak.offers[0].offer_ref='21999999999';
+ contactLeak.offers[0].model='iPhone 17 21999999999';
+ contactLeak.offers[0].color='Azul secret@example.com';
+ r=await api.handle(request('owner',contactLeak));
+ assert.equal(r.status,200);
+ const redacted=await r.json();
+ assert.equal(JSON.stringify(redacted).includes('21999999999'),false);
+ assert.equal(JSON.stringify(redacted).includes('secret@example.com'),false);
+ assert.equal(redacted.validation.review_preview.items[0].review_ref,'item-1');
+ assert.equal(redacted.validation.review_preview.items[0].status,'REVIEW_REQUIRED');
  const broken=JSON.parse(JSON.stringify(valid));
  broken.offers[0].field_evidence.price[0].quote='R$ 1,00';
  r=await api.handle(request('owner',broken));assert.equal(r.status,422);
@@ -78,6 +89,6 @@ try{
  const zipError=await r.json();
  assert.equal(r.status,422);
  assert.equal(JSON.stringify(zipError).includes(privateText),false,'never echo ZIP upload content');
- console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',10);
+ console.log('EXTERNAL_AI_EXTRACTION_API_READONLY=PASS',11);
 }finally{globalThis.fetch=oldFetch}
 })().catch(e=>{console.error(e);process.exitCode=1});
