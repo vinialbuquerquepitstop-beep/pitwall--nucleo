@@ -61,7 +61,7 @@ test('confirmed HTTP 400 allows correction with a new key but preserves disabled
  const controls=[{disabled:false},{disabled:true},{disabled:false}];
  const navigation=Object.fromEntries(['#next1','#next2','#back2','#back3'].map(id=>[id,{disabled:false}]));
  let counter=0;
- const scenario=new Function('document','$','crypto',script.slice(from,to)+\x60
+ const scenario=new Function('document','$','crypto',script.slice(from,to)+`
   const initial=requestKey;
   pendingSubmission={request_key:requestKey,contact:{name:'A'}};
   lockSubmittedFields();
@@ -69,7 +69,7 @@ test('confirmed HTTP 400 allows correction with a new key but preserves disabled
   unlockRejectedSubmission();
   return {initial,after:requestKey,whenLocked,afterUnlock:controls.map(x=>x.disabled),
    navLocked:Object.values(navigation).map(x=>x.disabled),pendingSubmission};
- \x60);
+ `);
  const result=scenario({querySelectorAll:()=>controls},id=>navigation[id],{
   randomUUID:()=>String(++counter).padStart(36,'0')
  });
@@ -90,6 +90,6 @@ test('HTTP rejection is distinguishable from unknown network failures',async()=>
   );
  await assert.rejects(post('/api/upgrade/v1/lead',{request_key:'x'}),
   error=>error.status===400);
- assert.match(script,/const invalid=err\\?\\.status===400/);
- assert.match(script,/if\\(invalid\\)\\{[\\s\\S]*?unlockRejectedSubmission\\(\\)/);
+ assert.ok(script.includes('const invalid=err?.status===400'));
+ assert.ok(script.includes('if(invalid){\n   unlockRejectedSubmission();'));
 });
