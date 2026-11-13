@@ -13,7 +13,7 @@ test('Upgrade starts in manual capture mode without a non-operational catalog re
 test('public submission still targets V2 endpoint with stable request key',()=>{
  assert.match(html,/post\('\/api\/upgrade\/v1\/lead',pendingSubmission\)/);
  assert.match(html,/pendingSubmission=\{request_key:requestKey,selection,contact,consent:true\}/);
- assert.match(html,/const requestKey=crypto\.randomUUID\(\)/);
+ assert.match(html,/let requestKey=crypto\.randomUUID\(\)/);
  assert.match(html,/Não foi possível confirmar o recebimento/);
 });
 test('financial quote UI remains disabled without approved pricing',()=>{
@@ -51,4 +51,45 @@ test('ambiguous network failure retries the identical frozen payload and key',()
   "querySelectorAll('#upgrade-form input, #upgrade-form select')",
   'sem recarregar a página'
  ])assert.ok(script.includes(fragment),fragment);
+});
+
+test('confirmed HTTP 400 allows correction with a new key but preserves disabled defaults',()=>{
+ const script=html.split('<script>')[1]?.split('</script>')[0];
+ const from=script.indexOf('let requestKey=crypto.randomUUID();');
+ const to=script.indexOf('function field(id)',from);
+ assert.ok(from>=0&&to>from);
+ const controls=[{disabled:false},{disabled:true},{disabled:false}];
+ const navigation=Object.fromEntries(['#next1','#next2','#back2','#back3'].map(id=>[id,{disabled:false}]));
+ let counter=0;
+ const scenario=new Function('document','$','crypto',script.slice(from,to)+\x60
+  const initial=requestKey;
+  pendingSubmission={request_key:requestKey,contact:{name:'A'}};
+  lockSubmittedFields();
+  const whenLocked=controls.map(x=>x.disabled);
+  unlockRejectedSubmission();
+  return {initial,after:requestKey,whenLocked,afterUnlock:controls.map(x=>x.disabled),
+   navLocked:Object.values(navigation).map(x=>x.disabled),pendingSubmission};
+ \x60);
+ const result=scenario({querySelectorAll:()=>controls},id=>navigation[id],{
+  randomUUID:()=>String(++counter).padStart(36,'0')
+ });
+ assert.notEqual(result.initial,result.after);
+ assert.deepEqual(result.whenLocked,[true,true,true]);
+ assert.deepEqual(result.afterUnlock,[false,true,false]);
+ assert.deepEqual(result.navLocked,[false,false,false,false]);
+ assert.equal(result.pendingSubmission,null);
+});
+test('HTTP rejection is distinguishable from unknown network failures',async()=>{
+ const script=html.split('<script>')[1]?.split('</script>')[0];
+ const from=script.indexOf('async function post(');
+ const to=script.indexOf('function presentQuote(',from);
+ assert.ok(from>=0&&to>from);
+ const post=new Function('fetch','AbortController','setTimeout','clearTimeout',
+  script.slice(from,to)+'return post;')(
+   async()=>({ok:false,status:400}),AbortController,setTimeout,clearTimeout
+  );
+ await assert.rejects(post('/api/upgrade/v1/lead',{request_key:'x'}),
+  error=>error.status===400);
+ assert.match(script,/const invalid=err\\?\\.status===400/);
+ assert.match(script,/if\\(invalid\\)\\{[\\s\\S]*?unlockRejectedSubmission\\(\\)/);
 });
