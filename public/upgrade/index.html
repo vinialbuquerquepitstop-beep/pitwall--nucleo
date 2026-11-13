@@ -186,7 +186,7 @@ async function loadCatalog(){
   let response;
   try{response=await fetch('/api/upgrade/v1/catalog',{method:'GET',credentials:'omit',signal:controller.signal});}
   finally{clearTimeout(timer);}
-  if(!response.ok)throw Object.assign(new Error('UNAVAILABLE'),{status:response.status});
+  if(!response.ok)throw Error('UNAVAILABLE');
   const data=await response.json();
   if(manualMode)return; // Manual choice always wins over an outstanding catalog request.
   if(data?.ok!==true||!Array.isArray(data.offers)||data.offers.length===0||data.offers.length>500)throw Error('CATALOG_EMPTY');
@@ -266,7 +266,7 @@ function selectedUpgrade(){return {desired:{model:desiredModel(),capacity:field(
  trade_in:$('#noTrade').checked?null:{model:field('#ownedModel'),capacity:field('#ownedCapacity'),condition:field('#ownedCondition')},installments:Number(field('#installments'))};}
 async function post(path,payload){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);try{
  const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:controller.signal,credentials:'omit'});
- if(!response.ok)throw Error('UNAVAILABLE');
+ if(!response.ok)throw Object.assign(new Error('UNAVAILABLE'),{status:response.status});
  return await response.json();
 }finally{clearTimeout(timer);}}
 function presentQuote(data){
