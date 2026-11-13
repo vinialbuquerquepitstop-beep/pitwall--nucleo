@@ -67,6 +67,24 @@ function createAiExtractionValidationApiV0({env}={}){
         {code:'AI_SUPPLIER_CLAIM_CONFLICT',status:422});
     }
     const preview=previewExternalAiC01(result);
+    // Bounded, source-free review preview. Never echo original chats, quotes,
+    // filenames, sender names, supplier claims, or any unverified source text.
+    // Display fields are untrusted, length-bounded and remain REVIEW_REQUIRED.
+    const issueRefs=new Map();
+    for(const issue of result.issues){
+      if(!issueRefs.has(issue.offer_ref))issueRefs.set(issue.offer_ref,new Set());
+      issueRefs.get(issue.offer_ref).add(issue.reason);
+    }
+    const reviewItems=result.offers.slice(0,20).map(offer=>({
+      offer_ref:offer.offer_ref,
+      model:offer.model?.slice(0,120)??null,
+      capacity_gb:offer.capacity_gb,
+      color:offer.color?.slice(0,80)??null,
+      condition:offer.condition?.slice(0,80)??null,
+      price_amount_minor:offer.price?.amount_minor??null,
+      status:'REVIEW_REQUIRED',
+      review_reasons:[...(issueRefs.get(offer.offer_ref)||[])].slice(0,12)
+    }));
     // Do not echo originals, potentially sensitive group messages or phone numbers.
     return response(200,{api_version:'external-calc-ai-extraction-validate/v0',
       validation:{contract_version:result.contract_version,coverage_complete:result.coverage_complete,
@@ -74,6 +92,7 @@ function createAiExtractionValidationApiV0({env}={}){
       original_sources_verified:result.original_sources_verified,original_source_count:result.original_source_count,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
       issue_count:result.issues.length,issues:result.issues.slice(0,100),
+      review_preview:{total_offers:result.offers.length,shown:reviewItems.length,items:reviewItems},
       unresolved_count:result.unresolved.length,
       chronology:{review_flags:result.chronology.issues.length,unbound_partial_updates:result.chronology.unbound_partial_updates,latest_selected:false,chronological_authority:false},
       persistence_allowed:false,c01_import_ready:false,authority:'STAGING_ONLY',
