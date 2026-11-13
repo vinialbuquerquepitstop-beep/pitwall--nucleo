@@ -18,11 +18,11 @@ function messages(source){
  // the extra byte in CRLF lines and may attribute a late first-message price
  // to the next WhatsApp message after enough preceding lines.
  const text=source.text;
- const linePattern=/[^\\r\\n]*(?:\\r\\n|\\n|\\r|$)/g;
+ const linePattern=/[^\r\n]*(?:\r\n|\n|\r|$)/g;
  let match;
  while((match=linePattern.exec(text))!==null){
   if(match[0]==='')break;
-  const line=match[0].replace(/(?:\\r\\n|\\n|\\r)$/,'');
+  const line=match[0].replace(/(?:\r\n|\n|\r)$/,'');
   const offset=match.index;
   const hit=HEADER.exec(line);
   if(hit){
