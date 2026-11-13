@@ -59,3 +59,6 @@ SELECT has_column_privilege('pw_upgrade_ingress','pitwall_private.pw_upgrade_req
  has_table_privilege('pw_upgrade_ingress','pitwall_private.pw_upgrade_requests','UPDATE') AS can_update;
 ```
 Retomar pela leitura do HEAD e deste handoff. Sem novos protocolos/checkpoints redundantes; corrigir apenas delta com risco material.
+
+## 9. Continuidade sem desbloqueio de credencial (12/11/2026)
+A pedido do owner, o gate de senha PostgreSQL + criação do Hyperdrive V2 foi adiado; **não é autorização para ativação, deploy ou escrita comercial**. Avanço no delta da interface pública: hero, etiqueta, step 2, resumo lateral e descrição da última etapa deixam explícito que a troca é opcional e que preços/parcelas dependem de confirmação. Código em `public/upgrade/index.html` e regressão em `worker/upgrade-public-manual-flow.test.cjs`; execução do código atual no sandbox Node: **10/10 PASS**, sem conexão financeira real. A API financeira presente em `ferramentas/external-calc-public-upgrade/v0` é uma implementação LEGADA de publicação/cotação e não está montada nas rotas públicas do Worker V2; não reativá-la ou reutilizar captura legada para contornar o gate. Próximo slice financeiro requer contrato/catálogo V2 autorizado, precificação canônica e prova de fonte real antes de apresentar valores ao cliente.
