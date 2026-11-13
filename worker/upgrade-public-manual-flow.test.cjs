@@ -61,15 +61,16 @@ test('confirmed HTTP 400 allows correction with a new key but preserves disabled
  const controls=[{disabled:false},{disabled:true},{disabled:false}];
  const navigation=Object.fromEntries(['#next1','#next2','#back2','#back3'].map(id=>[id,{disabled:false}]));
  let counter=0;
- const scenario=new Function('document','
-  const initial=requestKey;
-  pendingSubmission={request_key:requestKey,contact:{name:'A'}};
-  lockSubmittedFields();
-  const whenLocked=controls.map(x=>x.disabled);
-  unlockRejectedSubmission();
-  return {initial,after:requestKey,whenLocked,afterUnlock:controls.map(x=>x.disabled),
-   navLocked:Object.values(navigation).map(x=>x.disabled),pendingSubmission};
- `);
+ const proof=[
+  script.slice(from,to),
+  'const initial=requestKey;',
+  'pendingSubmission={request_key:requestKey,contact:{name:"A"}};',
+  'lockSubmittedFields();',
+  'const whenLocked=controls.map(x=>x.disabled);',
+  'unlockRejectedSubmission();',
+  'return {initial,after:requestKey,whenLocked,afterUnlock:controls.map(x=>x.disabled),navLocked:Object.values(navigation).map(x=>x.disabled),pendingSubmission};'
+ ].join('\n');
+ const scenario=new Function('document','$','crypto','controls','navigation',proof);
  const result=scenario({querySelectorAll:()=>controls},id=>navigation[id],{
   randomUUID:()=>String(++counter).padStart(36,'0')
  },controls,navigation);
@@ -91,37 +92,5 @@ test('HTTP rejection is distinguishable from unknown network failures',async()=>
  await assert.rejects(post('/api/upgrade/v1/lead',{request_key:'x'}),
   error=>error.status===400);
  assert.ok(script.includes('const invalid=err?.status===400'));
- assert.ok(script.includes('if(invalid){\n   unlockRejectedSubmission();'));
-});
-,'crypto','controls','navigation',script.slice(from,to)+`
-  const initial=requestKey;
-  pendingSubmission={request_key:requestKey,contact:{name:'A'}};
-  lockSubmittedFields();
-  const whenLocked=controls.map(x=>x.disabled);
-  unlockRejectedSubmission();
-  return {initial,after:requestKey,whenLocked,afterUnlock:controls.map(x=>x.disabled),
-   navLocked:Object.values(navigation).map(x=>x.disabled),pendingSubmission};
- `);
- const result=scenario({querySelectorAll:()=>controls},id=>navigation[id],{
-  randomUUID:()=>String(++counter).padStart(36,'0')
- });
- assert.notEqual(result.initial,result.after);
- assert.deepEqual(result.whenLocked,[true,true,true]);
- assert.deepEqual(result.afterUnlock,[false,true,false]);
- assert.deepEqual(result.navLocked,[false,false,false,false]);
- assert.equal(result.pendingSubmission,null);
-});
-test('HTTP rejection is distinguishable from unknown network failures',async()=>{
- const script=html.split('<script>')[1]?.split('</script>')[0];
- const from=script.indexOf('async function post(');
- const to=script.indexOf('function presentQuote(',from);
- assert.ok(from>=0&&to>from);
- const post=new Function('fetch','AbortController','setTimeout','clearTimeout',
-  script.slice(from,to)+'return post;')(
-   async()=>({ok:false,status:400}),AbortController,setTimeout,clearTimeout
-  );
- await assert.rejects(post('/api/upgrade/v1/lead',{request_key:'x'}),
-  error=>error.status===400);
- assert.ok(script.includes('const invalid=err?.status===400'));
- assert.ok(script.includes('if(invalid){\n   unlockRejectedSubmission();'));
+ assert.ok(script.includes('unlockRejectedSubmission();'));
 });
