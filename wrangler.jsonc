@@ -53,7 +53,7 @@
   // UPGRADE_V2_OPERATOR_LOGIN_ROLE, PITWALL_V2_SUPABASE_URL e
   // PITWALL_V2_PUBLISHABLE_KEY (projeto V2; NÃO usar SUPABASE_URL
   // da External Calc). Dois logins e Hyperdrives distintos por capacidade.
-  // Nenhum binding/secret foi criado ou publicado nesta alteração.
+  // Binding V2 ingress configurado na branch; NÃO publicado. Secret HMAC permanece externo.
 
   // Public ingress is rate-limited per HMAC(IP) at the Cloudflare edge.
   // The namespace_id must remain unique in this Cloudflare account.
@@ -63,7 +63,10 @@
     {"name":"UPGRADE_V2_RATE_LIMITER","namespace_id":"2048112611",
      "simple":{"limit":5,"period":60}}
   ],
-  "hyperdrive": [{"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"}],
+  "hyperdrive": [
+    {"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"},
+    {"binding":"UPGRADE_V2_DB_INGRESS","id":"46ef09094f34420490a060efd9297d62"}
+  ],
 
   "assets": {
     "directory": "./public",
