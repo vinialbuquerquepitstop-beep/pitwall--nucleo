@@ -186,7 +186,7 @@ async function loadCatalog(){
   let response;
   try{response=await fetch('/api/upgrade/v1/catalog',{method:'GET',credentials:'omit',signal:controller.signal});}
   finally{clearTimeout(timer);}
-  if(!response.ok)throw Error('UNAVAILABLE');
+  if(!response.ok)throw Object.assign(new Error('UNAVAILABLE'),{status:response.status});
   const data=await response.json();
   if(manualMode)return; // Manual choice always wins over an outstanding catalog request.
   if(data?.ok!==true||!Array.isArray(data.offers)||data.offers.length===0||data.offers.length>500)throw Error('CATALOG_EMPTY');
@@ -204,12 +204,23 @@ $('#desiredModel').addEventListener('change',()=>{renderCapacities();refresh();}
 $('#useManualModel').addEventListener('click',()=>{manualCatalog();$('#desiredManual').focus();});
 $('#desiredCapacity').addEventListener('change',()=>{renderConditions();refresh();});
 let stage=1, busy=false;
-const requestKey=crypto.randomUUID();
+let requestKey=crypto.randomUUID();
 let pendingSubmission=null;
+let lockedControls=[];
 function lockSubmittedFields(){
- // Once a request may have reached the database, allow only an exact replay.
- for(const el of document.querySelectorAll('#upgrade-form input, #upgrade-form select'))el.disabled=true;
- for(const id of ['#next1','#next2','#back2','#back3'])$(id).disabled=true;
+ // Snapshot exactly which controls were editable before the first POST.
+ lockedControls=[
+  ...document.querySelectorAll('#upgrade-form input, #upgrade-form select'),
+  ...['#next1','#next2','#back2','#back3'].map(id=>$(id))
+ ].filter(el=>!el.disabled);
+ for(const el of lockedControls)el.disabled=true;
+}
+function unlockRejectedSubmission(){
+ // Only definitive validation rejection (HTTP 400) allows editing and a fresh key.
+ for(const el of lockedControls)el.disabled=false;
+ lockedControls=[];
+ pendingSubmission=null;
+ requestKey=crypto.randomUUID();
 }
 function field(id){return $(id).value.trim();}
 function refresh(){
@@ -327,10 +338,19 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   $('#submit').textContent='Solicitação registrada';$('#submit').disabled=true;
   $('#submissionNote').textContent='Guarde a referência acima para consultar o atendimento. Os valores serão confirmados pela equipe.';
   $('#quoteHelp').textContent='Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
- }catch(_){
-  $('#error').textContent='Não foi possível confirmar o recebimento. A solicitação pode ter sido registrada. Use o botão abaixo para reenviar exatamente os mesmos dados, sem recarregar a página.';
-  $('#error').classList.remove('hidden');$('#submit').disabled=false;$('#submit').textContent='Tentar confirmar envio novamente';
-  $('#submissionNote').textContent='Os dados estão protegidos contra alterações para evitar pedidos duplicados. Não recarregue esta página; o reenvio utiliza a mesma chave.';
+ }catch(err){
+  const invalid=err?.status===400;
+  if(invalid){
+   unlockRejectedSubmission();
+   $('#error').textContent='Os dados foram rejeitados antes do registro. Revise os campos e tente novamente.';
+   $('#submit').textContent='Revisar e reenviar';
+   $('#submissionNote').textContent='Nenhuma solicitação foi aceita nesta tentativa. Você pode corrigir os dados.';
+  }else{
+   $('#error').textContent='Não foi possível confirmar o recebimento. A solicitação pode ter sido registrada. Use o botão abaixo para reenviar exatamente os mesmos dados, sem recarregar a página.';
+   $('#submit').textContent='Tentar confirmar envio novamente';
+   $('#submissionNote').textContent='Os dados estão protegidos contra alterações para evitar pedidos duplicados. Não recarregue esta página; o reenvio utiliza a mesma chave.';
+  }
+  $('#error').classList.remove('hidden');$('#submit').disabled=false;
  }
  finally{busy=false;}
 });
