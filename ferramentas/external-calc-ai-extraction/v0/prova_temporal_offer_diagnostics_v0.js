@@ -53,7 +53,7 @@ ok('CRLF long first message keeps a late price bound to the first header',()=>{
   ...Array.from({length:45},(_,i)=>'Obs '+i+' estoque'),
   'R$ 5.399,99',
   '[12/11/26, 11:00] Quality: Atualizado R$ 5.199,99'
- ].join('\\r\\n');
+ ].join('\r\n');
  const source={source_ref:'chat',text};
  const scoped=messages(source);
  const oldPriceOffset=text.indexOf('R$ 5.399,99');
