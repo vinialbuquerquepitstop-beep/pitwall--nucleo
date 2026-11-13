@@ -67,20 +67,27 @@ function createAiExtractionValidationApiV0({env}={}){
         {code:'AI_SUPPLIER_CLAIM_CONFLICT',status:422});
     }
     const preview=previewExternalAiC01(result);
-    // Bounded, source-free review preview. Never echo original chats, quotes,
-    // filenames, sender names, supplier claims, or any unverified source text.
-    // Display fields are untrusted, length-bounded and remain REVIEW_REQUIRED.
+    // Bounded review preview only: omit full chats, quotes, filenames and
+    // sender/supplier claims. Redact common contact strings from AI field values.
+    // These remain untrusted display labels, not authoritative C01 records.
+    const displayLabel=(value,max)=>{
+      if(typeof value!=='string')return null;
+      return value
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi,'[email omitido]')
+        .replace(/(?:\\+?55[\\s().-]*)?(?:\\(?\\d{2}\\)?[\\s().-]*)?\\d{4,5}[\\s.-]?\\d{4}/g,'[telefone omitido]')
+        .slice(0,max);
+    };
     const issueRefs=new Map();
     for(const issue of result.issues){
       if(!issueRefs.has(issue.offer_ref))issueRefs.set(issue.offer_ref,new Set());
       issueRefs.get(issue.offer_ref).add(issue.reason);
     }
-    const reviewItems=result.offers.slice(0,20).map(offer=>({
-      offer_ref:offer.offer_ref,
-      model:offer.model?.slice(0,120)??null,
+    const reviewItems=result.offers.slice(0,20).map((offer,index)=>({
+      review_ref:'item-'+(index+1),
+      model:displayLabel(offer.model,120),
       capacity_gb:offer.capacity_gb,
-      color:offer.color?.slice(0,80)??null,
-      condition:offer.condition?.slice(0,80)??null,
+      color:displayLabel(offer.color,80),
+      condition:displayLabel(offer.condition,80),
       price_amount_minor:offer.price?.amount_minor??null,
       status:'REVIEW_REQUIRED',
       review_reasons:[...(issueRefs.get(offer.offer_ref)||[])].slice(0,12)
