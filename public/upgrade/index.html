@@ -118,7 +118,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
-<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title">Vamos conferir sua troca.</h2><p class="sub">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
+<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title" id="finalStageTitle">Vamos conferir seu Upgrade.</h2><p class="sub">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
 <div class="section-slot"><div class="section-slot-number">03</div><div><strong>Como podemos falar com você?</strong><span>O atendimento acontece pelo WhatsApp, após o envio.</span></div></div>
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" aria-describedby="phoneHelp" required><span class="input-help" id="phoneHelp">Inclua o DDD. Usaremos este número apenas para falar sobre seu upgrade.</span></div></div>
@@ -231,7 +231,8 @@ function refresh(){
   if(i===stage)$('#s'+i).setAttribute('aria-current','step');
   else $('#s'+i).removeAttribute('aria-current');
  }
- $('#progressCaption').textContent=['Etapa 1 de 3 · Escolha seu próximo iPhone','Etapa 2 de 3 · Conte sobre sua troca','Etapa 3 de 3 · Dados para atendimento'][stage-1];
+ $('#progressCaption').textContent=['Etapa 1 de 3 · Escolha seu próximo iPhone','Etapa 2 de 3 · Informe se deseja trocar seu aparelho','Etapa 3 de 3 · Dados para atendimento'][stage-1];
+ $('#finalStageTitle').textContent=$('#noTrade').checked?'Vamos confirmar seu próximo iPhone.':'Vamos conferir seu Upgrade.';
 $('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
 $('#outOld').textContent=$('#noTrade').checked?'Sem troca':[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
 $('#outCondition').textContent=$('#noTrade').checked?'Não se aplica':field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
@@ -337,7 +338,7 @@ $('#upgrade-form').addEventListener('submit',async e=>{
   $('#leadStatus').scrollIntoView({behavior:'smooth',block:'center'});
   $('#submit').textContent='Solicitação registrada';$('#submit').disabled=true;
   $('#submissionNote').textContent='Guarde a referência acima para consultar o atendimento. Os valores serão confirmados pela equipe.';
-  $('#quoteHelp').textContent='Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
+  $('#quoteHelp').textContent=$('#noTrade').checked?'Solicitação registrada. A equipe vai conferir a disponibilidade e as condições comerciais antes de apresentar uma proposta.':'Solicitação registrada. A equipe vai conferir a disponibilidade, o valor da troca e as condições comerciais antes de apresentar uma proposta.';
  }catch(err){
   const invalid=err?.status===400;
   if(invalid){
