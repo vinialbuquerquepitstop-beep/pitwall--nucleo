@@ -27,7 +27,7 @@
     "PITWALL_V2_SUPABASE_URL": "https://wmtzmodavmipmcqybpqs.supabase.co",
     "UPGRADE_TENANT_ID": "00000000-0000-0000-0000-000000000001",
     "UPGRADE_EXPECTED_ORIGIN": "https://flat-resonance-09ba.pitstopimports.workers.dev",
-    "UPGRADE_DB_PROBE_ENABLED": "false",
+    "UPGRADE_DB_PROBE_ENABLED": "true",
     "EXTCALC_CALCULATION_CATEGORY": "iPhone",
     "EXTCALC_RESEARCH_PROFILE_JSON": "{\"profile_id\":\"external-calc-research-production-v1\",\"profile_version\":\"1\",\"required_match_fields\":[\"model_id\",\"capacity_gb\",\"condition\",\"color\"],\"min_evidence_confidence\":0.9,\"max_age_seconds\":604800}",
     "EXTCALC_INDICATOR_PROFILE_JSON": "{\"profile_id\":\"external-calc-indicator-production-v1\",\"profile_version\":\"1\",\"min_evidence_count\":3,\"cheap_at_or_below_percent\":-5,\"expensive_at_or_above_percent\":5}",
