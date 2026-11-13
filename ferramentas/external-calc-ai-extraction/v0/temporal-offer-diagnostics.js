@@ -13,15 +13,22 @@ function dateKey(match){
  return date.getTime();
 }
 function messages(source){
- const lines=source.text.split(/\r?\n/);
- const out=[];let current=null;let offset=0;
- for(const line of lines){
+ const out=[];let current=null;
+ // Keep offsets in the unmodified original string: split(/\\r?\\n/) loses
+ // the extra byte in CRLF lines and may attribute a late first-message price
+ // to the next WhatsApp message after enough preceding lines.
+ const text=source.text;
+ const linePattern=/[^\\r\\n]*(?:\\r\\n|\\n|\\r|$)/g;
+ let match;
+ while((match=linePattern.exec(text))!==null){
+  if(match[0]==='')break;
+  const line=match[0].replace(/(?:\\r\\n|\\n|\\r)$/,'');
+  const offset=match.index;
   const hit=HEADER.exec(line);
   if(hit){
    if(current){current.end=offset;out.push(current)}
-   current={start:offset,end:source.text.length,stamp:dateKey(hit),sender:norm(hit[5]||hit[10]),source_ref:source.source_ref};
+   current={start:offset,end:text.length,stamp:dateKey(hit),sender:norm(hit[5]||hit[10]),source_ref:source.source_ref};
   }
-  offset+=line.length+1;
  }
  if(current){current.end=source.text.length;out.push(current)}
  return out;
