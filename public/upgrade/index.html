@@ -90,13 +90,13 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 </head>
 <body>
 <div class="shell">
-<header class="top"><div><div class="brand">PITSTOP<span>.</span> IMPORTS</div><div class="brand-sub">Upgrade Experience</div></div><div class="tag">Uma troca mais inteligente</div></header>
-<section class="hero"><div><div class="eyebrow">PITSTOP UPGRADE</div><h1>Seu próximo iPhone começa com o atual.</h1><p>Conte qual aparelho você deseja e qual já tem. Organizamos as informações para uma avaliação transparente, sem promessas de valor antes da análise.</p><div class="intro-line"><span><strong>01</strong> Escolha o novo</span><span><strong>02</strong> Informe seu usado</span><span><strong>03</strong> Receba uma avaliação</span></div></div><div class="hero-visual" aria-hidden="true"><div class="symbol">↔<small>UPGRADE</small></div></div></section>
+<header class="top"><div><div class="brand">PITSTOP<span>.</span> IMPORTS</div><div class="brand-sub">Upgrade Experience</div></div><div class="tag">Seu próximo iPhone, do seu jeito</div></header>
+<section class="hero"><div><div class="eyebrow">PITSTOP UPGRADE</div><h1>Seu próximo iPhone começa aqui.</h1><p>Escolha o modelo que deseja e, se quiser, informe um aparelho para troca. A Pitstop analisa sua solicitação antes de confirmar qualquer valor.</p><div class="intro-line"><span><strong>01</strong> Escolha o novo</span><span><strong>02</strong> Troca opcional</span><span><strong>03</strong> Receba uma avaliação</span></div></div><div class="hero-visual" aria-hidden="true"><div class="symbol">↔<small>UPGRADE</small></div></div></section>
 <main class="workspace">
 <div class="panel">
 <nav class="steps" aria-label="Etapas da solicitação">
 <div class="step-pill active" id="s1"><span class="step-number">01</span><span class="step-label">Novo iPhone</span></div>
-<div class="step-pill" id="s2"><span class="step-number">02</span><span class="step-label">Sua troca</span></div>
+<div class="step-pill" id="s2"><span class="step-number">02</span><span class="step-label">Troca opcional</span></div>
 <div class="step-pill" id="s3"><span class="step-number">03</span><span class="step-label">Seu contato</span></div>
 </nav>
 <div class="progress-caption" id="progressCaption" role="status" aria-live="polite">Etapa 1 de 3 · Escolha seu próximo iPhone</div>
@@ -118,7 +118,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 <div class="actions"><button class="secondary" id="back2" type="button">Voltar</button><button class="primary" id="next2" type="button">Continuar</button></div>
 </section>
 <section id="stage-3" class="hidden">
-<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title" id="finalStageTitle">Vamos conferir seu Upgrade.</h2><p class="sub">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
+<div class="eyebrow">PASSO 03 / 03</div><h2 class="stage-title" id="finalStageTitle">Vamos conferir seu Upgrade.</h2><p class="sub" id="finalStageDescription">Envie sua solicitação para uma avaliação individual. O valor da troca e o parcelamento serão confirmados pela equipe Pitstop.</p>
 <div class="section-slot"><div class="section-slot-number">03</div><div><strong>Como podemos falar com você?</strong><span>O atendimento acontece pelo WhatsApp, após o envio.</span></div></div>
 <div class="field"><label for="installments">Parcelamento desejado</label><select id="installments"><option value="1">À vista</option><option value="6">Até 6 vezes</option><option value="10">Até 10 vezes</option><option value="12" selected>Até 12 vezes</option><option value="18">Até 18 vezes</option></select></div>
 <div class="formgrid"><div class="field"><label for="contactName">Seu nome</label><input id="contactName" maxlength="80" autocomplete="name" placeholder="Como podemos chamar você?" required></div><div class="field"><label for="contactWhatsApp">WhatsApp com DDD</label><input id="contactWhatsApp" maxlength="32" type="tel" autocomplete="tel" inputmode="tel" placeholder="(21) 99999-9999" aria-describedby="phoneHelp" required><span class="input-help" id="phoneHelp">Inclua o DDD. Usaremos este número apenas para falar sobre seu upgrade.</span></div></div>
@@ -142,7 +142,7 @@ body{background:linear-gradient(180deg,#F4F7FD 0%,#FFFFFF 66%);color:#050A1B}
 </section>
 </form>
 </div>
-<aside class="summary" aria-label="Resumo da troca"><div class="summary-head">RESUMO DA SUA TROCA</div><h3>Do atual ao próximo.</h3><p class="summary-intro">Acompanhe suas escolhas enquanto preenche o formulário.</p><div class="sum-row"><span class="name">Novo iPhone</span><span class="val" id="outNew">A escolher</span></div><div class="sum-row"><span class="name">Seu atual</span><span class="val" id="outOld">A informar</span></div><div class="sum-row"><span class="name">Condição</span><span class="val" id="outCondition">Não informada</span></div><div class="sum-row"><span class="name">Pagamento</span><span class="val" id="outInstallments">A definir</span></div><div class="sum-foot"><span class="summary-status-dot"></span> Avaliação humana, sem preços automáticos. A Pitstop confirma disponibilidade, crédito e condições de pagamento antes da proposta.</div></aside>
+<aside class="summary" aria-label="Resumo da solicitação de upgrade"><div class="summary-head">RESUMO DO SEU UPGRADE</div><h3>Seu próximo iPhone.</h3><p class="summary-intro">Acompanhe suas escolhas enquanto preenche o formulário.</p><div class="sum-row"><span class="name">Novo iPhone</span><span class="val" id="outNew">A escolher</span></div><div class="sum-row"><span class="name">Seu atual</span><span class="val" id="outOld">A informar</span></div><div class="sum-row"><span class="name">Condição</span><span class="val" id="outCondition">Não informada</span></div><div class="sum-row"><span class="name">Pagamento</span><span class="val" id="outInstallments">A definir</span></div><div class="sum-foot"><span class="summary-status-dot"></span> Avaliação humana, sem preços automáticos. A Pitstop confirma disponibilidade, crédito e condições de pagamento antes da proposta.</div></aside>
 </main>
 <footer><span>Pitstop Imports · Experiência Upgrade</span><span>Compra é só o começo.</span></footer>
 </div>
@@ -233,6 +233,7 @@ function refresh(){
  }
  $('#progressCaption').textContent=['Etapa 1 de 3 · Escolha seu próximo iPhone','Etapa 2 de 3 · Informe se deseja trocar seu aparelho','Etapa 3 de 3 · Dados para atendimento'][stage-1];
  $('#finalStageTitle').textContent=$('#noTrade').checked?'Vamos confirmar seu próximo iPhone.':'Vamos conferir seu Upgrade.';
+ $('#finalStageDescription').textContent=$('#noTrade').checked?'Envie seu pedido para avaliação individual. A disponibilidade e as condições de pagamento serão confirmadas pela equipe Pitstop.':'Envie sua solicitação para avaliação individual. O valor da troca e as condições de pagamento serão confirmados pela equipe Pitstop.';
 $('#outNew').textContent=[desiredModel(),field('#desiredCapacity')].filter(Boolean).join(' · ')||'A escolher';
 $('#outOld').textContent=$('#noTrade').checked?'Sem troca':[field('#ownedModel'),field('#ownedCapacity')].filter(Boolean).join(' · ')||'A informar';
 $('#outCondition').textContent=$('#noTrade').checked?'Não se aplica':field('#ownedCondition')?$('#ownedCondition').selectedOptions[0]?.textContent:'Não informada';
