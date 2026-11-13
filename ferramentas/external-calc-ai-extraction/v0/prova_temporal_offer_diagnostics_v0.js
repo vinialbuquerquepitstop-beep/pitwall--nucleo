@@ -47,4 +47,20 @@ ok('partial price update without model stays unbound',()=>{
  assert.equal(x.unbound_partial_updates,1);
  assert.equal(x.selected_latest_offer_ref,null);
 });
+ok('CRLF long first message keeps a late price bound to the first header',()=>{
+ const text=[
+  '[12/11/26, 10:00] Quality: iPhone 17 Azul',
+  ...Array.from({length:45},(_,i)=>'Obs '+i+' estoque'),
+  'R$ 5.399,99',
+  '[12/11/26, 11:00] Quality: Atualizado R$ 5.199,99'
+ ].join('\\r\\n');
+ const source={source_ref:'chat',text};
+ const scoped=messages(source);
+ const oldPriceOffset=text.indexOf('R$ 5.399,99');
+ assert.equal(scoped.length,2);
+ assert.equal(scoped[1].start,text.indexOf('[12/11/26, 11:00]'));
+ assert.ok(oldPriceOffset<scoped[0].end);
+ const x=temporalDiagnostics({sources:[source],offers:[offer('old',539999,'R$ 5.399,99')]});
+ assert.equal(x.events[0].scope_verified,true);
+});
 console.log('EXTERNAL_AI_TEMPORAL_DIAGNOSTICS=PASS',checks);
