@@ -77,6 +77,7 @@ function createAiExtractionValidationApiV0({env}={}){
         .replace(/(^|[^\d])(?:\+?55[\s().-]*)?\(?\d{2}\)?[\s().-]*\d{4,5}[\s.-]?\d{4}(?!\d)/g,'$1[telefone omitido]')
         .slice(0,max);
     };
+    const reviewRefByOffer=new Map(result.offers.map((offer,index)=>[offer.offer_ref,'item-'+(index+1)]));
     const issueRefs=new Map();
     for(const issue of result.issues){
       if(!issueRefs.has(issue.offer_ref))issueRefs.set(issue.offer_ref,new Set());
@@ -98,7 +99,12 @@ function createAiExtractionValidationApiV0({env}={}){
       supplier_authority:{verified:true,scope:'RLS_AUTHENTICATED_READ',supplier_id:supplier.supplier_id},
       original_sources_verified:result.original_sources_verified,original_source_count:result.original_source_count,
       accepted_for_staging:result.accepted_for_staging,needs_review:result.needs_review,
-      issue_count:result.issues.length,issues:result.issues.slice(0,100),
+      issue_count:result.issues.length,
+      issues:result.issues.slice(0,100).map(issue=>({
+        offer_ref:reviewRefByOffer.get(issue.offer_ref)||'item-unmapped',
+        field:issue.field,
+        reason:issue.reason
+      })),
       review_preview:{total_offers:result.offers.length,shown:reviewItems.length,items:reviewItems},
       unresolved_count:result.unresolved.length,
       chronology:{review_flags:result.chronology.issues.length,unbound_partial_updates:result.chronology.unbound_partial_updates,latest_selected:false,chronological_authority:false},
