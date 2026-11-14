@@ -65,7 +65,8 @@ aponte para arquivo inexistente.
    divergirem.
 5. So entao abrir a skill do dominio do pedido.
 
-Nota sobre skills: hoje sao SETE em `.claude/skills/`, todas COMPLETAS. As tres do
+Nota sobre skills: hoje sao NOVE em `.claude/skills/`, todas COMPLETAS (ate
+14/11/2026 esta linha dizia SETE com oito na pasta). As tres do
 nucleo do produto:
 - `pitwall-nucleo` (backend e frontend do sistema novo: Supabase, RLS, regua, deploy),
 - `pitwall-conteudo` (pipeline Notion -> Pit Wall: cards, sync, Vetores, auditoria),
@@ -86,6 +87,13 @@ E uma criada em 27/07/2026:
   Financeiro. Alimenta o subagente `condutor`, SOMENTE-LEITURA, que le o estado e
   devolve o proximo prompt da sessao; ele nao escreve, e quem executa o prompt e a
   Torre ou o subagente de dominio, nunca o condutor; 3 `references/`).
+
+E uma de TERCEIRO, instalada em 14/11/2026:
+- `impeccable` (revisao de design de frontend: `audit`, `critique`, `polish`,
+  `layout`, `typeset`... Copia fixa de `pbakaus/impeccable`, commit `1995764`, v4.9.1,
+  Apache 2.0). Tem REGRA LOCAL no topo do `SKILL.md`: a referencia v3 manda, o motor
+  binario nao roda sem pedido do dono, hooks desligados, nada de `DESIGN.md` na raiz.
+  Atualizar a copia e decisao do dono.
 
 Conferido em 16/07/2026: os 8 `references/` que a `pitwall-nucleo/SKILL.md` pede
 existem e tem conteudo (`invariantes.md` 126 linhas, `modelo-de-dados.md` 117,
