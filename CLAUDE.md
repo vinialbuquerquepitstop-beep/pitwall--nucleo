@@ -91,8 +91,9 @@ E uma criada em 27/07/2026:
 E uma de TERCEIRO, instalada em 14/11/2026:
 - `impeccable` (revisao de design de frontend: `audit`, `critique`, `polish`,
   `layout`, `typeset`... Copia fixa de `pbakaus/impeccable`, commit `1995764`, v4.9.1,
-  Apache 2.0). Tem REGRA LOCAL no topo do `SKILL.md`: a referencia v3 manda, o motor
-  binario nao roda sem pedido do dono, hooks desligados, nada de `DESIGN.md` na raiz.
+  Apache 2.0). Tem REGRA LOCAL no topo do `SKILL.md`: a referencia v3 manda, motor
+  binario liberado pelo dono em 14/11/2026 (fica em `~/.impeccable/`, fora do repo),
+  hooks desligados, nada de `DESIGN.md` na raiz.
   Atualizar a copia e decisao do dono.
 
 Conferido em 16/07/2026: os 8 `references/` que a `pitwall-nucleo/SKILL.md` pede

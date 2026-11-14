@@ -15,9 +15,11 @@ license: Apache 2.0
 >    por contraste, sistema Trilho x Sinal). Esta skill REVISA execucao (hierarquia,
 >    ritmo, estados vazios, acabamento); nunca troca fonte, paleta ou linguagem visual.
 >    O Pit Wall e modo **Operate**; trabalho aqui e **refinamento**, nunca redesign.
-> 2. **O motor nao roda sem pedido explicito do dono.** Nao executar
->    `scripts/impeccable` (ele baixa e executa um binario). Seguir direto o caminho
->    "Launcher unavailable" abaixo: avisar em uma linha e ler o contexto dos arquivos.
+> 2. **Motor LIBERADO pelo dono em 14/11/2026.** `scripts/impeccable context` e
+>    `detect` podem rodar. O binario (engine 0.1.24, conferido por checksum contra
+>    `scripts/engine-checksums.txt`) fica em `~/.impeccable/bin/`, FORA do repo; no
+>    container da nuvem ele e baixado de novo a cada sessao. Nunca commitar binario.
+>    Os avisos `CONTEXT_STALE` sobre hook ausente sao esperados (regra 3), nao defeito.
 > 3. **Hooks desligados.** Nao rodar `hooks on`, nao gravar em `.claude/settings*.json`.
 > 4. **Nao criar `PRODUCT.md`, `DESIGN.md` nem `.impeccable/`** na raiz: competiriam
 >    com a referencia v3. O contexto de produto mora no `CLAUDE.md` e nos handoffs.
