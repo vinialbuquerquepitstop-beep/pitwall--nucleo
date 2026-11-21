@@ -54,3 +54,13 @@ test('invalid secret or disabled feature remain opaque',async()=>{
  assert.equal((await create({UPGRADE_DB_PROBE_TOKEN:'bad'})(req())).status,404);
  assert.equal((await create({UPGRADE_DB_PROBE_ENABLED:'false',UPGRADE_DB:null})(req())).status,404);
 });
+
+test('Wrangler preserves the existing authenticated legacy probe without enabling V2',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const config=fs.readFileSync(path.join(__dirname,'..','wrangler.jsonc'),'utf8');
+ assert.match(config,/"UPGRADE_DB_PROBE_ENABLED": "true"/);
+ assert.match(config,/"UPGRADE_V2_PUBLIC_ENABLED": "false"/);
+ assert.match(config,/"UPGRADE_V2_OPERATOR_ENABLED": "false"/);
+ assert.match(config,/"binding":"UPGRADE_DB","id":"3b2d749f7ee74994aa149c601217b6f7"/);
+ assert.match(config,/"binding":"UPGRADE_V2_DB_INGRESS","id":"46ef09094f34420490a060efd9297d62"/);
+});

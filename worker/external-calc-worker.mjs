@@ -7,12 +7,20 @@ import { handleWhatsAppWebhook } from '../pitsquad/whatsapp-worker.mjs';
 import probeModule from './upgrade-hyperdrive-probe.cjs';
 // pg is CommonJS; the explicit static import is bundled by Wrangler at build time.
 import pgModule from 'pg';
+import upgradeGuardModule from './upgrade-v2-route-guard.cjs';
+import upgradeDirectModule from './upgrade-v2-direct-ingress.cjs';
+import upgradeOperatorModule from './upgrade-v2-operator-endpoint.cjs';
+import upgradeAbuseModule from './upgrade-v2-edge-abuse.cjs';
 
 const { createExternalCalcWorkerRuntime } = runtimeModule;
 const { createTrackedModelApiV0 } = trackedModelModule;
 const { createListIntakeApiV0 } = listIntakeModule;
 const { createBatchListIntakeApiV0 } = batchListIntakeModule;
 const { createPrivateHyperdriveProbe, PROBE_PATH } = probeModule;
+const { createUpgradeV2Gate } = upgradeGuardModule;
+const { createUpgradeV2DirectIngress } = upgradeDirectModule;
+const { createUpgradeV2OperatorEndpoint, PATH: UPGRADE_V2_OPERATOR_PATH } = upgradeOperatorModule;
+const { createUpgradeV2EdgeAbuseGate, createUpgradeV2EdgeIpHasher } = upgradeAbuseModule;
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -321,6 +329,37 @@ export default {
       // Pass a statically bundled driver; dynamic CommonJS namespace exports
       // may not expose named Client under Workers.
       return createPrivateHyperdriveProbe({ env, Client: pgModule?.Client })(request);
+    }
+
+    // An independently flagged, authenticated operator route. It is NOT
+    // part of the anonymous public Upgrade intake and can never be enabled
+    // by the public-facing UPGRADE_V2_PUBLIC_ENABLED flag.
+    if (url.pathname === UPGRADE_V2_OPERATOR_PATH) {
+      return createUpgradeV2OperatorEndpoint({
+        env, Client: pgModule?.Client
+      }).handle(request);
+    }
+
+    // UP-CRM-01: NEVER route public Upgrade to the legacy Calc/Hyperdrive DB.
+    // This V2 gate remains fail-closed until an authorized V2 ingress is wired.
+    if (url.pathname.startsWith('/api/upgrade/v1/')) {
+      const enabled = env.UPGRADE_V2_PUBLIC_ENABLED === 'true';
+      // V2 ingress is co-located in this Worker. It uses a separate
+      // restricted Hyperdrive binding, NEVER the External Calc UPGRADE_DB.
+      const directV2 = enabled ? createUpgradeV2DirectIngress({
+        env, Client: pgModule?.Client
+      }) : null;
+      const handleV2 = directV2 ? directV2.handle : null;
+      const abuseGate = enabled ? createUpgradeV2EdgeAbuseGate({
+        limiter: env.UPGRADE_V2_RATE_LIMITER,
+        origin: env.UPGRADE_EXPECTED_ORIGIN,
+        hashIp: createUpgradeV2EdgeIpHasher(env.UPGRADE_V2_IP_HMAC_SECRET)
+      }) : null;
+      return createUpgradeV2Gate({
+        enabled,
+        handleV2,
+        authorizeRequest: abuseGate ? abuseGate.authorize : null
+      }).handle(request);
     }
 
     const batchListIntakeApi = createBatchListIntakeApiV0({ env });
