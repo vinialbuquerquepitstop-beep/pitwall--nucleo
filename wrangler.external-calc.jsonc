@@ -1,0 +1,30 @@
+// External Calc API (production, multi-store) on database B (mfsshvckclnmftpaprxk). Owner decision 2026-11-23.
+// Serves only /api/external-calc/*; does not expose the Núcleo app. Deploy: npx wrangler@4 deploy -c wrangler.external-calc.jsonc
+{
+  "name": "external-calc",
+  "compatibility_date": "2026-07-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "./worker/external-calc-worker.mjs",
+  "vars": {
+    "SUPABASE_URL": "https://mfsshvckclnmftpaprxk.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mc3NodmNrY2xubWZ0cGFwcnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1Mzc0NDgsImV4cCI6MjEwODExMzQ0OH0.BpXBzswpxuZc0dc7mcWzh6omc6azKUHVKXUOLqV-_RI",
+    "UPGRADE_PUBLIC_ENABLED": "false",
+    "UPGRADE_DB_PROBE_ENABLED": "false",
+    "EXTCALC_CALCULATION_CATEGORY": "iPhone",
+    "EXTCALC_RESEARCH_PROFILE_JSON": "{\"profile_id\":\"external-calc-research-production-v1\",\"profile_version\":\"1\",\"required_match_fields\":[\"model_id\",\"capacity_gb\",\"condition\",\"color\"],\"min_evidence_confidence\":0.9,\"max_age_seconds\":604800}",
+    "EXTCALC_INDICATOR_PROFILE_JSON": "{\"profile_id\":\"external-calc-indicator-production-v1\",\"profile_version\":\"1\",\"min_evidence_count\":3,\"cheap_at_or_below_percent\":-5,\"expensive_at_or_above_percent\":5}",
+    "EXTCALC_ADVISOR_OPENAI_MODEL": "gpt-6-sol",
+    "EXTCALC_ADVISOR_PROMPT_VERSION": "advisor-prompt/v1",
+    "EXTCALC_ADVISOR_TIMEOUT_MS": "30000"
+  },
+  "assets": {
+    "directory": "./worker/external-calc-assets",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/external-calc/*"
+    ],
+    "not_found_handling": "none"
+  }
+}
